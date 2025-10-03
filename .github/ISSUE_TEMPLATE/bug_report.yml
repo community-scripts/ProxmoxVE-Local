@@ -1,0 +1,50 @@
+name: "🐞 Script Issue Report"
+description: Report a specific issue.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ **IMPORTANT - READ FIRST**  
+        - 🔍 **Search first:** Before submitting, check if the issue has already been reported or resolved in [closed issues](https://github.com/community-scripts/ProxmoxVE-Local/issues?q=is%3Aissue+is%3Aclosed). If found, comment on that issue instead of creating a new one.  
+        Thank you for taking the time to report an issue! Please provide as much detail as possible to help us address the problem efficiently.  
+
+     
+  - type: input
+    id: guidelines
+    attributes:
+      label: ✅ Have you read and understood the above guidelines?
+      placeholder: "yes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue_description
+    attributes:
+      label: 📝 Provide a clear and concise description of the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: 🔄 Steps to reproduce the issue.
+      placeholder: "e.g., Step 1: ..., Step 2: ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_output
+    attributes:
+      label: ❌ Paste the full error output (if available).
+      placeholder: "Include any relevant logs or error messages."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: 🖼️ Additional context (optional).
+      placeholder: "Include screenshots, code blocks (use triple backticks ```), or any other relevant information."
+    validations:
+      required: false
