@@ -1,14 +1,13 @@
 # PVE Scripts Local 🚀
 
-A modern web-based management interface for Proxmox VE (PVE) helper scripts. This tool provides a user-friendly way to discover, download, and execute community-sourced Proxmox scripts locally with real-time terminal output streaming.
+A modern web-based management interface for Proxmox VE (PVE) helper scripts. This tool provides a user-friendly way to discover, download, and execute community-sourced Proxmox scripts locally with real-time terminal output streaming. No more need for curl -> bash calls, it all happens in your enviroment.
 
 ## 🎯 Deployment Options
 
 This application can be deployed in multiple ways to suit different environments:
 
-- **🐧 Proxmox Host**: Run directly on your Proxmox VE host system
 - **📦 Debian LXC Container**: Deploy inside a Debian LXC container for better isolation
-- **⚡ Quick Install**: Use the automated `install.sh` script for easy setup
+- **⚡ Quick Install**: Use the automated `install.sh` script for easy setup or use the helper-script.
 
 All deployment methods provide the same functionality and web interface.
 
@@ -57,9 +56,6 @@ All deployment methods provide the same functionality and web interface.
 - **Proxmox VE environment** (host or access to Proxmox cluster)
 - **SQLite** (included with Node.js better-sqlite3 package)
 
-### For Proxmox Host Installation
-- **build-essentials**: `apt install build-essential`
-- Direct access to Proxmox host system
 
 ### For Debian LXC Container Installation
 - **Debian LXC container** (Debian 11+ recommended)
@@ -68,9 +64,6 @@ All deployment methods provide the same functionality and web interface.
 - Network access from container to Proxmox host
 - Optional: Privileged container for full Proxmox integration
 
-### For Quick Install (install.sh)
-- **Proxmox VE host** (script automatically detects and configures)
-- Internet connectivity for downloading dependencies 
 
 ## 🚀 Installation
 
@@ -81,7 +74,7 @@ Choose the installation method that best fits your environment:
 Run this command directly on your Proxmox VE host or on any Debian based lxc:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelroegl-brunner/PVESciptslocal/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/install.sh)"
 ```
 
 **What the script does:**
@@ -93,7 +86,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelroegl-brunner/PVES
 - ✅ Creates a systemd service (`pvescriptslocal.service`) for easy management
 
 **After installation:**
-- 🌐 Access the app at: `http://<YOUR_PVE_OR_LXC_IP>:3000`
+- 🌐 Access the app at: `http://<YOUR_LXC_IP>:3000`
 - 🔧 Manage the service with:
   ```bash
   systemctl start pvescriptslocal
@@ -113,7 +106,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 Then run the installer:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelroegl-brunner/PVESciptslocal/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/install.sh)"
 ```
 
 #### Step 2: Install Dependencies in Container when installer is not used
@@ -132,15 +125,13 @@ apt install -y nodejs
 #### Step 3: Clone and Setup Application
 ```bash
 # Clone the repository
-git clone https://github.com/michelroegl-brunner/PVESciptslocal.git /opt/PVESciptslocal
-cd /opt/PVESciptslocal
+git clone https://github.com/community-scripts/ProxmoxVE-Local.git /opt/PVESciptslocal
+cd PVESciptslocal
 
 # Install dependencies and build
 npm install
-npm run build
-
-# Setup environment
 cp .env.example .env
+npm run build
 
 # Create database directory
 mkdir -p data
@@ -160,68 +151,13 @@ npm start
 - 🌐 Container IP: `http://<CONTAINER_IP>:3000`
 - 🔧 Container management: `pct start 100`, `pct stop 100`, `pct status 100`
 
-### Option 3: Manual Installation (Proxmox Host)
+### Option 3: Use the helper script
 
-#### Step 1: Clone the Repository
+This creates the LXC and installs the APP for you.
+
 ```bash
-git clone https://github.com/michelroegl-brunner/PVESciptslocal.git
-cd PVESciptslocal
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/pve-scripts-local.sh)"
 ```
-
-#### Step 2: Install Dependencies
-```bash
-npm install
-```
-
-#### Step 3: Environment Configuration
-```bash
-cp .env.example .env
-# Edit .env file with your specific settings if needed
-```
-
-#### Step 4: Database Setup
-```bash
-# Create database directory
-mkdir -p data
-chmod 755 data
-```
-
-#### Step 5: Build and Start
-```bash
-# Production mode
-npm run build
-npm start
-
-# Development mode
-npm run dev:server
-```
-
-**Access the application:**
-- 🌐 Available at: `http://<YOUR_IP>:3000`
-
-## 📝 LXC Container Specific Notes
-
-### Container Requirements
-- **OS**: Debian 11+ (Debian 12 recommended)
-- **Resources**: Minimum 2GB RAM, 4GB storage
-- **Network**: Bridge connection to Proxmox network
-- **Privileges**: Unprivileged containers work, but privileged containers provide better Proxmox integration
-
-### Container Configuration Tips
-- **Privileged Container**: Use `--unprivileged 0` for full Proxmox API access
-- **Resource Allocation**: Allocate at least 2 CPU cores and 2GB RAM for optimal performance
-- **Storage**: Use at least 8GB for the container to accommodate Node.js and dependencies
-- **Network**: Ensure the container can reach the Proxmox host API
-
-### Security Considerations
-- **Unprivileged Containers**: More secure but may have limited Proxmox functionality
-- **Privileged Containers**: Full Proxmox access but less secure isolation
-- **Network Access**: Ensure proper firewall rules for the container
-
-### Troubleshooting LXC Installation
-- **Permission Issues**: Ensure the container has proper permissions for Proxmox API access
-- **Network Connectivity**: Verify the container can reach the Proxmox host
-- **Resource Limits**: Check if the container has sufficient resources allocated
 
 ## 🎯 Usage
 
@@ -229,13 +165,12 @@ npm run dev:server
 
 The web interface is accessible regardless of your deployment method:
 
-- **Proxmox Host Installation**: `http://<PROXMOX_HOST_IP>:3000`
 - **LXC Container Installation**: `http://<CONTAINER_IP>:3000`
 - **Custom Installation**: `http://<YOUR_IP>:3000`
 
 ### 2. Service Management
 
-#### For install.sh installations (systemd service):
+#### For install.sh installations or helper-scripts variant(systemd service):
 ```bash
 # Start the service
 systemctl start pvescriptslocal
@@ -253,20 +188,6 @@ systemctl enable pvescriptslocal
 journalctl -u pvescriptslocal -f
 ```
 
-#### For LXC container installations:
-```bash
-# Container management
-pct start <container_id>    # Start container
-pct stop <container_id>     # Stop container
-pct status <container_id>   # Check container status
-
-# Access container shell
-pct enter <container_id>
-
-# Inside container - start application
-cd /opt/PVESciptslocal
-npm start
-```
 
 #### For manual installations:
 ```bash
@@ -289,7 +210,7 @@ npm run build
 ### 4. Download Scripts
 
 - Click on any script card to view details
-- Use the "Download" button to fetch scripts from GitHub
+- Use the "Download" button to fetch scripts from the ProxmoxVE GitHub
 - Downloaded scripts are stored locally in the `scripts/` directory
 
 ### 5. Execute Scripts
@@ -379,23 +300,6 @@ npm run dev:server
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Logs
-
-- Server logs: Check console output or `server.log`
-- Script execution: View in web terminal
-
-## 🎯 Quick Start Summary
-
-Choose your preferred deployment method:
-
-| Method | Best For | Command |
-|--------|----------|---------|
-| **Quick Install** | Proxmox hosts or Debian LXC, easy setup | `bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelroegl-brunner/PVESciptslocal/main/install.sh)"` |
-| **LXC Container** | Better isolation, security | Create Debian LXC → Install dependencies → Clone repo → `npm start` |
-| **Manual Install** | Custom setups, development | `git clone` → `npm install` → `npm run build` → `npm start` |
-
-All methods provide the same web interface at `http://<IP>:3000` with full Proxmox script management capabilities.
-
 ---
 
-**Note**: This is alpha software. Use with caution in production environments and always backup your Proxmox configuration before running scripts.
+**Note**: This is beat software. Use with caution in production environments and always backup your Proxmox configuration before running scripts.
