@@ -64,7 +64,6 @@ All deployment methods provide the same functionality and web interface.
 - Network access from container to Proxmox host
 - Optional: Privileged container for full Proxmox integration
 
-
 ## 🚀 Installation
 
 Choose the installation method that best fits your environment:
