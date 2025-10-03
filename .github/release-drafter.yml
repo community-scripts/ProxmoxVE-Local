@@ -1,0 +1,21 @@
+# Template for release drafts
+name-template: 'v$NEXT_PATCH_VERSION'   # You can switch to $NEXT_MINOR_VERSION or $NEXT_MAJOR_VERSION
+tag-template: 'v$NEXT_PATCH_VERSION'
+categories:
+  - title: "🚀 Features"
+    labels:
+      - feature
+  - title: "🐛 Bug Fixes"
+    labels:
+      - fix
+      - bug
+  - title: "🧰 Maintenance"
+    labels:
+      - chore
+      - refactor
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+change-title-template: '### $TITLE'
+template: |
+  ## Changes
+
+  $CHANGES
