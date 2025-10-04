@@ -9,6 +9,28 @@ class DatabaseService {
   }
 
   init() {
+    // Create users table if it doesn't exist
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create sessions table if it doesn't exist
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create servers table if it doesn't exist
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS servers (
@@ -210,6 +232,82 @@ class DatabaseService {
   deleteInstalledScript(id) {
     const stmt = this.db.prepare('DELETE FROM installed_scripts WHERE id = ?');
     return stmt.run(id);
+  }
+
+  // User CRUD operations
+  /**
+   * @param {Object} userData
+   * @param {string} userData.username
+   * @param {string} userData.password_hash
+   */
+  createUser(userData) {
+    const { username, password_hash } = userData;
+    const stmt = this.db.prepare(`
+      INSERT INTO users (username, password_hash)
+      VALUES (?, ?)
+    `);
+    return stmt.run(username, password_hash);
+  }
+
+  /**
+   * @param {string} username
+   */
+  getUserByUsername(username) {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE username = ?');
+    return stmt.get(username);
+  }
+
+  /**
+   * @param {number} id
+   */
+  getUserById(id) {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?');
+    return stmt.get(id);
+  }
+
+  // Session CRUD operations
+  /**
+   * @param {Object} sessionData
+   * @param {string} sessionData.id
+   * @param {number} sessionData.user_id
+   * @param {string} sessionData.expires_at
+   */
+  createSession(sessionData) {
+    const { id, user_id, expires_at } = sessionData;
+    const stmt = this.db.prepare(`
+      INSERT INTO sessions (id, user_id, expires_at)
+      VALUES (?, ?, ?)
+    `);
+    return stmt.run(id, user_id, expires_at);
+  }
+
+  /**
+   * @param {string} sessionId
+   */
+  getSession(sessionId) {
+    const stmt = this.db.prepare(`
+      SELECT s.*, u.username
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.id = ? AND s.expires_at > datetime('now')
+    `);
+    return stmt.get(sessionId);
+  }
+
+  /**
+   * @param {string} sessionId
+   */
+  deleteSession(sessionId) {
+    const stmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');
+    return stmt.run(sessionId);
+  }
+
+  /**
+   * Clean up expired sessions
+   */
+  cleanupExpiredSessions() {
+    const stmt = this.db.prepare(`DELETE FROM sessions WHERE expires_at <= datetime('now')`);
+    return stmt.run();
   }
 
   close() {
