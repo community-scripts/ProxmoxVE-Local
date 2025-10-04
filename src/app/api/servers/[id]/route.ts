@@ -52,12 +52,27 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, ip, user, password }: CreateServerData = body;
+    const { name, ip, user, password, ssh_key, auth_method }: CreateServerData = body;
 
     // Validate required fields
-    if (!name || !ip || !user || !password) {
+    if (!name || !ip || !user) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: name, ip, and user are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate authentication method and credentials
+    const authMethodValue = auth_method ?? 'password';
+    if (authMethodValue === 'password' && !password) {
+      return NextResponse.json(
+        { error: 'Password is required for password authentication' },
+        { status: 400 }
+      );
+    }
+    if (authMethodValue === 'ssh_key' && !ssh_key) {
+      return NextResponse.json(
+        { error: 'SSH key is required for key authentication' },
         { status: 400 }
       );
     }
@@ -73,7 +88,7 @@ export async function PUT(
       );
     }
 
-    const result = db.updateServer(id, { name, ip, user, password });
+    const result = db.updateServer(id, { name, ip, user, password, ssh_key, auth_method: authMethodValue });
     
     return NextResponse.json(
       { 

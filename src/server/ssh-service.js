@@ -1,6 +1,8 @@
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, chmodSync } from 'fs';
+import { writeFileSync, unlinkSync, chmodSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import crypto from 'crypto';
 
 class SSHService {
   /**
@@ -10,40 +12,72 @@ class SSHService {
    * @returns {Promise<Object>} Connection test result
    */
   async testConnection(server) {
-    const { ip, user, password } = server;
+    const { ip, user, password, ssh_key, auth_method } = server;
     
     return new Promise((resolve) => {
       const timeout = 15000; // 15 seconds timeout for login test
       let resolved = false;
-      
-      // Try sshpass first if available
-      this.testWithSshpass(server).then(result => {
-        if (!resolved) {
-          resolved = true;
-          resolve(result);
-        }
-      }).catch(() => {
-        // If sshpass fails, try expect
-        this.testWithExpect(server).then(result => {
+
+      // Choose authentication method based on auth_method field
+      if (auth_method === 'ssh_key' && ssh_key) {
+        // Test with SSH key
+        this.testWithSSHKey(server).then(result => {
+          if (!resolved) {
+            resolved = true;
+            resolve(result);
+          }
+        }).catch((error) => {
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              success: false,
+              message: `SSH key authentication failed: ${error.message}`,
+              details: {
+                method: 'ssh_key',
+                error: error.message
+              }
+            });
+          }
+        });
+      } else if (password) {
+        // Try sshpass first if available
+        this.testWithSshpass(server).then(result => {
           if (!resolved) {
             resolved = true;
             resolve(result);
           }
         }).catch(() => {
-          // If both fail, return error
-          if (!resolved) {
-            resolved = true;
-            resolve({
-              success: false,
-              message: 'SSH login test requires sshpass or expect - neither available or working',
-              details: {
-                method: 'no_auth_tools'
-              }
-            });
+          // If sshpass fails, try expect
+          this.testWithExpect(server).then(result => {
+            if (!resolved) {
+              resolved = true;
+              resolve(result);
+            }
+          }).catch(() => {
+            // If both fail, return error
+            if (!resolved) {
+              resolved = true;
+              resolve({
+                success: false,
+                message: 'SSH login test requires sshpass or expect - neither available or working',
+                details: {
+                  method: 'no_auth_tools'
+                }
+              });
+            }
+          });
+        });
+      } else {
+        resolved = true;
+        resolve({
+          success: false,
+          message: 'No authentication method configured (password or SSH key required)',
+          details: {
+            method: 'no_auth'
           }
         });
-      });
-      
+      }
+
       // Set up overall timeout
       setTimeout(() => {
         if (!resolved) {
@@ -59,6 +93,132 @@ class SSHService {
   }
 
   /**
+   * Test SSH connection using SSH key authentication
+   * @param {import('../types/server').Server} server - Server configuration
+   * @returns {Promise<Object>} Connection test result
+   */
+  async testWithSSHKey(server) {
+    const { ip, user, ssh_key } = server;
+
+    return new Promise((resolve, reject) => {
+      const timeout = 10000;
+      let resolved = false;
+      /** @type {string | null} */
+      let keyFile = null;
+
+      try {
+        // Create temporary directory if it doesn't exist
+        const tempDir = join(tmpdir(), 'pvescriptslocal');
+        if (!existsSync(tempDir)) {
+          mkdirSync(tempDir, { recursive: true });
+        }
+
+        // Create temporary key file with secure permissions
+        const keyFilename = `ssh_key_${crypto.randomBytes(8).toString('hex')}`;
+        keyFile = join(tempDir, keyFilename);
+        if (!ssh_key) {
+          throw new Error('SSH key is required but not provided');
+        }
+        writeFileSync(keyFile, ssh_key, { mode: 0o600 });
+
+        const sshCommand = spawn('ssh', [
+          '-i', keyFile,
+          '-o', 'ConnectTimeout=10',
+          '-o', 'StrictHostKeyChecking=no',
+          '-o', 'UserKnownHostsFile=/dev/null',
+          '-o', 'LogLevel=ERROR',
+          '-o', 'PasswordAuthentication=no',
+          '-o', 'PubkeyAuthentication=yes',
+          '-o', 'PreferredAuthentications=publickey',
+          `${user}@${ip}`,
+          'echo "SSH_LOGIN_SUCCESS"'
+        ], {
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            sshCommand.kill('SIGTERM');
+            if (keyFile && existsSync(keyFile)) {
+              unlinkSync(keyFile);
+            }
+            reject(new Error('SSH login timeout'));
+          }
+        }, timeout);
+
+        let output = '';
+        let errorOutput = '';
+
+        sshCommand.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        sshCommand.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        sshCommand.on('close', (code) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+
+            // Clean up temporary key file
+            if (keyFile && existsSync(keyFile)) {
+              unlinkSync(keyFile);
+            }
+
+            if (code === 0 && output.includes('SSH_LOGIN_SUCCESS')) {
+              resolve({
+                success: true,
+                message: 'SSH key authentication successful',
+                details: {
+                  server: server.name || 'Unknown',
+                  ip: ip,
+                  user: user,
+                  method: 'ssh_key_verified'
+                }
+              });
+            } else {
+              let errorMessage = 'SSH key authentication failed';
+
+              if (errorOutput.includes('Permission denied')) {
+                errorMessage = 'SSH key authentication failed - key may be invalid or not authorized';
+              } else if (errorOutput.includes('Connection refused')) {
+                errorMessage = 'Connection refused - server may be down or SSH not running';
+              } else if (errorOutput.includes('invalid format')) {
+                errorMessage = 'Invalid SSH key format';
+              } else if (errorOutput.includes('Connection timed out')) {
+                errorMessage = 'Connection timeout - server may be unreachable';
+              } else if (errorOutput) {
+                errorMessage = `SSH key authentication failed: ${errorOutput.trim()}`;
+              }
+
+              reject(new Error(errorMessage));
+            }
+          }
+        });
+
+        sshCommand.on('error', (error) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            if (keyFile && existsSync(keyFile)) {
+              unlinkSync(keyFile);
+            }
+            reject(error);
+          }
+        });
+      } catch (error) {
+        if (keyFile && existsSync(keyFile)) {
+          unlinkSync(keyFile);
+        }
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * Test SSH connection using sshpass
    * @param {import('../types/server').Server} server - Server configuration
    * @returns {Promise<Object>} Connection test result
@@ -70,6 +230,9 @@ class SSHService {
       const timeout = 10000;
       let resolved = false;
       
+      if (!password) {
+        throw new Error('Password is required but not provided');
+      }
       const sshCommand = spawn('sshpass', [
         '-p', password,
         'ssh',
@@ -157,11 +320,16 @@ class SSHService {
    */
   async testWithExpect(server) {
     const { ip, user, password } = server;
-    
+
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;
-      
+
+      if (!password) {
+        reject(new Error('Password is required but not provided'));
+        return;
+      }
+
       const expectScript = `#!/usr/bin/expect -f
 set timeout 10
 spawn ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PasswordAuthentication=yes -o PubkeyAuthentication=no ${user}@${ip} "echo SSH_LOGIN_SUCCESS"

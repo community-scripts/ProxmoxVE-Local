@@ -17,6 +17,8 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       ip: '',
       user: '',
       password: '',
+      ssh_key: '',
+      auth_method: 'password',
     }
   );
 
@@ -43,8 +45,21 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       newErrors.user = 'Username is required';
     }
 
-    if (!formData.password.trim()) {
-      newErrors.password = 'Password is required';
+    // Validate authentication method
+    if (formData.auth_method === 'password') {
+      if (!formData.password?.trim()) {
+        newErrors.password = 'Password is required for password authentication';
+      }
+    } else if (formData.auth_method === 'ssh_key') {
+      if (!formData.ssh_key?.trim()) {
+        newErrors.ssh_key = 'SSH private key is required for key authentication';
+      } else {
+        // Basic SSH key validation
+        const sshKeyPattern = /^-----BEGIN (RSA|OPENSSH|DSA|EC|ED25519) PRIVATE KEY-----/;
+        if (!sshKeyPattern.test(formData.ssh_key.trim())) {
+          newErrors.ssh_key = 'Invalid SSH private key format';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -56,7 +71,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     if (validateForm()) {
       onSubmit(formData);
       if (!isEditing) {
-        setFormData({ name: '', ip: '', user: '', password: '' });
+        setFormData({ name: '', ip: '', user: '', password: '', ssh_key: '', auth_method: 'password' });
       }
     }
   };
@@ -126,13 +141,44 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
         </div>
 
         <div>
+          <label htmlFor="auth_method" className="block text-sm font-medium text-gray-700 mb-1">
+            Authentication Method *
+          </label>
+          <select
+            id="auth_method"
+            value={formData.auth_method}
+            onChange={(e) => {
+              const newAuthMethod = e.target.value as 'password' | 'ssh_key';
+              setFormData(prev => ({
+                ...prev,
+                auth_method: newAuthMethod,
+                // Clear the other auth field when switching methods
+                ...(newAuthMethod === 'password' ? { ssh_key: '' } : { password: '' })
+              }));
+              // Clear related errors
+              if (newAuthMethod === 'password') {
+                setErrors(prev => ({ ...prev, ssh_key: undefined }));
+              } else {
+                setErrors(prev => ({ ...prev, password: undefined }));
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="password">Password</option>
+            <option value="ssh_key">SSH Key</option>
+          </select>
+        </div>
+      </div>
+
+      {formData.auth_method === 'password' && (
+        <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
             Password *
           </label>
           <input
             type="password"
             id="password"
-            value={formData.password}
+            value={formData.password ?? ''}
             onChange={handleChange('password')}
             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               errors.password ? 'border-red-300' : 'border-gray-300'
@@ -141,6 +187,36 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           />
           {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
         </div>
+      )}
+
+      {formData.auth_method === 'ssh_key' && (
+        <div>
+          <label htmlFor="ssh_key" className="block text-sm font-medium text-gray-700 mb-1">
+            SSH Private Key *
+          </label>
+          <textarea
+            id="ssh_key"
+            value={formData.ssh_key ?? ''}
+            onChange={(e) => {
+              setFormData(prev => ({ ...prev, ssh_key: e.target.value }));
+              if (errors.ssh_key) {
+                setErrors(prev => ({ ...prev, ssh_key: undefined }));
+              }
+            }}
+            rows={8}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm ${
+              errors.ssh_key ? 'border-red-300' : 'border-gray-300'
+            }`}
+            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+          />
+          {errors.ssh_key && <p className="mt-1 text-sm text-red-600">{errors.ssh_key}</p>}
+          <p className="mt-1 text-xs text-gray-500">
+            Paste your SSH private key here. Make sure it&apos;s in OpenSSH format and matches a public key installed on the target server.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1">{/* This div ensures proper layout continuation */}
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

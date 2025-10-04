@@ -16,7 +16,9 @@ class DatabaseService {
         name TEXT NOT NULL UNIQUE,
         ip TEXT NOT NULL,
         user TEXT NOT NULL,
-        password TEXT NOT NULL,
+        password TEXT,
+        ssh_key TEXT,
+        auth_method TEXT NOT NULL DEFAULT 'password' CHECK(auth_method IN ('password', 'ssh_key')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -53,12 +55,12 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   createServer(serverData) {
-    const { name, ip, user, password } = serverData;
+    const { name, ip, user, password, ssh_key, auth_method } = serverData;
     const stmt = this.db.prepare(`
-      INSERT INTO servers (name, ip, user, password) 
-      VALUES (?, ?, ?, ?)
+      INSERT INTO servers (name, ip, user, password, ssh_key, auth_method)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(name, ip, user, password);
+    return stmt.run(name, ip, user, password || null, ssh_key || null, auth_method || 'password');
   }
 
   getAllServers() {
@@ -79,13 +81,13 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   updateServer(id, serverData) {
-    const { name, ip, user, password } = serverData;
+    const { name, ip, user, password, ssh_key, auth_method } = serverData;
     const stmt = this.db.prepare(`
-      UPDATE servers 
-      SET name = ?, ip = ?, user = ?, password = ?
+      UPDATE servers
+      SET name = ?, ip = ?, user = ?, password = ?, ssh_key = ?, auth_method = ?
       WHERE id = ?
     `);
-    return stmt.run(name, ip, user, password, id);
+    return stmt.run(name, ip, user, password || null, ssh_key || null, auth_method || 'password', id);
   }
 
   /**
