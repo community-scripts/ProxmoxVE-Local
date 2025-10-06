@@ -121,6 +121,66 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
+  // Get metadata (categories and other metadata)
+  getMetadata: publicProcedure
+    .query(async () => {
+      try {
+        const metadata = await localScriptsService.getMetadata();
+        return { success: true, metadata };
+      } catch (error) {
+        console.error('Error in getMetadata:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch metadata',
+          metadata: null
+        };
+      }
+    }),
+
+  // Get script cards with category information
+  getScriptCardsWithCategories: publicProcedure
+    .query(async () => {
+      try {
+        const [cards, metadata] = await Promise.all([
+          localScriptsService.getScriptCards(),
+          localScriptsService.getMetadata()
+        ]);
+
+        // Get all scripts to access their categories
+        const scripts = await localScriptsService.getAllScripts();
+        
+        // Create category ID to name mapping
+        const categoryMap: Record<number, string> = {};
+        if (metadata?.categories) {
+          metadata.categories.forEach((cat: any) => {
+            categoryMap[cat.id] = cat.name;
+          });
+        }
+
+        // Enhance cards with category information
+        const cardsWithCategories = cards.map(card => {
+          const script = scripts.find(s => s.slug === card.slug);
+          const categoryNames = script?.categories?.map(id => categoryMap[id]).filter(Boolean) ?? [];
+          
+          return {
+            ...card,
+            categories: script?.categories ?? [],
+            categoryNames
+          };
+        });
+
+        return { success: true, cards: cardsWithCategories, metadata };
+      } catch (error) {
+        console.error('Error in getScriptCardsWithCategories:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch script cards with categories',
+          cards: [],
+          metadata: null
+        };
+      }
+    }),
+
   // Resync scripts from GitHub (1 API call + raw downloads)
   resyncScripts: publicProcedure
     .mutation(async () => {

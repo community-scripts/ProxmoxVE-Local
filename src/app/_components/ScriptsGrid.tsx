@@ -18,60 +18,43 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCards.useQuery();
+  const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCardsWithCategories.useQuery();
   const { data: localScriptsData, isLoading: localLoading, error: localError } = api.scripts.getCtScripts.useQuery();
   const { data: scriptData } = api.scripts.getScriptBySlug.useQuery(
     { slug: selectedSlug ?? '' },
     { enabled: !!selectedSlug }
   );
 
-  // Temporary category mapping based on script names/slugs
+  // Extract categories from metadata
   const categories = React.useMemo(() => {
-    return [
-      'Proxmox & Virtualization',
-      'Operating Systems', 
-      'Containers & Docker',
-      'Network & Firewall',
-      'Adblock & DNS',
-      'Authentication & Security',
-      'Backup & Recovery',
-      'Databases',
-      'Monitoring & Analytics',
-      'Dashboards & Frontends',
-      'Files & Downloads',
-      'Documents & Notes',
-      'Media & Streaming',
-      '*Arr Suite',
-      'NVR & Cameras',
-      'IoT & Smart Home',
-      'ZigBee, Z-Wave & Matter',
-      'MQTT & Messaging',
-      'Automation & Scheduling',
-      'AI / Coding & Dev-Tools',
-      'Webservers & Proxies',
-      'Bots & ChatOps',
-      'Finance & Budgeting',
-      'Gaming & Leisure',
-      'Business & ERP',
-      'Miscellaneous'
-    ];
-  }, []);
+    if (!scriptCardsData?.success || !scriptCardsData.metadata?.categories) return [];
+    
+    return (scriptCardsData.metadata.categories as any[])
+      .filter((cat) => cat.id !== 0) // Exclude Miscellaneous for main list
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((cat) => cat.name as string)
+      .filter((name): name is string => typeof name === 'string');
+  }, [scriptCardsData]);
 
-  // Temporary category counts - in production this would be calculated from actual script data
+  // Count scripts per category
   const categoryCounts = React.useMemo(() => {
     if (!scriptCardsData?.success) return {};
     
-    // For now, distribute scripts evenly across categories for demo
-    const totalScripts = scriptCardsData.cards?.length ?? 0;
-    const avgPerCategory = Math.floor(totalScripts / categories.length);
-    
     const counts: Record<string, number> = {};
-    categories.forEach((category, index) => {
-      if (index === categories.length - 1) {
-        // Last category gets remaining scripts
-        counts[category] = totalScripts - (avgPerCategory * (categories.length - 1));
-      } else {
-        counts[category] = avgPerCategory;
+    
+    // Initialize all categories with 0
+    categories.forEach((categoryName: string) => {
+      counts[categoryName] = 0;
+    });
+    
+    // Count scripts for each category
+    scriptCardsData.cards?.forEach(script => {
+      if (script.categoryNames) {
+        script.categoryNames.forEach((categoryName) => {
+          if (categoryName && counts[categoryName] !== undefined) {
+            counts[categoryName]++;
+          }
+        });
       }
     });
     
@@ -138,48 +121,21 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       }
     }
 
-    // Filter by category (for now, we'll implement a basic category filter based on script names)
+    // Filter by category using real category data
     if (selectedCategory) {
       scripts = scripts.filter(script => {
-        if (!script?.name) return false;
+        if (!script) return false;
         
-        // Basic category mapping based on script names
-        const scriptName = script.name.toLowerCase();
+        // Check if script has categoryNames that include the selected category
+        const scriptWithCategories = scriptCardsData?.success ? 
+          scriptCardsData.cards?.find(s => s.slug === script.slug) : null;
         
-        switch (selectedCategory) {
-          case 'Containers & Docker':
-            return scriptName.includes('docker') || scriptName.includes('portainer');
-          case 'Databases':
-            return scriptName.includes('postgres') || scriptName.includes('mysql') || 
-                   scriptName.includes('mongodb') || scriptName.includes('redis') ||
-                   scriptName.includes('mariadb');
-          case 'Media & Streaming':
-            return scriptName.includes('plex') || scriptName.includes('emby') || 
-                   scriptName.includes('jellyfin') || scriptName.includes('media');
-          case '*Arr Suite':
-            return scriptName.includes('sonarr') || scriptName.includes('radarr') || 
-                   scriptName.includes('bazarr') || scriptName.includes('lidarr') ||
-                   scriptName.includes('readarr') || scriptName.includes('prowlarr');
-          case 'Monitoring & Analytics':
-            return scriptName.includes('monitor') || scriptName.includes('grafana') || 
-                   scriptName.includes('prometheus') || scriptName.includes('uptime');
-          case 'Network & Firewall':
-            return scriptName.includes('firewall') || scriptName.includes('opnsense') || 
-                   scriptName.includes('pfsense') || scriptName.includes('adguard');
-          case 'Files & Downloads':
-            return scriptName.includes('nextcloud') || scriptName.includes('download') || 
-                   scriptName.includes('file') || scriptName.includes('sync');
-          case 'IoT & Smart Home':
-            return scriptName.includes('homeassistant') || scriptName.includes('home-assistant') || 
-                   scriptName.includes('openhab') || scriptName.includes('iot');
-          default:
-            return true; // Return all for unknown categories
-        }
+        return scriptWithCategories?.categoryNames?.includes(selectedCategory) ?? false;
       });
     }
 
     return scripts;
-  }, [scriptsWithStatus, searchQuery, selectedCategory]);
+  }, [scriptsWithStatus, searchQuery, selectedCategory, scriptCardsData]);
 
   // Handle category selection with auto-scroll
   const handleCategorySelect = (category: string | null) => {
