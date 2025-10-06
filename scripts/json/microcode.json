@@ -1,5 +1,5 @@
 {
-  "name": "PVE Processor Microcode",
+  "name": "Proxmox VE Processor Microcode",
   "slug": "microcode",
   "categories": [
     1

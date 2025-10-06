@@ -1,5 +1,5 @@
 {
-  "name": "PVE Update Repositories",
+  "name": "Proxmox Update Repositories",
   "slug": "update-repo",
   "categories": [
     1

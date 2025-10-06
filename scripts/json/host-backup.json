@@ -1,5 +1,5 @@
 {
-  "name": "PVE Host Backup",
+  "name": "Proxmox VE Host Backup",
   "slug": "host-backup",
   "categories": [
     1

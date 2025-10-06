@@ -84,15 +84,6 @@ export class ScriptManager {
     this.initializeConfig();
     try {
       const ctDir = join(this.scriptsDir!, 'ct');
-      
-      // Check if ct directory exists
-      try {
-        await stat(ctDir);
-      } catch {
-        console.warn(`CT scripts directory not found: ${ctDir}`);
-        return [];
-      }
-      
       const files = await readdir(ctDir);
       const scripts: ScriptInfo[] = [];
 
