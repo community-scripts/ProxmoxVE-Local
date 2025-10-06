@@ -105,7 +105,6 @@ export const installedScriptsRouter = createTRPCRouter({
   updateInstalledScript: publicProcedure
     .input(z.object({
       id: z.number(),
-      script_name: z.string().optional(),
       container_id: z.string().optional(),
       status: z.enum(['in_progress', 'success', 'failed']).optional(),
       output_log: z.string().optional()

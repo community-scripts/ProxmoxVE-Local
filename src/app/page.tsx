@@ -35,13 +35,9 @@ export default function Home() {
 
         {/* Controls */}
         <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <SettingsButton />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <ResyncButton />
-            </div>
+          <div className="flex items-left pr-4 mb-6">
+            <SettingsButton />
+            <ResyncButton />
           </div>
         </div>
 

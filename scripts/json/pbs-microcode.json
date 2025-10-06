@@ -1,5 +1,5 @@
 {
-  "name": "PBS Processor Microcode",
+  "name": "Proxmox Backup Server Processor Microcode",
   "slug": "pbs-microcode",
   "categories": [
     1

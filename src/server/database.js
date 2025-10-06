@@ -167,20 +167,15 @@ class DatabaseService {
   /**
    * @param {number} id
    * @param {Object} updateData
-   * @param {string} [updateData.script_name]
    * @param {string} [updateData.container_id]
    * @param {string} [updateData.status]
    * @param {string} [updateData.output_log]
    */
   updateInstalledScript(id, updateData) {
-    const { script_name, container_id, status, output_log } = updateData;
+    const { container_id, status, output_log } = updateData;
     const updates = [];
     const values = [];
 
-    if (script_name !== undefined) {
-      updates.push('script_name = ?');
-      values.push(script_name);
-    }
     if (container_id !== undefined) {
       updates.push('container_id = ?');
       values.push(container_id);

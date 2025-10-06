@@ -19,6 +19,7 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize theme from localStorage after mount
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem('theme') as Theme;
     if (stored && ['light', 'dark', 'system'].includes(stored)) {
       setThemeState(stored);
@@ -27,7 +28,6 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
     // Set initial isDark state based on current DOM state
     const currentlyDark = document.documentElement.classList.contains('dark');
     setIsDark(currentlyDark);
-    setMounted(true);
   }, []);
 
   // Update dark mode state and DOM when theme changes
@@ -38,16 +38,13 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
       const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const shouldBeDark = theme === 'dark' || (theme === 'system' && systemDark);
       
-      // Only update if there's actually a change
-      if (shouldBeDark !== isDark) {
-        setIsDark(shouldBeDark);
-        
-        // Apply to document
-        if (shouldBeDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+      setIsDark(shouldBeDark);
+      
+      // Apply to document
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
     };
 
@@ -63,7 +60,7 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme, mounted, isDark]);
+  }, [theme, mounted]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
