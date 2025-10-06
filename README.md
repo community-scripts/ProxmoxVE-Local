@@ -7,7 +7,7 @@ A modern web-based management interface for Proxmox VE (PVE) helper scripts. Thi
 This application can be deployed in multiple ways to suit different environments:
 
 - **📦 Debian LXC Container**: Deploy inside a Debian LXC container for better isolation
-- **⚡ Quick Install**: Use the automated `install.sh` script for easy setup or use the helper-script.
+- **🔧 Helper Script**: Use the automated helper script for easy setup
 
 All deployment methods provide the same functionality and web interface.
 
@@ -68,32 +68,7 @@ All deployment methods provide the same functionality and web interface.
 
 Choose the installation method that best fits your environment:
 
-### Option 1: Quick Install with install.sh (Recommended for Proxmox Host)
-
-Run this command directly on your Proxmox VE host or on any Debian based lxc:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/install.sh)"
-```
-
-**What the script does:**
-- ✅ Installs required dependencies (build-essential, git, Node.js 24.x)
-- ✅ Clones the repository into `/opt/PVESciptslocal` (or your chosen path)
-- ✅ Runs npm install and builds the project
-- ✅ Sets up `.env` from `.env.example` if missing
-- ✅ Creates database directory (`data/`) for SQLite storage
-- ✅ Creates a systemd service (`pvescriptslocal.service`) for easy management
-
-**After installation:**
-- 🌐 Access the app at: `http://<YOUR_LXC_IP>:3000`
-- 🔧 Manage the service with:
-  ```bash
-  systemctl start pvescriptslocal
-  systemctl stop pvescriptslocal
-  systemctl status pvescriptslocal
-  ```
-
-### Option 2: Debian LXC Container Installation
+### Option 1: Debian LXC Container Installation
 
 For better isolation and security, you can run PVE Scripts Local inside a Debian LXC container:
 
@@ -102,13 +77,8 @@ For better isolation and security, you can run PVE Scripts Local inside a Debian
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/debian.sh)"
 ```
-Then run the installer:
 
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/install.sh)"
-```
-
-#### Step 2: Install Dependencies in Container when installer is not used
+#### Step 2: Install Dependencies in Container
 ```bash
 # Enter the container
 pct enter 100
@@ -143,14 +113,14 @@ chmod 755 data
 npm start
 
 # Or create a systemd service (optional)
-# Follow the same systemd setup as the install.sh script
+# Create systemd service for easy management
 ```
 
 **Access the application:**
 - 🌐 Container IP: `http://<CONTAINER_IP>:3000`
 - 🔧 Container management: `pct start 100`, `pct stop 100`, `pct status 100`
 
-### Option 3: Use the helper script
+### Option 2: Use the helper script
 
 This creates the LXC and installs the APP for you.
 
@@ -169,7 +139,7 @@ The web interface is accessible regardless of your deployment method:
 
 ### 2. Service Management
 
-#### For install.sh installations or helper-scripts variant(systemd service):
+#### For helper-script installations (systemd service):
 ```bash
 # Start the service
 systemctl start pvescriptslocal
