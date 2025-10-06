@@ -90,6 +90,17 @@ export class LocalScriptsService {
     }
   }
 
+  async getMetadata(): Promise<any> {
+    try {
+      const filePath = join(this.scriptsDirectory, 'metadata.json');
+      const content = await readFile(filePath, 'utf-8');
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Error reading metadata file:', error);
+      throw new Error('Failed to read metadata');
+    }
+  }
+
   async saveScriptsFromGitHub(scripts: Script[]): Promise<void> {
     try {
       // Ensure the directory exists

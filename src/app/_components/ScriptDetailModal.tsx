@@ -134,7 +134,7 @@ export function ScriptDetailModal({
       className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black p-4"
       onClick={handleBackdropClick}
     >
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-800">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] min-h-[80vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
           <div className="flex items-center space-x-4">
