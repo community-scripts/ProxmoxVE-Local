@@ -15,17 +15,25 @@ const DarkModeContext = createContext<DarkModeContextType | undefined>(undefined
 export function DarkModeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system');
   const [isDark, setIsDark] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Initialize theme from localStorage or default to system
+  // Initialize theme from localStorage after mount
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem('theme') as Theme;
     if (stored && ['light', 'dark', 'system'].includes(stored)) {
       setThemeState(stored);
     }
+    
+    // Set initial isDark state based on current DOM state
+    const currentlyDark = document.documentElement.classList.contains('dark');
+    setIsDark(currentlyDark);
   }, []);
 
-  // Update dark mode state and DOM
+  // Update dark mode state and DOM when theme changes
   useEffect(() => {
+    if (!mounted) return;
+    
     const updateDarkMode = () => {
       const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const shouldBeDark = theme === 'dark' || (theme === 'system' && systemDark);
@@ -52,7 +60,7 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
