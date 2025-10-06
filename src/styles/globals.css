@@ -5,6 +5,8 @@
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+@variant dark (&:is(.dark, .dark *));
+
 /* Terminal-specific styles for ANSI escape code rendering */
 .terminal-output {
   font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;

@@ -18,7 +18,7 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
 
   return (
     <div
-      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 h-full flex flex-col"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg dark:hover:shadow-xl transition-shadow duration-200 cursor-pointer border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 h-full flex flex-col"
       onClick={() => onClick(script)}
     >
       <div className="p-6 flex-1 flex flex-col">
@@ -35,15 +35,15 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
                 onError={handleImageError}
               />
             ) : (
-              <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500 text-lg font-semibold">
+              <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500 dark:text-gray-400 text-lg font-semibold">
                   {script.name?.charAt(0)?.toUpperCase() || '?'}
                 </span>
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
               {script.name || 'Unnamed Script'}
             </h3>
             <div className="mt-2 space-y-2">
@@ -51,15 +51,15 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
               <div className="flex items-center space-x-2">
                 <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                   script.type === 'ct' 
-                    ? 'bg-blue-100 text-blue-800' 
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' 
                     : script.type === 'addon'
-                    ? 'bg-purple-100 text-purple-800'
-                    : 'bg-gray-100 text-gray-800'
+                    ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}>
                   {script.type?.toUpperCase() || 'UNKNOWN'}
                 </span>
                 {script.updateable && (
-                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
                     Updateable
                   </span>
                 )}
@@ -71,7 +71,7 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
                   script.isDownloaded ? 'bg-green-500' : 'bg-red-500'
                 }`}></div>
                 <span className={`text-xs font-medium ${
-                  script.isDownloaded ? 'text-green-700' : 'text-red-700'
+                  script.isDownloaded ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
                 }`}>
                   {script.isDownloaded ? 'Downloaded' : 'Not Downloaded'}
                 </span>
@@ -81,7 +81,7 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
         </div>
 
         {/* Description */}
-        <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-1">
+        <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 mb-4 flex-1">
           {script.description || 'No description available'}
         </p>
 
@@ -92,7 +92,7 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
               href={script.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center space-x-1"
               onClick={(e) => e.stopPropagation()}
             >
               <span>Website</span>
