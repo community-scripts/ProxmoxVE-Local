@@ -4,6 +4,7 @@ import { scriptManager } from "~/server/lib/scripts";
 import { githubJsonService } from "~/server/services/githubJsonService";
 import { localScriptsService } from "~/server/services/localScripts";
 import { scriptDownloaderService } from "~/server/services/scriptDownloader";
+import type { ScriptCard } from "~/types/script";
 
 export const scriptsRouter = createTRPCRouter({
   // Get all available scripts
@@ -160,15 +161,15 @@ export const scriptsRouter = createTRPCRouter({
         // Enhance cards with category information and additional script data
         const cardsWithCategories = cards.map(card => {
           const script = scripts.find(s => s.slug === card.slug);
-          const categoryNames = script?.categories?.map(id => categoryMap[id]).filter(Boolean) ?? [];
+          const categoryNames: string[] = script?.categories?.map(id => categoryMap[id]).filter((name): name is string => typeof name === 'string') ?? [];
           
           return {
             ...card,
             categories: script?.categories ?? [],
-            categoryNames,
+            categoryNames: categoryNames,
             // Add date_created from script
             date_created: script?.date_created,
-          };
+          } as ScriptCard;
         });
 
         return { success: true, cards: cardsWithCategories, metadata };
