@@ -119,7 +119,7 @@ export function InstalledScriptsTab() {
       case 'in_progress':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return `${baseClasses} bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200`;
     }
   };
 
@@ -131,14 +131,14 @@ export function InstalledScriptsTab() {
       case 'ssh':
         return `${baseClasses} bg-purple-100 text-purple-800`;
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return `${baseClasses} bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200`;
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading installed scripts...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading installed scripts...</div>
       </div>
     );
   }
@@ -160,8 +160,8 @@ export function InstalledScriptsTab() {
       )}
 
       {/* Header with Stats */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Installed Scripts</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Installed Scripts</h2>
         
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -192,14 +192,14 @@ export function InstalledScriptsTab() {
               placeholder="Search scripts, container IDs, or servers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
             />
           </div>
           
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'success' | 'failed' | 'in_progress')}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             <option value="all">All Status</option>
             <option value="success">Success</option>
@@ -210,7 +210,7 @@ export function InstalledScriptsTab() {
           <select
             value={serverFilter}
             onChange={(e) => setServerFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             <option value="all">All Servers</option>
             <option value="local">Local</option>
@@ -222,60 +222,57 @@ export function InstalledScriptsTab() {
       </div>
 
       {/* Scripts Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         {filteredScripts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             {scripts.length === 0 ? 'No installed scripts found.' : 'No scripts match your filters.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Script Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Container ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Server
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Installation Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredScripts.map((script) => (
                   <tr key={script.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{script.script_name}</div>
-                      <div className="text-sm text-gray-500">{script.script_path}</div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.script_name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{script.script_path}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {script.container_id ? (
-                        <span className="text-sm font-mono text-gray-900">{String(script.container_id)}</span>
+                        <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{String(script.container_id)}</span>
                       ) : (
-                        <span className="text-sm text-gray-400">-</span>
+                        <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {script.execution_mode === 'local' ? (
-                        <span className="text-sm text-gray-900">Local</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">Local</span>
                       ) : (
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{script.server_name}</div>
-                          <div className="text-sm text-gray-500">{script.server_ip}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.server_name}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{script.server_ip}</div>
                         </div>
                       )}
                     </td>
@@ -289,7 +286,7 @@ export function InstalledScriptsTab() {
                         {String(script.status).replace('_', ' ').toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(String(script.installation_date))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

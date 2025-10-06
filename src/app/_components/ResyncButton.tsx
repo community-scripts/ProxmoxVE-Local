@@ -44,8 +44,8 @@ export function ResyncButton() {
         disabled={isResyncing}
         className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
           isResyncing
-            ? 'bg-gray-400 text-white cursor-not-allowed'
-            : 'bg-blue-600 text-white hover:bg-blue-700'
+            ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed'
+            : 'bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
         }`}
       >
         {isResyncing ? (
@@ -64,7 +64,7 @@ export function ResyncButton() {
       </button>
 
       {lastSync && (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           Last sync: {lastSync.toLocaleTimeString()}
         </div>
       )}
@@ -72,8 +72,8 @@ export function ResyncButton() {
       {syncMessage && (
         <div className={`text-sm px-3 py-1 rounded-lg ${
           syncMessage.includes('Error') || syncMessage.includes('Failed')
-            ? 'bg-red-100 text-red-700'
-            : 'bg-green-100 text-green-700'
+            ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+            : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
         }`}>
           {syncMessage}
         </div>

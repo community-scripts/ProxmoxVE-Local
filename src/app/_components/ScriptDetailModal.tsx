@@ -114,9 +114,9 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
             {script.logo && !imageError ? (
               <Image
@@ -128,19 +128,19 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
                 onError={handleImageError}
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500 text-2xl font-semibold">
+              <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500 dark:text-gray-400 text-2xl font-semibold">
                   {script.name.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">{script.name}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{script.name}</h2>
               <div className="flex items-center space-x-2 mt-1">
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                   script.type === 'ct' 
                     ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-gray-100 text-gray-800'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}>
                   {script.type.toUpperCase()}
                 </span>
@@ -262,7 +262,7 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
             })()}
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -303,7 +303,7 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
           }
 
           return (
-            <div className="mx-6 mb-4 p-3 rounded-lg bg-gray-50 text-sm">
+            <div className="mx-6 mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${scriptFilesData.ctExists ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -321,7 +321,7 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
                 )}
               </div>
               {scriptFilesData.files.length > 0 && (
-                <div className="mt-2 text-xs text-gray-600">
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
                   Files: {scriptFilesData.files.join(', ')}
                 </div>
               )}
@@ -333,54 +333,54 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
         <div className="p-6 space-y-6">
           {/* Description */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-            <p className="text-gray-600">{script.description}</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Description</h3>
+            <p className="text-gray-600 dark:text-gray-300">{script.description}</p>
           </div>
 
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Basic Information</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Basic Information</h3>
               <dl className="space-y-2">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Slug</dt>
-                  <dd className="text-sm text-gray-900 font-mono">{script.slug}</dd>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Slug</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100 font-mono">{script.slug}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Date Created</dt>
-                  <dd className="text-sm text-gray-900">{script.date_created}</dd>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Date Created</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{script.date_created}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Categories</dt>
-                  <dd className="text-sm text-gray-900">{script.categories.join(', ')}</dd>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Categories</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100">{script.categories.join(', ')}</dd>
                 </div>
                 {script.interface_port && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Interface Port</dt>
-                    <dd className="text-sm text-gray-900">{script.interface_port}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Interface Port</dt>
+                    <dd className="text-sm text-gray-900 dark:text-gray-100">{script.interface_port}</dd>
                   </div>
                 )}
                 {script.config_path && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Config Path</dt>
-                    <dd className="text-sm text-gray-900 font-mono">{script.config_path}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Config Path</dt>
+                    <dd className="text-sm text-gray-900 dark:text-gray-100 font-mono">{script.config_path}</dd>
                   </div>
                 )}
               </dl>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Links</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Links</h3>
               <dl className="space-y-2">
                 {script.website && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Website</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Website</dt>
                     <dd className="text-sm">
                       <a
                         href={script.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 break-all"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 break-all"
                       >
                         {script.website}
                       </a>
@@ -389,13 +389,13 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
                 )}
                 {script.documentation && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Documentation</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Documentation</dt>
                     <dd className="text-sm">
                       <a
                         href={script.documentation}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 break-all"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 break-all"
                       >
                         {script.documentation}
                       </a>
@@ -409,30 +409,30 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
           {/* Install Methods */}
           {script.install_methods.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Install Methods</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Install Methods</h3>
               <div className="space-y-4">
                 {script.install_methods.map((method, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div key={index} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-700">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900 capitalize">{method.type}</h4>
-                      <span className="text-sm text-gray-500 font-mono">{method.script}</span>
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 capitalize">{method.type}</h4>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">{method.script}</span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <dt className="font-medium text-gray-500">CPU</dt>
-                        <dd className="text-gray-900">{method.resources.cpu} cores</dd>
+                        <dt className="font-medium text-gray-500 dark:text-gray-400">CPU</dt>
+                        <dd className="text-gray-900 dark:text-gray-100">{method.resources.cpu} cores</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-gray-500">RAM</dt>
-                        <dd className="text-gray-900">{method.resources.ram} MB</dd>
+                        <dt className="font-medium text-gray-500 dark:text-gray-400">RAM</dt>
+                        <dd className="text-gray-900 dark:text-gray-100">{method.resources.ram} MB</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-gray-500">HDD</dt>
-                        <dd className="text-gray-900">{method.resources.hdd} GB</dd>
+                        <dt className="font-medium text-gray-500 dark:text-gray-400">HDD</dt>
+                        <dd className="text-gray-900 dark:text-gray-100">{method.resources.hdd} GB</dd>
                       </div>
                       <div>
-                        <dt className="font-medium text-gray-500">OS</dt>
-                        <dd className="text-gray-900">{method.resources.os} {method.resources.version}</dd>
+                        <dt className="font-medium text-gray-500 dark:text-gray-400">OS</dt>
+                        <dd className="text-gray-900 dark:text-gray-100">{method.resources.os} {method.resources.version}</dd>
                       </div>
                     </div>
                   </div>
@@ -465,7 +465,7 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
           {/* Notes */}
           {script.notes.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Notes</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Notes</h3>
               <ul className="space-y-2">
                 {script.notes.map((note, index) => {
                   // Handle both object and string note formats
@@ -475,18 +475,18 @@ export function ScriptDetailModal({ script, isOpen, onClose, onInstallScript }: 
                   return (
                     <li key={index} className={`text-sm p-3 rounded-lg ${
                       noteType === 'warning' 
-                        ? 'bg-yellow-50 text-yellow-800 border-l-4 border-yellow-400' 
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-l-4 border-yellow-400' 
                         : noteType === 'error'
-                        ? 'bg-red-50 text-red-800 border-l-4 border-red-400'
-                        : 'bg-gray-50 text-gray-600'
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-l-4 border-red-400'
+                        : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                     }`}>
                       <div className="flex items-start">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mr-2 ${
                           noteType === 'warning' 
-                            ? 'bg-yellow-100 text-yellow-800' 
+                            ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' 
                             : noteType === 'error'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-blue-100 text-blue-800'
+                            ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                            : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
                         }`}>
                           {noteType}
                         </span>
