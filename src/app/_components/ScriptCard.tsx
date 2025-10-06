@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import type { ScriptCard } from '~/types/script';
+import { TypeBadge, UpdateableBadge } from './Badge';
 
 interface ScriptCardProps {
   script: ScriptCard;
@@ -49,20 +50,8 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
             <div className="mt-2 space-y-2">
               {/* Type and Updateable status on first row */}
               <div className="flex items-center space-x-2">
-                <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                  script.type === 'ct' 
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' 
-                    : script.type === 'addon'
-                    ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                }`}>
-                  {script.type?.toUpperCase() || 'UNKNOWN'}
-                </span>
-                {script.updateable && (
-                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
-                    Updateable
-                  </span>
-                )}
+                <TypeBadge type={script.type ?? 'unknown'} />
+                {script.updateable && <UpdateableBadge />}
               </div>
               
               {/* Download Status */}

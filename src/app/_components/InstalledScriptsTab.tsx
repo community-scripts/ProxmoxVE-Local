@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
+import { StatusBadge, ExecutionModeBadge } from './Badge';
 
 interface InstalledScript {
   id: number;
@@ -107,32 +108,6 @@ export function InstalledScriptsTab() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
-  };
-
-  const getStatusBadge = (status: string): string => {
-    const baseClasses = 'px-2 py-1 text-xs font-medium rounded-full';
-    switch (status) {
-      case 'success':
-        return `${baseClasses} bg-green-100 text-green-800`;
-      case 'failed':
-        return `${baseClasses} bg-red-100 text-red-800`;
-      case 'in_progress':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      default:
-        return `${baseClasses} bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200`;
-    }
-  };
-
-  const getModeBadge = (mode: string): string => {
-    const baseClasses = 'px-2 py-1 text-xs font-medium rounded-full';
-    switch (mode) {
-      case 'local':
-        return `${baseClasses} bg-blue-100 text-blue-800`;
-      case 'ssh':
-        return `${baseClasses} bg-purple-100 text-purple-800`;
-      default:
-        return `${baseClasses} bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200`;
-    }
   };
 
   if (isLoading) {
@@ -277,14 +252,14 @@ export function InstalledScriptsTab() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={getModeBadge(String(script.execution_mode))}>
-                        {String(script.execution_mode).toUpperCase()}
-                      </span>
+                      <ExecutionModeBadge mode={script.execution_mode}>
+                        {script.execution_mode.toUpperCase()}
+                      </ExecutionModeBadge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={getStatusBadge(String(script.status))}>
-                        {String(script.status).replace('_', ' ').toUpperCase()}
-                      </span>
+                      <StatusBadge status={script.status}>
+                        {script.status.replace('_', ' ').toUpperCase()}
+                      </StatusBadge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(String(script.installation_date))}

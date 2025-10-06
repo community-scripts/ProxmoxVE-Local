@@ -7,6 +7,7 @@ import type { Script } from "~/types/script";
 import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
 import { ExecutionModeModal } from "./ExecutionModeModal";
+import { TypeBadge, UpdateableBadge, PrivilegedBadge, NoteBadge } from "./Badge";
 
 interface ScriptDetailModalProps {
   script: Script | null;
@@ -159,25 +160,9 @@ export function ScriptDetailModal({
                 {script.name}
               </h2>
               <div className="mt-1 flex items-center space-x-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                    script.type === "ct"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                  }`}
-                >
-                  {script.type.toUpperCase()}
-                </span>
-                {script.updateable && (
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
-                    Updateable
-                  </span>
-                )}
-                {script.privileged && (
-                  <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
-                    Privileged
-                  </span>
-                )}
+                <TypeBadge type={script.type} />
+                {script.updateable && <UpdateableBadge />}
+                {script.privileged && <PrivilegedBadge />}
               </div>
             </div>
           </div>
@@ -677,17 +662,9 @@ export function ScriptDetailModal({
                       }`}
                     >
                       <div className="flex items-start">
-                        <span
-                          className={`mr-2 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                            noteType === "warning"
-                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                              : noteType === "error"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                          }`}
-                        >
+                        <NoteBadge noteType={noteType as 'info' | 'warning' | 'error'} className="mr-2 flex-shrink-0">
                           {noteType}
-                        </span>
+                        </NoteBadge>
                         <span>{noteText}</span>
                       </div>
                     </li>
