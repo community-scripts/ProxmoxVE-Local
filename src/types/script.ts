@@ -51,7 +51,12 @@ export interface ScriptCard {
   website: string | null;
   source?: 'github' | 'local';
   isDownloaded?: boolean;
+  isUpToDate?: boolean;
   localPath?: string;
+  // Additional properties added by API
+  categories?: number[];
+  categoryNames?: string[];
+  date_created?: string;
 }
 
 export interface GitHubFile {
