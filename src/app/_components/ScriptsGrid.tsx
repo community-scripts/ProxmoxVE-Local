@@ -6,6 +6,7 @@ import { ScriptCard } from './ScriptCard';
 import { ScriptDetailModal } from './ScriptDetailModal';
 import { CategorySidebar } from './CategorySidebar';
 import { FilterBar, type FilterState } from './FilterBar';
+import type { ScriptCard as ScriptCardType } from '~/types/script';
 
 
 interface ScriptsGridProps {
@@ -34,7 +35,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   );
 
   // Extract categories from metadata
-  const categories = React.useMemo(() => {
+  const categories = React.useMemo((): string[] => {
     if (!scriptCardsData?.success || !scriptCardsData.metadata?.categories) return [];
     
     return (scriptCardsData.metadata.categories as any[])
@@ -45,11 +46,11 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   }, [scriptCardsData]);
 
   // Get GitHub scripts with download status (deduplicated)
-  const combinedScripts = React.useMemo(() => {
+  const combinedScripts = React.useMemo((): ScriptCardType[] => {
     if (!scriptCardsData?.success) return [];
     
     // Use Map to deduplicate by slug/name
-    const scriptMap = new Map();
+    const scriptMap = new Map<string, ScriptCardType>();
     
     scriptCardsData.cards?.forEach(script => {
       if (script?.name && script?.slug) {
@@ -69,7 +70,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   }, [scriptCardsData]);
 
   // Count scripts per category (using deduplicated scripts)
-  const categoryCounts = React.useMemo(() => {
+  const categoryCounts = React.useMemo((): Record<string, number> => {
     if (!scriptCardsData?.success) return {};
     
     const counts: Record<string, number> = {};
@@ -83,8 +84,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     combinedScripts.forEach(script => {
       if (script.categoryNames && script.slug) {
         const countedCategories = new Set<string>();
-        script.categoryNames.forEach((categoryName: any) => {
-          if (categoryName && counts[categoryName] !== undefined && !countedCategories.has(categoryName)) {
+        script.categoryNames.forEach((categoryName: unknown) => {
+          if (typeof categoryName === 'string' && counts[categoryName] !== undefined && !countedCategories.has(categoryName)) {
             countedCategories.add(categoryName);
             counts[categoryName]++;
           }
@@ -93,11 +94,11 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
     
     return counts;
-  }, [categories, combinedScripts]);
+  }, [categories, combinedScripts, scriptCardsData?.success]);
 
 
   // Update scripts with download status
-  const scriptsWithStatus = React.useMemo(() => {
+  const scriptsWithStatus = React.useMemo((): ScriptCardType[] => {
     return combinedScripts.map(script => {
       if (!script?.name) {
         return script; // Return as-is if invalid
@@ -120,7 +121,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   }, [combinedScripts, localScriptsData]);
 
   // Filter scripts based on all filters and category
-  const filteredScripts = React.useMemo(() => {
+  const filteredScripts = React.useMemo((): ScriptCardType[] => {
     let scripts = scriptsWithStatus;
 
     // Filter by search query (use filters.searchQuery instead of deprecated searchQuery)
@@ -136,7 +137,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           const name = (script.name ?? '').toLowerCase();
           const slug = (script.slug ?? '').toLowerCase();
 
-          return name.includes(query) || slug.includes(query);
+          return name.includes(query) ?? slug.includes(query);
         });
       }
     }

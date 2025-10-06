@@ -138,7 +138,7 @@ export function InstalledScriptsTab() {
     setEditingScriptId(script.id);
     setEditFormData({
       script_name: script.script_name,
-      container_id: script.container_id || ''
+      container_id: script.container_id ?? ''
     });
   };
 
