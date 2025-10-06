@@ -26,15 +26,44 @@ export function InstalledScriptsTab() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'in_progress'>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any; mode: 'local' | 'ssh' } | null>(null);
+  const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: statsData } = api.installedScripts.getInstallationStats.useQuery();
+  const { data: serversData } = api.servers.getAllServers.useQuery();
 
   // Delete script mutation
   const deleteScriptMutation = api.installedScripts.deleteInstalledScript.useMutation({
     onSuccess: () => {
       void refetchScripts();
+    }
+  });
+
+  // Update script mutation
+  const updateScriptMutation = api.installedScripts.updateInstalledScript.useMutation({
+    onSuccess: () => {
+      void refetchScripts();
+      setEditingScriptId(null);
+      setEditFormData({ script_name: '', container_id: '' });
+    },
+    onError: (error) => {
+      alert(`Error updating script: ${error.message}`);
+    }
+  });
+
+  // Create script mutation
+  const createScriptMutation = api.installedScripts.createInstalledScript.useMutation({
+    onSuccess: () => {
+      void refetchScripts();
+      setShowAddForm(false);
+      setAddFormData({ script_name: '', container_id: '', server_id: 'local' });
+    },
+    onError: (error) => {
+      alert(`Error creating script: ${error.message}`);
     }
   });
 
@@ -105,6 +134,69 @@ export function InstalledScriptsTab() {
     setUpdatingScript(null);
   };
 
+  const handleEditScript = (script: InstalledScript) => {
+    setEditingScriptId(script.id);
+    setEditFormData({
+      script_name: script.script_name,
+      container_id: script.container_id || ''
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingScriptId(null);
+    setEditFormData({ script_name: '', container_id: '' });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editFormData.script_name.trim()) {
+      alert('Script name is required');
+      return;
+    }
+
+    if (editingScriptId) {
+      updateScriptMutation.mutate({
+        id: editingScriptId,
+        script_name: editFormData.script_name.trim(),
+        container_id: editFormData.container_id.trim() || undefined,
+      });
+    }
+  };
+
+  const handleInputChange = (field: 'script_name' | 'container_id', value: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleAddFormChange = (field: 'script_name' | 'container_id' | 'server_id', value: string) => {
+    setAddFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleAddScript = () => {
+    if (!addFormData.script_name.trim()) {
+      alert('Script name is required');
+      return;
+    }
+
+    createScriptMutation.mutate({
+      script_name: addFormData.script_name.trim(),
+      script_path: `manual/${addFormData.script_name.trim()}`,
+      container_id: addFormData.container_id.trim() || undefined,
+      server_id: addFormData.server_id === 'local' ? undefined : Number(addFormData.server_id),
+      execution_mode: addFormData.server_id === 'local' ? 'local' : 'ssh',
+      status: 'success'
+    });
+  };
+
+  const handleCancelAdd = () => {
+    setShowAddForm(false);
+    setAddFormData({ script_name: '', container_id: '', server_id: 'local' });
+  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -159,6 +251,81 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
+        {/* Add Script Button */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            {showAddForm ? 'Cancel Add Script' : '+ Add Manual Script Entry'}
+          </button>
+        </div>
+
+        {/* Add Script Form */}
+        {showAddForm && (
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Add Manual Script Entry</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Script Name *
+                </label>
+                <input
+                  type="text"
+                  value={addFormData.script_name}
+                  onChange={(e) => handleAddFormChange('script_name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  placeholder="Enter script name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Container ID
+                </label>
+                <input
+                  type="text"
+                  value={addFormData.container_id}
+                  onChange={(e) => handleAddFormChange('container_id', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  placeholder="Enter container ID"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Server
+                </label>
+                <select
+                  value={addFormData.server_id}
+                  onChange={(e) => handleAddFormChange('server_id', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                >
+                  <option value="local">Select Server (Local if none)</option>
+                  {serversData?.servers?.map((server: any) => (
+                    <option key={server.id} value={server.id}>
+                      {server.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-4">
+              <button
+                onClick={handleCancelAdd}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddScript}
+                disabled={createScriptMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {createScriptMutation.isPending ? 'Adding...' : 'Add Script'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-64">
@@ -207,7 +374,7 @@ export function InstalledScriptsTab() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Script Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -215,6 +382,9 @@ export function InstalledScriptsTab() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Server
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Mode
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
@@ -229,16 +399,41 @@ export function InstalledScriptsTab() {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredScripts.map((script) => (
-                  <tr key={script.id} className="hover:bg-gray-50">
+                  <tr key={script.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.script_name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{script.script_path}</div>
+                      {editingScriptId === script.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editFormData.script_name}
+                            onChange={(e) => handleInputChange('script_name', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Script name"
+                          />
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{script.script_path}</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.script_name}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{script.script_path}</div>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {script.container_id ? (
-                        <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{String(script.container_id)}</span>
+                      {editingScriptId === script.id ? (
+                        <input
+                          type="text"
+                          value={editFormData.container_id}
+                          onChange={(e) => handleInputChange('container_id', e.target.value)}
+                          className="w-full px-2 py-1 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Container ID"
+                        />
                       ) : (
-                        <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                        script.container_id ? (
+                          <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{String(script.container_id)}</span>
+                        ) : (
+                          <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                        )
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -266,21 +461,47 @@ export function InstalledScriptsTab() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        {script.container_id && (
-                          <button
-                            onClick={() => handleUpdateScript(script)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Update
-                          </button>
+                        {editingScriptId === script.id ? (
+                          <>
+                            <button
+                              onClick={handleSaveEdit}
+                              disabled={updateScriptMutation.isPending}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50"
+                            >
+                              {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditScript(script)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium"
+                            >
+                              Edit
+                            </button>
+                            {script.container_id && (
+                              <button
+                                onClick={() => handleUpdateScript(script)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Update
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteScript(Number(script.id))}
+                              className="text-red-600 hover:text-red-900"
+                              disabled={deleteScriptMutation.isPending}
+                            >
+                              {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </>
                         )}
-                        <button
-                          onClick={() => handleDeleteScript(Number(script.id))}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={deleteScriptMutation.isPending}
-                        >
-                          {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -290,7 +511,6 @@ export function InstalledScriptsTab() {
           </div>
         )}
       </div>
-
     </div>
   );
 }
