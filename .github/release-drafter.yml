@@ -13,6 +13,10 @@ categories:
     labels:
       - chore
       - refactor
+  - title: "Dependencies"
+    labels:
+      - dependencies
+      - javascript
 change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
 change-title-template: '### $TITLE'
 template: |
