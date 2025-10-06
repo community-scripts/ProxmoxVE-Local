@@ -5,6 +5,7 @@ import { api } from '~/trpc/react';
 import { ScriptCard } from './ScriptCard';
 import { ScriptDetailModal } from './ScriptDetailModal';
 import { CategorySidebar } from './CategorySidebar';
+import { FilterBar, type FilterState } from './FilterBar';
 
 
 interface ScriptsGridProps {
@@ -16,6 +17,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    searchQuery: '',
+    showUpdatable: null,
+    selectedTypes: [],
+    sortBy: 'name',
+    sortOrder: 'asc',
+  });
   const gridRef = useRef<HTMLDivElement>(null);
 
   const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCardsWithCategories.useQuery();
@@ -36,7 +44,31 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       .filter((name): name is string => typeof name === 'string');
   }, [scriptCardsData]);
 
-  // Count scripts per category
+  // Get GitHub scripts with download status (deduplicated)
+  const combinedScripts = React.useMemo(() => {
+    if (!scriptCardsData?.success) return [];
+    
+    // Use Map to deduplicate by slug/name
+    const scriptMap = new Map();
+    
+    scriptCardsData.cards?.forEach(script => {
+      if (script?.name && script?.slug) {
+        // Use slug as unique identifier, only keep first occurrence
+        if (!scriptMap.has(script.slug)) {
+          scriptMap.set(script.slug, {
+            ...script,
+            source: 'github' as const,
+            isDownloaded: false, // Will be updated by status check
+            isUpToDate: false,   // Will be updated by status check
+          });
+        }
+      }
+    });
+
+    return Array.from(scriptMap.values());
+  }, [scriptCardsData]);
+
+  // Count scripts per category (using deduplicated scripts)
   const categoryCounts = React.useMemo(() => {
     if (!scriptCardsData?.success) return {};
     
@@ -47,11 +79,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       counts[categoryName] = 0;
     });
     
-    // Count scripts for each category
-    scriptCardsData.cards?.forEach(script => {
-      if (script.categoryNames) {
-        script.categoryNames.forEach((categoryName) => {
-          if (categoryName && counts[categoryName] !== undefined) {
+    // Count each unique script only once per category
+    combinedScripts.forEach(script => {
+      if (script.categoryNames && script.slug) {
+        const countedCategories = new Set<string>();
+        script.categoryNames.forEach((categoryName: any) => {
+          if (categoryName && counts[categoryName] !== undefined && !countedCategories.has(categoryName)) {
+            countedCategories.add(categoryName);
             counts[categoryName]++;
           }
         });
@@ -59,21 +93,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
     
     return counts;
-  }, [scriptCardsData, categories]);
-
-  // Get GitHub scripts with download status
-  const combinedScripts = React.useMemo(() => {
-    const githubScripts = scriptCardsData?.success ? (scriptCardsData.cards
-      ?.filter(script => script?.name) // Filter out invalid scripts
-      ?.map(script => ({
-        ...script,
-        source: 'github' as const,
-        isDownloaded: false, // Will be updated by status check
-        isUpToDate: false,   // Will be updated by status check
-      })) ?? []) : [];
-
-    return githubScripts;
-  }, [scriptCardsData]);
+  }, [categories, combinedScripts]);
 
 
   // Update scripts with download status
@@ -99,13 +119,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
   }, [combinedScripts, localScriptsData]);
 
-  // Filter scripts based on search query and category
+  // Filter scripts based on all filters and category
   const filteredScripts = React.useMemo(() => {
     let scripts = scriptsWithStatus;
 
-    // Filter by search query first
-    if (searchQuery?.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+    // Filter by search query (use filters.searchQuery instead of deprecated searchQuery)
+    if (filters.searchQuery?.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim();
       
       if (query.length >= 1) {
         scripts = scripts.filter(script => {
@@ -121,21 +141,96 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       }
     }
 
-    // Filter by category using real category data
+    // Filter by category using real category data from deduplicated scripts
     if (selectedCategory) {
       scripts = scripts.filter(script => {
         if (!script) return false;
         
-        // Check if script has categoryNames that include the selected category
-        const scriptWithCategories = scriptCardsData?.success ? 
-          scriptCardsData.cards?.find(s => s.slug === script.slug) : null;
-        
-        return scriptWithCategories?.categoryNames?.includes(selectedCategory) ?? false;
+        // Check if the deduplicated script has categoryNames that include the selected category
+        return script.categoryNames?.includes(selectedCategory) ?? false;
       });
     }
 
+    // Filter by updateable status
+    if (filters.showUpdatable !== null) {
+      scripts = scripts.filter(script => {
+        if (!script) return false;
+        const isUpdatable = script.updateable ?? false;
+        return filters.showUpdatable ? isUpdatable : !isUpdatable;
+      });
+    }
+
+    // Filter by script types
+    if (filters.selectedTypes.length > 0) {
+      scripts = scripts.filter(script => {
+        if (!script) return false;
+        const scriptType = (script.type ?? '').toLowerCase();
+        return filters.selectedTypes.some(type => type.toLowerCase() === scriptType);
+      });
+    }
+
+    // Apply sorting
+    scripts.sort((a, b) => {
+      if (!a || !b) return 0;
+      
+      let compareValue = 0;
+      
+      switch (filters.sortBy) {
+        case 'name':
+          compareValue = (a.name ?? '').localeCompare(b.name ?? '');
+          break;
+        case 'created':
+          // Get creation date from script metadata in JSON format (date_created: "YYYY-MM-DD")
+          const aCreated = a?.date_created ?? '';
+          const bCreated = b?.date_created ?? '';
+          
+          // If both have dates, compare them directly
+          if (aCreated && bCreated) {
+            // For dates: asc = oldest first (2020 before 2024), desc = newest first (2024 before 2020)
+            compareValue = aCreated.localeCompare(bCreated);
+          } else if (aCreated && !bCreated) {
+            // Scripts with dates come before scripts without dates
+            compareValue = -1;
+          } else if (!aCreated && bCreated) {
+            // Scripts without dates come after scripts with dates
+            compareValue = 1;
+          } else {
+            // Both have no dates, fallback to name comparison
+            compareValue = (a.name ?? '').localeCompare(b.name ?? '');
+          }
+          break;
+        default:
+          compareValue = (a.name ?? '').localeCompare(b.name ?? '');
+      }
+      
+      // Apply sort order
+      return filters.sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+
     return scripts;
-  }, [scriptsWithStatus, searchQuery, selectedCategory, scriptCardsData]);
+  }, [scriptsWithStatus, filters, selectedCategory]);
+
+  // Calculate filter counts for FilterBar
+  const filterCounts = React.useMemo(() => {
+    const installedCount = scriptsWithStatus.filter(script => script?.isDownloaded).length;
+    const updatableCount = scriptsWithStatus.filter(script => script?.updateable).length;
+    
+    return { installedCount, updatableCount };
+  }, [scriptsWithStatus]);
+
+  // Sync legacy searchQuery with filters.searchQuery for backward compatibility
+  useEffect(() => {
+    if (searchQuery !== filters.searchQuery) {
+      setFilters(prev => ({ ...prev, searchQuery }));
+    }
+  }, [searchQuery, filters.searchQuery]);
+
+  // Handle filter changes
+  const handleFiltersChange = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    // Sync searchQuery for backward compatibility
+    setSearchQuery(newFilters.searchQuery);
+  };
 
   // Handle category selection with auto-scroll
   const handleCategorySelect = (category: string | null) => {
@@ -231,8 +326,17 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0" ref={gridRef}>
-        {/* Search Bar */}
-        <div className="mb-8">
+        {/* Enhanced Filter Bar */}
+        <FilterBar
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          totalScripts={scriptsWithStatus.length}
+          filteredCount={filteredScripts.length}
+          updatableCount={filterCounts.updatableCount}
+        />
+
+        {/* Legacy Search Bar (keeping for backward compatibility, but hidden) */}
+        <div className="hidden mb-8">
           <div className="relative max-w-md mx-auto">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,7 +377,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         </div>
 
         {/* Scripts Grid */}
-        {filteredScripts.length === 0 && (searchQuery || selectedCategory) ? (
+        {filteredScripts.length === 0 && (filters.searchQuery || selectedCategory || filters.showUpdatable !== null || filters.selectedTypes.length > 0) ? (
           <div className="text-center py-12">
             <div className="text-gray-500">
               <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,12 +385,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
               </svg>
               <p className="text-lg font-medium">No matching scripts found</p>
               <p className="text-sm text-gray-500 mt-1">
-                Try adjusting your search terms{searchQuery ? ' or clear the search' : ''}{selectedCategory ? ' or select a different category' : ''}.
+                Try different filter settings or clear all filters.
               </p>
               <div className="flex justify-center gap-2 mt-4">
-                {searchQuery && (
+                {filters.searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleFiltersChange({ ...filters, searchQuery: '' })}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Clear Search

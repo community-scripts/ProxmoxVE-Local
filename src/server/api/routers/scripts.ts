@@ -157,7 +157,7 @@ export const scriptsRouter = createTRPCRouter({
           });
         }
 
-        // Enhance cards with category information
+        // Enhance cards with category information and additional script data
         const cardsWithCategories = cards.map(card => {
           const script = scripts.find(s => s.slug === card.slug);
           const categoryNames = script?.categories?.map(id => categoryMap[id]).filter(Boolean) ?? [];
@@ -165,7 +165,9 @@ export const scriptsRouter = createTRPCRouter({
           return {
             ...card,
             categories: script?.categories ?? [],
-            categoryNames
+            categoryNames,
+            // Add date_created from script
+            date_created: script?.date_created,
           };
         });
 
