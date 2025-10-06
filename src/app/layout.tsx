@@ -43,13 +43,22 @@ export default function RootLayout({
                   } else {
                     document.documentElement.classList.remove('dark');
                   }
-                } catch (e) {}
+                } catch (e) {
+                  // Fallback to system preference if localStorage fails
+                  const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (systemDark) {
+                    document.documentElement.classList.add('dark');
+                  }
+                }
               })();
             `,
           }}
         />
       </head>
-      <body className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+      <body 
+        className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
+        suppressHydrationWarning={true}
+      >
         <DarkModeProvider>
           {/* Dark Mode Toggle in top right corner */}
           <div className="fixed top-4 right-4 z-50">
