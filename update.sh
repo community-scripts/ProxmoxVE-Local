@@ -194,9 +194,38 @@ download_release() {
 stop_application() {
     log "Stopping application..."
     
+    # Change to the application directory if we're not already there
+    local app_dir
+    if [ -f "package.json" ] && [ -f "server.js" ]; then
+        app_dir="$(pwd)"
+    else
+        # Try to find the application directory
+        app_dir=$(find /root -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
+        if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+            cd "$app_dir" || {
+                log_error "Failed to change to application directory: $app_dir"
+                return 1
+            }
+        else
+            log_error "Could not find application directory"
+            return 1
+        fi
+    fi
+    
+    log "Working from application directory: $(pwd)"
+    
     # Try to find and stop the Node.js process
     local pids
-    pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true)
+    pids=$(pgrep -f "node server.js" 2>/dev/null || true)
+    
+    # Also check for npm start processes
+    local npm_pids
+    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
+    
+    # Combine all PIDs
+    if [ -n "$npm_pids" ]; then
+        pids="$pids $npm_pids"
+    fi
     
     if [ -n "$pids" ]; then
         log "Found running application processes: $pids"
@@ -205,9 +234,12 @@ stop_application() {
             # Wait for graceful shutdown
             sleep 3
             # Force kill if still running
-            if pgrep -f "node.*server.js\|npm.*start\|next.*start" >/dev/null 2>&1; then
-                log_warning "Application still running, force killing..."
-                pkill -9 -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true
+            local remaining_pids
+            remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+            if [ -n "$remaining_pids" ]; then
+                log_warning "Application still running, force killing: $remaining_pids"
+                pkill -9 -f "node server.js" 2>/dev/null || true
+                pkill -9 -f "npm start" 2>/dev/null || true
             fi
         else
             log_warning "Could not stop application processes"
@@ -272,10 +304,11 @@ install_and_build() {
     # Ensure no processes are running before build
     log "Ensuring no conflicting processes are running..."
     local pids
-    pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start\|next.*build" 2>/dev/null || true)
+    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
     if [ -n "$pids" ]; then
         log_warning "Found running processes, stopping them: $pids"
-        pkill -9 -f "node.*server.js\|npm.*start\|next.*start\|next.*build" 2>/dev/null || true
+        pkill -9 -f "node server.js" 2>/dev/null || true
+        pkill -9 -f "npm start" 2>/dev/null || true
         sleep 2
     fi
     
@@ -361,6 +394,20 @@ main() {
         exec "$temp_script" "$@"
     fi
     
+    # Ensure we're in the application directory
+    local app_dir
+    app_dir=$(find /root -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
+    if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+        cd "$app_dir" || {
+            log_error "Failed to change to application directory: $app_dir"
+            exit 1
+        }
+        log "Changed to application directory: $(pwd)"
+    else
+        log_error "Could not find application directory"
+        exit 1
+    fi
+    
     # Check dependencies
     check_dependencies
     
@@ -371,15 +418,16 @@ main() {
     # Backup data directory
     backup_data
     
-    # Stop the application before updating
+    # Stop the application before updating (now running from /tmp/)
     stop_application
     
     # Double-check that no processes are running
     local remaining_pids
-    remaining_pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true)
+    remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
     if [ -n "$remaining_pids" ]; then
         log_warning "Some processes still running, force killing: $remaining_pids"
-        pkill -9 -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true
+        pkill -9 -f "node server.js" 2>/dev/null || true
+        pkill -9 -f "npm start" 2>/dev/null || true
         sleep 2
     fi
     
