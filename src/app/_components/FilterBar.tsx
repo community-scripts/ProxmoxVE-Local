@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "./ui/button";
+import { Package, Monitor, Wrench, Server, FileText, Calendar } from "lucide-react";
 
 export interface FilterState {
   searchQuery: string;
@@ -20,10 +21,10 @@ interface FilterBarProps {
 }
 
 const SCRIPT_TYPES = [
-  { value: "ct", label: "LXC Container", icon: "📦" },
-  { value: "vm", label: "Virtual Machine", icon: "💻" },
-  { value: "addon", label: "Add-on", icon: "🔧" },
-  { value: "pve", label: "PVE Host", icon: "🖥️" },
+  { value: "ct", label: "LXC Container", Icon: Package },
+  { value: "vm", label: "Virtual Machine", Icon: Monitor },
+  { value: "addon", label: "Add-on", Icon: Wrench },
+  { value: "pve", label: "PVE Host", Icon: Server },
 ];
 
 export function FilterBar({
@@ -183,38 +184,41 @@ export function FilterBar({
           {isTypeDropdownOpen && (
             <div className="absolute top-full left-0 z-10 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
               <div className="p-2">
-                {SCRIPT_TYPES.map((type) => (
-                  <label
-                    key={type.value}
-                    className="flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2 hover:bg-accent"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.selectedTypes.includes(type.value)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          updateFilters({
-                            selectedTypes: [
-                              ...filters.selectedTypes,
-                              type.value,
-                            ],
-                          });
-                        } else {
-                          updateFilters({
-                            selectedTypes: filters.selectedTypes.filter(
-                              (t) => t !== type.value,
-                            ),
-                          });
-                        }
-                      }}
-                      className="rounded border-input text-primary focus:ring-primary"
-                    />
-                    <span className="text-lg">{type.icon}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {type.label}
-                    </span>
-                  </label>
-                ))}
+                {SCRIPT_TYPES.map((type) => {
+                  const IconComponent = type.Icon;
+                  return (
+                    <label
+                      key={type.value}
+                      className="flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.selectedTypes.includes(type.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            updateFilters({
+                              selectedTypes: [
+                                ...filters.selectedTypes,
+                                type.value,
+                              ],
+                            });
+                          } else {
+                            updateFilters({
+                              selectedTypes: filters.selectedTypes.filter(
+                                (t) => t !== type.value,
+                              ),
+                            });
+                          }
+                        }}
+                        className="rounded border-input text-primary focus:ring-primary"
+                      />
+                      <IconComponent className="h-4 w-4" />
+                      <span className="text-sm text-muted-foreground">
+                        {type.label}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
               <div className="border-t border-border p-2">
                 <Button
@@ -236,16 +240,25 @@ export function FilterBar({
         {/* Sort Options */}
         <div className="flex items-center space-x-2">
           {/* Sort By Dropdown */}
-          <select
-            value={filters.sortBy}
-            onChange={(e) =>
-              updateFilters({ sortBy: e.target.value as "name" | "created" })
-            }
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-          >
-            <option value="name">📝 By Name</option>
-            <option value="created">📅 By Created Date</option>
-          </select>
+          <div className="relative inline-flex items-center">
+            <select
+              value={filters.sortBy}
+              onChange={(e) =>
+                updateFilters({ sortBy: e.target.value as "name" | "created" })
+              }
+              className="rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none appearance-none"
+            >
+              <option value="name">By Name</option>
+              <option value="created">By Created Date</option>
+            </select>
+            <div className="absolute left-2 pointer-events-none">
+              {filters.sortBy === "name" ? (
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+          </div>
 
           {/* Sort Order Button */}
           <Button

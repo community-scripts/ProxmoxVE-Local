@@ -10,6 +10,7 @@ import { Terminal } from './_components/Terminal';
 import { SettingsButton } from './_components/SettingsButton';
 import { VersionDisplay } from './_components/VersionDisplay';
 import { Button } from './_components/ui/button';
+import { Rocket, Package, HardDrive, FolderOpen } from 'lucide-react';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
@@ -28,8 +29,9 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            🚀 PVE Scripts Management
+          <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
+            <Rocket className="h-9 w-9" />
+            PVE Scripts Management
           </h1>
           <p className="text-muted-foreground mb-4">
             Manage and execute Proxmox helper scripts locally with live output streaming
@@ -59,34 +61,37 @@ export default function Home() {
                 variant="ghost"
                 size="null"
                 onClick={() => setActiveTab('scripts')}
-                className={`px-3 py-1 text-sm ${
+                className={`px-3 py-1 text-sm flex items-center gap-2 ${
                   activeTab === 'scripts'
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}> 
-                📦 Available Scripts
+                <Package className="h-4 w-4" />
+                Available Scripts
               </Button>
               <Button
                 variant="ghost"
                 size="null"
                 onClick={() => setActiveTab('downloaded')}
-                className={`px-3 py-1 text-sm ${
+                className={`px-3 py-1 text-sm flex items-center gap-2 ${
                   activeTab === 'downloaded'
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}>
-                💾 Downloaded Scripts
+                <HardDrive className="h-4 w-4" />
+                Downloaded Scripts
               </Button>
               <Button
                 variant="ghost"
                 size="null"
                 onClick={() => setActiveTab('installed')}
-                className={`px-3 py-1 text-sm ${
+                className={`px-3 py-1 text-sm flex items-center gap-2 ${
                   activeTab === 'installed'
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}>
-                🗂️ Installed Scripts
+                <FolderOpen className="h-4 w-4" />
+                Installed Scripts
               </Button>
             </nav>
           </div>
