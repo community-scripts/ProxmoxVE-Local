@@ -55,7 +55,7 @@ export function VersionDisplay() {
     onSuccess: (result: any) => {
       const now = Date.now();
       const elapsed = updateStartTime ? now - updateStartTime : 0;
-      const minDisplayTime = 2000; // Minimum 2 seconds
+ 
       
       setUpdateResult({ success: result.success, message: result.message });
       

@@ -250,7 +250,7 @@ clear_original_directory() {
     )
     
     # Remove all files except preserved ones
-    find . -maxdepth 1 -type f ! -name ".*" | while read -r file; do
+    while IFS= read -r file; do
         local should_preserve=false
         local filename=$(basename "$file")
         
@@ -264,10 +264,10 @@ clear_original_directory() {
         if [ "$should_preserve" = false ]; then
             rm -f "$file"
         fi
-    done
+    done < <(find . -maxdepth 1 -type f ! -name ".*")
     
     # Remove all directories except preserved ones
-    find . -maxdepth 1 -type d ! -name "." ! -name ".." | while read -r dir; do
+    while IFS= read -r dir; do
         local should_preserve=false
         local dirname=$(basename "$dir")
         
@@ -281,7 +281,7 @@ clear_original_directory() {
         if [ "$should_preserve" = false ]; then
             rm -rf "$dir"
         fi
-    done
+    done < <(find . -maxdepth 1 -type d ! -name "." ! -name "..")
     
     log_success "Original directory cleared"
 }
@@ -463,10 +463,6 @@ update_files() {
         "*.bak"
     )
     
-    # Copy files excluding specified patterns (safer than rsync for self-updates)
-    local files_copied=0
-    local files_excluded=0
-    
     # Find the actual source directory (strip the top-level directory)
     local actual_source_dir
     actual_source_dir=$(find "$source_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" | head -1)
@@ -476,8 +472,27 @@ update_files() {
         return 1
     fi
     
+    # Use process substitution instead of pipe to avoid subshell issues
+    local files_copied=0
+    local files_excluded=0
     
-    find "$actual_source_dir" -type f | while read -r file; do
+    log "Starting file copy process from: $actual_source_dir"
+    
+    # Create a temporary file list to avoid process substitution issues
+    local file_list="/tmp/file_list_$$.txt"
+    find "$actual_source_dir" -type f > "$file_list"
+    
+    local total_files
+    total_files=$(wc -l < "$file_list")
+    log "Found $total_files files to process"
+    
+    # Show first few files for debugging
+    log "First few files to process:"
+    head -5 "$file_list" | while read -r f; do
+        log "  - $f"
+    done
+    
+    while IFS= read -r file; do
         local rel_path="${file#$actual_source_dir/}"
         local should_exclude=false
         
@@ -494,16 +509,25 @@ update_files() {
             if [ "$target_dir" != "." ]; then
                 mkdir -p "$target_dir"
             fi
+            log "Copying: $file -> $rel_path"
             if ! cp "$file" "$rel_path"; then
                 log_error "Failed to copy $rel_path"
+                rm -f "$file_list"
                 return 1
             else
                 files_copied=$((files_copied + 1))
+                if [ $((files_copied % 10)) -eq 0 ]; then
+                    log "Copied $files_copied files so far..."
+                fi
             fi
         else
             files_excluded=$((files_excluded + 1))
+            log "Excluded: $rel_path"
         fi
-    done
+    done < "$file_list"
+    
+    # Clean up temporary file
+    rm -f "$file_list"
     
     log "Files processed: $files_copied copied, $files_excluded excluded"
     
@@ -714,22 +738,33 @@ main() {
     # Download and extract release
     local source_dir
     source_dir=$(download_release "$release_info")
+    log "Download completed, source_dir: $source_dir"
     
     # Clear the original directory before updating
+    log "Clearing original directory..."
     clear_original_directory
+    log "Original directory cleared successfully"
     
     # Update files
+    log "Starting file update process..."
     if ! update_files "$source_dir"; then
+        log_error "File update failed, rolling back..."
         rollback
     fi
+    log "File update completed successfully"
     
     # Restore .env and data directory before building
+    log "Restoring backup files..."
     restore_backup_files
+    log "Backup files restored successfully"
     
     # Install dependencies and build
+    log "Starting install and build process..."
     if ! install_and_build; then
+        log_error "Install and build failed, rolling back..."
         rollback
     fi
+    log "Install and build completed successfully"
     
     # Cleanup
     log "Cleaning up temporary files..."
