@@ -76,8 +76,15 @@ get_latest_release() {
     log "Fetching latest release information from GitHub..."
     
     local release_info
-    if ! release_info=$(curl -s "$GITHUB_API/releases/latest"); then
-        log_error "Failed to fetch release information from GitHub API"
+    if ! release_info=$(curl -s --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3 "$GITHUB_API/releases/latest"); then
+        log_error "Failed to fetch release information from GitHub API (timeout or network error)"
+        exit 1
+    fi
+    
+    # Check if response is valid JSON
+    if ! echo "$release_info" | jq empty 2>/dev/null; then
+        log_error "Invalid JSON response from GitHub API"
+        log "Response: $release_info"
         exit 1
     fi
     
@@ -89,8 +96,10 @@ get_latest_release() {
     download_url=$(echo "$release_info" | jq -r '.tarball_url')
     published_at=$(echo "$release_info" | jq -r '.published_at')
     
-    if [ "$tag_name" = "null" ] || [ "$download_url" = "null" ]; then
-        log_error "Failed to parse release information"
+    if [ "$tag_name" = "null" ] || [ "$download_url" = "null" ] || [ -z "$tag_name" ] || [ -z "$download_url" ]; then
+        log_error "Failed to parse release information from API response"
+        log "Tag name: $tag_name"
+        log "Download URL: $download_url"
         exit 1
     fi
     
@@ -152,12 +161,24 @@ download_release() {
         exit 1
     fi
     
-    # Download release
-    if ! curl -L -o "$archive_file" "$download_url"; then
-        log_error "Failed to download release"
+    # Download release with timeout and progress
+    log "Downloading from: $download_url"
+    if ! curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -o "$archive_file" "$download_url"; then
+        log_error "Failed to download release (timeout or network error)"
         rm -rf "$temp_dir"
         exit 1
     fi
+    
+    # Verify download
+    if [ ! -f "$archive_file" ] || [ ! -s "$archive_file" ]; then
+        log_error "Downloaded file is empty or missing"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    local file_size
+    file_size=$(stat -c%s "$archive_file" 2>/dev/null || echo "0")
+    log_success "Downloaded release ($file_size bytes)"
     
     # Extract release
     log "Extracting release..."

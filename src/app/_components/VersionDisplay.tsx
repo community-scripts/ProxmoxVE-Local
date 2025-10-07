@@ -50,6 +50,7 @@ export function VersionDisplay() {
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result: any) => {
