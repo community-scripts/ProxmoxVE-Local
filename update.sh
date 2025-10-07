@@ -167,9 +167,6 @@ download_release() {
         exit 1
     fi
     
-    # Debug: List contents after extraction
-    log "Contents after extraction:"
-    ls -la "$temp_dir" >&2 || true
     
     # Find the extracted directory (GitHub tarballs have a root directory)
     local extracted_dir
@@ -180,11 +177,9 @@ download_release() {
         extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" | head -1)
     fi
     
-    # If still not found, list what's in the temp directory for debugging
+    # If still not found, error out
     if [ -z "$extracted_dir" ]; then
         log_error "Could not find extracted directory"
-        log "Contents of temp directory:"
-        ls -la "$temp_dir" >&2 || true
         rm -rf "$temp_dir"
         exit 1
     fi
@@ -286,6 +281,51 @@ restore_backup_files() {
     fi
 }
 
+# Check if systemd service exists
+check_service() {
+    if systemctl list-unit-files | grep -q "^pvescriptslocal.service"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Kill application processes directly
+kill_processes() {
+    # Try to find and stop the Node.js process
+    local pids
+    pids=$(pgrep -f "node server.js" 2>/dev/null || true)
+    
+    # Also check for npm start processes
+    local npm_pids
+    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
+    
+    # Combine all PIDs
+    if [ -n "$npm_pids" ]; then
+        pids="$pids $npm_pids"
+    fi
+    
+    if [ -n "$pids" ]; then
+        log "Stopping application processes..."
+        if kill -TERM $pids 2>/dev/null; then
+            # Wait for graceful shutdown
+            sleep 3
+            # Force kill if still running
+            local remaining_pids
+            remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+            if [ -n "$remaining_pids" ]; then
+                log_warning "Force killing remaining processes"
+                pkill -9 -f "node server.js" 2>/dev/null || true
+                pkill -9 -f "npm start" 2>/dev/null || true
+            fi
+        else
+            log_warning "Could not stop application processes"
+        fi
+    else
+        log "No running application processes found"
+    fi
+}
+
 # Stop the application before updating
 stop_application() {
     log "Stopping application..."
@@ -310,38 +350,23 @@ stop_application() {
     
     log "Working from application directory: $(pwd)"
     
-    # Try to find and stop the Node.js process
-    local pids
-    pids=$(pgrep -f "node server.js" 2>/dev/null || true)
-    
-    # Also check for npm start processes
-    local npm_pids
-    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
-    
-    # Combine all PIDs
-    if [ -n "$npm_pids" ]; then
-        pids="$pids $npm_pids"
-    fi
-    
-    if [ -n "$pids" ]; then
-        log "Found running application processes: $pids"
-        if kill -TERM $pids 2>/dev/null; then
-            log "Sent TERM signal to application processes"
-            # Wait for graceful shutdown
-            sleep 3
-            # Force kill if still running
-            local remaining_pids
-            remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-            if [ -n "$remaining_pids" ]; then
-                log_warning "Application still running, force killing: $remaining_pids"
-                pkill -9 -f "node server.js" 2>/dev/null || true
-                pkill -9 -f "npm start" 2>/dev/null || true
+    # Check if systemd service exists and is active
+    if check_service; then
+        if systemctl is-active --quiet pvescriptslocal.service; then
+            log "Stopping pvescriptslocal service..."
+            if systemctl stop pvescriptslocal.service; then
+                log_success "Service stopped successfully"
+            else
+                log_error "Failed to stop service, falling back to process kill"
+                kill_processes
             fi
         else
-            log_warning "Could not stop application processes"
+            log "Service exists but is not active, checking for running processes..."
+            kill_processes
         fi
     else
-        log "No running application processes found"
+        log "No systemd service found, stopping processes directly..."
+        kill_processes
     fi
 }
 
@@ -349,9 +374,7 @@ stop_application() {
 update_files() {
     local source_dir="$1"
     
-    log "Updating application files from: $source_dir"
-    log "Current directory: $(pwd)"
-    log "Source directory contents: $(ls -la "$source_dir" 2>/dev/null || echo "Failed to list source directory")"
+    log "Updating application files..."
     
     # List of files/directories to exclude from update
     local exclude_patterns=(
@@ -378,7 +401,6 @@ update_files() {
         return 1
     fi
     
-    log "Using actual source directory: $actual_source_dir"
     
     find "$actual_source_dir" -type f | while read -r file; do
         local rel_path="${file#$actual_source_dir/}"
@@ -402,15 +424,13 @@ update_files() {
                 return 1
             else
                 files_copied=$((files_copied + 1))
-                log "Copied: $rel_path"
             fi
         else
             files_excluded=$((files_excluded + 1))
-            log "Excluded: $rel_path"
         fi
     done
     
-    log "Files copied: $files_copied, Files excluded: $files_excluded"
+    log "Files processed: $files_copied copied, $files_excluded excluded"
     
     log_success "Application files updated successfully"
 }
@@ -445,6 +465,50 @@ install_and_build() {
     fi
     
     log_success "Dependencies installed and application built successfully"
+}
+
+# Start the application after updating
+start_application() {
+    log "Starting application..."
+    
+    # Check if systemd service exists
+    if check_service; then
+        log "Starting pvescriptslocal service..."
+        if systemctl start pvescriptslocal.service; then
+            log_success "Service started successfully"
+            # Wait a moment and check if it's running
+            sleep 2
+            if systemctl is-active --quiet pvescriptslocal.service; then
+                log_success "Service is running"
+            else
+                log_warning "Service started but may not be running properly"
+            fi
+        else
+            log_error "Failed to start service, falling back to npm start"
+            start_with_npm
+        fi
+    else
+        log "No systemd service found, starting with npm..."
+        start_with_npm
+    fi
+}
+
+# Start application with npm
+start_with_npm() {
+    log "Starting application with npm start..."
+    
+    # Start in background
+    nohup npm start > server.log 2>&1 &
+    local npm_pid=$!
+    
+    # Wait a moment and check if it started
+    sleep 3
+    if kill -0 $npm_pid 2>/dev/null; then
+        log_success "Application started with PID: $npm_pid"
+    else
+        log_error "Failed to start application with npm"
+        return 1
+    fi
 }
 
 # Rollback function
@@ -566,7 +630,7 @@ main() {
     local remaining_pids
     remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
     if [ -n "$remaining_pids" ]; then
-        log_warning "Some processes still running, force killing: $remaining_pids"
+        log_warning "Force killing remaining processes"
         pkill -9 -f "node server.js" 2>/dev/null || true
         pkill -9 -f "npm start" 2>/dev/null || true
         sleep 2
@@ -577,7 +641,6 @@ main() {
     source_dir=$(download_release "$release_info")
     
     # Clear the original directory before updating
-    log "Clearing original directory before update..."
     clear_original_directory
     
     # Update files
@@ -586,7 +649,6 @@ main() {
     fi
     
     # Restore .env and data directory before building
-    log "Restoring .env and data directory before build..."
     restore_backup_files
     
     # Install dependencies and build
@@ -604,11 +666,10 @@ main() {
         rm -f "/tmp/pve-scripts-update-$$.sh"
     fi
     
-    log_success "Update completed successfully!"
-    log "You can now start the application with: npm start"
+    # Start the application
+    start_application
     
-    # Ask if user wants to start the application
-    npm start &
+    log_success "Update completed successfully!"
 }
 
 # Run main function with error handling
