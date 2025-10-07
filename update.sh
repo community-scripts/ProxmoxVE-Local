@@ -5,6 +5,14 @@
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
+# Debug: Show script execution info
+echo "Script started at $(date)"
+echo "Script PID: $$"
+echo "Arguments: $*"
+
+# Add error trap for debugging
+trap 'echo "Error occurred at line $LINENO, command: $BASH_COMMAND"' ERR
+
 # Configuration
 REPO_OWNER="community-scripts"
 REPO_NAME="ProxmoxVE-Local"
@@ -376,6 +384,11 @@ rollback() {
 main() {
     log "Starting ProxmoxVE-Local update process..."
     
+    # Debug: Show current directory and environment
+    log "Current directory: $(pwd)"
+    log "Script location: $(dirname "$(readlink -f "$0")")"
+    log "PVE_UPDATE_RELOCATED: ${PVE_UPDATE_RELOCATED:-not set}"
+    
     # Check if we're running from the application directory and not already relocated
     if [ -z "$PVE_UPDATE_RELOCATED" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory"
@@ -470,5 +483,8 @@ main() {
     fi
 }
 
-# Run main function
-main "$@"
+# Run main function with error handling
+if ! main "$@"; then
+    log_error "Update script failed with exit code $?"
+    exit 1
+fi
