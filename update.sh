@@ -163,12 +163,24 @@ download_release() {
         exit 1
     fi
     
+    # Debug: List contents after extraction
+    log "Contents after extraction:"
+    ls -la "$temp_dir" || true
+    
     # Find the extracted directory (GitHub tarballs have a root directory)
     local extracted_dir
     extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -1)
     
+    # If not found with repo name, try alternative patterns
+    if [ -z "$extracted_dir" ]; then
+        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" | head -1)
+    fi
+    
+    # If still not found, list what's in the temp directory for debugging
     if [ -z "$extracted_dir" ]; then
         log_error "Could not find extracted directory"
+        log "Contents of temp directory:"
+        ls -la "$temp_dir" || true
         rm -rf "$temp_dir"
         exit 1
     fi
