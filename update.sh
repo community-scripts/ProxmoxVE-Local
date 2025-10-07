@@ -409,11 +409,11 @@ main() {
     fi
     
     echo "DEBUG: Checking if condition..."
-    echo "DEBUG: PVE_UPDATE_RELOCATED is empty: $([ -z "$PVE_UPDATE_RELOCATED" ] && echo "YES" || echo "NO")"
+    echo "DEBUG: PVE_UPDATE_RELOCATED is empty: $([ -z "${PVE_UPDATE_RELOCATED:-}" ] && echo "YES" || echo "NO")"
     echo "DEBUG: package.json exists: $([ -f "package.json" ] && echo "YES" || echo "NO")"
     echo "DEBUG: server.js exists: $([ -f "server.js" ] && echo "YES" || echo "NO")"
     
-    if [ -z "$PVE_UPDATE_RELOCATED" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
+    if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         echo "DEBUG: Entering relocation logic"
         log "Detected running from application directory"
         log "Copying update script to temporary location for safe execution..."
