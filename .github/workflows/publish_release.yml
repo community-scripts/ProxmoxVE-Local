@@ -14,6 +14,24 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID_APPROVE_AND_MERGE }}
+          private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
+          owner: community-scripts
+          repositories: ProxmoxVE-Local
+
+      - name: Generate a token for PR approval and merge
+        id: generate-token-merge
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID_APPROVE_AND_MERGE }}
+          private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
+          owner: community-scripts
+          repositories: ProxmoxVE-Local
+
       
       - name: Get latest draft release
         id: draft
@@ -67,17 +85,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
      
-      - name: Authenticate gh with PAT
-        run: |
-          echo "${{ secrets.PAT_MICHEL }}" | gh auth login --with-token
-
-
-      - name: Merge PR as PAT user
-        run: |
-          gh pr merge "${{ steps.pr.outputs.pr_number }}" --squash --body "Merge VERSION update" --admin
+      - name: Approve pull request
+        if: env.changed == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr review $PR_NUMBER --approve
+          fi
 
+      - name: Approve pull request and merge
+        if: env.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.generate-token-merge.outputs.token }}
+        run: |
+          git config --global user.name "github-actions-automege[bot]"
+          git config --global user.email "github-actions-automege[bot]@users.noreply.github.com"
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr review "$PR_NUMBER" --approve
+            gh pr merge "$PR_NUMBER" --squash --admin
+          fi        
       
       - name: Wait for PR merge
         uses: actions/github-script@v7
