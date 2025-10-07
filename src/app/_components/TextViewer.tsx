@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Button } from './ui/button';
 
 interface TextViewerProps {
   scriptName: string;
@@ -99,44 +100,38 @@ export function TextViewer({ scriptName, isOpen, onClose }: TextViewerProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4 z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col border border-border">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-4">
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl font-bold text-foreground">
               Script Viewer: {scriptName}
             </h2>
             {scriptContent.ctScript && scriptContent.installScript && (
               <div className="flex space-x-2">
-                <button
+                <Button
+                  variant={activeTab === 'ct' ? 'outline' : 'ghost'}
                   onClick={() => setActiveTab('ct')}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    activeTab === 'ct'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className="px-3 py-1 text-sm"
                 >
                   CT Script
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={activeTab === 'install' ? 'outline' : 'ghost'}
                   onClick={() => setActiveTab('install')}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    activeTab === 'install'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className="px-3 py-1 text-sm"
                 >
                   Install Script
-                </button>
+                </Button>
               </div>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -148,11 +143,11 @@ export function TextViewer({ scriptName, isOpen, onClose }: TextViewerProps) {
         <div className="flex-1 overflow-hidden flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-lg text-gray-600">Loading script content...</div>
+              <div className="text-lg text-muted-foreground">Loading script content...</div>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-lg text-red-600">Error: {error}</div>
+              <div className="text-lg text-destructive">Error: {error}</div>
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
