@@ -189,6 +189,33 @@ download_release() {
     echo "$extracted_dir"
 }
 
+# Stop the application before updating
+stop_application() {
+    log "Stopping application..."
+    
+    # Try to find and stop the Node.js process
+    local pids
+    pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true)
+    
+    if [ -n "$pids" ]; then
+        log "Found running application processes: $pids"
+        if kill -TERM $pids 2>/dev/null; then
+            log "Sent TERM signal to application processes"
+            # Wait for graceful shutdown
+            sleep 3
+            # Force kill if still running
+            if pgrep -f "node.*server.js\|npm.*start\|next.*start" >/dev/null 2>&1; then
+                log_warning "Application still running, force killing..."
+                pkill -9 -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true
+            fi
+        else
+            log_warning "Could not stop application processes"
+        fi
+    else
+        log "No running application processes found"
+    fi
+}
+
 # Update application files
 update_files() {
     local source_dir="$1"
@@ -207,42 +234,28 @@ update_files() {
         "*.bak"
     )
     
-    # Create exclude string for rsync
-    local exclude_args=""
-    for pattern in "${exclude_patterns[@]}"; do
-        exclude_args="$exclude_args --exclude=$pattern"
-    done
-    
-    # Update files using rsync
-    if command -v rsync &> /dev/null; then
-        if ! rsync -av --delete $exclude_args "$source_dir/" .; then
-            log_error "Failed to update files with rsync"
-            return 1
-        fi
-    else
-        # Fallback to cp if rsync is not available
-        log_warning "rsync not available, using cp (this may not preserve all file permissions)"
+    # Copy files excluding specified patterns (safer than rsync for self-updates)
+    find "$source_dir" -type f | while read -r file; do
+        local rel_path="${file#$source_dir/}"
+        local should_exclude=false
         
-        # Copy files excluding specified patterns
-        find "$source_dir" -type f | while read -r file; do
-            local rel_path="${file#$source_dir/}"
-            local should_exclude=false
-            
-            for pattern in "${exclude_patterns[@]}"; do
-                if [[ "$rel_path" == $pattern ]]; then
-                    should_exclude=true
-                    break
-                fi
-            done
-            
-            if [ "$should_exclude" = false ]; then
-                local target_dir
-                target_dir=$(dirname "$rel_path")
-                mkdir -p "$target_dir"
-                cp "$file" "$rel_path"
+        for pattern in "${exclude_patterns[@]}"; do
+            if [[ "$rel_path" == $pattern ]]; then
+                should_exclude=true
+                break
             fi
         done
-    fi
+        
+        if [ "$should_exclude" = false ]; then
+            local target_dir
+            target_dir=$(dirname "$rel_path")
+            mkdir -p "$target_dir"
+            if ! cp "$file" "$rel_path"; then
+                log_error "Failed to copy $rel_path"
+                return 1
+            fi
+        fi
+    done
     
     log_success "Application files updated successfully"
 }
@@ -310,6 +323,9 @@ main() {
     
     # Backup data directory
     backup_data
+    
+    # Stop the application before updating
+    stop_application
     
     # Download and extract release
     local source_dir
