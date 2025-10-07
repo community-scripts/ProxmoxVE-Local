@@ -8,6 +8,7 @@ import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
 import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
 import { SettingsButton } from './_components/SettingsButton';
+import { VersionDisplay } from './_components/VersionDisplay';
 import { Button } from './_components/ui/button';
 
 export default function Home() {
@@ -30,9 +31,12 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-foreground mb-2">
             🚀 PVE Scripts Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             Manage and execute Proxmox helper scripts locally with live output streaming
           </p>
+          <div className="flex justify-center">
+            <VersionDisplay />
+          </div>
         </div>
 
         {/* Controls */}
