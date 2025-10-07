@@ -47,16 +47,16 @@ jobs:
             git commit -m "chore: add VERSION $version" || echo "No changes"
             git push --set-upstream origin "$branch"
 
-      - name: Create pull request
-        id: pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: "update-version-${{ steps.draft.outputs.tag_name }}"
-          base: main
-          title: "chore: add VERSION ${{ steps.draft.outputs.tag_name }}"
-          body: "This PR adds or updates the VERSION file for ${{ steps.draft.outputs.tag_name }}"
-          labels: automated
+#      - name: Create pull request
+#        id: pr
+#        uses: peter-evans/create-pull-request@v6
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          branch: "update-version-${{ steps.draft.outputs.tag_name }}"
+#          base: main
+#          title: "chore: add VERSION ${{ steps.draft.outputs.tag_name }}"
+#          body: "This PR adds or updates the VERSION file for ${{ steps.draft.outputs.tag_name }}"
+#          labels: automated
 
 
       - name: Auto-merge PR
