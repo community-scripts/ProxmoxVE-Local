@@ -3,7 +3,7 @@
 import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
+import { ExternalLink, Download, RefreshCw, Loader2, Check } from "lucide-react";
 import { useState } from "react";
 
 // Loading overlay component
@@ -223,8 +223,9 @@ export function VersionDisplay() {
         )}
         
         {isUpToDate && (
-          <span className="text-xs text-green-600 dark:text-green-400">
-            ✓ Up to date
+          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+            <Check className="h-3 w-3" />
+            Up to date
           </span>
         )}
       </div>
