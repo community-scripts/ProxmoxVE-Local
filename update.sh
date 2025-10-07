@@ -108,8 +108,9 @@ backup_data() {
     if [ -d "$DATA_DIR" ]; then
         log "Backing up data directory..."
         
-        if ! cp -r "$DATA_DIR"/* "$BACKUP_DIR/" 2>/dev/null; then
-            log_warning "No files found in data directory to backup"
+        if ! cp -r "$DATA_DIR" "$BACKUP_DIR/"; then
+            log_error "Failed to backup data directory"
+            exit 1
         else
             log_success "Data directory backed up successfully"
         fi
@@ -282,26 +283,43 @@ rollback() {
     log_warning "Rolling back to previous version..."
     
     if [ -d "$BACKUP_DIR" ]; then
+        log "Restoring from backup directory: $BACKUP_DIR"
+        
         # Restore data directory
-        if [ -d "$DATA_DIR" ]; then
-            rm -rf "$DATA_DIR"
-        fi
         if [ -d "$BACKUP_DIR/data" ]; then
-            mv "$BACKUP_DIR/data" "$DATA_DIR"
-            log_success "Data directory restored from backup"
+            log "Restoring data directory..."
+            if [ -d "$DATA_DIR" ]; then
+                rm -rf "$DATA_DIR"
+            fi
+            if mv "$BACKUP_DIR/data" "$DATA_DIR"; then
+                log_success "Data directory restored from backup"
+            else
+                log_error "Failed to restore data directory"
+            fi
+        else
+            log_warning "No data directory backup found"
         fi
         
         # Restore .env file
         if [ -f "$BACKUP_DIR/.env" ]; then
+            log "Restoring .env file..."
             if [ -f ".env" ]; then
                 rm -f ".env"
             fi
-            mv "$BACKUP_DIR/.env" ".env"
-            log_success ".env file restored from backup"
+            if mv "$BACKUP_DIR/.env" ".env"; then
+                log_success ".env file restored from backup"
+            else
+                log_error "Failed to restore .env file"
+            fi
+        else
+            log_warning "No .env file backup found"
         fi
         
         # Clean up backup directory
+        log "Cleaning up backup directory..."
         rm -rf "$BACKUP_DIR"
+    else
+        log_error "No backup directory found for rollback"
     fi
     
     log_error "Update failed. Please check the logs and try again."
