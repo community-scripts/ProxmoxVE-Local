@@ -368,7 +368,11 @@ restore_backup_files() {
 
 # Check if systemd service exists
 check_service() {
-    if systemctl list-unit-files | grep -q "^pvescriptslocal.service"; then
+    # systemctl status returns 0-3 if service exists (running, exited, failed, etc.)
+    # and returns 4 if service unit is not found
+    systemctl status pvescriptslocal.service &>/dev/null
+    local exit_code=$?
+    if [ $exit_code -le 3 ]; then
         return 0
     else
         return 1
@@ -781,10 +785,28 @@ main() {
         
         chmod +x "$temp_script"
         log "Executing update from temporary location: $temp_script"
+        log "Detaching update process to survive service shutdown..."
         
-        # Set flag to prevent infinite loop and execute from temporary location
+        # Use setsid and nohup to completely detach from parent process
+        # This ensures the script continues even if the Node.js process is killed
+        nohup setsid bash "$temp_script" PVE_UPDATE_RELOCATED=1 </dev/null >/dev/null 2>&1 &
+        
+        log "Update process started in background (PID: $!)"
+        log "This process will continue even after the service stops"
+        exit 0
+    fi
+    
+    # If we get here, we've been relocated and detached
+    if [ "${1:-}" = "PVE_UPDATE_RELOCATED=1" ]; then
         export PVE_UPDATE_RELOCATED=1
-        exec "$temp_script" "$@"
+        # Reinitialize log since we're in a new process
+        init_log
+        log "Running as detached process, safe to kill parent Node.js process"
+        
+        # Wait a few seconds to allow the parent process to send response to client
+        log "Waiting 3 seconds to allow parent process to respond to client..."
+        sleep 3
+        log "Proceeding with update process"
     fi
     
     # Ensure we're in the application directory
