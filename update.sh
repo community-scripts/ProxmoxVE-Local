@@ -188,14 +188,29 @@ download_release() {
         exit 1
     fi
     
+    # Debug: List contents after extraction
+    log "Contents after extraction:"
+    ls -la "$temp_dir" >&2 || true
     
     # Find the extracted directory (GitHub tarballs have a root directory)
+    log "Looking for extracted directory with pattern: ${REPO_NAME}-*"
     local extracted_dir
-    extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -1)
+    extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" 2>/dev/null | head -1)
     
     # If not found with repo name, try alternative patterns
     if [ -z "$extracted_dir" ]; then
-        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" | head -1)
+        log "Trying pattern: community-scripts-ProxmoxVE-Local-*"
+        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" 2>/dev/null | head -1)
+    fi
+    
+    if [ -z "$extracted_dir" ]; then
+        log "Trying pattern: ProxmoxVE-Local-*"
+        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "ProxmoxVE-Local-*" 2>/dev/null | head -1)
+    fi
+    
+    if [ -z "$extracted_dir" ]; then
+        log "Trying any directory in temp folder"
+        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" 2>/dev/null | head -1)
     fi
     
     # If still not found, error out
@@ -205,6 +220,7 @@ download_release() {
         exit 1
     fi
     
+    log_success "Found extracted directory: $extracted_dir"
     log_success "Release downloaded and extracted successfully"
     echo "$extracted_dir"
 }
