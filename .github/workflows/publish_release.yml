@@ -41,7 +41,6 @@ jobs:
           # Write VERSION file and timestamp to ensure a diff
           version="${{ steps.draft.outputs.tag_name }}"
           echo "$version" | sed 's/^v//' > VERSION
-          echo "# generated at $(date +%s)" >> VERSION
           git add VERSION
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -75,7 +74,7 @@ jobs:
 #            gh pr review $PR_NUMBER --approve
 #          fi
 
-      - name: Approve pull request and merge
+      - name: Merge PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
