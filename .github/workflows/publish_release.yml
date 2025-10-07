@@ -2,6 +2,7 @@ name: Publish draft release
 
 on:
   workflow_dispatch:  
+
 permissions:
   contents: write
   pull-requests: write
@@ -12,6 +13,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
 
       - name: Get latest draft release
         id: draft
@@ -29,6 +31,7 @@ jobs:
           fi
           echo "Found draft version: ${{ steps.draft.outputs.tag_name }}"
 
+
       - name: Create branch and commit VERSION
         run: |
           branch="update-version-${{ steps.draft.outputs.tag_name }}"
@@ -37,12 +40,13 @@ jobs:
           git add VERSION
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" || echo "No changes"
-          git push origin "$branch"
+          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" || echo "No changes to commit"
+          git push --set-upstream origin "$branch" --force
 
-      - name: Create PR
-        uses: peter-evans/create-pull-request@v6
+
+      - name: Create pull request
         id: pr
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: "update-version-${{ steps.draft.outputs.tag_name }}"
@@ -51,6 +55,7 @@ jobs:
           body: "This PR adds or updates the VERSION file for ${{ steps.draft.outputs.tag_name }}"
           labels: automated
 
+
       - name: Auto-merge PR
         uses: peter-evans/enable-pull-request-automerge@v2
         with:
@@ -58,7 +63,7 @@ jobs:
           pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
           merge-method: squash
 
-      - name: Wait for merge
+      - name: Wait for PR merge
         uses: actions/github-script@v7
         with:
           script: |
