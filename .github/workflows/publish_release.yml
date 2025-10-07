@@ -13,25 +13,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Generate a token
-        id: generate-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.APP_ID_APPROVE_AND_MERGE }}
-          private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
-          owner: community-scripts
-          repositories: ProxmoxVE-Local
-
-      - name: Generate a token for PR approval and merge
-        id: generate-token-merge
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.APP_ID_APPROVE_AND_MERGE }}
-          private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
-          owner: community-scripts
-          repositories: ProxmoxVE-Local
-
       
       - name: Get latest draft release
         id: draft
@@ -98,7 +79,7 @@ jobs:
       - name: Approve pull request and merge
         if: env.changed == 'true'
         env:
-          GH_TOKEN: ${{ steps.generate-token-merge.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions-automege[bot]"
           git config --global user.email "github-actions-automege[bot]@users.noreply.github.com"
