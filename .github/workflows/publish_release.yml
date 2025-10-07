@@ -18,7 +18,7 @@ jobs:
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID_APPROVE_AND_MERGE }}
+          app-id: ${{ secrets.APP_ID_APPROVE_AND_MERGE }}
           private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
           owner: community-scripts
           repositories: ProxmoxVE-Local
@@ -27,7 +27,7 @@ jobs:
         id: generate-token-merge
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID_APPROVE_AND_MERGE }}
+          app-id: ${{ secrets.APP_ID_APPROVE_AND_MERGE }}
           private-key: ${{ secrets.APP_KEY_APPROVE_AND_MERGE }}
           owner: community-scripts
           repositories: ProxmoxVE-Local
