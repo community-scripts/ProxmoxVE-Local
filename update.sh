@@ -269,7 +269,20 @@ install_and_build() {
         return 1
     fi
     
+    # Ensure no processes are running before build
+    log "Ensuring no conflicting processes are running..."
+    local pids
+    pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start\|next.*build" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        log_warning "Found running processes, stopping them: $pids"
+        pkill -9 -f "node.*server.js\|npm.*start\|next.*start\|next.*build" 2>/dev/null || true
+        sleep 2
+    fi
+    
     log "Building application..."
+    # Set NODE_ENV to production for build
+    export NODE_ENV=production
+    
     if ! npm run build; then
         log_error "Failed to build application"
         return 1
@@ -344,6 +357,15 @@ main() {
     
     # Stop the application before updating
     stop_application
+    
+    # Double-check that no processes are running
+    local remaining_pids
+    remaining_pids=$(pgrep -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true)
+    if [ -n "$remaining_pids" ]; then
+        log_warning "Some processes still running, force killing: $remaining_pids"
+        pkill -9 -f "node.*server.js\|npm.*start\|next.*start" 2>/dev/null || true
+        sleep 2
+    fi
     
     # Download and extract release
     local source_dir
