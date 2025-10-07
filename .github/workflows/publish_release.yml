@@ -34,17 +34,18 @@ jobs:
 
       - name: Create branch and commit VERSION
         run: |
-          branch="update-version-${{ steps.draft.outputs.tag_name }}"
-          git push origin --delete "$branch" || echo "No remote branch to delete"
-          git fetch origin main
-          git checkout -b "$branch" origin/main
-          echo "${{ steps.draft.outputs.tag_name }}" | sed 's/^v//' > VERSION
-          git add VERSION
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}"
-          git push --set-upstream origin "$branch"
-
+            branch="update-version-${{ steps.draft.outputs.tag_name }}"
+            git push origin --delete "$branch" || echo "No remote branch to delete"
+            git fetch origin main
+            git checkout -b "$branch" origin/main
+            version="${{ steps.draft.outputs.tag_name }}"
+            echo "$version" | sed 's/^v//' > VERSION
+            echo "# generated at $(date +%s)" >> VERSION
+            git add VERSION
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: add VERSION $version" || echo "No changes"
+            git push --set-upstream origin "$branch"
 
       - name: Create pull request
         id: pr
