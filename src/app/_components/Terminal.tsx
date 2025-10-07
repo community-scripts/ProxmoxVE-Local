@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import '@xterm/xterm/css/xterm.css';
+import { Button } from './ui/button';
 
 interface TerminalProps {
   scriptPath: string;
@@ -57,7 +58,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           cursor: '#00ff00',
         },
         fontSize: 14,
-        fontFamily: 'Courier New, monospace',
+        fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
         cursorBlink: true,
         cursorStyle: 'block',
         scrollback: 1000,
@@ -276,44 +277,44 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   // Don't render on server side
   if (!isClient) {
     return (
-      <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-        <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-muted px-4 py-2 flex items-center justify-between border-b border-border">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
               <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
-            <span className="text-gray-300 font-mono text-sm ml-2">
+            <span className="text-foreground font-mono text-sm ml-2">
               {scriptName}
             </span>
           </div>
         </div>
         <div className="h-96 w-full flex items-center justify-center">
-          <div className="text-gray-400">Loading terminal...</div>
+          <div className="text-muted-foreground">Loading terminal...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
       {/* Terminal Header */}
-      <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+      <div className="bg-muted px-4 py-2 flex items-center justify-between border-b border-border">
         <div className="flex items-center space-x-2">
           <div className="flex space-x-1">
             <div className="w-3 h-3 bg-red-500 rounded-full"></div>
             <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
           </div>
-          <span className="text-gray-300 font-mono text-sm ml-2">
+          <span className="text-foreground font-mono text-sm ml-2">
             {scriptName} {mode === 'ssh' && server && `(SSH: ${server.name})`}
           </span>
         </div>
         
         <div className="flex items-center space-x-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          <span className="text-gray-400 text-xs">
+          <span className="text-muted-foreground text-xs">
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
@@ -322,51 +323,51 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
-        className="h-96 w-full"
-        style={{ minHeight: '384px' }}
+        className="h-[32rem] w-full max-w-4xl mx-auto"
+        style={{ minHeight: '512px' }}
       />
 
       {/* Terminal Controls */}
-      <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-t border-gray-700">
+      <div className="bg-muted px-4 py-2 flex items-center justify-between border-t border-border">
         <div className="flex space-x-2">
-          <button
+          <Button
             onClick={startScript}
             disabled={!isConnected || isRunning}
-            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              isConnected && !isRunning
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            variant="default"
+            size="sm"
+            className={isConnected && !isRunning ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
           >
             ▶️ Start
-          </button>
+          </Button>
           
-          <button
+          <Button
             onClick={stopScript}
             disabled={!isRunning}
-            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              isRunning
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            variant="default"
+            size="sm"
+            className={isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
           >
             ⏹️ Stop
-          </button>
+          </Button>
           
-          <button
+          <Button
             onClick={clearOutput}
-            className="px-3 py-1 text-xs font-medium bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            variant="secondary"
+            size="sm"
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
           >
             🗑️ Clear
-          </button>
+          </Button>
         </div>
 
-        <button
+        <Button
           onClick={onClose}
-          className="px-3 py-1 text-xs font-medium bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+          variant="secondary"
+          size="sm"
+          className="bg-gray-600 text-white hover:bg-gray-700"
         >
           ✕ Close
-        </button>
+        </Button>
       </div>
     </div>
   );

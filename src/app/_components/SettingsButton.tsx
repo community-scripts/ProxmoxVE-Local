@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SettingsModal } from './SettingsModal';
+import { Button } from './ui/button';
 
 export function SettingsButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,12 +10,14 @@ export function SettingsButton() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-          Add and manage PVE Servers
+        <div className="text-sm text-muted-foreground font-medium">
+          Add and manage PVE Servers: 
         </div>
-        <button
+        <Button
           onClick={() => setIsOpen(true)}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+          variant="outline"
+          size="default"
+          className="inline-flex items-center"
           title="Add PVE Server"
         >
           <svg
@@ -38,7 +41,7 @@ export function SettingsButton() {
             />
           </svg>
           Manage PVE Servers
-        </button>
+        </Button>
       </div>
 
       <SettingsModal isOpen={isOpen} onClose={() => setIsOpen(false)} />

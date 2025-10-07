@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
-import { StatusBadge, ExecutionModeBadge } from './Badge';
+import { StatusBadge } from './Badge';
+import { Button } from './ui/button';
 
 interface InstalledScript {
   id: number;
@@ -15,7 +16,6 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
-  execution_mode: 'local' | 'ssh';
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
@@ -25,7 +25,7 @@ export function InstalledScriptsTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'in_progress'>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
-  const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any; mode: 'local' | 'ssh' } | null>(null);
+  const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
   const [showAddForm, setShowAddForm] = useState(false);
@@ -80,7 +80,7 @@ export function InstalledScriptsTab() {
     const matchesStatus = statusFilter === 'all' || script.status === statusFilter;
     
     const matchesServer = serverFilter === 'all' || 
-                         (serverFilter === 'local' && script.execution_mode === 'local') ||
+                         (serverFilter === 'local' && !script.server_name) ||
                          (script.server_name === serverFilter);
     
     return matchesSearch && matchesStatus && matchesServer;
@@ -111,7 +111,7 @@ export function InstalledScriptsTab() {
     if (confirm(`Are you sure you want to update ${script.script_name}?`)) {
       // Get server info if it's SSH mode
       let server = null;
-      if (script.execution_mode === 'ssh' && script.server_id && script.server_user && script.server_password) {
+      if (script.server_id && script.server_user && script.server_password) {
         server = {
           id: script.server_id,
           name: script.server_name,
@@ -124,8 +124,7 @@ export function InstalledScriptsTab() {
       setUpdatingScript({
         id: script.id,
         containerId: script.container_id,
-        server: server,
-        mode: script.execution_mode
+        server: server
       });
     }
   };
@@ -205,7 +204,7 @@ export function InstalledScriptsTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading installed scripts...</div>
+        <div className="text-muted-foreground">Loading installed scripts...</div>
       </div>
     );
   }
@@ -218,7 +217,7 @@ export function InstalledScriptsTab() {
           <Terminal
             scriptPath={`update-${updatingScript.containerId}`}
             onClose={handleCloseUpdateTerminal}
-            mode={updatingScript.mode}
+            mode={updatingScript.server ? 'ssh' : 'local'}
             server={updatingScript.server}
             isUpdate={true}
             containerId={updatingScript.containerId}
@@ -227,79 +226,80 @@ export function InstalledScriptsTab() {
       )}
 
       {/* Header with Stats */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Installed Scripts</h2>
+      <div className="bg-card rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-foreground mb-4">Installed Scripts</h2>
         
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-              <div className="text-sm text-blue-800">Total Installations</div>
+            <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-400">{stats.total}</div>
+              <div className="text-sm text-blue-300">Total Installations</div>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{stats.byStatus.success}</div>
-              <div className="text-sm text-green-800">Successful</div>
+            <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-400">{stats.byStatus.success}</div>
+              <div className="text-sm text-green-300">Successful</div>
             </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">{stats.byStatus.failed}</div>
-              <div className="text-sm text-red-800">Failed</div>
+            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-red-400">{stats.byStatus.failed}</div>
+              <div className="text-sm text-red-300">Failed</div>
             </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-600">{stats.byStatus.in_progress}</div>
-              <div className="text-sm text-yellow-800">In Progress</div>
+            <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-400">{stats.byStatus.in_progress}</div>
+              <div className="text-sm text-yellow-300">In Progress</div>
             </div>
           </div>
         )}
 
         {/* Add Script Button */}
         <div className="mb-4">
-          <button
+          <Button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            variant={showAddForm ? "outline" : "default"}
+            size="default"
           >
             {showAddForm ? 'Cancel Add Script' : '+ Add Manual Script Entry'}
-          </button>
+          </Button>
         </div>
 
         {/* Add Script Form */}
         {showAddForm && (
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Add Manual Script Entry</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="mb-6 p-6 bg-card rounded-lg border border-border shadow-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-6">Add Manual Script Entry</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
                   Script Name *
                 </label>
                 <input
                   type="text"
                   value={addFormData.script_name}
                   onChange={(e) => handleAddFormChange('script_name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                   placeholder="Enter script name"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
                   Container ID
                 </label>
                 <input
                   type="text"
                   value={addFormData.container_id}
                   onChange={(e) => handleAddFormChange('container_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                   placeholder="Enter container ID"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
                   Server
                 </label>
                 <select
                   value={addFormData.server_id}
                   onChange={(e) => handleAddFormChange('server_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                 >
-                  <option value="local">Select Server (Local if none)</option>
+                  <option value="local">Select Server</option>
                   {serversData?.servers?.map((server: any) => (
                     <option key={server.id} value={server.id}>
                       {server.name}
@@ -308,20 +308,22 @@ export function InstalledScriptsTab() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end space-x-3 mt-4">
-              <button
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
                 onClick={handleCancelAdd}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                variant="outline"
+                size="default"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddScript}
                 disabled={createScriptMutation.isPending}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="default"
+                size="default"
               >
                 {createScriptMutation.isPending ? 'Adding...' : 'Add Script'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -334,14 +336,14 @@ export function InstalledScriptsTab() {
               placeholder="Search scripts, container IDs, or servers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+              className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'success' | 'failed' | 'in_progress')}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Status</option>
             <option value="success">Success</option>
@@ -352,7 +354,7 @@ export function InstalledScriptsTab() {
           <select
             value={serverFilter}
             onChange={(e) => setServerFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Servers</option>
             <option value="local">Local</option>
@@ -364,42 +366,39 @@ export function InstalledScriptsTab() {
       </div>
 
       {/* Scripts Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-card rounded-lg shadow overflow-hidden">
         {filteredScripts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-8 text-muted-foreground">
             {scripts.length === 0 ? 'No installed scripts found.' : 'No scripts match your filters.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Script Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Container ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Server
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Mode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Installation Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {filteredScripts.map((script) => (
-                  <tr key={script.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={script.id} className="hover:bg-accent">
                     <td className="px-6 py-4 whitespace-nowrap">
                       {editingScriptId === script.id ? (
                         <div className="space-y-2">
@@ -407,15 +406,15 @@ export function InstalledScriptsTab() {
                             type="text"
                             value={editFormData.script_name}
                             onChange={(e) => handleInputChange('script_name', e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="Script name"
                           />
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{script.script_path}</div>
+                          <div className="text-xs text-muted-foreground">{script.script_path}</div>
                         </div>
                       ) : (
                         <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.script_name}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{script.script_path}</div>
+                          <div className="text-sm font-medium text-foreground">{script.script_name}</div>
+                          <div className="text-sm text-muted-foreground">{script.script_path}</div>
                         </div>
                       )}
                     </td>
@@ -425,81 +424,76 @@ export function InstalledScriptsTab() {
                           type="text"
                           value={editFormData.container_id}
                           onChange={(e) => handleInputChange('container_id', e.target.value)}
-                          className="w-full px-2 py-1 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="Container ID"
                         />
                       ) : (
                         script.container_id ? (
-                          <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{String(script.container_id)}</span>
+                          <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
                         ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                          <span className="text-sm text-muted-foreground">-</span>
                         )
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {script.execution_mode === 'local' ? (
-                        <span className="text-sm text-gray-900 dark:text-gray-100">Local</span>
-                      ) : (
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{script.server_name}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{script.server_ip}</div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <ExecutionModeBadge mode={script.execution_mode}>
-                        {script.execution_mode.toUpperCase()}
-                      </ExecutionModeBadge>
+                      <span className="text-sm text-muted-foreground">
+                        {script.server_name ?? 'Local'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={script.status}>
                         {script.status.replace('_', ' ').toUpperCase()}
                       </StatusBadge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {formatDate(String(script.installation_date))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         {editingScriptId === script.id ? (
                           <>
-                            <button
+                            <Button
                               onClick={handleSaveEdit}
                               disabled={updateScriptMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50"
+                              variant="default"
+                              size="sm"
                             >
                               {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={handleCancelEdit}
-                              className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium"
+                              variant="outline"
+                              size="sm"
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </>
                         ) : (
                           <>
-                            <button
+                            <Button
                               onClick={() => handleEditScript(script)}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium"
+                              variant="default"
+                              size="sm"
                             >
                               Edit
-                            </button>
+                            </Button>
                             {script.container_id && (
-                              <button
+                              <Button
                                 onClick={() => handleUpdateScript(script)}
-                                className="text-blue-600 hover:text-blue-900"
+                                variant="link"
+                                size="sm"
                               >
                                 Update
-                              </button>
+                              </Button>
                             )}
-                            <button
+                            <Button
                               onClick={() => handleDeleteScript(Number(script.id))}
-                              className="text-red-600 hover:text-red-900"
+                              variant="destructive"
+                              size="sm"
                               disabled={deleteScriptMutation.isPending}
                             >
                               {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                            </button>
+                            </Button>
                           </>
                         )}
                       </div>

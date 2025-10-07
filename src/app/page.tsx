@@ -7,6 +7,7 @@ import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
 import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
 import { SettingsButton } from './_components/SettingsButton';
+import { Button } from './_components/ui/button';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
@@ -21,21 +22,21 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <main className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             🚀 PVE Scripts Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-muted-foreground">
             Manage and execute Proxmox helper scripts locally with live output streaming
           </p>
         </div>
 
         {/* Controls */}
         <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-6 bg-card rounded-lg shadow-sm border border-border">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <SettingsButton />
             </div>
@@ -47,28 +48,30 @@ export default function Home() {
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="border-b border-border">
             <nav className="-mb-px flex space-x-8">
-              <button
+              <Button
+                variant="ghost"
+                size="null"
                 onClick={() => setActiveTab('scripts')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`px-3 py-1 text-sm ${
                   activeTab === 'scripts'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground'
+                }`}> 
                 📦 Available Scripts
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="null"
                 onClick={() => setActiveTab('installed')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`px-3 py-1 text-sm ${
                   activeTab === 'installed'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground'
+                }`}>
                 🗂️ Installed Scripts
-              </button>
+              </Button>
             </nav>
           </div>
         </div>

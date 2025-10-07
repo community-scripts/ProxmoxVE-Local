@@ -8,6 +8,7 @@ import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
 import { ExecutionModeModal } from "./ExecutionModeModal";
 import { TypeBadge, UpdateableBadge, PrivilegedBadge, NoteBadge } from "./Badge";
+import { Button } from "./ui/button";
 
 interface ScriptDetailModalProps {
   script: Script | null;
@@ -132,12 +133,12 @@ export function ScriptDetailModal({
 
   return (
     <div
-      className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] min-h-[80vh] overflow-y-auto">
+      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] min-h-[80vh] overflow-y-auto border border-border">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+        <div className="flex items-center justify-between border-b border-border p-6">
           <div className="flex items-center space-x-4">
             {script.logo && !imageError ? (
               <Image
@@ -149,14 +150,14 @@ export function ScriptDetailModal({
                 onError={handleImageError}
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-700">
-                <span className="text-2xl font-semibold text-gray-500 dark:text-gray-400">
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
+                <span className="text-2xl font-semibold text-muted-foreground">
                   {script.name.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <h2 className="text-2xl font-bold text-foreground">
                 {script.name}
               </h2>
               <div className="mt-1 flex items-center space-x-2">
@@ -171,9 +172,11 @@ export function ScriptDetailModal({
             {scriptFilesData?.success &&
               scriptFilesData.ctExists &&
               onInstallScript && (
-                <button
+                <Button
                   onClick={handleInstallScript}
-                  className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                  variant="outline"
+                  size="default"
+                  className="flex items-center space-x-2"
                 >
                   <svg
                     className="h-4 w-4"
@@ -189,15 +192,17 @@ export function ScriptDetailModal({
                     />
                   </svg>
                   <span>Install</span>
-                </button>
+                </Button>
               )}
 
             {/* View Button - only show if script files exist */}
             {scriptFilesData?.success &&
               (scriptFilesData.ctExists || scriptFilesData.installExists) && (
-                <button
+                <Button
                   onClick={handleViewScript}
-                  className="flex items-center space-x-2 rounded-lg bg-purple-600 px-4 py-2 font-medium text-white transition-colors hover:bg-purple-700"
+                  variant="outline"
+                  size="default"
+                  className="flex items-center space-x-2 "
                 >
                   <svg
                     className="h-4 w-4"
@@ -219,7 +224,7 @@ export function ScriptDetailModal({
                     />
                   </svg>
                   <span>View</span>
-                </button>
+                </Button>
               )}
 
             {/* Load/Update Script Button */}
@@ -239,7 +244,7 @@ export function ScriptDetailModal({
                     disabled={isLoading}
                     className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
                       isLoading
-                        ? "cursor-not-allowed bg-gray-400 text-white"
+                        ? "cursor-not-allowed bg-muted text-muted-foreground"
                         : "bg-green-600 text-white hover:bg-green-700"
                     }`}
                   >
@@ -273,7 +278,7 @@ export function ScriptDetailModal({
                 return (
                   <button
                     disabled
-                    className="flex cursor-not-allowed items-center space-x-2 rounded-lg bg-gray-400 px-4 py-2 font-medium text-white transition-colors"
+                    className="flex cursor-not-allowed items-center space-x-2 rounded-lg bg-muted px-4 py-2 font-medium text-muted-foreground transition-colors"
                   >
                     <svg
                       className="h-4 w-4"
@@ -299,7 +304,7 @@ export function ScriptDetailModal({
                     disabled={isLoading}
                     className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
                       isLoading
-                        ? "cursor-not-allowed bg-gray-400 text-white"
+                        ? "cursor-not-allowed bg-muted text-muted-foreground"
                         : "bg-orange-600 text-white hover:bg-orange-700"
                     }`}
                   >
@@ -330,9 +335,11 @@ export function ScriptDetailModal({
                 );
               }
             })()}
-            <button
+            <Button
               onClick={onClose}
-              className="text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
             >
               <svg
                 className="h-6 w-6"
@@ -347,20 +354,20 @@ export function ScriptDetailModal({
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Load Message */}
         {loadMessage && (
-          <div className="mx-6 mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
             {loadMessage}
           </div>
         )}
 
         {/* Script Files Status */}
         {(scriptFilesLoading || comparisonLoading) && (
-          <div className="mx-6 mb-4 rounded-lg bg-blue-50 p-3 text-sm">
+          <div className="mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
             <div className="flex items-center space-x-2">
               <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
               <span>Loading script status...</span>
@@ -385,11 +392,11 @@ export function ScriptDetailModal({
             }
 
             return (
-              <div className="mx-6 mb-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+              <div className="mx-6 mb-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <div
-                      className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-gray-300"}`}
+                      className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-muted"}`}
                     ></div>
                     <span>
                       {scriptType}:{" "}
@@ -398,7 +405,7 @@ export function ScriptDetailModal({
                   </div>
                   <div className="flex items-center space-x-2">
                     <div
-                      className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-green-500" : "bg-gray-300"}`}
+                      className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-green-500" : "bg-muted"}`}
                     ></div>
                     <span>
                       Install Script:{" "}
@@ -426,7 +433,7 @@ export function ScriptDetailModal({
                     )}
                 </div>
                 {scriptFilesData.files.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Files: {scriptFilesData.files.join(", ")}
                   </div>
                 )}
@@ -438,10 +445,10 @@ export function ScriptDetailModal({
         <div className="space-y-6 p-6">
           {/* Description */}
           <div>
-            <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h3 className="mb-2 text-lg font-semibold text-foreground">
               Description
             </h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-muted-foreground">
               {script.description}
             </p>
           </div>
@@ -449,50 +456,50 @@ export function ScriptDetailModal({
           {/* Basic Information */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="mb-3 text-lg font-semibold text-foreground">
                 Basic Information
               </h3>
               <dl className="space-y-2">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  <dt className="text-sm font-medium text-muted-foreground">
                     Slug
                   </dt>
-                  <dd className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                  <dd className="font-mono text-sm text-foreground">
                     {script.slug}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  <dt className="text-sm font-medium text-muted-foreground">
                     Date Created
                   </dt>
-                  <dd className="text-sm text-gray-900 dark:text-gray-100">
+                  <dd className="text-sm text-foreground">
                     {script.date_created}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  <dt className="text-sm font-medium text-muted-foreground">
                     Categories
                   </dt>
-                  <dd className="text-sm text-gray-900 dark:text-gray-100">
+                  <dd className="text-sm text-foreground">
                     {script.categories.join(", ")}
                   </dd>
                 </div>
                 {script.interface_port && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Interface Port
                     </dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dd className="text-sm text-foreground">
                       {script.interface_port}
                     </dd>
                   </div>
                 )}
                 {script.config_path && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Config Path
                     </dt>
-                    <dd className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                    <dd className="font-mono text-sm text-foreground">
                       {script.config_path}
                     </dd>
                   </div>
@@ -501,13 +508,13 @@ export function ScriptDetailModal({
             </div>
 
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="mb-3 text-lg font-semibold text-foreground">
                 Links
               </h3>
               <dl className="space-y-2">
                 {script.website && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Website
                     </dt>
                     <dd className="text-sm">
@@ -515,7 +522,7 @@ export function ScriptDetailModal({
                         href={script.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="break-all text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        className="break-all text-primary hover:text-primary/80"
                       >
                         {script.website}
                       </a>
@@ -524,7 +531,7 @@ export function ScriptDetailModal({
                 )}
                 {script.documentation && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Documentation
                     </dt>
                     <dd className="text-sm">
@@ -532,7 +539,7 @@ export function ScriptDetailModal({
                         href={script.documentation}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="break-all text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        className="break-all text-primary hover:text-primary/80"
                       >
                         {script.documentation}
                       </a>
@@ -548,53 +555,53 @@ export function ScriptDetailModal({
             script.type !== "pve" &&
             script.type !== "addon" && (
               <div>
-                <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <h3 className="mb-3 text-lg font-semibold text-foreground">
                   Install Methods
                 </h3>
                 <div className="space-y-4">
                   {script.install_methods.map((method, index) => (
                     <div
                       key={index}
-                      className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-600 dark:bg-gray-700"
+                      className="rounded-lg border border-border bg-card p-4"
                     >
                       <div className="mb-3 flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 capitalize dark:text-gray-100">
+                        <h4 className="font-medium text-foreground capitalize">
                           {method.type}
                         </h4>
-                        <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
+                        <span className="font-mono text-sm text-muted-foreground">
                           {method.script}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                         <div>
-                          <dt className="font-medium text-gray-500 dark:text-gray-400">
+                          <dt className="font-medium text-muted-foreground">
                             CPU
                           </dt>
-                          <dd className="text-gray-900 dark:text-gray-100">
+                          <dd className="text-foreground">
                             {method.resources.cpu} cores
                           </dd>
                         </div>
                         <div>
-                          <dt className="font-medium text-gray-500 dark:text-gray-400">
+                          <dt className="font-medium text-muted-foreground">
                             RAM
                           </dt>
-                          <dd className="text-gray-900 dark:text-gray-100">
+                          <dd className="text-foreground">
                             {method.resources.ram} MB
                           </dd>
                         </div>
                         <div>
-                          <dt className="font-medium text-gray-500 dark:text-gray-400">
+                          <dt className="font-medium text-muted-foreground">
                             HDD
                           </dt>
-                          <dd className="text-gray-900 dark:text-gray-100">
+                          <dd className="text-foreground">
                             {method.resources.hdd} GB
                           </dd>
                         </div>
                         <div>
-                          <dt className="font-medium text-gray-500 dark:text-gray-400">
+                          <dt className="font-medium text-muted-foreground">
                             OS
                           </dt>
-                          <dd className="text-gray-900 dark:text-gray-100">
+                          <dd className="text-foreground">
                             {method.resources.os} {method.resources.version}
                           </dd>
                         </div>
@@ -609,26 +616,26 @@ export function ScriptDetailModal({
           {(script.default_credentials.username ??
             script.default_credentials.password) && (
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              <h3 className="mb-3 text-lg font-semibold text-foreground">
                 Default Credentials
               </h3>
               <dl className="space-y-2">
                 {script.default_credentials.username && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Username
                     </dt>
-                    <dd className="font-mono text-sm text-gray-900">
+                    <dd className="font-mono text-sm text-foreground">
                       {script.default_credentials.username}
                     </dd>
                   </div>
                 )}
                 {script.default_credentials.password && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       Password
                     </dt>
-                    <dd className="font-mono text-sm text-gray-900">
+                    <dd className="font-mono text-sm text-foreground">
                       {script.default_credentials.password}
                     </dd>
                   </div>
@@ -640,7 +647,7 @@ export function ScriptDetailModal({
           {/* Notes */}
           {script.notes.length > 0 && (
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="mb-3 text-lg font-semibold text-foreground">
                 Notes
               </h3>
               <ul className="space-y-2">
@@ -655,10 +662,10 @@ export function ScriptDetailModal({
                       key={index}
                       className={`rounded-lg p-3 text-sm ${
                         noteType === "warning"
-                          ? "border-l-4 border-yellow-400 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200"
+                          ? "border-l-4 border-yellow-400 bg-yellow-500/10 text-yellow-400"
                           : noteType === "error"
-                            ? "border-l-4 border-red-400 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200"
-                            : "bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            ? "border-l-4 border-destructive bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground"
                       }`}
                     >
                       <div className="flex items-start">

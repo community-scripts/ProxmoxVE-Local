@@ -195,24 +195,24 @@ export function CategorySidebar({
     });
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+    <div className={`bg-card rounded-lg shadow-md border border-border transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-80'
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         {!isCollapsed && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Categories</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{totalScripts} Total scripts</p>
+            <h3 className="text-lg font-semibold text-foreground">Categories</h3>
+            <p className="text-sm text-muted-foreground">{totalScripts} Total scripts</p>
           </div>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
           title={isCollapsed ? 'Expand categories' : 'Collapse categories'}
         >
           <svg 
-            className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${
+            className={`w-5 h-5 text-muted-foreground transition-transform ${
               isCollapsed ? 'rotate-180' : ''
             }`} 
             fill="none" 
@@ -231,23 +231,23 @@ export function CategorySidebar({
             {/* "All Categories" option */}
             <button
               onClick={() => onCategorySelect(null)}
-              className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
-                selectedCategory === null
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                    selectedCategory === null
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'hover:bg-accent text-muted-foreground'
+                  }`}
             >
               <div className="flex items-center space-x-3">
                 <CategoryIcon 
                   iconName="template" 
-                  className={`w-5 h-5 ${selectedCategory === null ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`} 
+                  className={`w-5 h-5 ${selectedCategory === null ? 'text-primary' : 'text-muted-foreground'}`} 
                 />
                 <span className="font-medium">All Categories</span>
               </div>
               <span className={`text-sm px-2 py-1 rounded-full ${
                 selectedCategory === null
-                  ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
               }`}>
                 {totalScripts}
               </span>
@@ -263,14 +263,14 @@ export function CategorySidebar({
                   onClick={() => onCategorySelect(category)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
                     isSelected
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'hover:bg-accent text-muted-foreground'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     <CategoryIcon 
                       iconName={categoryIconMapping[category] ?? 'box'} 
-                      className={`w-5 h-5 ${isSelected ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`} 
+                      className={`w-5 h-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} 
                     />
                     <span className="font-medium capitalize">
                       {category.replace(/[_-]/g, ' ')}
@@ -278,8 +278,8 @@ export function CategorySidebar({
                   </div>
                   <span className={`text-sm px-2 py-1 rounded-full ${
                     isSelected
-                      ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      ? 'bg-primary/20 text-primary'
+                      : 'bg-muted text-muted-foreground'
                   }`}>
                     {count}
                   </span>
@@ -297,27 +297,27 @@ export function CategorySidebar({
           <div className="group relative">
             <button
               onClick={() => onCategorySelect(null)}
-              className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors relative ${
-                selectedCategory === null
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+                className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors relative ${
+                  selectedCategory === null
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'hover:bg-accent text-muted-foreground'
+                }`}
             >
               <CategoryIcon 
                 iconName="template" 
-                className={`w-5 h-5 ${selectedCategory === null ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`} 
+                className={`w-5 h-5 ${selectedCategory === null ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} 
               />
               <span className={`text-xs mt-1 px-1 rounded ${
                 selectedCategory === null
-                  ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
               }`}>
                 {totalScripts}
               </span>
             </button>
             
             {/* Tooltip */}
-            <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 dark:bg-gray-700 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+            <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
               All Categories ({totalScripts})
             </div>
           </div>
@@ -332,25 +332,25 @@ export function CategorySidebar({
                   onClick={() => onCategorySelect(category)}
                   className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors relative ${
                     isSelected
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'hover:bg-accent text-muted-foreground'
                   }`}
                 >
                   <CategoryIcon 
                     iconName={categoryIconMapping[category] ?? 'box'} 
-                    className={`w-5 h-5 ${isSelected ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`} 
+                    className={`w-5 h-5 ${isSelected ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} 
                   />
                   <span className={`text-xs mt-1 px-1 rounded ${
                     isSelected
-                      ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      ? 'bg-primary/20 text-primary'
+                      : 'bg-muted text-muted-foreground'
                   }`}>
                     {count}
                   </span>
                 </button>
                 
                 {/* Tooltip */}
-                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 dark:bg-gray-700 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
                   {category} ({count})
                 </div>
               </div>

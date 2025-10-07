@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
 import { ServerList } from './ServerList';
+import { Button } from './ui/button';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -98,54 +99,60 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
-          <button
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-2xl font-bold text-card-foreground">Settings</h2>
+          <Button
             onClick={onClose}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            <button
+            <Button
               onClick={() => setActiveTab('servers')}
+              variant="ghost"
+              size="null"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'servers'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Server Settings
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setActiveTab('general')}
+              variant="ghost"
+              size="null"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               General
-            </button>
+            </Button>
           </nav>
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {error && (
-            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+            <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-md">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400 dark:text-red-300" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -160,14 +167,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {activeTab === 'servers' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Server Configurations</h3>
+                <h3 className="text-lg font-medium text-foreground mb-4">Server Configurations</h3>
                 <ServerForm onSubmit={handleCreateServer} />
               </div>
               
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Saved Servers</h3>
+                <h3 className="text-lg font-medium text-foreground mb-4">Saved Servers</h3>
                 {loading ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-muted-foreground">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     <p className="mt-2 text-gray-600">Loading servers...</p>
                   </div>
@@ -184,8 +191,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {activeTab === 'general' && (
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">General Settings</h3>
-              <p className="text-gray-600 dark:text-gray-300">General settings will be available in a future update.</p>
+              <h3 className="text-lg font-medium text-foreground mb-4">General Settings</h3>
+              <p className="text-muted-foreground">General settings will be available in a future update.</p>
             </div>
           )}
         </div>

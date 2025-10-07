@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Button } from "./ui/button";
 
 export interface FilterState {
   searchQuery: string;
@@ -74,13 +75,13 @@ export function FilterBar({
   };
 
   return (
-    <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
       {/* Search Bar */}
       <div className="mb-4">
         <div className="relative max-w-md">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <svg
-              className="h-5 w-5 text-gray-400 dark:text-gray-500"
+              className="h-5 w-5 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -98,12 +99,14 @@ export function FilterBar({
             placeholder="Search scripts..."
             value={filters.searchQuery}
             onChange={(e) => updateFilters({ searchQuery: e.target.value })}
-            className="block w-full rounded-lg border border-gray-300 bg-white py-3 pr-10 pl-10 text-sm leading-5 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:placeholder-gray-300 dark:focus:ring-blue-400"
+            className="block w-full rounded-lg border border-input bg-background py-3 pr-10 pl-10 text-sm leading-5 text-foreground placeholder-muted-foreground focus:border-primary focus:placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
           />
           {filters.searchQuery && (
-            <button
+            <Button
               onClick={() => updateFilters({ searchQuery: "" })}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              variant="ghost"
+              size="icon"
+              className="absolute inset-y-0 right-0 pr-3 text-muted-foreground hover:text-foreground"
             >
               <svg
                 className="h-5 w-5"
@@ -118,7 +121,7 @@ export function FilterBar({
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -126,7 +129,7 @@ export function FilterBar({
       {/* Filter Buttons */}
       <div className="mb-4 flex flex-wrap gap-3">
         {/* Updateable Filter */}
-        <button
+        <Button
           onClick={() => {
             const next =
               filters.showUpdatable === null
@@ -136,25 +139,29 @@ export function FilterBar({
                   : null;
             updateFilters({ showUpdatable: next });
           }}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            filters.showUpdatable === null
-              ? "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-              : filters.showUpdatable === true
-                ? "border border-green-300 bg-green-100 text-green-800 dark:border-green-700 dark:bg-green-900/50 dark:text-green-200"
-                : "border border-red-300 bg-red-100 text-red-800 dark:border-red-700 dark:bg-red-900/50 dark:text-red-200"
-          }`}
+          variant="outline"
+          size="default"
+            className={`${
+              filters.showUpdatable === null
+                ? "bg-muted text-muted-foreground hover:bg-accent"
+                : filters.showUpdatable === true
+                  ? "border border-green-500/20 bg-green-500/10 text-green-400"
+                  : "border border-destructive/20 bg-destructive/10 text-destructive"
+            }`}
         >
           {getUpdatableButtonText()}
-        </button>
+        </Button>
 
         {/* Type Dropdown */}
         <div className="relative">
-          <button
+          <Button
             onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
-            className={`flex items-center space-x-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            variant="outline"
+            size="default"
+            className={`flex items-center space-x-2 ${
               filters.selectedTypes.length === 0
-                ? "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                : "border border-cyan-300 bg-cyan-100 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-200"
+                ? "bg-muted text-muted-foreground hover:bg-accent"
+                : "border border-primary/20 bg-primary/10 text-primary"
             }`}
           >
             <span>{getTypeButtonText()}</span>
@@ -171,15 +178,15 @@ export function FilterBar({
                 d="M19 9l-7 7-7-7"
               />
             </svg>
-          </button>
+          </Button>
 
           {isTypeDropdownOpen && (
-            <div className="absolute top-full left-0 z-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            <div className="absolute top-full left-0 z-10 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
               <div className="p-2">
                 {SCRIPT_TYPES.map((type) => (
                   <label
                     key={type.value}
-                    className="flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2 hover:bg-accent"
                   >
                     <input
                       type="checkbox"
@@ -200,25 +207,27 @@ export function FilterBar({
                           });
                         }
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                      className="rounded border-input text-primary focus:ring-primary"
                     />
                     <span className="text-lg">{type.icon}</span>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="text-sm text-muted-foreground">
                       {type.label}
                     </span>
                   </label>
                 ))}
               </div>
-              <div className="border-t border-gray-200 p-2 dark:border-gray-700">
-                <button
+              <div className="border-t border-border p-2">
+                <Button
                   onClick={() => {
                     updateFilters({ selectedTypes: [] });
                     setIsTypeDropdownOpen(false);
                   }}
-                  className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   Clear all
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -232,20 +241,22 @@ export function FilterBar({
             onChange={(e) =>
               updateFilters({ sortBy: e.target.value as "name" | "created" })
             }
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:focus:ring-blue-400"
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
           >
             <option value="name">📝 By Name</option>
             <option value="created">📅 By Created Date</option>
           </select>
 
           {/* Sort Order Button */}
-          <button
+          <Button
             onClick={() =>
               updateFilters({
                 sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
               })
             }
-            className="flex items-center space-x-1 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            variant="outline"
+            size="default"
+            className="flex items-center space-x-1 bg-muted text-muted-foreground hover:bg-accent"
           >
             {filters.sortOrder === "asc" ? (
               <>
@@ -286,20 +297,20 @@ export function FilterBar({
                 </span>
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Filter Summary and Clear All */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           {filteredCount === totalScripts ? (
             <span>Showing all {totalScripts} scripts</span>
           ) : (
             <span>
               {filteredCount} of {totalScripts} scripts{" "}
               {hasActiveFilters && (
-                <span className="font-medium text-blue-600 dark:text-blue-400">
+                <span className="font-medium text-blue-600">
                   (filtered)
                 </span>
               )}
@@ -308,9 +319,11 @@ export function FilterBar({
         </div>
 
         {hasActiveFilters && (
-          <button
+          <Button
             onClick={clearAllFilters}
-            className="flex items-center space-x-1 rounded-md px-3 py-1 text-sm text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+            variant="ghost"
+            size="sm"
+            className="flex items-center space-x-1 text-red-600 hover:bg-red-50 hover:text-red-800"
           >
             <svg
               className="h-4 w-4"
@@ -326,7 +339,7 @@ export function FilterBar({
               />
             </svg>
             <span>Clear all filters</span>
-          </button>
+          </Button>
         )}
       </div>
 

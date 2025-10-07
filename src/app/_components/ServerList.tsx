@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
+import { Button } from './ui/button';
 
 interface ServerListProps {
   servers: Server[];
@@ -71,12 +72,12 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
 
   if (servers.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center py-8 text-muted-foreground">
+        <svg className="mx-auto h-12 w-12 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No servers configured</h3>
-        <p className="mt-1 text-sm text-gray-500">Get started by adding a new server configuration above.</p>
+        <h3 className="mt-2 text-sm font-medium text-foreground">No servers configured</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Get started by adding a new server configuration above.</p>
       </div>
     );
   }
@@ -84,10 +85,10 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
   return (
     <div className="space-y-4">
       {servers.map((server) => (
-        <div key={server.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+        <div key={server.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
           {editingId === server.id ? (
             <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">Edit Server</h4>
+              <h4 className="text-lg font-medium text-foreground mb-4">Edit Server</h4>
               <ServerForm
                 initialData={{
                   name: server.name,
@@ -112,8 +113,8 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-medium text-gray-900 truncate">{server.name}</h3>
-                    <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                    <h3 className="text-lg font-medium text-foreground truncate">{server.name}</h3>
+                    <div className="mt-1 flex items-center space-x-4 text-sm text-muted-foreground">
                       <span className="flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
@@ -127,7 +128,7 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                         {server.user}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs text-gray-400">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Created: {new Date(server.created_at).toLocaleDateString()}
                       {server.updated_at !== server.created_at && (
                         <span> • Updated: {new Date(server.updated_at).toLocaleDateString()}</span>
@@ -162,10 +163,12 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <button
+                <Button
                   onClick={() => handleTestConnection(server)}
                   disabled={testingConnections.has(server.id)}
-                  className="inline-flex items-center px-3 py-1.5 border border-green-300 text-xs font-medium rounded text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500/20 text-green-400 bg-green-500/10 hover:bg-green-500/20"
                 >
                   {testingConnections.has(server.id) ? (
                     <>
@@ -182,25 +185,28 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                       Test Connection
                     </>
                   )}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleEdit(server)}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  variant="outline"
+                  size="sm"
                 >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   Edit
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleDelete(server.id)}
-                  className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  variant="outline"
+                  size="sm"
+                  className="border-destructive/20 text-destructive bg-destructive/10 hover:bg-destructive/20"
                 >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           )}
