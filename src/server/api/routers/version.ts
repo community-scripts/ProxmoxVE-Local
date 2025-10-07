@@ -116,16 +116,89 @@ export const versionRouter = createTRPCRouter({
         const updateScriptPath = join(process.cwd(), 'update.sh');
         
         return new Promise((resolve) => {
-          // Use nohup to run the script independently of the current process
-          const child = spawn('nohup', ['bash', updateScriptPath], {
+          // Create a safer wrapper script that preserves the web server
+          const wrapperScript = `#!/bin/bash
+# Wrapper script to run update while preserving the web server process
+WEB_SERVER_PID=${process.pid}
+LOG_FILE="/tmp/update.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting update process (preserving web server PID: $WEB_SERVER_PID)" | tee -a "$LOG_FILE"
+
+# Create a modified kill function that excludes our web server
+safe_kill_node_processes() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping Node.js processes (excluding web server)..." | tee -a "$LOG_FILE"
+    
+    # Find all node server.js processes except our web server
+    local pids
+    pids=$(pgrep -f "node server.js" 2>/dev/null | grep -v "^$WEB_SERVER_PID$" || true)
+    
+    if [ -n "$pids" ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Found Node.js processes to stop: $pids" | tee -a "$LOG_FILE"
+        for pid in $pids; do
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping PID: $pid" | tee -a "$LOG_FILE"
+                kill -TERM "$pid" 2>/dev/null || true
+            fi
+        done
+        
+        # Wait for graceful shutdown
+        sleep 3
+        
+        # Force kill any remaining processes (except our web server)
+        local remaining
+        remaining=$(pgrep -f "node server.js" 2>/dev/null | grep -v "^$WEB_SERVER_PID$" || true)
+        if [ -n "$remaining" ]; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Force killing remaining processes: $remaining" | tee -a "$LOG_FILE"
+            for pid in $remaining; do
+                kill -9 "$pid" 2>/dev/null || true
+            done
+        fi
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] No other Node.js processes found to stop" | tee -a "$LOG_FILE"
+    fi
+}
+
+# Export the function so the update script can use it
+export -f safe_kill_node_processes
+
+# Run the original update script but replace the kill commands
+bash -c '
+# Source the original update script but override the kill functions
+source "${updateScriptPath}" 2>/dev/null || true
+
+# Override the kill_processes function
+kill_processes() {
+    safe_kill_node_processes
+}
+
+# Override the stop_application function to use our safe version
+stop_application() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Stopping application (safe mode)..." | tee -a "$LOG_FILE"
+    safe_kill_node_processes
+}
+
+# Run the main function from the original script
+main "$@"
+' "${updateScriptPath}" "$@"
+
+EXIT_CODE=$?
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Update process completed with exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
+exit $EXIT_CODE
+`;
+
+          // Write wrapper script to temp file
+          const fs = require('fs');
+          const wrapperPath = `/tmp/update_wrapper_${process.pid}.sh`;
+          fs.writeFileSync(wrapperPath, wrapperScript);
+          fs.chmodSync(wrapperPath, '755');
+
+          // Run the wrapper script
+          const child = spawn('bash', [wrapperPath], {
             cwd: process.cwd(),
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: false,
-            detached: true
+            detached: false
           });
-
-          // Unref the child process so it doesn't keep the parent alive
-          child.unref();
 
           let output = '';
           let errorOutput = '';
@@ -140,17 +213,32 @@ export const versionRouter = createTRPCRouter({
 
           // Set a timeout to avoid hanging indefinitely
           const timeout = setTimeout(() => {
-            child.kill('SIGTERM');
+            if (!child.killed) {
+              child.kill('SIGTERM');
+              // Give it a moment to terminate gracefully
+              setTimeout(() => {
+                if (!child.killed) {
+                  child.kill('SIGKILL');
+                }
+              }, 5000);
+            }
             resolve({
               success: false,
               message: 'Update script timed out',
               output: output,
-              error: errorOutput + '\nScript timed out after 5 minutes'
+              error: errorOutput + '\nScript timed out after 10 minutes'
             });
-          }, 5 * 60 * 1000); // 5 minutes timeout
+          }, 10 * 60 * 1000); // 10 minutes timeout
 
           child.on('close', (code) => {
             clearTimeout(timeout);
+            // Clean up wrapper script
+            try {
+              fs.unlinkSync(wrapperPath);
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+            
             if (code === 0) {
               resolve({
                 success: true,
@@ -161,7 +249,7 @@ export const versionRouter = createTRPCRouter({
             } else {
               resolve({
                 success: false,
-                message: 'Update failed',
+                message: `Update failed with exit code ${code}`,
                 output: output,
                 error: errorOutput
               });
@@ -170,6 +258,12 @@ export const versionRouter = createTRPCRouter({
 
           child.on('error', (error) => {
             clearTimeout(timeout);
+            // Clean up wrapper script
+            try {
+              fs.unlinkSync(wrapperPath);
+            } catch (e) {
+              // Ignore cleanup errors
+            }
             resolve({
               success: false,
               message: 'Failed to execute update script',
@@ -177,16 +271,6 @@ export const versionRouter = createTRPCRouter({
               error: error.message
             });
           });
-
-          // Give the script a moment to start
-          setTimeout(() => {
-            resolve({
-              success: true,
-              message: 'Update script started successfully',
-              output: 'Update process initiated. Check /tmp/update.log for progress.',
-              error: ''
-            });
-          }, 2000);
         });
       } catch (error) {
         console.error('Error executing update script:', error);
