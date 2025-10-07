@@ -108,12 +108,12 @@ jobs:
             }
             if(!merged) throw new Error("PR not merged in time")
 
-#      - name: Create tag
-#        run: |
-#          git tag "${{ steps.draft.outputs.tag_name }}"
-#          git push origin "${{ steps.draft.outputs.tag_name }}"
-#
-#      - name: Publish draft release
-#        run: gh release edit "${{ steps.draft.outputs.tag_name }}" --draft=false
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create tag
+        run: |
+          git tag "${{ steps.draft.outputs.tag_name }}"
+          git push origin "${{ steps.draft.outputs.tag_name }}"
+
+      - name: Publish draft release
+        run: gh release edit "${{ steps.draft.outputs.tag_name }}" --draft=false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
