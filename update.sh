@@ -376,8 +376,8 @@ rollback() {
 main() {
     log "Starting ProxmoxVE-Local update process..."
     
-    # Check if we're running from the application directory
-    if [ -f "package.json" ] && [ -f "server.js" ]; then
+    # Check if we're running from the application directory and not already relocated
+    if [ -z "$PVE_UPDATE_RELOCATED" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory"
         log "Copying update script to temporary location for safe execution..."
         
@@ -390,7 +390,8 @@ main() {
         chmod +x "$temp_script"
         log "Executing update from temporary location: $temp_script"
         
-        # Execute the script from temporary location
+        # Set flag to prevent infinite loop and execute from temporary location
+        export PVE_UPDATE_RELOCATED=1
         exec "$temp_script" "$@"
     fi
     
