@@ -1,0 +1,53 @@
+name: Publish draft release
+
+on:
+  workflow_dispatch:  
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get latest draft release
+        id: draft
+        run: |
+          draft_info=$(gh release list --limit 5 --json tagName,isDraft,publishedAt --jq '.[] | select(.isDraft==true) | .tagName' | head -n1)
+          echo "tag_name=${draft_info}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate draft version
+        run: |
+          if [ -z "${{ steps.draft.outputs.tag_name }}" ]; then
+            echo "No draft release found!" >&2
+            exit 1
+          fi
+          echo "Found draft version: ${{ steps.draft.outputs.tag_name }}"
+
+      - name: Write VERSION file
+        run: |
+          echo "${{ steps.draft.outputs.tag_name }}" | sed 's/^v//' > VERSION
+          cat VERSION
+
+      - name: Commit VERSION file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" || echo "No changes to commit"
+          git push
+
+#      - name: Create tag
+#        run: |
+#          git tag "${{ steps.draft.outputs.tag_name }}"
+#          git push origin "${{ steps.draft.outputs.tag_name }}"
+#
+#      - name: Publish draft release
+#        run: gh release edit "${{ steps.draft.outputs.tag_name }}" --draft=false
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
