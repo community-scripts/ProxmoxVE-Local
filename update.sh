@@ -409,22 +409,32 @@ main() {
     fi
     
     if [ -z "$PVE_UPDATE_RELOCATED" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
+        echo "DEBUG: Entering relocation logic"
         log "Detected running from application directory"
         log "Copying update script to temporary location for safe execution..."
         
         local temp_script="/tmp/pve-scripts-update-$$.sh"
+        echo "DEBUG: About to copy script to $temp_script"
         if ! cp "$0" "$temp_script"; then
+            echo "DEBUG: Copy failed"
             log_error "Failed to copy update script to temporary location"
             exit 1
         fi
+        echo "DEBUG: Copy successful"
         
+        echo "DEBUG: About to chmod script"
         chmod +x "$temp_script"
+        echo "DEBUG: chmod successful"
+        
         log "Executing update from temporary location: $temp_script"
         
         # Set flag to prevent infinite loop and execute from temporary location
         export PVE_UPDATE_RELOCATED=1
+        echo "DEBUG: About to exec new script"
         exec "$temp_script" "$@"
     fi
+    
+    echo "DEBUG: Skipping relocation, continuing with update process"
     
     # Ensure we're in the application directory
     local app_dir
