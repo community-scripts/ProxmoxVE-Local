@@ -1,6 +1,11 @@
 # Template for release drafts
 name-template: 'v$NEXT_PATCH_VERSION'   # You can switch to $NEXT_MINOR_VERSION or $NEXT_MAJOR_VERSION
 tag-template: 'v$NEXT_PATCH_VERSION'
+
+# Exclude PRs with this label from release notes
+exclude-labels:
+  - automated
+
 categories:
   - title: "🚀 Features"
     labels:
@@ -17,6 +22,7 @@ categories:
     labels:
       - dependencies
       - javascript
+
 change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
 change-title-template: '### $TITLE'
 template: |
