@@ -171,11 +171,51 @@ download_release() {
     
     # Download release with timeout and progress
     log "Downloading from: $download_url"
-    if ! curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -o "$archive_file" "$download_url"; then
-        log_error "Failed to download release (timeout or network error)"
+    log "Target file: $archive_file"
+    log "Starting curl download..."
+    
+    # Test if curl is working
+    log "Testing curl availability..."
+    if ! command -v curl >/dev/null 2>&1; then
+        log_error "curl command not found"
         rm -rf "$temp_dir"
         exit 1
     fi
+    
+    # Test basic connectivity
+    log "Testing basic connectivity..."
+    if ! curl -s --connect-timeout 10 --max-time 30 "https://api.github.com" >/dev/null 2>&1; then
+        log_error "Cannot reach GitHub API"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    log_success "Connectivity test passed"
+    
+    # Create a temporary file for curl output
+    local curl_log="/tmp/curl_log_$$.txt"
+    
+    # Run curl with verbose output
+    if curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -v -o "$archive_file" "$download_url" > "$curl_log" 2>&1; then
+        log_success "Curl command completed successfully"
+        # Show some of the curl output for debugging
+        log "Curl output (first 10 lines):"
+        head -10 "$curl_log" | while read -r line; do
+            log "CURL: $line"
+        done
+    else
+        local curl_exit_code=$?
+        log_error "Curl command failed with exit code: $curl_exit_code"
+        log_error "Curl output:"
+        cat "$curl_log" | while read -r line; do
+            log_error "CURL: $line"
+        done
+        rm -f "$curl_log"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    
+    # Clean up curl log
+    rm -f "$curl_log"
     
     # Verify download
     if [ ! -f "$archive_file" ] || [ ! -s "$archive_file" ]; then
