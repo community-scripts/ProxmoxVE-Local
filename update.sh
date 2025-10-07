@@ -390,6 +390,24 @@ main() {
     log "PVE_UPDATE_RELOCATED: ${PVE_UPDATE_RELOCATED:-not set}"
     
     # Check if we're running from the application directory and not already relocated
+    echo "DEBUG: Checking for package.json and server.js files..."
+    log "Checking for package.json and server.js files..."
+    if [ -f "package.json" ]; then
+        echo "DEBUG: Found package.json"
+        log "Found package.json"
+    else
+        echo "DEBUG: package.json not found"
+        log "package.json not found"
+    fi
+    
+    if [ -f "server.js" ]; then
+        echo "DEBUG: Found server.js"
+        log "Found server.js"
+    else
+        echo "DEBUG: server.js not found"
+        log "server.js not found"
+    fi
+    
     if [ -z "$PVE_UPDATE_RELOCATED" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory"
         log "Copying update script to temporary location for safe execution..."
