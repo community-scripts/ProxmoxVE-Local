@@ -83,7 +83,6 @@ jobs:
           git config --global user.email "github-actions-automege[bot]@users.noreply.github.com"
           PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
           if [ -n "$PR_NUMBER" ]; then
-            gh pr review "$PR_NUMBER" --approve
             gh pr merge "$PR_NUMBER" --squash --admin
           fi        
       
