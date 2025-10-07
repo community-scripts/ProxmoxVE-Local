@@ -14,7 +14,7 @@ REPO_NAME="ProxmoxVE-Local"
 GITHUB_API="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}"
 BACKUP_DIR="/tmp/pve-scripts-backup-$(date +%Y%m%d-%H%M%S)"
 DATA_DIR="./data"
-LOG_FILE="/tmp/pve-update-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="/tmp/update.log"
 
 # Colors for output
 RED='\033[0;31m'
