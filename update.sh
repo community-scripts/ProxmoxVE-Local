@@ -306,20 +306,50 @@ kill_processes() {
     fi
     
     if [ -n "$pids" ]; then
-        log "Stopping application processes..."
-        if kill -TERM $pids 2>/dev/null; then
-            # Wait for graceful shutdown
-            sleep 3
-            # Force kill if still running
-            local remaining_pids
-            remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-            if [ -n "$remaining_pids" ]; then
-                log_warning "Force killing remaining processes"
-                pkill -9 -f "node server.js" 2>/dev/null || true
-                pkill -9 -f "npm start" 2>/dev/null || true
+        log "Stopping application processes: $pids"
+        
+        # Send TERM signal to each PID individually
+        for pid in $pids; do
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                log "Sending TERM signal to PID: $pid"
+                kill -TERM "$pid" 2>/dev/null || true
             fi
+        done
+        
+        # Wait for graceful shutdown with timeout
+        log "Waiting for graceful shutdown..."
+        local wait_count=0
+        local max_wait=10  # Maximum 10 seconds
+        
+        while [ $wait_count -lt $max_wait ]; do
+            local still_running
+            still_running=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+            if [ -z "$still_running" ]; then
+                log_success "Processes stopped gracefully"
+                break
+            fi
+            sleep 1
+            wait_count=$((wait_count + 1))
+            log "Waiting... ($wait_count/$max_wait)"
+        done
+        
+        # Force kill any remaining processes
+        local remaining_pids
+        remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+        if [ -n "$remaining_pids" ]; then
+            log_warning "Force killing remaining processes: $remaining_pids"
+            pkill -9 -f "node server.js" 2>/dev/null || true
+            pkill -9 -f "npm start" 2>/dev/null || true
+            sleep 1
+        fi
+        
+        # Final check
+        local final_check
+        final_check=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+        if [ -n "$final_check" ]; then
+            log_warning "Some processes may still be running: $final_check"
         else
-            log_warning "Could not stop application processes"
+            log_success "All application processes stopped"
         fi
     else
         log "No running application processes found"

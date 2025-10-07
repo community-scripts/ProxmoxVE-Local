@@ -7,7 +7,7 @@ import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 // Loading overlay component
-function LoadingOverlay() {
+function LoadingOverlay({ isNetworkError = false }: { isNetworkError?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-md mx-4">
@@ -18,13 +18,19 @@ function LoadingOverlay() {
           </div>
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Updating Application
+              {isNetworkError ? 'Server Restarting' : 'Updating Application'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Please stand by while we update your application...
+              {isNetworkError 
+                ? 'The server is restarting after the update...' 
+                : 'Please stand by while we update your application...'
+              }
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-              The server will restart automatically when complete.
+              {isNetworkError 
+                ? 'This may take a few moments. The page will reload automatically.'
+                : 'The server will restart automatically when complete.'
+              }
             </p>
           </div>
           <div className="flex space-x-1">
@@ -42,27 +48,74 @@ export function VersionDisplay() {
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
+  const [isNetworkError, setIsNetworkError] = useState(false);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result: any) => {
+      const now = Date.now();
+      const elapsed = updateStartTime ? now - updateStartTime : 0;
+      const minDisplayTime = 2000; // Minimum 2 seconds
+      
       setUpdateResult({ success: result.success, message: result.message });
-      setIsUpdating(false);
+      
       if (result.success) {
-        // Keep the overlay visible for a moment before reload
+        // Ensure overlay shows for at least 2 seconds
+        const remainingTime = Math.max(0, minDisplayTime - elapsed);
         setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+          setIsUpdating(false);
+          // Keep the overlay visible for a moment before reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }, remainingTime);
+      } else {
+        // For errors, show for at least 1 second
+        const remainingTime = Math.max(0, 1000 - elapsed);
+        setTimeout(() => {
+          setIsUpdating(false);
+        }, remainingTime);
       }
     },
     onError: (error) => {
-      setUpdateResult({ success: false, message: error.message });
-      setIsUpdating(false);
+      const now = Date.now();
+      const elapsed = updateStartTime ? now - updateStartTime : 0;
+      
+      // Check if this is a network error (expected during server restart)
+      const isNetworkError = error.message.includes('Failed to fetch') || 
+                            error.message.includes('NetworkError') ||
+                            error.message.includes('fetch') ||
+                            error.message.includes('network');
+      
+      if (isNetworkError && elapsed < 60000) { // If it's a network error within 30 seconds, treat as success
+        setIsNetworkError(true);
+        setUpdateResult({ success: true, message: 'Update in progress... Server is restarting.' });
+        
+        // Wait longer for server to come back up
+        setTimeout(() => {
+          setIsUpdating(false);
+          setIsNetworkError(false);
+          // Try to reload after a longer delay
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
+        }, 3000);
+      } else {
+        // For real errors, show for at least 1 second
+        setUpdateResult({ success: false, message: error.message });
+        const remainingTime = Math.max(0, 1000 - elapsed);
+        setTimeout(() => {
+          setIsUpdating(false);
+        }, remainingTime);
+      }
     }
   });
 
   const handleUpdate = () => {
     setIsUpdating(true);
     setUpdateResult(null);
+    setIsNetworkError(false);
+    setUpdateStartTime(Date.now());
     executeUpdate.mutate();
   };
 
@@ -94,7 +147,7 @@ export function VersionDisplay() {
   return (
     <>
       {/* Loading overlay */}
-      {isUpdating && <LoadingOverlay />}
+      {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} />}
       
       <div className="flex items-center gap-2">
         <Badge variant={isUpToDate ? "default" : "secondary"}>
