@@ -473,15 +473,15 @@ stop_application() {
                 log_success "Service stopped successfully"
             else
                 log_error "Failed to stop service, falling back to process kill"
-                kill_processes
+                #kill_processes
             fi
         else
             log "Service exists but is not active, checking for running processes..."
-            kill_processes
+            #kill_processes
         fi
     else
         log "No systemd service found, stopping processes directly..."
-        kill_processes
+        #kill_processes
     fi
 }
 
