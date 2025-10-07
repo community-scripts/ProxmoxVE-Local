@@ -116,11 +116,16 @@ export const versionRouter = createTRPCRouter({
         const updateScriptPath = join(process.cwd(), 'update.sh');
         
         return new Promise((resolve) => {
-          const child = spawn('bash', [updateScriptPath], {
+          // Use nohup to run the script independently of the current process
+          const child = spawn('nohup', ['bash', updateScriptPath], {
             cwd: process.cwd(),
-            stdio: ['pipe', 'pipe', 'pipe'],
-            shell: false
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: false,
+            detached: true
           });
+
+          // Unref the child process so it doesn't keep the parent alive
+          child.unref();
 
           let output = '';
           let errorOutput = '';
@@ -133,7 +138,19 @@ export const versionRouter = createTRPCRouter({
             errorOutput += data.toString();
           });
 
+          // Set a timeout to avoid hanging indefinitely
+          const timeout = setTimeout(() => {
+            child.kill('SIGTERM');
+            resolve({
+              success: false,
+              message: 'Update script timed out',
+              output: output,
+              error: errorOutput + '\nScript timed out after 5 minutes'
+            });
+          }, 5 * 60 * 1000); // 5 minutes timeout
+
           child.on('close', (code) => {
+            clearTimeout(timeout);
             if (code === 0) {
               resolve({
                 success: true,
@@ -152,6 +169,7 @@ export const versionRouter = createTRPCRouter({
           });
 
           child.on('error', (error) => {
+            clearTimeout(timeout);
             resolve({
               success: false,
               message: 'Failed to execute update script',
@@ -159,6 +177,16 @@ export const versionRouter = createTRPCRouter({
               error: error.message
             });
           });
+
+          // Give the script a moment to start
+          setTimeout(() => {
+            resolve({
+              success: true,
+              message: 'Update script started successfully',
+              output: 'Update process initiated. Check /tmp/update.log for progress.',
+              error: ''
+            });
+          }, 2000);
         });
       } catch (error) {
         console.error('Error executing update script:', error);

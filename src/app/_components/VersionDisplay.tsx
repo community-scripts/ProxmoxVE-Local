@@ -60,15 +60,20 @@ export function VersionDisplay() {
       setUpdateResult({ success: result.success, message: result.message });
       
       if (result.success) {
-        // Ensure overlay shows for at least 2 seconds
-        const remainingTime = Math.max(0, minDisplayTime - elapsed);
+        // The script now runs independently, so we show a longer overlay
+        // and wait for the server to restart
+        setIsNetworkError(true);
+        setUpdateResult({ success: true, message: 'Update in progress... Server will restart automatically.' });
+
+        // Wait longer for the update to complete and server to restart
         setTimeout(() => {
           setIsUpdating(false);
-          // Keep the overlay visible for a moment before reload
+          setIsNetworkError(false);
+          // Try to reload after the update completes
           setTimeout(() => {
             window.location.reload();
-          }, 2000);
-        }, remainingTime);
+          }, 10000); // 10 seconds to allow for update completion
+        }, 5000); // Show overlay for 5 seconds
       } else {
         // For errors, show for at least 1 second
         const remainingTime = Math.max(0, 1000 - elapsed);
