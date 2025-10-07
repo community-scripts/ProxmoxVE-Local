@@ -67,11 +67,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
      
-      - name: Merge PR
+      - name: Authenticate gh with PAT
         run: |
-          gh pr merge ${{ steps.pr.outputs.pr_number }} --squash --admin
+          echo "${{ secrets.MERGE_PAT }}" | gh auth login --with-token
+
+
+      - name: Merge PR as PAT user
+        run: |
+          gh pr merge "${{ steps.pr.outputs.pr_number }}" --squash --body "Merge VERSION update" --admin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       
       - name: Wait for PR merge
         uses: actions/github-script@v7
