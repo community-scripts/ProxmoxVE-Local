@@ -2,9 +2,9 @@ name: Publish draft release
 
 on:
   workflow_dispatch:  
-
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   publish:
@@ -16,7 +16,7 @@ jobs:
       - name: Get latest draft release
         id: draft
         run: |
-          draft_info=$(gh release list --limit 5 --json tagName,isDraft,publishedAt --jq '.[] | select(.isDraft==true) | .tagName' | head -n1)
+          draft_info=$(gh release list --limit 5 --json tagName,isDraft --jq '.[] | select(.isDraft==true) | .tagName' | head -n1)
           echo "tag_name=${draft_info}" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,18 +29,57 @@ jobs:
           fi
           echo "Found draft version: ${{ steps.draft.outputs.tag_name }}"
 
-      - name: Write VERSION file
+      - name: Create branch and commit VERSION
         run: |
+          branch="update-version-${{ steps.draft.outputs.tag_name }}"
+          git checkout -b "$branch"
           echo "${{ steps.draft.outputs.tag_name }}" | sed 's/^v//' > VERSION
-          cat VERSION
-
-      - name: Commit VERSION file
-        run: |
+          git add VERSION
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add VERSION
-          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" || echo "No changes to commit"
-          git push --force
+          git commit -m "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" || echo "No changes"
+          git push origin "$branch"
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        id: pr
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: "update-version-${{ steps.draft.outputs.tag_name }}"
+          base: main
+          title: "chore: add VERSION ${{ steps.draft.outputs.tag_name }}"
+          body: "This PR adds or updates the VERSION file for ${{ steps.draft.outputs.tag_name }}"
+          labels: automated
+
+      - name: Auto-merge PR
+        uses: peter-evans/enable-pull-request-automerge@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
+          merge-method: squash
+
+      - name: Wait for merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNum = parseInt("${{ steps.pr.outputs.pull-request-number }}")
+            let merged = false
+            const maxRetries = 20
+            let tries = 0
+            while(!merged && tries < maxRetries){
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNum
+              })
+              merged = pr.data.merged
+              if(!merged){
+                tries++
+                console.log("Waiting for PR to merge...")
+                await new Promise(r => setTimeout(r, 5000))
+              }
+            }
+            if(!merged) throw new Error("PR not merged in time")
 
 #      - name: Create tag
 #        run: |
