@@ -770,7 +770,19 @@ rollback() {
 
 # Main update process
 main() {
-    init_log
+    # Check if this is the relocated/detached version first
+    if [ "${1:-}" = "--relocated" ]; then
+        export PVE_UPDATE_RELOCATED=1
+        init_log
+        log "Running as detached process, safe to kill parent Node.js process"
+        
+        # Wait a few seconds to allow the parent process to send response to client
+        log "Waiting 3 seconds to allow parent process to respond to client..."
+        sleep 3
+        log "Proceeding with update process"
+    else
+        init_log
+    fi
     
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
@@ -789,24 +801,11 @@ main() {
         
         # Use setsid and nohup to completely detach from parent process
         # This ensures the script continues even if the Node.js process is killed
-        nohup setsid bash "$temp_script" PVE_UPDATE_RELOCATED=1 </dev/null >/dev/null 2>&1 &
+        nohup setsid bash "$temp_script" --relocated </dev/null >/dev/null 2>&1 &
         
         log "Update process started in background (PID: $!)"
         log "This process will continue even after the service stops"
         exit 0
-    fi
-    
-    # If we get here, we've been relocated and detached
-    if [ "${1:-}" = "PVE_UPDATE_RELOCATED=1" ]; then
-        export PVE_UPDATE_RELOCATED=1
-        # Reinitialize log since we're in a new process
-        init_log
-        log "Running as detached process, safe to kill parent Node.js process"
-        
-        # Wait a few seconds to allow the parent process to send response to client
-        log "Waiting 3 seconds to allow parent process to respond to client..."
-        sleep 3
-        log "Proceeding with update process"
     fi
     
     # Ensure we're in the application directory
