@@ -799,11 +799,30 @@ main() {
         log "Executing update from temporary location: $temp_script"
         log "Detaching update process to survive service shutdown..."
         
-        # Use setsid and nohup to completely detach from parent process
-        # This ensures the script continues even if the Node.js process is killed
-        nohup setsid bash "$temp_script" --relocated </dev/null >/dev/null 2>&1 &
+        # Use systemd-run if available for complete isolation from the service
+        if command -v systemd-run &> /dev/null; then
+            log "Using systemd-run for maximum isolation..."
+            systemd-run --user --scope --property=KillMode=none bash "$temp_script" --relocated &>/dev/null || {
+                # Fallback to traditional method if systemd-run fails
+                log_warning "systemd-run failed, using nohup/setsid fallback"
+                nohup setsid bash "$temp_script" --relocated </dev/null >>/tmp/update.log 2>&1 &
+            }
+        else
+            # Double-fork technique for complete daemonization
+            (
+                # First fork - become session leader
+                setsid bash -c "
+                    # Second fork - ensure we're not a session leader
+                    (
+                        cd /
+                        exec bash '$temp_script' --relocated </dev/null >>/tmp/update.log 2>&1
+                    ) &
+                " &
+            )
+        fi
         
-        log "Update process started in background (PID: $!)"
+        sleep 1  # Give the detached process time to start
+        log "Update process started and fully detached"
         log "This process will continue even after the service stops"
         exit 0
     fi
