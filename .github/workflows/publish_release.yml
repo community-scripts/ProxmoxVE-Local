@@ -69,7 +69,7 @@ jobs:
      
       - name: Authenticate gh with PAT
         run: |
-          echo "${{ secrets.MERGE_PAT }}" | gh auth login --with-token
+          echo "${{ secrets.PAT_MICHEL }}" | gh auth login --with-token
 
 
       - name: Merge PR as PAT user
