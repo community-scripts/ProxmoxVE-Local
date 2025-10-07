@@ -66,14 +66,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
      
-      - name: Approve pull request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          if [ -n "$PR_NUMBER" ]; then
-            gh pr review $PR_NUMBER --approve
-          fi
+#      - name: Approve pull request
+#        env:
+#          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: |
+#          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+#          if [ -n "$PR_NUMBER" ]; then
+#            gh pr review $PR_NUMBER --approve
+#          fi
 
       - name: Approve pull request and merge
         env:
