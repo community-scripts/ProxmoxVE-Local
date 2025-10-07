@@ -193,6 +193,99 @@ download_release() {
     echo "$extracted_dir"
 }
 
+# Clear the original directory before updating
+clear_original_directory() {
+    log "Clearing original directory..."
+    
+    # List of files/directories to preserve (already backed up)
+    local preserve_patterns=(
+        "data"
+        ".env"
+        "*.log"
+        "update.log"
+        "*.backup"
+        "*.bak"
+        "node_modules"
+        ".git"
+    )
+    
+    # Remove all files except preserved ones
+    find . -maxdepth 1 -type f ! -name ".*" | while read -r file; do
+        local should_preserve=false
+        local filename=$(basename "$file")
+        
+        for pattern in "${preserve_patterns[@]}"; do
+            if [[ "$filename" == $pattern ]]; then
+                should_preserve=true
+                break
+            fi
+        done
+        
+        if [ "$should_preserve" = false ]; then
+            rm -f "$file"
+        fi
+    done
+    
+    # Remove all directories except preserved ones
+    find . -maxdepth 1 -type d ! -name "." ! -name ".." | while read -r dir; do
+        local should_preserve=false
+        local dirname=$(basename "$dir")
+        
+        for pattern in "${preserve_patterns[@]}"; do
+            if [[ "$dirname" == $pattern ]]; then
+                should_preserve=true
+                break
+            fi
+        done
+        
+        if [ "$should_preserve" = false ]; then
+            rm -rf "$dir"
+        fi
+    done
+    
+    log_success "Original directory cleared"
+}
+
+# Restore backup files before building
+restore_backup_files() {
+    log "Restoring .env and data directory from backup..."
+    
+    if [ -d "$BACKUP_DIR" ]; then
+        # Restore .env file
+        if [ -f "$BACKUP_DIR/.env" ]; then
+            if [ -f ".env" ]; then
+                rm -f ".env"
+            fi
+            if mv "$BACKUP_DIR/.env" ".env"; then
+                log_success ".env file restored from backup"
+            else
+                log_error "Failed to restore .env file"
+                return 1
+            fi
+        else
+            log_warning "No .env file backup found"
+        fi
+        
+        # Restore data directory
+        if [ -d "$BACKUP_DIR/data" ]; then
+            if [ -d "data" ]; then
+                rm -rf "data"
+            fi
+            if mv "$BACKUP_DIR/data" "data"; then
+                log_success "Data directory restored from backup"
+            else
+                log_error "Failed to restore data directory"
+                return 1
+            fi
+        else
+            log_warning "No data directory backup found"
+        fi
+    else
+        log_error "No backup directory found for restoration"
+        return 1
+    fi
+}
+
 # Stop the application before updating
 stop_application() {
     log "Stopping application..."
@@ -299,6 +392,7 @@ update_files() {
 # Install dependencies and build
 install_and_build() {
     log "Installing dependencies..."
+    
     if ! npm install; then
         log_error "Failed to install dependencies"
         return 1
@@ -456,10 +550,18 @@ main() {
     local source_dir
     source_dir=$(download_release "$release_info")
     
+    # Clear the original directory before updating
+    log "Clearing original directory before update..."
+    clear_original_directory
+    
     # Update files
     if ! update_files "$source_dir"; then
         rollback
     fi
+    
+    # Restore .env and data directory before building
+    log "Restoring .env and data directory before build..."
+    restore_backup_files
     
     # Install dependencies and build
     if ! install_and_build; then
@@ -480,7 +582,7 @@ main() {
     log "You can now start the application with: npm start"
     
     # Ask if user wants to start the application
-    npm start
+    npm start &
 }
 
 # Run main function with error handling
