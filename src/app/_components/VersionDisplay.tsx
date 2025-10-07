@@ -28,7 +28,7 @@ function LoadingOverlay({ isNetworkError = false }: { isNetworkError?: boolean }
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
               {isNetworkError 
-                ? 'This may take a few moments. The page will reload automatically.'
+                ? 'This may take a few moments. The page will reload automatically. You may see a blank page for up to a minute!.'
                 : 'The server will restart automatically when complete.'
               }
             </p>
@@ -50,7 +50,6 @@ export function VersionDisplay() {
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result: any) => {

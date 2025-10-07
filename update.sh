@@ -14,7 +14,7 @@ REPO_NAME="ProxmoxVE-Local"
 GITHUB_API="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}"
 BACKUP_DIR="/tmp/pve-scripts-backup-$(date +%Y%m%d-%H%M%S)"
 DATA_DIR="./data"
-LOG_FILE="./update.log"
+LOG_FILE="/tmp/pve-update-$(date +%Y%m%d-%H%M%S).log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,6 +22,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Initialize log file
+init_log() {
+    # Clear/create log file
+    > "$LOG_FILE"
+    log "Starting ProxmoxVE-Local update process..."
+    log "Log file: $LOG_FILE"
+}
 
 # Logging function
 log() {
@@ -628,7 +636,7 @@ rollback() {
 
 # Main update process
 main() {
-    log "Starting ProxmoxVE-Local update process..."
+    init_log
     
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
