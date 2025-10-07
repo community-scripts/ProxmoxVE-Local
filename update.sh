@@ -443,26 +443,33 @@ main() {
     
     # Ensure we're in the application directory
     local app_dir
-    # Try multiple common locations
-    for search_path in /opt /root /home /usr/local; do
-        if [ -d "$search_path" ]; then
-            app_dir=$(find "$search_path" -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
-            if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
-                break
-            fi
-        fi
-    done
     
-    if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
-        cd "$app_dir" || {
-            log_error "Failed to change to application directory: $app_dir"
-            exit 1
-        }
-        log "Changed to application directory: $(pwd)"
+    # First check if we're already in the right directory
+    if [ -f "package.json" ] && [ -f "server.js" ]; then
+        app_dir="$(pwd)"
+        log "Already in application directory: $app_dir"
     else
-        log_error "Could not find application directory"
-        log "Searched in: /opt, /root, /home, /usr/local"
-        exit 1
+        # Try multiple common locations
+        for search_path in /opt /root /home /usr/local; do
+            if [ -d "$search_path" ]; then
+                app_dir=$(find "$search_path" -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
+                if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+                    break
+                fi
+            fi
+        done
+        
+        if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+            cd "$app_dir" || {
+                log_error "Failed to change to application directory: $app_dir"
+                exit 1
+            }
+            log "Changed to application directory: $(pwd)"
+        else
+            log_error "Could not find application directory"
+            log "Searched in: /opt, /root, /home, /usr/local"
+            exit 1
+        fi
     fi
     
     # Check dependencies
