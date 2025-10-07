@@ -115,79 +115,31 @@ export const versionRouter = createTRPCRouter({
       try {
         const updateScriptPath = join(process.cwd(), 'update.sh');
         
-        return new Promise((resolve) => {
-          // Run the script directly without nohup to properly monitor it
-          const child = spawn('bash', [updateScriptPath], {
-            cwd: process.cwd(),
-            stdio: ['ignore', 'pipe', 'pipe'],
-            shell: false,
-            detached: false
-          });
-
-          let output = '';
-          let errorOutput = '';
-
-          child.stdout?.on('data', (data) => {
-            output += data.toString();
-          });
-
-          child.stderr?.on('data', (data) => {
-            errorOutput += data.toString();
-          });
-
-          // Set a timeout to avoid hanging indefinitely
-          const timeout = setTimeout(() => {
-            if (!child.killed) {
-              child.kill('SIGTERM');
-              // Give it a moment to terminate gracefully
-              setTimeout(() => {
-                if (!child.killed) {
-                  child.kill('SIGKILL');
-                }
-              }, 5000);
-            }
-            resolve({
-              success: false,
-              message: 'Update script timed out',
-              output: output,
-              error: errorOutput + '\nScript timed out after 10 minutes'
-            });
-          }, 10 * 60 * 1000); // 10 minutes timeout
-
-          child.on('close', (code) => {
-            clearTimeout(timeout);
-            if (code === 0) {
-              resolve({
-                success: true,
-                message: 'Update completed successfully',
-                output: output,
-                error: errorOutput
-              });
-            } else {
-              resolve({
-                success: false,
-                message: `Update failed with exit code ${code}`,
-                output: output,
-                error: errorOutput
-              });
-            }
-          });
-
-          child.on('error', (error) => {
-            clearTimeout(timeout);
-            resolve({
-              success: false,
-              message: 'Failed to execute update script',
-              output: output,
-              error: error.message
-            });
-          });
+        // Spawn the update script as a detached process using nohup
+        // This allows it to run independently and kill the parent Node.js process
+        const child = spawn('nohup', ['bash', updateScriptPath], {
+          cwd: process.cwd(),
+          stdio: ['ignore', 'ignore', 'ignore'],
+          shell: false,
+          detached: true
         });
+
+        // Unref the child process so it doesn't keep the parent alive
+        child.unref();
+
+        // Immediately return success since we can't wait for completion
+        // The script will handle its own logging and restart
+        return {
+          success: true,
+          message: 'Update started in background. The server will restart automatically when complete.',
+          output: '',
+          error: ''
+        };
       } catch (error) {
         console.error('Error executing update script:', error);
         return {
           success: false,
-          message: 'Failed to execute update script',
+          message: `Failed to execute update script: ${error instanceof Error ? error.message : 'Unknown error'}`,
           output: '',
           error: error instanceof Error ? error.message : 'Unknown error'
         };
