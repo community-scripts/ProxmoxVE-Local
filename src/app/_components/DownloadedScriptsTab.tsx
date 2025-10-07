@@ -291,7 +291,7 @@ export function DownloadedScriptsTab() {
           </svg>
           <p className="text-lg font-medium">No downloaded scripts found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            You haven't downloaded any scripts yet. Visit the Available Scripts tab to download some scripts.
+            You haven&apos;t downloaded any scripts yet. Visit the Available Scripts tab to download some scripts.
           </p>
         </div>
       </div>
@@ -402,7 +402,9 @@ export function DownloadedScriptsTab() {
             script={scriptData?.success ? scriptData.script : null}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            onInstallScript={() => {}} // Downloaded scripts don't need installation
+            onInstallScript={() => {
+              // Downloaded scripts don't need installation
+            }}
           />
         </div>
       </div>
