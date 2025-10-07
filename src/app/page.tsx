@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { ScriptsGrid } from './_components/ScriptsGrid';
+import { DownloadedScriptsTab } from './_components/DownloadedScriptsTab';
 import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
 import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
@@ -11,7 +12,7 @@ import { Button } from './_components/ui/button';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'installed'>('scripts');
+  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>('scripts');
 
   const handleRunScript = (scriptPath: string, scriptName: string, mode?: 'local' | 'ssh', server?: any) => {
     setRunningScript({ path: scriptPath, name: scriptName, mode, server });
@@ -64,6 +65,17 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="null"
+                onClick={() => setActiveTab('downloaded')}
+                className={`px-3 py-1 text-sm ${
+                  activeTab === 'downloaded'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground'
+                }`}>
+                💾 Downloaded Scripts
+              </Button>
+              <Button
+                variant="ghost"
+                size="null"
                 onClick={() => setActiveTab('installed')}
                 className={`px-3 py-1 text-sm ${
                   activeTab === 'installed'
@@ -93,6 +105,10 @@ export default function Home() {
         {/* Tab Content */}
         {activeTab === 'scripts' && (
           <ScriptsGrid onInstallScript={handleRunScript} />
+        )}
+        
+        {activeTab === 'downloaded' && (
+          <DownloadedScriptsTab />
         )}
         
         {activeTab === 'installed' && (
