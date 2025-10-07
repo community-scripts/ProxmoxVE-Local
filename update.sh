@@ -5,11 +5,6 @@
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-# Debug: Show script execution info
-echo "Script started at $(date)"
-echo "Script PID: $$"
-echo "Arguments: $*"
-
 # Add error trap for debugging
 trap 'echo "Error occurred at line $LINENO, command: $BASH_COMMAND"' ERR
 
@@ -148,7 +143,7 @@ download_release() {
     
     log "Downloading release $tag_name..."
     
-    local temp_dir="/tmp/pve-scripts-update-$$"
+    local temp_dir="/tmp/pve-update-$$"
     local archive_file="$temp_dir/release.tar.gz"
     
     # Create temporary directory
@@ -384,62 +379,24 @@ rollback() {
 main() {
     log "Starting ProxmoxVE-Local update process..."
     
-    # Debug: Show current directory and environment
-    log "Current directory: $(pwd)"
-    log "Script location: $(dirname "$(readlink -f "$0")")"
-    log "PVE_UPDATE_RELOCATED: ${PVE_UPDATE_RELOCATED:-not set}"
-    
     # Check if we're running from the application directory and not already relocated
-    echo "DEBUG: Checking for package.json and server.js files..."
-    log "Checking for package.json and server.js files..."
-    if [ -f "package.json" ]; then
-        echo "DEBUG: Found package.json"
-        log "Found package.json"
-    else
-        echo "DEBUG: package.json not found"
-        log "package.json not found"
-    fi
-    
-    if [ -f "server.js" ]; then
-        echo "DEBUG: Found server.js"
-        log "Found server.js"
-    else
-        echo "DEBUG: server.js not found"
-        log "server.js not found"
-    fi
-    
-    echo "DEBUG: Checking if condition..."
-    echo "DEBUG: PVE_UPDATE_RELOCATED is empty: $([ -z "${PVE_UPDATE_RELOCATED:-}" ] && echo "YES" || echo "NO")"
-    echo "DEBUG: package.json exists: $([ -f "package.json" ] && echo "YES" || echo "NO")"
-    echo "DEBUG: server.js exists: $([ -f "server.js" ] && echo "YES" || echo "NO")"
-    
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
-        echo "DEBUG: Entering relocation logic"
         log "Detected running from application directory"
         log "Copying update script to temporary location for safe execution..."
         
         local temp_script="/tmp/pve-scripts-update-$$.sh"
-        echo "DEBUG: About to copy script to $temp_script"
         if ! cp "$0" "$temp_script"; then
-            echo "DEBUG: Copy failed"
             log_error "Failed to copy update script to temporary location"
             exit 1
         fi
-        echo "DEBUG: Copy successful"
         
-        echo "DEBUG: About to chmod script"
         chmod +x "$temp_script"
-        echo "DEBUG: chmod successful"
-        
         log "Executing update from temporary location: $temp_script"
         
         # Set flag to prevent infinite loop and execute from temporary location
         export PVE_UPDATE_RELOCATED=1
-        echo "DEBUG: About to exec new script"
         exec "$temp_script" "$@"
     fi
-    
-    echo "DEBUG: Skipping relocation, continuing with update process"
     
     # Ensure we're in the application directory
     local app_dir
@@ -512,7 +469,7 @@ main() {
     # Cleanup
     log "Cleaning up temporary files..."
     rm -rf "$source_dir"
-    rm -rf "/tmp/pve-scripts-update-$$"
+    rm -rf "/tmp/pve-update-$$"
     
     # Clean up temporary script if it exists
     if [ -f "/tmp/pve-scripts-update-$$.sh" ]; then
@@ -523,14 +480,7 @@ main() {
     log "You can now start the application with: npm start"
     
     # Ask if user wants to start the application
-    echo -e "${YELLOW}Do you want to start the application now? (y/N):${NC} "
-    read -r response
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-        log "Starting application..."
-        npm start
-    else
-        log "Update complete. Start the application manually when ready."
-    fi
+    npm start
 }
 
 # Run main function with error handling
