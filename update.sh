@@ -111,7 +111,7 @@ backup_data() {
     if [ -d "$DATA_DIR" ]; then
         log "Backing up data directory..."
         
-        if ! cp -r "$DATA_DIR" "$BACKUP_DIR/"; then
+        if ! cp -r "$DATA_DIR" "$BACKUP_DIR/data"; then
             log_error "Failed to backup data directory"
             exit 1
         else
@@ -349,7 +349,9 @@ stop_application() {
 update_files() {
     local source_dir="$1"
     
-    log "Updating application files..."
+    log "Updating application files from: $source_dir"
+    log "Current directory: $(pwd)"
+    log "Source directory contents: $(ls -la "$source_dir" 2>/dev/null || echo "Failed to list source directory")"
     
     # List of files/directories to exclude from update
     local exclude_patterns=(
@@ -364,6 +366,9 @@ update_files() {
     )
     
     # Copy files excluding specified patterns (safer than rsync for self-updates)
+    local files_copied=0
+    local files_excluded=0
+    
     find "$source_dir" -type f | while read -r file; do
         local rel_path="${file#$source_dir/}"
         local should_exclude=false
@@ -378,13 +383,23 @@ update_files() {
         if [ "$should_exclude" = false ]; then
             local target_dir
             target_dir=$(dirname "$rel_path")
-            mkdir -p "$target_dir"
+            if [ "$target_dir" != "." ]; then
+                mkdir -p "$target_dir"
+            fi
             if ! cp "$file" "$rel_path"; then
                 log_error "Failed to copy $rel_path"
                 return 1
+            else
+                files_copied=$((files_copied + 1))
+                log "Copied: $rel_path"
             fi
+        else
+            files_excluded=$((files_excluded + 1))
+            log "Excluded: $rel_path"
         fi
     done
+    
+    log "Files copied: $files_copied, Files excluded: $files_excluded"
     
     log_success "Application files updated successfully"
 }
