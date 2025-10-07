@@ -369,8 +369,19 @@ update_files() {
     local files_copied=0
     local files_excluded=0
     
-    find "$source_dir" -type f | while read -r file; do
-        local rel_path="${file#$source_dir/}"
+    # Find the actual source directory (strip the top-level directory)
+    local actual_source_dir
+    actual_source_dir=$(find "$source_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" | head -1)
+    
+    if [ -z "$actual_source_dir" ]; then
+        log_error "Could not find the actual source directory in $source_dir"
+        return 1
+    fi
+    
+    log "Using actual source directory: $actual_source_dir"
+    
+    find "$actual_source_dir" -type f | while read -r file; do
+        local rel_path="${file#$actual_source_dir/}"
         local should_exclude=false
         
         for pattern in "${exclude_patterns[@]}"; do
