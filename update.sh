@@ -95,15 +95,18 @@ get_latest_release() {
     echo "$tag_name|$download_url"
 }
 
-# Backup data directory
+# Backup data directory and .env file
 backup_data() {
+    log "Creating backup directory at $BACKUP_DIR..."
+    
+    if ! mkdir -p "$BACKUP_DIR"; then
+        log_error "Failed to create backup directory"
+        exit 1
+    fi
+    
+    # Backup data directory
     if [ -d "$DATA_DIR" ]; then
-        log "Backing up data directory to $BACKUP_DIR..."
-        
-        if ! mkdir -p "$BACKUP_DIR"; then
-            log_error "Failed to create backup directory"
-            exit 1
-        fi
+        log "Backing up data directory..."
         
         if ! cp -r "$DATA_DIR"/* "$BACKUP_DIR/" 2>/dev/null; then
             log_warning "No files found in data directory to backup"
@@ -112,6 +115,19 @@ backup_data() {
         fi
     else
         log_warning "Data directory not found, skipping backup"
+    fi
+    
+    # Backup .env file
+    if [ -f ".env" ]; then
+        log "Backing up .env file..."
+        if ! cp ".env" "$BACKUP_DIR/.env"; then
+            log_error "Failed to backup .env file"
+            exit 1
+        else
+            log_success ".env file backed up successfully"
+        fi
+    else
+        log_warning ".env file not found, skipping backup"
     fi
 }
 
@@ -172,6 +188,7 @@ update_files() {
         "data"
         "node_modules"
         ".git"
+        ".env"
         "*.log"
         "update.log"
         "*.backup"
@@ -240,11 +257,26 @@ rollback() {
     log_warning "Rolling back to previous version..."
     
     if [ -d "$BACKUP_DIR" ]; then
+        # Restore data directory
         if [ -d "$DATA_DIR" ]; then
             rm -rf "$DATA_DIR"
         fi
-        mv "$BACKUP_DIR" "$DATA_DIR"
-        log_success "Data directory restored from backup"
+        if [ -d "$BACKUP_DIR/data" ]; then
+            mv "$BACKUP_DIR/data" "$DATA_DIR"
+            log_success "Data directory restored from backup"
+        fi
+        
+        # Restore .env file
+        if [ -f "$BACKUP_DIR/.env" ]; then
+            if [ -f ".env" ]; then
+                rm -f ".env"
+            fi
+            mv "$BACKUP_DIR/.env" ".env"
+            log_success ".env file restored from backup"
+        fi
+        
+        # Clean up backup directory
+        rm -rf "$BACKUP_DIR"
     fi
     
     log_error "Update failed. Please check the logs and try again."
@@ -255,12 +287,8 @@ rollback() {
 main() {
     log "Starting ProxmoxVE-Local update process..."
     
-    # Change to script directory
-    cd "$PVESCRIPTLOCAL_DIR" || {
-        log_error "Failed to change to PVESCRIPTLOCAL_DIR: $PVESCRIPTLOCAL_DIR"
-        exit 1
-    }
     
+
     # Check dependencies
     check_dependencies
     

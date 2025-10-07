@@ -64,68 +64,65 @@ export function VersionDisplay() {
       </Badge>
       
       {updateAvailable && releaseInfo && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <div className="relative group">
-              <Badge variant="destructive" className="animate-pulse cursor-help">
-                Update Available
-              </Badge>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                <div className="text-center">
-                  <div className="font-semibold mb-1">How to update:</div>
-                  <div>Click the button below to update</div>
-                  <div>or update manually:</div>
-                  <div>cd $PVESCRIPTLOCAL_DIR</div>
-                  <div>git pull</div>
-                  <div>npm install</div>
-                  <div>npm run build</div>
-                  <div>npm start</div>
-                </div>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <Badge variant="destructive" className="animate-pulse cursor-help">
+              Update Available
+            </Badge>
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              <div className="text-center">
+                <div className="font-semibold mb-1">How to update:</div>
+                <div>Click the button to update</div>
+                <div>or update manually:</div>
+                <div>cd $PVESCRIPTLOCAL_DIR</div>
+                <div>git pull</div>
+                <div>npm install</div>
+                <div>npm run build</div>
+                <div>npm start</div>
               </div>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
             </div>
-            <a
-              href={releaseInfo.htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              title="View latest release"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
           </div>
           
-          <div className="flex flex-col items-center gap-2">
-            <Button
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              size="sm"
-              variant="destructive"
-              className="text-xs"
-            >
-              {isUpdating ? (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Download className="h-3 w-3 mr-1" />
-                  Update Now
-                </>
-              )}
-            </Button>
-            
-            {updateResult && (
-              <div className={`text-xs px-2 py-1 rounded ${
-                updateResult.success 
-                  ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-                  : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-              }`}>
-                {updateResult.message}
-              </div>
+          <Button
+            onClick={handleUpdate}
+            disabled={isUpdating}
+            size="sm"
+            variant="destructive"
+            className="text-xs h-6 px-2"
+          >
+            {isUpdating ? (
+              <>
+                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3 mr-1" />
+                Update Now
+              </>
             )}
-          </div>
+          </Button>
+          
+          <a
+            href={releaseInfo.htmlUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            title="View latest release"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+          
+          {updateResult && (
+            <div className={`text-xs px-2 py-1 rounded ${
+              updateResult.success 
+                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
+                : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+            }`}>
+              {updateResult.message}
+            </div>
+          )}
         </div>
       )}
       
