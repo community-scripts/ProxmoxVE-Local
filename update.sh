@@ -343,8 +343,24 @@ rollback() {
 main() {
     log "Starting ProxmoxVE-Local update process..."
     
+    # Check if we're running from the application directory
+    if [ -f "package.json" ] && [ -f "server.js" ]; then
+        log "Detected running from application directory"
+        log "Copying update script to temporary location for safe execution..."
+        
+        local temp_script="/tmp/pve-scripts-update-$$.sh"
+        if ! cp "$0" "$temp_script"; then
+            log_error "Failed to copy update script to temporary location"
+            exit 1
+        fi
+        
+        chmod +x "$temp_script"
+        log "Executing update from temporary location: $temp_script"
+        
+        # Execute the script from temporary location
+        exec "$temp_script" "$@"
+    fi
     
-
     # Check dependencies
     check_dependencies
     
@@ -385,6 +401,11 @@ main() {
     log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-scripts-update-$$"
+    
+    # Clean up temporary script if it exists
+    if [ -f "/tmp/pve-scripts-update-$$.sh" ]; then
+        rm -f "/tmp/pve-scripts-update-$$.sh"
+    fi
     
     log_success "Update completed successfully!"
     log "You can now start the application with: npm start"
