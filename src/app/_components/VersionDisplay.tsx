@@ -241,7 +241,7 @@ export function VersionDisplay() {
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                 <div className="text-center">
                   <div className="font-semibold mb-1">How to update:</div>
-                  <div>Click the button to update</div>
+                  <div>Click the button to update, when installed via the helper script</div>
                   <div>or update manually:</div>
                   <div>cd $PVESCRIPTLOCAL_DIR</div>
                   <div>git pull</div>

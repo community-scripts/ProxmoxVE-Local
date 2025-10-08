@@ -382,7 +382,7 @@ check_service() {
 
 # Stop the application before updating
 stop_application() {
-    log "Stopping application before update..."
+    
     
     # Change to the application directory if we're not already there
     local app_dir
