@@ -77,6 +77,7 @@ export function VersionDisplay() {
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [shouldSubscribe, setShouldSubscribe] = useState(false);
+  const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const lastLogTimeRef = useRef<number>(Date.now());
   const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -99,7 +100,7 @@ export function VersionDisplay() {
   });
 
   // Poll for update logs
-  const { data: updateLogsData, refetch: refetchLogs } = api.version.getUpdateLogs.useQuery(undefined, {
+  const { data: updateLogsData } = api.version.getUpdateLogs.useQuery(undefined, {
     enabled: shouldSubscribe,
     refetchInterval: 1000, // Poll every second
     refetchIntervalInBackground: true,
@@ -126,18 +127,22 @@ export function VersionDisplay() {
     const checkInterval = setInterval(() => {
       const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
       
-      // If no logs for 3 seconds and we're updating, assume server is restarting
-      if (timeSinceLastLog > 3000 && isUpdating) {
+      // Only start reconnection if we've been updating for at least 30 seconds
+      // and no logs for 10 seconds (to avoid premature reconnection during npm install)
+      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 60000;
+      const noLogsForAWhile = timeSinceLastLog > 40000;
+      
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating) {
         setIsNetworkError(true);
         setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
         
         // Start trying to reconnect
         startReconnectAttempts();
       }
-    }, 1000);
+    }, 1500); // Check every 2 seconds instead of 1
 
     return () => clearInterval(checkInterval);
-  }, [shouldSubscribe, isUpdating]);
+  }, [shouldSubscribe, isUpdating, updateStartTime]);
 
   // Attempt to reconnect and reload page when server is back
   const startReconnectAttempts = () => {
@@ -184,6 +189,7 @@ export function VersionDisplay() {
     setIsNetworkError(false);
     setUpdateLogs([]);
     setShouldSubscribe(false);
+    setUpdateStartTime(Date.now());
     lastLogTimeRef.current = Date.now();
     executeUpdate.mutate();
   };

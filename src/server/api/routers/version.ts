@@ -151,7 +151,13 @@ export const versionRouter = createTRPCRouter({
           line.includes('Update complete') || 
           line.includes('Server restarting') ||
           line.includes('npm start') ||
-          line.includes('Restarting server')
+          line.includes('Restarting server') ||
+          line.includes('Server started') ||
+          line.includes('Ready on http') ||
+          line.includes('Application started') ||
+          line.includes('Service enabled and started successfully') ||
+          line.includes('Service is running') ||
+          line.includes('Update completed successfully')
         );
 
         return {
