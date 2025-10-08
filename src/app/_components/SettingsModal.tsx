@@ -15,7 +15,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'servers' | 'general'>('servers');
 
   useEffect(() => {
     if (isOpen) {
@@ -116,35 +115,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </Button>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-8 px-4 sm:px-6">
-            <Button
-              onClick={() => setActiveTab('servers')}
-              variant="ghost"
-              size="null"
-              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
-                activeTab === 'servers'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              Server Settings
-            </Button>
-            <Button
-              onClick={() => setActiveTab('general')}
-              variant="ghost"
-              size="null"
-              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
-                activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              General
-            </Button>
-          </nav>
-        </div>
 
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)]">
@@ -164,37 +134,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           )}
 
-          {activeTab === 'servers' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Server Configurations</h3>
-                <ServerForm onSubmit={handleCreateServer} />
-              </div>
-              
-              <div>
-                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Saved Servers</h3>
-                {loading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-2 text-gray-600">Loading servers...</p>
-                  </div>
-                ) : (
-                  <ServerList
-                    servers={servers}
-                    onUpdate={handleUpdateServer}
-                    onDelete={handleDeleteServer}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'general' && (
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">General Settings</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">General settings will be available in a future update.</p>
+              <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Server Configurations</h3>
+              <ServerForm onSubmit={handleCreateServer} />
             </div>
-          )}
+            
+            <div>
+              <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Saved Servers</h3>
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-gray-600">Loading servers...</p>
+                </div>
+              ) : (
+                <ServerList
+                  servers={servers}
+                  onUpdate={handleUpdateServer}
+                  onDelete={handleDeleteServer}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

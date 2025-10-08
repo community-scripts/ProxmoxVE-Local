@@ -7,6 +7,7 @@ import { DownloadedScriptsTab } from './_components/DownloadedScriptsTab';
 import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
 import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
+import { ServerSettingsButton } from './_components/ServerSettingsButton';
 import { SettingsButton } from './_components/SettingsButton';
 import { VersionDisplay } from './_components/VersionDisplay';
 import { Button } from './_components/ui/button';
@@ -43,13 +44,10 @@ export default function Home() {
 
         {/* Controls */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col gap-4 p-4 sm:p-6 bg-card rounded-lg shadow-sm border border-border">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <SettingsButton />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <ResyncButton />
-            </div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4 p-4 sm:p-6 bg-card rounded-lg shadow-sm border border-border">
+            <ServerSettingsButton />
+            <SettingsButton />
+            <ResyncButton />
           </div>
         </div>
 
