@@ -52,18 +52,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
-        console.log('=== OUTPUT DEBUG ===');
-        console.log('Output data length:', message.data.length);
-        console.log('Output preview:', message.data.substring(0, 200));
-        console.log('Contains ANSI codes:', message.data.includes('\x1b[') || message.data.includes('\u001b['));
-        console.log('Contains clear screen:', message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J'));
-        console.log('Contains cursor positioning:', message.data.includes('\x1b[') && message.data.includes('H'));
-        console.log('In whiptail session:', inWhiptailSession);
-        
         // Detect whiptail sessions and clear immediately
         if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
           setInWhiptailSession(true);
-          console.log('Whiptail session detected!');
           // Clear terminal immediately when whiptail starts
           xtermRef.current.clear();
           xtermRef.current.write('\x1b[2J\x1b[H');
@@ -72,14 +63,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         // Check for screen clearing sequences and handle them properly
         if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
           // This is a clear screen sequence, ensure it's processed correctly
-          console.log('Clear screen detected:', message.data);
           xtermRef.current.write(message.data);
         } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
           // This is a cursor positioning sequence, often implies a redraw of the entire screen
-          console.log('Cursor positioning detected (implies redraw):', message.data);
           if (inWhiptailSession) {
             // In whiptail session, completely reset the terminal
-            console.log('Resetting terminal for whiptail redraw');
             // Completely clear everything
             xtermRef.current.clear();
             xtermRef.current.write('\x1b[2J\x1b[H\x1b[3J\x1b[2J');
@@ -232,27 +220,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
       // Handle terminal input
       terminal.onData((data) => {
-        console.log('=== KEYBOARD INPUT DEBUG ===');
-        console.log('Keyboard input received:', data);
-        console.log('Input bytes:', Array.from(data).map(c => c.charCodeAt(0)));
-        console.log('WebSocket ref exists:', !!wsRef.current);
-        console.log('WebSocket readyState:', wsRef.current?.readyState);
-        console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
-        console.log('WebSocket URL:', wsRef.current?.url);
-        console.log('WebSocket protocol:', wsRef.current?.protocol);
-        
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           const message = {
             action: 'input',
             executionId,
-            input: data  // Reverted back to 'input' field - server expects this
+            input: data
           };
-          console.log('Sending keyboard WebSocket message:', JSON.stringify(message, null, 2));
-          console.log('WebSocket object:', wsRef.current);
           wsRef.current.send(JSON.stringify(message));
-          console.log('Keyboard WebSocket message sent successfully');
-        } else {
-          console.warn('WebSocket not connected for keyboard input');
         }
       });
 
@@ -387,32 +361,16 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   };
 
   const sendInput = (input: string) => {
-    console.log('=== MOBILE INPUT SEND DEBUG ===');
-    console.log('Sending input:', input, 'to execution:', executionId);
-    console.log('Input bytes:', Array.from(input).map(c => c.charCodeAt(0)));
-    console.log('WebSocket ref exists:', !!wsRef.current);
-    console.log('WebSocket readyState:', wsRef.current?.readyState);
-    console.log('WebSocket OPEN constant:', WebSocket.OPEN);
-    console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
-    console.log('WebSocket URL:', wsRef.current?.url);
-    console.log('WebSocket protocol:', wsRef.current?.protocol);
-    
     setLastInputSent(input);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       const message = {
         action: 'input',
         executionId,
-        input: input  // Changed to 'input' field to match server expectations
+        input: input
       };
-      console.log('Sending WebSocket message:', JSON.stringify(message, null, 2));
-      console.log('WebSocket object:', wsRef.current);
       wsRef.current.send(JSON.stringify(message));
-      console.log('WebSocket message sent successfully');
       // Clear the feedback after 2 seconds
       setTimeout(() => setLastInputSent(null), 2000);
-    } else {
-      console.warn('WebSocket not connected, cannot send input');
-      console.warn('WebSocket state:', wsRef.current?.readyState);
     }
   };
 
@@ -518,10 +476,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {/* Navigation Buttons */}
             <div className="grid grid-cols-2 gap-2">
               <Button
-                onClick={() => {
-                  console.log('=== UP BUTTON CLICKED ===');
-                  sendInput('\x1b[A');
-                }}
+                onClick={() => sendInput('\x1b[A')}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -531,10 +486,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Up
               </Button>
               <Button
-                onClick={() => {
-                  console.log('=== DOWN BUTTON CLICKED ===');
-                  sendInput('\x1b[B');
-                }}
+                onClick={() => sendInput('\x1b[B')}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -548,10 +500,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {/* Left/Right Navigation Buttons */}
             <div className="grid grid-cols-2 gap-2">
               <Button
-                onClick={() => {
-                  console.log('=== LEFT BUTTON CLICKED ===');
-                  sendInput('\x1b[D');
-                }}
+                onClick={() => sendInput('\x1b[D')}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -561,10 +510,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Left
               </Button>
               <Button
-                onClick={() => {
-                  console.log('=== RIGHT BUTTON CLICKED ===');
-                  sendInput('\x1b[C');
-                }}
+                onClick={() => sendInput('\x1b[C')}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -578,10 +524,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {/* Action Buttons */}
             <div className="grid grid-cols-3 gap-2">
               <Button
-                onClick={() => {
-                  console.log('=== ENTER BUTTON CLICKED ===');
-                  handleEnterKey();
-                }}
+                onClick={handleEnterKey}
                 variant="outline"
                 size="sm"
                 className="text-sm"
@@ -590,10 +533,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Enter
               </Button>
               <Button
-                onClick={() => {
-                  console.log('=== SPACEBAR BUTTON CLICKED ===');
-                  sendInput(' ');
-                }}
+                onClick={() => sendInput(' ')}
                 variant="outline"
                 size="sm"
                 className="text-sm"
@@ -602,10 +542,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Space
               </Button>
               <Button
-                onClick={() => {
-                  console.log('=== BACKSPACE BUTTON CLICKED ===');
-                  sendInput('\b');
-                }}
+                onClick={() => sendInput('\b')}
                 variant="outline"
                 size="sm"
                 className="text-sm"
