@@ -59,6 +59,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           // This might be a cursor positioning sequence
           console.log('Cursor positioning detected:', message.data);
           xtermRef.current.write(message.data);
+        } else if (message.data.includes('whiptail') || message.data.includes('dialog')) {
+          // This might be a whiptail/dialog output, ensure clean rendering
+          console.log('Whiptail/dialog output detected:', message.data.substring(0, 100));
+          xtermRef.current.write(message.data);
         } else {
           xtermRef.current.write(message.data);
         }
