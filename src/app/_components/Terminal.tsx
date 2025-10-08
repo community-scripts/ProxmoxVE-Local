@@ -27,6 +27,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [mobileInput, setMobileInput] = useState('');
   const [showMobileInput, setShowMobileInput] = useState(false);
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
+  const [inWhiptailSession, setInWhiptailSession] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -56,6 +57,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         console.log('Contains ANSI codes:', message.data.includes('\x1b[') || message.data.includes('\u001b['));
         console.log('Contains clear screen:', message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J'));
         console.log('Contains cursor positioning:', message.data.includes('\x1b[') && message.data.includes('H'));
+        console.log('In whiptail session:', inWhiptailSession);
+        
+        // Detect whiptail sessions
+        if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
+          setInWhiptailSession(true);
+          console.log('Whiptail session detected!');
+        }
         
         // Check for screen clearing sequences and handle them properly
         if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
@@ -65,9 +73,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
           // This is a cursor positioning sequence, often implies a redraw of the entire screen
           console.log('Cursor positioning detected (implies redraw):', message.data);
-          // Try a more aggressive clear - clear entire buffer and reset
-          xtermRef.current.clear();
-          xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
+          if (inWhiptailSession) {
+            // In whiptail session, be more aggressive about clearing
+            console.log('Clearing terminal for whiptail redraw');
+            xtermRef.current.clear();
+            xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
+          }
           xtermRef.current.write(message.data);
         } else {
           xtermRef.current.write(message.data);
@@ -90,6 +101,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         }
         break;
       case 'end':
+        // Reset whiptail session
+        setInWhiptailSession(false);
+        
         // Check if this is an LXC creation script
         const isLxcCreation = scriptPath.includes('ct/') || 
                              scriptPath.includes('create_lxc') || 
@@ -153,11 +167,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wordSeparator: ' ()[]{}\'"`<>|',
         // Better ANSI handling
         allowProposedApi: true,
-        // Mobile-specific settings
-        ...(isMobile && {
-          rows: 20,
-          cols: 60,
-        }),
+        // Force proper terminal behavior for interactive applications
+        cols: isMobile ? 60 : 80,
+        rows: isMobile ? 20 : 24,
       });
 
       // Add addons
