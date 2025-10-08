@@ -243,7 +243,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     return () => {
       clearTimeout(timeoutId);
       if (terminalRef.current && (terminalRef.current as any).resizeHandler) {
-        window.removeEventListener('resize', (terminalRef.current as any).resizeHandler);
+        window.removeEventListener('resize', (terminalRef.current as any).resizeHandler as (this: Window, ev: UIEvent) => any);
       }
       if (xtermRef.current) {
         xtermRef.current.dispose();
@@ -251,7 +251,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         fitAddonRef.current = null;
       }
     };
-  }, [executionId, isClient]);
+  }, [executionId, isClient, inWhiptailSession]);
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
@@ -329,7 +329,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage]);
+  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage, isMobile]);
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -379,9 +379,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     setMobileInput('');
   };
 
-  const handleNumberInput = (number: number) => {
-    sendInput(number.toString());
-  };
 
   const handleEnterKey = () => {
     sendInput('\r');

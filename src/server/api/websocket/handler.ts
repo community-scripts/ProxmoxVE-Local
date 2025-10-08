@@ -24,17 +24,11 @@ export class ScriptExecutionHandler {
   }
 
   private handleConnection(ws: WebSocket, _request: IncomingMessage) {
-    const connectionId = Math.random().toString(36).substr(2, 9);
-    console.log('=== NEW WEBSOCKET CONNECTION ===');
-    console.log('Connection ID:', connectionId);
-    console.log('Total active connections:', this.wss.clients.size);
+   
     
     ws.on('message', (data) => {
       try {
-        console.log('=== WEBSOCKET MESSAGE RECEIVED ===');
-        console.log('Connection ID:', connectionId);
-        console.log('Message length:', data.length);
-        console.log('Raw message:', data.toString());
+
         
         const message = JSON.parse(data.toString()) as { action: string; scriptPath?: string; executionId?: string };
         void this.handleMessage(ws, message);
@@ -49,17 +43,12 @@ export class ScriptExecutionHandler {
     });
 
     ws.on('close', () => {
-      console.log('=== WEBSOCKET CONNECTION CLOSED ===');
-      console.log('Connection ID:', connectionId);
-      console.log('Remaining connections:', this.wss.clients.size);
+
       // Clean up any active executions for this connection
       this.cleanupActiveExecutions(ws);
     });
 
-    ws.on('error', (error) => {
-      console.log('=== WEBSOCKET CONNECTION ERROR ===');
-      console.log('Connection ID:', connectionId);
-      console.error('WebSocket error:', error);
+    ws.on('error', (_error) => {
       this.cleanupActiveExecutions(ws);
     });
   }
@@ -67,9 +56,7 @@ export class ScriptExecutionHandler {
   private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; input?: string }) {
     const { action, scriptPath, executionId, mode, server, input } = message;
     
-    console.log('=== WEBSOCKET MESSAGE DEBUG ===');
-    console.log('WebSocket message received:', { action, scriptPath, executionId, mode, server: server ? { name: server.name, ip: server.ip } : null, hasInput: !!input });
-    console.log('Full message object:', JSON.stringify(message, null, 2));
+
 
     switch (action) {
       case 'start':
@@ -91,13 +78,11 @@ export class ScriptExecutionHandler {
         break;
 
       case 'input':
-        console.log('=== INPUT ACTION DEBUG ===');
-        console.log('Input action received:', { executionId, input, hasExecutionId: !!executionId, hasInput: input !== undefined });
-        if (executionId && input !== undefined) {
-          console.log('Calling sendInputToExecution...');
+       if (executionId && input !== undefined) {
+         
           this.sendInputToExecution(executionId, input);
         } else {
-          console.log('Input action failed - missing executionId or input');
+          
           this.sendMessage(ws, {
             type: 'error',
             data: 'Missing executionId or input data',
@@ -116,8 +101,7 @@ export class ScriptExecutionHandler {
   }
 
   private async startScriptExecution(ws: WebSocket, scriptPath: string, executionId: string, mode?: 'local' | 'ssh', server?: any) {
-    console.log('startScriptExecution called with:', { scriptPath, executionId, mode, server: server ? { name: server.name, ip: server.ip } : null });
-    
+   
     try {
       // Check if execution is already running
       if (this.activeExecutions.has(executionId)) {
@@ -132,10 +116,7 @@ export class ScriptExecutionHandler {
       let process: any;
 
       if (mode === 'ssh' && server) {
-        // SSH execution
-        console.log('Starting SSH execution:', { scriptPath, server });
-        console.log('SSH execution mode detected, calling SSH service...');
-        console.log('Mode check: mode=', mode, 'server=', !!server);
+       
         this.sendMessage(ws, {
           type: 'start',
           data: `Starting SSH execution of ${scriptPath} on ${server.name ?? server.ip}`,
@@ -143,13 +124,11 @@ export class ScriptExecutionHandler {
         });
 
         const sshService = getSSHExecutionService();
-        console.log('SSH service obtained, calling executeScript...');
-        console.log('SSH service object:', typeof sshService, sshService.constructor.name);
-        
+       
         try {
           const result = await sshService.executeScript(server as Server, scriptPath, 
             (data: string) => {
-              console.log('SSH onData callback:', data.substring(0, 100) + '...');
+             
               this.sendMessage(ws, {
                 type: 'output',
                 data: data,
@@ -157,7 +136,7 @@ export class ScriptExecutionHandler {
               });
             },
             (error: string) => {
-              console.log('SSH onError callback:', error);
+           
               this.sendMessage(ws, {
                 type: 'error',
                 data: error,
@@ -165,7 +144,7 @@ export class ScriptExecutionHandler {
               });
             },
             (code: number) => {
-              console.log('SSH onExit callback, code:', code);
+             
               this.sendMessage(ws, {
                 type: 'end',
                 data: `SSH script execution finished with code: ${code}`,
@@ -174,10 +153,10 @@ export class ScriptExecutionHandler {
               this.activeExecutions.delete(executionId);
             }
           );
-          console.log('SSH service executeScript completed, result:', result);
+          
           process = (result as any).process;
         } catch (sshError) {
-          console.error('SSH service executeScript failed:', sshError);
+          
           this.sendMessage(ws, {
             type: 'error',
             data: `SSH execution failed: ${sshError instanceof Error ? sshError.message : String(sshError)}`,
@@ -186,10 +165,7 @@ export class ScriptExecutionHandler {
           return;
         }
       } else {
-        // Local execution
-        console.log('Starting local execution:', { scriptPath });
-        console.log('Local execution mode detected, calling local script manager...');
-        console.log('Mode check: mode=', mode, 'server=', !!server, 'condition result:', mode === 'ssh' && server);
+       
         
         // Validate script path
         const validation = scriptManager.validateScriptPath(scriptPath);
@@ -282,32 +258,19 @@ export class ScriptExecutionHandler {
   }
 
   private sendInputToExecution(executionId: string, input: string) {
-    console.log('=== MOBILE INPUT DEBUG ===');
-    console.log('sendInputToExecution called:', { executionId, input, inputLength: input.length });
-    console.log('Input string representation:', JSON.stringify(input));
-    console.log('Input char codes:', Array.from(input).map(c => c.charCodeAt(0)));
+  
     const execution = this.activeExecutions.get(executionId);
-    console.log('Active executions:', Array.from(this.activeExecutions.keys()));
-    console.log('Found execution:', !!execution);
+
     
-    if (execution && execution.process) {
-      console.log('Execution found, process details:', {
-        hasStdin: !!execution.process.stdin,
-        stdinDestroyed: execution.process.stdin?.destroyed,
-        processPid: execution.process.pid,
-        processKilled: execution.process.killed,
-        hasWrite: typeof execution.process.write === 'function',
-        isPty: !!(execution.process as any).write && !execution.process.stdin
-      });
-      
+    if (execution?.process) {
+           
       try {
         // Check if it's a pty process (SSH) or regular process
         if (typeof execution.process.write === 'function' && !execution.process.stdin) {
-          // This is a pty process (SSH execution)
-          console.log('Writing to pty process:', input);
-          console.log('Input bytes for pty:', Array.from(input).map(c => c.charCodeAt(0)));
+         
+         
           execution.process.write(input);
-          console.log('Successfully wrote to pty process');
+
           
           // Send confirmation back to client
           this.sendMessage(execution.ws, {
@@ -316,20 +279,17 @@ export class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         } else if (execution.process.stdin && !execution.process.stdin.destroyed) {
-          // This is a regular process (local execution)
-          console.log('Writing to stdin:', input);
-          console.log('Input bytes for stdin:', Array.from(input).map(c => c.charCodeAt(0)));
+         
           execution.process.stdin.write(input);
-          console.log('Successfully wrote to stdin');
-          
-          // Send confirmation back to client
+
+
           this.sendMessage(execution.ws, {
             type: 'output',
             data: `[MOBILE INPUT SENT: ${JSON.stringify(input)}]`,
             timestamp: Date.now()
           });
         } else {
-          console.warn('Process input not available or destroyed');
+          
           this.sendMessage(execution.ws, {
             type: 'error',
             data: 'Process input not available',
@@ -337,7 +297,7 @@ export class ScriptExecutionHandler {
           });
         }
       } catch (error) {
-        console.error('Error sending input to execution:', error);
+        
         this.sendMessage(execution.ws, {
           type: 'error',
           data: `Failed to send input: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -345,12 +305,8 @@ export class ScriptExecutionHandler {
         });
       }
     } else {
-      console.warn('No active execution found for input:', executionId);
-      this.sendMessage(execution.ws, {
-        type: 'error',
-        data: `No active execution found for ID: ${executionId}`,
-        timestamp: Date.now()
-      });
+      // No active execution found - this case is already handled above
+      return;
     }
   }
 
