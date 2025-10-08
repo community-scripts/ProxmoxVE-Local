@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "./ui/button";
-import { Package, Monitor, Wrench, Server, FileText, Calendar } from "lucide-react";
+import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter } from "lucide-react";
 
 export interface FilterState {
   searchQuery: string;
@@ -35,6 +35,7 @@ export function FilterBar({
   updatableCount = 0,
 }: FilterBarProps) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const updateFilters = (updates: Partial<FilterState>) => {
     onFiltersChange({ ...filters, ...updates });
@@ -76,10 +77,10 @@ export function FilterBar({
   };
 
   return (
-    <div className="mb-6 rounded-lg border border-border bg-card p-6 shadow-sm">
+    <div className="mb-6 rounded-lg border border-border bg-card p-4 sm:p-6 shadow-sm">
       {/* Search Bar */}
       <div className="mb-4">
-        <div className="relative max-w-md">
+        <div className="relative max-w-md w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <svg
               className="h-5 w-5 text-muted-foreground"
@@ -128,7 +129,7 @@ export function FilterBar({
       </div>
 
       {/* Filter Buttons */}
-      <div className="mb-4 flex flex-wrap gap-3">
+      <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
         {/* Updateable Filter */}
         <Button
           onClick={() => {
@@ -142,29 +143,31 @@ export function FilterBar({
           }}
           variant="outline"
           size="default"
-            className={`${
-              filters.showUpdatable === null
-                ? "bg-muted text-muted-foreground hover:bg-accent"
-                : filters.showUpdatable === true
-                  ? "border border-green-500/20 bg-green-500/10 text-green-400"
-                  : "border border-destructive/20 bg-destructive/10 text-destructive"
-            }`}
+          className={`w-full sm:w-auto flex items-center justify-center space-x-2 ${
+            filters.showUpdatable === null
+              ? "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              : filters.showUpdatable === true
+                ? "border border-green-500/20 bg-green-500/10 text-green-400"
+                : "border border-destructive/20 bg-destructive/10 text-destructive"
+          }`}
         >
-          {getUpdatableButtonText()}
+          <RefreshCw className="h-4 w-4" />
+          <span>{getUpdatableButtonText()}</span>
         </Button>
 
         {/* Type Dropdown */}
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Button
             onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
             variant="outline"
             size="default"
-            className={`flex items-center space-x-2 ${
+            className={`w-full flex items-center justify-center space-x-2 ${
               filters.selectedTypes.length === 0
-                ? "bg-muted text-muted-foreground hover:bg-accent"
+                ? "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 : "border border-primary/20 bg-primary/10 text-primary"
             }`}
           >
+            <Filter className="h-4 w-4" />
             <span>{getTypeButtonText()}</span>
             <svg
               className={`h-4 w-4 transition-transform ${isTypeDropdownOpen ? "rotate-180" : ""}`}
@@ -237,85 +240,122 @@ export function FilterBar({
           )}
         </div>
 
-        {/* Sort Options */}
-        <div className="flex items-center space-x-2">
-          {/* Sort By Dropdown */}
-          <div className="relative inline-flex items-center">
-            <select
-              value={filters.sortBy}
-              onChange={(e) =>
-                updateFilters({ sortBy: e.target.value as "name" | "created" })
-              }
-              className="rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none appearance-none"
-            >
-              <option value="name">By Name</option>
-              <option value="created">By Created Date</option>
-            </select>
-            <div className="absolute left-2 pointer-events-none">
-              {filters.sortBy === "name" ? (
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          </div>
-
-          {/* Sort Order Button */}
+        {/* Sort By Dropdown */}
+        <div className="relative w-full sm:w-auto">
           <Button
-            onClick={() =>
-              updateFilters({
-                sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
-              })
-            }
+            onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
             variant="outline"
             size="default"
-            className="flex items-center space-x-1 bg-muted text-muted-foreground hover:bg-accent"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
-            {filters.sortOrder === "asc" ? (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 11l5-5m0 0l5 5m-5-5v12"
-                  />
-                </svg>
-                <span>
-                  {filters.sortBy === "created" ? "Oldest First" : "A-Z"}
-                </span>
-              </>
+            {filters.sortBy === "name" ? (
+              <FileText className="h-4 w-4" />
             ) : (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 13l-5 5m0 0l-5-5m5 5V6"
-                  />
-                </svg>
-                <span>
-                  {filters.sortBy === "created" ? "Newest First" : "Z-A"}
-                </span>
-              </>
+              <Calendar className="h-4 w-4" />
             )}
+            <span>{filters.sortBy === "name" ? "By Name" : "By Created Date"}</span>
+            <svg
+              className={`h-4 w-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </Button>
+
+          {isSortDropdownOpen && (
+            <div className="absolute top-full left-0 z-10 mt-1 w-full sm:w-48 rounded-lg border border-border bg-card shadow-lg">
+              <div className="p-2">
+                <button
+                  onClick={() => {
+                    updateFilters({ sortBy: "name" });
+                    setIsSortDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-3 rounded-md px-3 py-2 text-left hover:bg-accent ${
+                    filters.sortBy === "name" ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm">By Name</span>
+                </button>
+                <button
+                  onClick={() => {
+                    updateFilters({ sortBy: "created" });
+                    setIsSortDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-3 rounded-md px-3 py-2 text-left hover:bg-accent ${
+                    filters.sortBy === "created" ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-sm">By Created Date</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Sort Order Button */}
+        <Button
+          onClick={() =>
+            updateFilters({
+              sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
+            })
+          }
+          variant="outline"
+          size="default"
+          className="w-full sm:w-auto flex items-center justify-center space-x-1 bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          {filters.sortOrder === "asc" ? (
+            <>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 11l5-5m0 0l5 5m-5-5v12"
+                />
+              </svg>
+              <span>
+                {filters.sortBy === "created" ? "Oldest First" : "A-Z"}
+              </span>
+            </>
+          ) : (
+            <>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 13l-5 5m0 0l-5-5m5 5V6"
+                />
+              </svg>
+              <span>
+                {filters.sortBy === "created" ? "Newest First" : "Z-A"}
+              </span>
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Filter Summary and Clear All */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="text-sm text-muted-foreground">
           {filteredCount === totalScripts ? (
             <span>Showing all {totalScripts} scripts</span>
@@ -336,7 +376,7 @@ export function FilterBar({
             onClick={clearAllFilters}
             variant="ghost"
             size="sm"
-            className="flex items-center space-x-1 text-red-600 hover:bg-red-50 hover:text-red-800"
+            className="flex items-center space-x-1 text-red-600 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto justify-center sm:justify-start"
           >
             <svg
               className="h-4 w-4"
@@ -356,11 +396,14 @@ export function FilterBar({
         )}
       </div>
 
-      {/* Click outside to close dropdown */}
-      {isTypeDropdownOpen && (
+      {/* Click outside to close dropdowns */}
+      {(isTypeDropdownOpen || isSortDropdownOpen) && (
         <div
           className="fixed inset-0 z-0"
-          onClick={() => setIsTypeDropdownOpen(false)}
+          onClick={() => {
+            setIsTypeDropdownOpen(false);
+            setIsSortDropdownOpen(false);
+          }}
         />
       )}
     </div>

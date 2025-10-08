@@ -5,6 +5,7 @@ import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
 import { Button } from './ui/button';
+import { ScriptInstallationCard } from './ScriptInstallationCard';
 
 interface InstalledScript {
   id: number;
@@ -263,9 +264,9 @@ export function InstalledScriptsTab() {
 
         {/* Add Script Form */}
         {showAddForm && (
-          <div className="mb-6 p-6 bg-card rounded-lg border border-border shadow-sm">
-            <h3 className="text-lg font-semibold text-foreground mb-6">Add Manual Script Entry</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Add Manual Script Entry</h3>
+            <div className="space-y-4 sm:space-y-6">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground">
                   Script Name *
@@ -308,11 +309,12 @@ export function InstalledScriptsTab() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4 sm:mt-6">
               <Button
                 onClick={handleCancelAdd}
                 variant="outline"
                 size="default"
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -321,6 +323,7 @@ export function InstalledScriptsTab() {
                 disabled={createScriptMutation.isPending}
                 variant="default"
                 size="default"
+                className="w-full sm:w-auto"
               >
                 {createScriptMutation.isPending ? 'Adding...' : 'Add Script'}
               </Button>
@@ -329,8 +332,9 @@ export function InstalledScriptsTab() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
+        <div className="space-y-4">
+          {/* Search Input - Full Width on Mobile */}
+          <div className="w-full">
             <input
               type="text"
               placeholder="Search scripts, container IDs, or servers..."
@@ -340,169 +344,195 @@ export function InstalledScriptsTab() {
             />
           </div>
           
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'success' | 'failed' | 'in_progress')}
-            className="px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="all">All Status</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="in_progress">In Progress</option>
-          </select>
+          {/* Filter Dropdowns - Responsive Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'success' | 'failed' | 'in_progress')}
+              className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">All Status</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+              <option value="in_progress">In Progress</option>
+            </select>
 
-          <select
-            value={serverFilter}
-            onChange={(e) => setServerFilter(e.target.value)}
-            className="px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="all">All Servers</option>
-            <option value="local">Local</option>
-            {uniqueServers.map(server => (
-              <option key={server} value={server}>{server}</option>
-            ))}
-          </select>
+            <select
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">All Servers</option>
+              <option value="local">Local</option>
+              {uniqueServers.map(server => (
+                <option key={server} value={server}>{server}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Scripts Table */}
+      {/* Scripts Display - Mobile Cards / Desktop Table */}
       <div className="bg-card rounded-lg shadow overflow-hidden">
         {filteredScripts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {scripts.length === 0 ? 'No installed scripts found.' : 'No scripts match your filters.'}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Script Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Container ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Server
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Installation Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
-                {filteredScripts.map((script) => (
-                  <tr key={script.id} className="hover:bg-accent">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingScriptId === script.id ? (
-                        <div className="space-y-2">
+          <>
+            {/* Mobile Card Layout */}
+            <div className="block md:hidden p-4 space-y-4">
+              {filteredScripts.map((script) => (
+                <ScriptInstallationCard
+                  key={script.id}
+                  script={script}
+                  isEditing={editingScriptId === script.id}
+                  editFormData={editFormData}
+                  onInputChange={handleInputChange}
+                  onEdit={() => handleEditScript(script)}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                  onUpdate={() => handleUpdateScript(script)}
+                  onDelete={() => handleDeleteScript(Number(script.id))}
+                  isUpdating={updateScriptMutation.isPending}
+                  isDeleting={deleteScriptMutation.isPending}
+                />
+              ))}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Script Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Container ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Server
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Installation Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-card divide-y divide-gray-200">
+                  {filteredScripts.map((script) => (
+                    <tr key={script.id} className="hover:bg-accent">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingScriptId === script.id ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editFormData.script_name}
+                              onChange={(e) => handleInputChange('script_name', e.target.value)}
+                              className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="Script name"
+                            />
+                            <div className="text-xs text-muted-foreground">{script.script_path}</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="text-sm font-medium text-foreground">{script.script_name}</div>
+                            <div className="text-sm text-muted-foreground">{script.script_path}</div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingScriptId === script.id ? (
                           <input
                             type="text"
-                            value={editFormData.script_name}
-                            onChange={(e) => handleInputChange('script_name', e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Script name"
+                            value={editFormData.container_id}
+                            onChange={(e) => handleInputChange('container_id', e.target.value)}
+                            className="w-full px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="Container ID"
                           />
-                          <div className="text-xs text-muted-foreground">{script.script_path}</div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-sm font-medium text-foreground">{script.script_name}</div>
-                          <div className="text-sm text-muted-foreground">{script.script_path}</div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingScriptId === script.id ? (
-                        <input
-                          type="text"
-                          value={editFormData.container_id}
-                          onChange={(e) => handleInputChange('container_id', e.target.value)}
-                          className="w-full px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="Container ID"
-                        />
-                      ) : (
-                        script.container_id ? (
-                          <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
                         ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-muted-foreground">
-                        {script.server_name ?? 'Local'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={script.status}>
-                        {script.status.replace('_', ' ').toUpperCase()}
-                      </StatusBadge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                      {formatDate(String(script.installation_date))}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        {editingScriptId === script.id ? (
-                          <>
-                            <Button
-                              onClick={handleSaveEdit}
-                              disabled={updateScriptMutation.isPending}
-                              variant="default"
-                              size="sm"
-                            >
-                              {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
-                            </Button>
-                            <Button
-                              onClick={handleCancelEdit}
-                              variant="outline"
-                              size="sm"
-                            >
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              onClick={() => handleEditScript(script)}
-                              variant="default"
-                              size="sm"
-                            >
-                              Edit
-                            </Button>
-                            {script.container_id && (
+                          script.container_id ? (
+                            <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-muted-foreground">
+                          {script.server_name ?? 'Local'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={script.status}>
+                          {script.status.replace('_', ' ').toUpperCase()}
+                        </StatusBadge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(String(script.installation_date))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          {editingScriptId === script.id ? (
+                            <>
                               <Button
-                                onClick={() => handleUpdateScript(script)}
-                                variant="link"
+                                onClick={handleSaveEdit}
+                                disabled={updateScriptMutation.isPending}
+                                variant="default"
                                 size="sm"
                               >
-                                Update
+                                {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
-                            )}
-                            <Button
-                              onClick={() => handleDeleteScript(Number(script.id))}
-                              variant="destructive"
-                              size="sm"
-                              disabled={deleteScriptMutation.isPending}
-                            >
-                              {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                              <Button
+                                onClick={handleCancelEdit}
+                                variant="outline"
+                                size="sm"
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => handleEditScript(script)}
+                                variant="default"
+                                size="sm"
+                              >
+                                Edit
+                              </Button>
+                              {script.container_id && (
+                                <Button
+                                  onClick={() => handleUpdateScript(script)}
+                                  variant="link"
+                                  size="sm"
+                                >
+                                  Update
+                                </Button>
+                              )}
+                              <Button
+                                onClick={() => handleDeleteScript(Number(script.id))}
+                                variant="destructive"
+                                size="sm"
+                                disabled={deleteScriptMutation.isPending}
+                              >
+                                {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

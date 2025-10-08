@@ -196,7 +196,7 @@ export function CategorySidebar({
 
   return (
     <div className={`bg-card rounded-lg shadow-md border border-border transition-all duration-300 ${
-      isCollapsed ? 'w-16' : 'w-80'
+      isCollapsed ? 'w-16' : 'w-full lg:w-80'
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
@@ -292,7 +292,7 @@ export function CategorySidebar({
 
       {/* Collapsed state - show only icons with counters and tooltips */}
       {isCollapsed && (
-        <div className="p-2 flex flex-col space-y-2">
+        <div className="p-2 flex flex-row lg:flex-col space-x-2 lg:space-x-0 lg:space-y-2 overflow-x-auto lg:overflow-x-visible">
           {/* "All Categories" option */}
           <div className="group relative">
             <button
@@ -317,7 +317,7 @@ export function CategorySidebar({
             </button>
             
             {/* Tooltip */}
-            <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+            <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 hidden lg:block">
               All Categories ({totalScripts})
             </div>
           </div>
@@ -350,7 +350,7 @@ export function CategorySidebar({
                 </button>
                 
                 {/* Tooltip */}
-                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 hidden lg:block">
                   {category} ({count})
                 </div>
               </div>

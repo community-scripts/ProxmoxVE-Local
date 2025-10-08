@@ -316,9 +316,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   }
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
       {/* Category Sidebar */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 order-2 lg:order-1">
         <CategorySidebar
           categories={categories}
           categoryCounts={categoryCounts}
@@ -329,7 +329,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0" ref={gridRef}>
+      <div className="flex-1 min-w-0 order-1 lg:order-2" ref={gridRef}>
         {/* Enhanced Filter Bar */}
         <FilterBar
           filters={filters}
