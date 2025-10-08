@@ -617,6 +617,8 @@ install_and_build() {
     local pkg_count=$(find node_modules -maxdepth 1 -type d 2>/dev/null | wc -l)
     log "Installed packages: approximately $pkg_count top-level packages"
     rm -f "$npm_log"
+
+    npm install
     
     log "Building application..."
     # Set NODE_ENV to production for build
