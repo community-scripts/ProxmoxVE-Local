@@ -459,65 +459,29 @@ stop_application() {
     
     log "Working from application directory: $(pwd)"
     
-    # Check if systemd service is running and stop it
+    # Check if systemd service is running and disable it temporarily
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
-        log "Disabling systemd service..."
+        log "Disabling systemd service temporarily to prevent auto-restart..."
         if systemctl disable pvescriptslocal.service; then
-            log_success "Service stopped and disabled successfully"
+            log_success "Service disabled successfully"
         else
-            log_warning "Failed to disable service, but continuing..."
+            log_error "Failed to disable service"
+            return 1
         fi
     else
         log "No running systemd service found"
     fi
     
-    # Kill any remaining npm/node processes related to server.js
+    # Kill any remaining npm/node processes
     log "Killing any remaining npm/node processes..."
-    
-    # Find all related processes
-    local npm_pids node_pids sh_pids
-    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
-    node_pids=$(pgrep -f "node server.js" 2>/dev/null || true)
-    sh_pids=$(pgrep -f "sh -c node server.js" 2>/dev/null || true)
-    
-    if [ -n "$npm_pids" ] || [ -n "$node_pids" ] || [ -n "$sh_pids" ]; then
-        log "Found running processes:"
-        [ -n "$npm_pids" ] && log "  npm: $npm_pids"
-        [ -n "$node_pids" ] && log "  node: $node_pids"
-        [ -n "$sh_pids" ] && log "  sh: $sh_pids"
-        
-        # Kill node processes first (the actual server)
-        if [ -n "$node_pids" ]; then
-            log "Killing node processes..."
-            echo "$node_pids" | xargs -r kill -9 2>/dev/null || true
-        fi
-        
-        # Kill shell wrapper processes
-        if [ -n "$sh_pids" ]; then
-            log "Killing shell wrapper processes..."
-            echo "$sh_pids" | xargs -r kill -9 2>/dev/null || true
-        fi
-        
-        # Kill npm processes last
-        if [ -n "$npm_pids" ]; then
-            log "Killing npm processes..."
-            echo "$npm_pids" | xargs -r kill -9 2>/dev/null || true
-        fi
-        
-        # Wait and verify they're dead
+    local pids
+    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        log "Found running processes: $pids"
+        pkill -9 -f "node server.js" 2>/dev/null || true
+        pkill -9 -f "npm start" 2>/dev/null || true
         sleep 2
-        
-        # Check if any processes are still running
-        local remaining
-        remaining=$(pgrep -f "npm start|node server.js|sh -c node server.js" 2>/dev/null || true)
-        if [ -n "$remaining" ]; then
-            log_warning "Some processes may still be running: $remaining"
-            log "Attempting forceful kill..."
-            echo "$remaining" | xargs -r kill -9 2>/dev/null || true
-            sleep 1
-        fi
-        
-        log_success "All processes killed"
+        log_success "Processes killed"
     else
         log "No running processes found"
     fi
@@ -770,11 +734,9 @@ main() {
     # Check if this is the relocated/detached version first
     if [ "${1:-}" = "--relocated" ]; then
         export PVE_UPDATE_RELOCATED=1
-        # Give the parent process time to exit
-        sleep 3
         init_log
-        log "Running as detached process (PID: $$)"
-        log "Parent process has exited, we are now independent"
+        log "Running as detached process"
+        sleep 3
         
     else
         init_log
@@ -782,53 +744,16 @@ main() {
     
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
-        log "Detected running from application directory, creating independent process..."
-        
-        # Copy script to /tmp to ensure it's not affected by directory operations
-        local temp_script="/tmp/pve-update-script-$$.sh"
-        log "Copying update script to: $temp_script"
-        cp "$0" "$temp_script"
-        chmod +x "$temp_script"
-        
-        # Store the application directory for the relocated script
-        local app_dir_path="$(pwd)"
-        
-        # Use setsid if available to create a completely independent session
-        if command -v setsid &> /dev/null; then
-            log "Using setsid for true process independence"
-            setsid bash "$temp_script" --relocated "$app_dir_path" </dev/null >>/tmp/update.log 2>&1 &
-        else
-            log "setsid not available, using standard background process"
-            bash "$temp_script" --relocated "$app_dir_path" </dev/null >>/tmp/update.log 2>&1 &
-        fi
-        
-        local child_pid=$!
-        log "Update process started in background with PID: $child_pid"
-        log "Update logs will be written to: /tmp/update.log"
-        log "Current process exiting to allow update to proceed..."
-        sleep 1
-        exit 0
+        log "Detected running from application directory"
+        bash "$0" --relocated
+        exit $?
     fi
     
     # Ensure we're in the application directory
     local app_dir
     
-    # Check if app directory was passed as argument (from relocation)
-    if [ -n "${2:-}" ]; then
-        app_dir="$2"
-        log "Using application directory from argument: $app_dir"
-        if [ -d "$app_dir" ]; then
-            cd "$app_dir" || {
-                log_error "Failed to change to application directory: $app_dir"
-                exit 1
-            }
-            log "Changed to application directory: $(pwd)"
-        else
-            log_error "Provided application directory does not exist: $app_dir"
-            exit 1
-        fi
     # First check if we're already in the right directory
-    elif [ -f "package.json" ] && [ -f "server.js" ]; then
+    if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
         log "Already in application directory: $app_dir"
     else
@@ -915,16 +840,6 @@ main() {
     log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
-    
-    # Clean up temporary script copy if it exists
-    if [ -n "${PVE_UPDATE_RELOCATED:-}" ]; then
-        local script_path="$0"
-        if [[ "$script_path" == /tmp/pve-update-script-* ]]; then
-            log "Scheduling cleanup of temporary script: $script_path"
-            # Schedule deletion after script exits
-            (sleep 5 && rm -f "$script_path" 2>/dev/null) &
-        fi
-    fi
     
     # Start the application
     start_application

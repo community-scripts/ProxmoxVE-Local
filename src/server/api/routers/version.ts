@@ -131,10 +131,9 @@ export const versionRouter = createTRPCRouter({
       try {
         const updateScriptPath = join(process.cwd(), 'update.sh');
         
-        // Use setsid to create a completely independent process session
-        // This ensures the update script survives when it kills the Node.js process
-        // setsid creates a new session, making the process immune to parent termination
-        const child = spawn('setsid', ['bash', updateScriptPath], {
+        // Spawn the update script as a detached process using nohup
+        // This allows it to run independently and kill the parent Node.js process
+        const child = spawn('nohup', ['bash', updateScriptPath], {
           cwd: process.cwd(),
           stdio: ['ignore', 'ignore', 'ignore'],
           shell: false,
