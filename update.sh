@@ -617,7 +617,7 @@ install_and_build() {
         log_error "package.json not found! Cannot install dependencies."
         return 1
     fi
-    
+    log "Current working directory: $(pwd)"
     # Check if package-lock.json exists (it should from the new release)
     if [ -f "package-lock.json" ]; then
         log "Using package-lock.json from new release"
@@ -640,10 +640,21 @@ install_and_build() {
     # Create temporary file for npm output
     local npm_log="/tmp/npm_install_$$.log"
     
-    # Run npm install (using the new package.json and package-lock.json from release)
-    log "Running npm install (this may take a few minutes)..."
-    npm install > "$npm_log" 2>&1
+    # Ensure NODE_ENV is not set to production during install (we need devDependencies for build)
+    local old_node_env="${NODE_ENV:-}"
+    export NODE_ENV=development
+    
+    # Run npm install to get ALL dependencies including devDependencies
+    log "Running npm install --include=dev (this may take a few minutes)..."
+    npm install --include=dev > "$npm_log" 2>&1
     local npm_exit_code=$?
+    
+    # Restore NODE_ENV
+    if [ -n "$old_node_env" ]; then
+        export NODE_ENV="$old_node_env"
+    else
+        unset NODE_ENV
+    fi
     
     # Always show npm output (last 30 lines)
     log "npm install output (last 30 lines):"
