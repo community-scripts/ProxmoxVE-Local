@@ -155,7 +155,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           foreground: '#00ff00',
           cursor: '#00ff00',
         },
-        fontSize: isMobile ? 10 : 14,
+        fontSize: isMobile ? 8 : 14,
         fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
         cursorBlink: true,
         cursorStyle: 'block',
@@ -170,10 +170,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         // Better ANSI handling
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
-        // Use larger virtual terminal on mobile to prevent text wrapping
-        // Let the display area show only the center portion
-        cols: isMobile ? 80 : 80,
-        rows: isMobile ? 30 : 24,
+        // Use smaller dimensions on mobile but ensure proper fit
+        cols: isMobile ? 50 : 80,
+        rows: isMobile ? 20 : 24,
       });
 
       // Add addons
@@ -191,11 +190,14 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       // Fit after a small delay to ensure proper sizing
       setTimeout(() => {
         fitAddon.fit();
-        // Force fit again after a longer delay for mobile
+        // Force fit multiple times for mobile to ensure proper sizing
         if (isMobile) {
           setTimeout(() => {
             fitAddon.fit();
-          }, 500);
+            setTimeout(() => {
+              fitAddon.fit();
+            }, 200);
+          }, 300);
         }
       }, 100);
 
@@ -467,10 +469,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         ref={terminalRef}
         className={`h-[16rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto ${isMobile ? 'mobile-terminal' : ''}`}
         style={{ 
-          minHeight: '256px',
-          // Let virtual terminal overflow and center the content
-          overflow: isMobile ? 'hidden' : 'visible',
-          position: isMobile ? 'relative' : 'static'
+          minHeight: '256px'
         }}
       />
 
