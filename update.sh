@@ -630,12 +630,18 @@ install_and_build() {
     
     # Run npm install (using the new package.json and package-lock.json from release)
     log "Running npm install (this may take a few minutes)..."
-    if ! npm install > "$npm_log" 2>&1; then
-        log_error "Failed to install dependencies"
-        log_error "npm install output (last 50 lines):"
-        tail -50 "$npm_log" | while read -r line; do
-            log_error "NPM: $line"
-        done
+    npm install > "$npm_log" 2>&1
+    local npm_exit_code=$?
+    
+    # Always show npm output (last 30 lines)
+    log "npm install output (last 30 lines):"
+    tail -30 "$npm_log" | while read -r line; do
+        log "NPM: $line"
+    done
+    
+    # Check if npm install failed
+    if [ $npm_exit_code -ne 0 ]; then
+        log_error "Failed to install dependencies (exit code: $npm_exit_code)"
         rm -f "$npm_log"
         return 1
     fi
