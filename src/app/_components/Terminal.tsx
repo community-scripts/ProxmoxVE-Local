@@ -56,12 +56,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           console.log('Clear screen detected:', message.data);
           xtermRef.current.write(message.data);
         } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
-          // This might be a cursor positioning sequence
-          console.log('Cursor positioning detected:', message.data);
-          xtermRef.current.write(message.data);
-        } else if (message.data.includes('whiptail') || message.data.includes('dialog')) {
-          // This might be a whiptail/dialog output, ensure clean rendering
-          console.log('Whiptail/dialog output detected:', message.data.substring(0, 100));
+          // This is a cursor positioning sequence, often implies a redraw of the entire screen
+          console.log('Cursor positioning detected (implies redraw):', message.data);
+          // Explicitly clear the screen before writing new content to prevent duplication
+          xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
           xtermRef.current.write(message.data);
         } else {
           xtermRef.current.write(message.data);
