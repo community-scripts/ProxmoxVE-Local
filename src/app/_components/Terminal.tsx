@@ -109,13 +109,16 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       const { FitAddon } = await import('@xterm/addon-fit');
       const { WebLinksAddon } = await import('@xterm/addon-web-links');
 
+      // Check if we're on mobile
+      const isMobile = window.innerWidth < 768;
+      
       const terminal = new XTerm({
         theme: {
           background: '#000000',
           foreground: '#00ff00',
           cursor: '#00ff00',
         },
-        fontSize: 14,
+        fontSize: isMobile ? 10 : 14,
         fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
         cursorBlink: true,
         cursorStyle: 'block',
@@ -127,6 +130,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         macOptionIsMeta: false,
         rightClickSelectsWord: false,
         wordSeparator: ' ()[]{}\'"`<>|',
+        // Mobile-specific settings
+        ...(isMobile && {
+          rows: 20,
+          cols: 60,
+        }),
       });
 
       // Add addons
@@ -142,6 +150,20 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       setTimeout(() => {
         fitAddon.fit();
       }, 100);
+
+      // Add resize listener for mobile responsiveness
+      const handleResize = () => {
+        if (fitAddonRef.current) {
+          setTimeout(() => {
+            fitAddonRef.current.fit();
+          }, 50);
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+      
+      // Store the handler for cleanup
+      (terminalRef.current as any).resizeHandler = handleResize;
 
       // Store references
       xtermRef.current = terminal;
@@ -173,17 +195,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         }
       });
 
-      // Handle terminal resize
-      const handleResize = () => {
-        if (fitAddonRef.current) {
-          fitAddonRef.current.fit();
-        }
-      };
-
-      window.addEventListener('resize', handleResize);
-
       return () => {
-        window.removeEventListener('resize', handleResize);
         terminal.dispose();
       };
     };
@@ -195,6 +207,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
     return () => {
       clearTimeout(timeoutId);
+      if (terminalRef.current && (terminalRef.current as any).resizeHandler) {
+        window.removeEventListener('resize', (terminalRef.current as any).resizeHandler);
+      }
       if (xtermRef.current) {
         xtermRef.current.dispose();
         xtermRef.current = null;
@@ -402,8 +417,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
-        className="h-[20rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
-        style={{ minHeight: '320px' }}
+        className="h-[16rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
+        style={{ minHeight: '256px' }}
       />
 
       {/* Mobile Input Controls - Only show on mobile */}
