@@ -3,8 +3,7 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { spawn } from "child_process";
 import { env } from "~/env";
-import { observable } from '@trpc/server/observable';
-import { existsSync, statSync, createWriteStream } from "fs";
+import { existsSync, createWriteStream } from "fs";
 
 interface GitHubRelease {
   tag_name: string;
@@ -127,52 +126,45 @@ export const versionRouter = createTRPCRouter({
       }
     }),
 
-  // Stream update progress by monitoring the log file
-  streamUpdateProgress: publicProcedure
-    .subscription(() => {
-      return observable<{ type: 'log' | 'complete' | 'error'; message: string }>((emit) => {
+  // Get update logs from the log file
+  getUpdateLogs: publicProcedure
+    .query(async () => {
+      try {
         const logPath = join(process.cwd(), 'update.log');
-        let lastSize = 0;
+        
+        if (!existsSync(logPath)) {
+          return {
+            success: true,
+            logs: [],
+            isComplete: false
+          };
+        }
 
-        const checkLogFile = async () => {
-          try {
-            if (!existsSync(logPath)) {
-              return;
-            }
+        const logs = await readFile(logPath, 'utf-8');
+        const logLines = logs.split('\n').filter(line => line.trim());
+        
+        // Check if update is complete by looking for completion indicators
+        const isComplete = logLines.some(line => 
+          line.includes('Update complete') || 
+          line.includes('Server restarting') ||
+          line.includes('npm start') ||
+          line.includes('Restarting server')
+        );
 
-            const stats = statSync(logPath);
-            const currentSize = stats.size;
-
-            if (currentSize > lastSize) {
-              // Read only the new content
-              const fileHandle = await readFile(logPath, 'utf-8');
-              const newContent = fileHandle.slice(lastSize);
-              lastSize = currentSize;
-
-              // Emit new log lines
-              const lines = newContent.split('\n').filter(line => line.trim());
-              for (const line of lines) {
-                emit.next({ type: 'log', message: line });
-              }
-            }
-          } catch {
-            // File might be being written to, ignore errors
-          }
+        return {
+          success: true,
+          logs: logLines,
+          isComplete
         };
-
-        // Start monitoring the log file
-        const checkInterval = setInterval(() => {
-          void checkLogFile();
-        }, 500);
-
-        // Also check immediately
-        void checkLogFile();
-
-        // Cleanup function
-        return () => {
-          clearInterval(checkInterval);
+      } catch (error) {
+        console.error('Error reading update logs:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read update logs',
+          logs: [],
+          isComplete: false
         };
-      });
+      }
     }),
 
   // Execute update script

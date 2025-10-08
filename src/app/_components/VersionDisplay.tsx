@@ -98,28 +98,25 @@ export function VersionDisplay() {
     }
   });
 
-  // Subscribe to update progress
-  api.version.streamUpdateProgress.useSubscription(undefined, {
+  // Poll for update logs
+  const { data: updateLogsData, refetch: refetchLogs } = api.version.getUpdateLogs.useQuery(undefined, {
     enabled: shouldSubscribe,
-    onData: (data) => {
+    refetchInterval: 1000, // Poll every second
+    refetchIntervalInBackground: true,
+  });
+
+  // Update logs when data changes
+  useEffect(() => {
+    if (updateLogsData?.success && updateLogsData.logs) {
       lastLogTimeRef.current = Date.now();
+      setUpdateLogs(updateLogsData.logs);
       
-      if (data.type === 'log') {
-        setUpdateLogs(prev => [...prev, data.message]);
-      } else if (data.type === 'complete') {
+      if (updateLogsData.isComplete) {
         setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
         setIsNetworkError(true);
-      } else if (data.type === 'error') {
-        setUpdateLogs(prev => [...prev, `Error: ${data.message}`]);
       }
-    },
-    onError: () => {
-      // Connection lost - likely server restarted
-      console.log('Update stream connection lost, server likely restarting');
-      setIsNetworkError(true);
-      setUpdateLogs(prev => [...prev, 'Connection lost - server restarting...']);
-    },
-  });
+    }
+  }, [updateLogsData]);
 
   // Monitor for server connection loss and auto-reload
   useEffect(() => {
