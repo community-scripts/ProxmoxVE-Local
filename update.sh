@@ -528,12 +528,6 @@ update_files() {
     total_files=$(wc -l < "$file_list")
     log "Found $total_files files to process"
     
-    # Show first few files for debugging
-    log "First few files to process:"
-    head -5 "$file_list" | while read -r f; do
-        log "  - $f"
-    done
-    
     while IFS= read -r file; do
         local rel_path="${file#$actual_source_dir/}"
         local should_exclude=false
@@ -558,9 +552,7 @@ update_files() {
                 return 1
             else
                 files_copied=$((files_copied + 1))
-                if [ $((files_copied % 10)) -eq 0 ]; then
-                    log "Copied $files_copied files so far..."
-                fi
+               
             fi
         else
             files_excluded=$((files_excluded + 1))
@@ -579,6 +571,13 @@ update_files() {
 # Install dependencies and build
 install_and_build() {
     log "Installing dependencies..."
+    
+    # Remove old node_modules to avoid conflicts with new dependencies
+    if [ -d "node_modules" ]; then
+        log "Removing old node_modules directory for clean install..."
+        rm -rf node_modules
+        log_success "Old node_modules removed"
+    fi
     
     # Create temporary file for npm output
     local npm_log="/tmp/npm_install_$$.log"
