@@ -669,7 +669,7 @@ main() {
     check_dependencies
     
     # Check if service was running before update
-    if is_service_running; then
+    if check_service && systemctl is-active --quiet pvescriptslocal.service; then
         SERVICE_WAS_RUNNING=true
         log "Service was running before update, will restart it after update"
     else
