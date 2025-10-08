@@ -618,8 +618,13 @@ install_and_build() {
     log "Installed packages: approximately $pkg_count top-level packages"
     rm -f "$npm_log"
 
-    npm install
-    
+    npm install > "$npm_log" 2>&1
+
+    cat "$npm_log" | while read -r line; do
+            log "NPM: $line"
+    done
+    rm -f "$npm_log"
+
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
