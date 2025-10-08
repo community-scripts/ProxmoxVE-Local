@@ -38,6 +38,17 @@ load_github_token() {
         return 0
     fi
     
+    # Try .env file
+    if [ -f ".env" ]; then
+        local env_token
+        env_token=$(grep "^GITHUB_TOKEN=" .env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d '\n\r')
+        if [ -n "$env_token" ]; then
+            GITHUB_TOKEN="$env_token"
+            log "Using GitHub token from .env file"
+            return 0
+        fi
+    fi
+    
     # Try .github_token file
     if [ -f ".github_token" ]; then
         GITHUB_TOKEN=$(cat .github_token | tr -d '\n\r')
@@ -53,7 +64,7 @@ load_github_token() {
     fi
     
     log_warning "No GitHub token found. Using unauthenticated requests (lower rate limits)"
-    log_warning "To use a token, set GITHUB_TOKEN environment variable or create .github_token file"
+    log_warning "To use a token, add GITHUB_TOKEN=your_token to .env file or set GITHUB_TOKEN environment variable"
     return 1
 }
 

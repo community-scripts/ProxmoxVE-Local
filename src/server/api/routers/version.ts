@@ -2,12 +2,28 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { spawn } from "child_process";
+import { env } from "~/env";
 
 interface GitHubRelease {
   tag_name: string;
   name: string;
   published_at: string;
   html_url: string;
+}
+
+// Helper function to fetch from GitHub API with optional authentication
+async function fetchGitHubAPI(url: string) {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'ProxmoxVE-Local'
+  };
+  
+  // Add authentication header if token is available
+  if (env.GITHUB_TOKEN) {
+    headers['Authorization'] = `token ${env.GITHUB_TOKEN}`;
+  }
+  
+  return fetch(url, { headers });
 }
 
 export const versionRouter = createTRPCRouter({
@@ -34,7 +50,7 @@ export const versionRouter = createTRPCRouter({
   getLatestRelease: publicProcedure
     .query(async () => {
       try {
-        const response = await fetch('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
         
         if (!response.ok) {
           throw new Error(`GitHub API error: ${response.status}`);
@@ -70,7 +86,7 @@ export const versionRouter = createTRPCRouter({
         const currentVersion = (await readFile(versionPath, 'utf-8')).trim();
         
 
-        const response = await fetch('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
         
         if (!response.ok) {
           throw new Error(`GitHub API error: ${response.status}`);
