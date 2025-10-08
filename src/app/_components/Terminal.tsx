@@ -171,8 +171,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
         // Use smaller dimensions on mobile to help center whiptail dialogs
-        cols: isMobile ? 50 : 80,
-        rows: isMobile ? 18 : 24,
+        cols: isMobile ? 40 : 80,
+        rows: isMobile ? 16 : 24,
       });
 
       // Add addons
@@ -458,10 +458,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
-        className="h-[14rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
+        className={`h-[14rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto ${isMobile ? 'mobile-terminal' : ''}`}
         style={{ 
           minHeight: '224px',
-          // Center the terminal content on mobile
+          // Center the terminal content on mobile using transform
+          transform: isMobile ? 'translateX(1rem)' : 'none',
           padding: isMobile ? '0 1rem' : '0'
         }}
       />

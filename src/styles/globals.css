@@ -200,3 +200,15 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Mobile terminal centering */
+.mobile-terminal {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.mobile-terminal .xterm {
+  margin: 0 auto !important;
+  transform: translateX(0.5rem) !important;
+}
