@@ -617,12 +617,10 @@ main() {
     if [ "${1:-}" = "--relocated" ]; then
         export PVE_UPDATE_RELOCATED=1
         init_log
-        log "Running as detached process, safe to kill parent Node.js process"
-        
-        # Wait a few seconds to allow the parent process to send response to client
-        log "Waiting 3 seconds to allow parent process to respond to client..."
+        log "Running as detached process"
         sleep 3
-        log "Proceeding with update process"
+        systemctl stop pvescriptslocal.service
+
     else
         init_log
     fi
