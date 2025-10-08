@@ -28,6 +28,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [showMobileInput, setShowMobileInput] = useState(false);
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
   const [inWhiptailSession, setInWhiptailSession] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -129,6 +130,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   // Ensure we're on the client side
   useEffect(() => {
     setIsClient(true);
+    // Detect mobile on mount
+    setIsMobile(window.innerWidth < 768);
   }, []);
 
   useEffect(() => {
@@ -144,8 +147,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       const { FitAddon } = await import('@xterm/addon-fit');
       const { WebLinksAddon } = await import('@xterm/addon-web-links');
 
-      // Check if we're on mobile
-      const isMobile = window.innerWidth < 768;
+      // Use the mobile state
       
       const terminal = new XTerm({
         theme: {
@@ -168,8 +170,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         // Better ANSI handling
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
-        cols: isMobile ? 60 : 80,
-        rows: isMobile ? 20 : 24,
+        // Use smaller dimensions on mobile to help center whiptail dialogs
+        cols: isMobile ? 50 : 80,
+        rows: isMobile ? 18 : 24,
       });
 
       // Add addons
@@ -455,8 +458,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
-        className="h-[16rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
-        style={{ minHeight: '256px' }}
+        className="h-[14rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
+        style={{ 
+          minHeight: '224px',
+          // Center the terminal content on mobile
+          padding: isMobile ? '0 1rem' : '0'
+        }}
       />
 
       {/* Mobile Input Controls - Only show on mobile */}
