@@ -527,7 +527,7 @@ update_files() {
 # Install dependencies and build
 install_and_build() {
     log "Installing dependencies..."
-    
+    npm install
     if ! npm install; then
         log_error "Failed to install dependencies"
         return 1
