@@ -296,19 +296,29 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   };
 
   const sendInput = (input: string) => {
+    console.log('=== MOBILE INPUT SEND DEBUG ===');
     console.log('Sending input:', input, 'to execution:', executionId);
     console.log('Input bytes:', Array.from(input).map(c => c.charCodeAt(0)));
+    console.log('WebSocket ref exists:', !!wsRef.current);
+    console.log('WebSocket readyState:', wsRef.current?.readyState);
+    console.log('WebSocket OPEN constant:', WebSocket.OPEN);
+    console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
+    
     setLastInputSent(input);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
+      const message = {
         action: 'input',
         executionId,
         data: input
-      }));
+      };
+      console.log('Sending WebSocket message:', JSON.stringify(message, null, 2));
+      wsRef.current.send(JSON.stringify(message));
+      console.log('WebSocket message sent successfully');
       // Clear the feedback after 2 seconds
       setTimeout(() => setLastInputSent(null), 2000);
     } else {
       console.warn('WebSocket not connected, cannot send input');
+      console.warn('WebSocket state:', wsRef.current?.readyState);
     }
   };
 
@@ -405,7 +415,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {/* Navigation and Action Buttons */}
             <div className="grid grid-cols-2 gap-2">
               <Button
-                onClick={() => sendInput('\x1b[A')}
+                onClick={() => {
+                  console.log('=== UP BUTTON CLICKED ===');
+                  sendInput('\x1b[A');
+                }}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -415,7 +428,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Up
               </Button>
               <Button
-                onClick={() => sendInput('\x1b[B')}
+                onClick={() => {
+                  console.log('=== DOWN BUTTON CLICKED ===');
+                  sendInput('\x1b[B');
+                }}
                 variant="outline"
                 size="sm"
                 className="text-sm flex items-center justify-center gap-2"
@@ -429,7 +445,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {/* Action Buttons */}
             <div className="grid grid-cols-3 gap-2">
               <Button
-                onClick={handleEnterKey}
+                onClick={() => {
+                  console.log('=== ENTER BUTTON CLICKED ===');
+                  handleEnterKey();
+                }}
                 variant="outline"
                 size="sm"
                 className="text-sm"
@@ -438,7 +457,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Enter
               </Button>
               <Button
-                onClick={() => sendInput('y')}
+                onClick={() => {
+                  console.log('=== YES BUTTON CLICKED ===');
+                  sendInput('y');
+                }}
                 variant="outline"
                 size="sm"
                 className="text-sm"
@@ -447,7 +469,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 Yes (y)
               </Button>
               <Button
-                onClick={() => sendInput('1')}
+                onClick={() => {
+                  console.log('=== TEST BUTTON CLICKED ===');
+                  sendInput('1');
+                }}
                 variant="outline"
                 size="sm"
                 className="text-sm"
