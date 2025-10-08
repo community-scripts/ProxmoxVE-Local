@@ -24,9 +24,18 @@ export class ScriptExecutionHandler {
   }
 
   private handleConnection(ws: WebSocket, _request: IncomingMessage) {
+    const connectionId = Math.random().toString(36).substr(2, 9);
+    console.log('=== NEW WEBSOCKET CONNECTION ===');
+    console.log('Connection ID:', connectionId);
+    console.log('Total active connections:', this.wss.clients.size);
     
     ws.on('message', (data) => {
       try {
+        console.log('=== WEBSOCKET MESSAGE RECEIVED ===');
+        console.log('Connection ID:', connectionId);
+        console.log('Message length:', data.length);
+        console.log('Raw message:', data.toString());
+        
         const message = JSON.parse(data.toString()) as { action: string; scriptPath?: string; executionId?: string };
         void this.handleMessage(ws, message);
       } catch (error) {
@@ -40,11 +49,16 @@ export class ScriptExecutionHandler {
     });
 
     ws.on('close', () => {
+      console.log('=== WEBSOCKET CONNECTION CLOSED ===');
+      console.log('Connection ID:', connectionId);
+      console.log('Remaining connections:', this.wss.clients.size);
       // Clean up any active executions for this connection
       this.cleanupActiveExecutions(ws);
     });
 
     ws.on('error', (error) => {
+      console.log('=== WEBSOCKET CONNECTION ERROR ===');
+      console.log('Connection ID:', connectionId);
       console.error('WebSocket error:', error);
       this.cleanupActiveExecutions(ws);
     });
