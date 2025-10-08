@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
@@ -34,6 +34,8 @@ export function InstalledScriptsTab() {
   const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
   const [autoDetectServerId, setAutoDetectServerId] = useState<string>('');
   const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  const cleanupRunRef = useRef(false);
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -78,33 +80,79 @@ export function InstalledScriptsTab() {
       void refetchScripts();
       setShowAutoDetectForm(false);
       setAutoDetectServerId('');
+      
+      // Show detailed message about what was added/skipped
+      let statusMessage = data.message ?? 'Auto-detection completed successfully!';
+      if (data.skippedContainers && data.skippedContainers.length > 0) {
+        const skippedNames = data.skippedContainers.map((c: any) => String(c.hostname)).join(', ');
+        statusMessage += ` Skipped duplicates: ${skippedNames}`;
+      }
+      
       setAutoDetectStatus({ 
         type: 'success', 
-        message: data.message || 'Auto-detection completed successfully!' 
+        message: statusMessage
       });
-      // Clear status after 5 seconds
-      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
+      // Clear status after 8 seconds (longer for detailed info)
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 8000);
     },
     onError: (error) => {
       console.error('Auto-detect mutation error:', error);
       console.error('Error details:', {
         message: error.message,
-        cause: error.cause,
-        stack: error.stack,
         data: error.data
       });
       setAutoDetectStatus({ 
         type: 'error', 
-        message: error.message || 'Auto-detection failed. Please try again.' 
+        message: error.message ?? 'Auto-detection failed. Please try again.' 
       });
       // Clear status after 5 seconds
       setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     }
   });
 
+  // Cleanup orphaned scripts mutation
+  const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
+    onSuccess: (data) => {
+      console.log('Cleanup success:', data);
+      void refetchScripts();
+      
+      if (data.deletedCount > 0) {
+        setCleanupStatus({ 
+          type: 'success', 
+          message: `Cleanup completed! Removed ${data.deletedCount} orphaned script(s): ${data.deletedScripts.join(', ')}` 
+        });
+      } else {
+        setCleanupStatus({ 
+          type: 'success', 
+          message: 'Cleanup completed! No orphaned scripts found.' 
+        });
+      }
+      // Clear status after 8 seconds (longer for cleanup info)
+      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 8000);
+    },
+    onError: (error) => {
+      console.error('Cleanup mutation error:', error);
+      setCleanupStatus({ 
+        type: 'error', 
+        message: error.message ?? 'Cleanup failed. Please try again.' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 5000);
+    }
+  });
+
 
   const scripts: InstalledScript[] = (scriptsData?.scripts as InstalledScript[]) ?? [];
   const stats = statsData?.stats;
+
+  // Run cleanup when component mounts and scripts are loaded (only once)
+  useEffect(() => {
+    if (scripts.length > 0 && serversData?.servers && !cleanupMutation.isPending && !cleanupRunRef.current) {
+      console.log('Running automatic cleanup check...');
+      cleanupRunRef.current = true;
+      void cleanupMutation.mutate();
+    }
+  }, [scripts.length, serversData?.servers, cleanupMutation]);
 
   // Filter scripts based on search and filters
   const filteredScripts = scripts.filter((script: InstalledScript) => {
@@ -391,60 +439,97 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
-        {/* Auto-Detect Status Message */}
-        {autoDetectStatus.type && (
-          <div className={`mb-4 p-4 rounded-lg border ${
-            autoDetectStatus.type === 'success' 
-              ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
-              : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
-          }`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                {autoDetectStatus.type === 'success' ? (
-                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                )}
+        {/* Status Messages */}
+        {(autoDetectStatus.type ?? cleanupStatus.type) && (
+          <div className="mb-4 space-y-2">
+            {/* Auto-Detect Status Message */}
+            {autoDetectStatus.type && (
+              <div className={`p-4 rounded-lg border ${
+                autoDetectStatus.type === 'success' 
+                  ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
+                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    {autoDetectStatus.type === 'success' ? (
+                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <p className={`text-sm font-medium ${
+                      autoDetectStatus.type === 'success' 
+                        ? 'text-green-800 dark:text-green-200' 
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {autoDetectStatus.message}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="ml-3">
-                <p className={`text-sm font-medium ${
-                  autoDetectStatus.type === 'success' 
-                    ? 'text-green-800 dark:text-green-200' 
-                    : 'text-red-800 dark:text-red-200'
-                }`}>
-                  {autoDetectStatus.message}
-                </p>
+            )}
+
+            {/* Cleanup Status Message */}
+            {cleanupStatus.type && (
+              <div className={`p-4 rounded-lg border ${
+                cleanupStatus.type === 'success' 
+                  ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700' 
+                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    {cleanupStatus.type === 'success' ? (
+                      <svg className="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <p className={`text-sm font-medium ${
+                      cleanupStatus.type === 'success' 
+                        ? 'text-slate-700 dark:text-slate-300' 
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {cleanupStatus.message}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {/* Auto-Detect LXC Containers Form */}
         {showAutoDetectForm && (
           <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
-            <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Auto-Detect LXC Containers (Must contain a tag with "community-script")</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Auto-Detect LXC Containers (Must contain a tag with &quot;community-script&quot;)</h3>
             <div className="space-y-4 sm:space-y-6">
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       How it works
                     </h4>
-                    <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                    <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                       <p>This feature will:</p>
                       <ul className="list-disc list-inside mt-1 space-y-1">
                         <li>Connect to the selected server via SSH</li>
                         <li>Scan all LXC config files in /etc/pve/lxc/</li>
-                        <li>Find containers with "community-script" in their tags</li>
+                        <li>Find containers with &quot;community-script&quot; in their tags</li>
                         <li>Extract the container ID and hostname</li>
                         <li>Add them as installed script entries</li>
                       </ul>
