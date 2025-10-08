@@ -155,7 +155,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           foreground: '#00ff00',
           cursor: '#00ff00',
         },
-        fontSize: isMobile ? 8 : 14,
+        fontSize: isMobile ? 6 : 14,
         fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
         cursorBlink: true,
         cursorStyle: 'block',
@@ -171,8 +171,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
         // Use smaller dimensions on mobile but ensure proper fit
-        cols: isMobile ? 50 : 80,
-        rows: isMobile ? 20 : 24,
+        cols: isMobile ? 45 : 80,
+        rows: isMobile ? 18 : 24,
       });
 
       // Add addons
