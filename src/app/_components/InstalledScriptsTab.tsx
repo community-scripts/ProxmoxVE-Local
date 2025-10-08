@@ -31,6 +31,9 @@ export function InstalledScriptsTab() {
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
+  const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
+  const [autoDetectServerId, setAutoDetectServerId] = useState<string>('');
+  const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -65,6 +68,37 @@ export function InstalledScriptsTab() {
     },
     onError: (error) => {
       alert(`Error creating script: ${error.message}`);
+    }
+  });
+
+  // Auto-detect LXC containers mutation
+  const autoDetectMutation = api.installedScripts.autoDetectLXCContainers.useMutation({
+    onSuccess: (data) => {
+      console.log('Auto-detect success:', data);
+      void refetchScripts();
+      setShowAutoDetectForm(false);
+      setAutoDetectServerId('');
+      setAutoDetectStatus({ 
+        type: 'success', 
+        message: data.message || 'Auto-detection completed successfully!' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
+    },
+    onError: (error) => {
+      console.error('Auto-detect mutation error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        cause: error.cause,
+        stack: error.stack,
+        data: error.data
+      });
+      setAutoDetectStatus({ 
+        type: 'error', 
+        message: error.message || 'Auto-detection failed. Please try again.' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     }
   });
 
@@ -197,6 +231,25 @@ export function InstalledScriptsTab() {
     setAddFormData({ script_name: '', container_id: '', server_id: 'local' });
   };
 
+  const handleAutoDetect = () => {
+    if (!autoDetectServerId) {
+      return;
+    }
+
+    if (autoDetectMutation.isPending) {
+      return;
+    }
+
+    setAutoDetectStatus({ type: null, message: '' });
+    console.log('Starting auto-detect for server ID:', autoDetectServerId);
+    autoDetectMutation.mutate({ serverId: Number(autoDetectServerId) });
+  };
+
+  const handleCancelAutoDetect = () => {
+    setShowAutoDetectForm(false);
+    setAutoDetectServerId('');
+  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -251,14 +304,21 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
-        {/* Add Script Button */}
-        <div className="mb-4">
+        {/* Add Script and Auto-Detect Buttons */}
+        <div className="mb-4 flex flex-col sm:flex-row gap-3">
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
             variant={showAddForm ? "outline" : "default"}
             size="default"
           >
             {showAddForm ? 'Cancel Add Script' : '+ Add Manual Script Entry'}
+          </Button>
+          <Button
+            onClick={() => setShowAutoDetectForm(!showAutoDetectForm)}
+            variant={showAutoDetectForm ? "outline" : "secondary"}
+            size="default"
+          >
+            {showAutoDetectForm ? 'Cancel Auto-Detect' : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
           </Button>
         </div>
 
@@ -326,6 +386,108 @@ export function InstalledScriptsTab() {
                 className="w-full sm:w-auto"
               >
                 {createScriptMutation.isPending ? 'Adding...' : 'Add Script'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Auto-Detect Status Message */}
+        {autoDetectStatus.type && (
+          <div className={`mb-4 p-4 rounded-lg border ${
+            autoDetectStatus.type === 'success' 
+              ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
+              : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                {autoDetectStatus.type === 'success' ? (
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+              <div className="ml-3">
+                <p className={`text-sm font-medium ${
+                  autoDetectStatus.type === 'success' 
+                    ? 'text-green-800 dark:text-green-200' 
+                    : 'text-red-800 dark:text-red-200'
+                }`}>
+                  {autoDetectStatus.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Auto-Detect LXC Containers Form */}
+        {showAutoDetectForm && (
+          <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
+            <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Auto-Detect LXC Containers (Must contain a tag with "community-script")</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      How it works
+                    </h4>
+                    <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                      <p>This feature will:</p>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Connect to the selected server via SSH</li>
+                        <li>Scan all LXC config files in /etc/pve/lxc/</li>
+                        <li>Find containers with "community-script" in their tags</li>
+                        <li>Extract the container ID and hostname</li>
+                        <li>Add them as installed script entries</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
+                  Select Server *
+                </label>
+                <select
+                  value={autoDetectServerId}
+                  onChange={(e) => setAutoDetectServerId(e.target.value)}
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                >
+                  <option value="">Choose a server...</option>
+                  {serversData?.servers?.map((server: any) => (
+                    <option key={server.id} value={server.id}>
+                      {server.name} ({server.ip})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4 sm:mt-6">
+              <Button
+                onClick={handleCancelAutoDetect}
+                variant="outline"
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAutoDetect}
+                disabled={autoDetectMutation.isPending || !autoDetectServerId}
+                variant="default"
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                {autoDetectMutation.isPending ? '🔍 Scanning...' : '🔍 Start Auto-Detection'}
               </Button>
             </div>
           </div>
