@@ -20,7 +20,7 @@ async function fetchGitHubAPI(url: string) {
   
   // Add authentication header if token is available
   if (env.GITHUB_TOKEN) {
-    headers['Authorization'] = `token ${env.GITHUB_TOKEN}`;
+    headers.Authorization = `token ${env.GITHUB_TOKEN}`;
   }
   
   return fetch(url, { headers });
