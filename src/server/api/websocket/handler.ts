@@ -262,9 +262,13 @@ export class ScriptExecutionHandler {
   }
 
   private sendInputToExecution(executionId: string, input: string) {
+    console.log('=== MOBILE INPUT DEBUG ===');
     console.log('sendInputToExecution called:', { executionId, input, inputLength: input.length });
+    console.log('Input string representation:', JSON.stringify(input));
+    console.log('Input char codes:', Array.from(input).map(c => c.charCodeAt(0)));
     const execution = this.activeExecutions.get(executionId);
     console.log('Active executions:', Array.from(this.activeExecutions.keys()));
+    console.log('Found execution:', !!execution);
     
     if (execution && execution.process) {
       console.log('Execution found, process details:', {
@@ -284,12 +288,26 @@ export class ScriptExecutionHandler {
           console.log('Input bytes for pty:', Array.from(input).map(c => c.charCodeAt(0)));
           execution.process.write(input);
           console.log('Successfully wrote to pty process');
+          
+          // Send confirmation back to client
+          this.sendMessage(execution.ws, {
+            type: 'output',
+            data: `[MOBILE INPUT SENT: ${JSON.stringify(input)}]`,
+            timestamp: Date.now()
+          });
         } else if (execution.process.stdin && !execution.process.stdin.destroyed) {
           // This is a regular process (local execution)
           console.log('Writing to stdin:', input);
           console.log('Input bytes for stdin:', Array.from(input).map(c => c.charCodeAt(0)));
           execution.process.stdin.write(input);
           console.log('Successfully wrote to stdin');
+          
+          // Send confirmation back to client
+          this.sendMessage(execution.ws, {
+            type: 'output',
+            data: `[MOBILE INPUT SENT: ${JSON.stringify(input)}]`,
+            timestamp: Date.now()
+          });
         } else {
           console.warn('Process input not available or destroyed');
           this.sendMessage(execution.ws, {
