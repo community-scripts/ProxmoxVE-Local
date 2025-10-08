@@ -239,7 +239,23 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         }
         break;
       case 'end':
-        xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
+        // Check if this is an LXC creation script
+        const isLxcCreation = scriptPath.includes('ct/') || 
+                             scriptPath.includes('create_lxc') || 
+                             containerId ||
+                             scriptName.includes('lxc') ||
+                             scriptName.includes('container');
+        
+        if (isLxcCreation && message.data.includes('SSH script execution finished with code: 0')) {
+          // Display prominent LXC creation completion message
+          xtermRef.current.writeln('');
+          xtermRef.current.writeln('#########################################');
+          xtermRef.current.writeln('########## LXC CREATION FINISHED ########');
+          xtermRef.current.writeln('#########################################');
+          xtermRef.current.writeln('');
+        } else {
+          xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
+        }
         setIsRunning(false);
         break;
     }
