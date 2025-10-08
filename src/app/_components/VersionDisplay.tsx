@@ -113,7 +113,7 @@ export function VersionDisplay() {
         setUpdateLogs(prev => [...prev, `Error: ${data.message}`]);
       }
     },
-    onError: (error) => {
+    onError: () => {
       // Connection lost - likely server restarted
       console.log('Update stream connection lost, server likely restarting');
       setIsNetworkError(true);
@@ -148,25 +148,27 @@ export function VersionDisplay() {
     
     setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
     
-    reconnectIntervalRef.current = setInterval(async () => {
-      try {
-        // Try to fetch the root path to check if server is back
-        const response = await fetch('/', { method: 'HEAD' });
-        if (response.ok || response.status === 200) {
-          setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
-          
-          // Clear interval and reload
-          if (reconnectIntervalRef.current) {
-            clearInterval(reconnectIntervalRef.current);
+    reconnectIntervalRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          // Try to fetch the root path to check if server is back
+          const response = await fetch('/', { method: 'HEAD' });
+          if (response.ok || response.status === 200) {
+            setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
+            
+            // Clear interval and reload
+            if (reconnectIntervalRef.current) {
+              clearInterval(reconnectIntervalRef.current);
+            }
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           }
-          
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
+        } catch {
+          // Server still down, keep trying
         }
-      } catch {
-        // Server still down, keep trying
-      }
+      })();
     }, 2000);
   };
 

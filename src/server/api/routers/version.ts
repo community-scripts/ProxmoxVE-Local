@@ -4,7 +4,7 @@ import { join } from "path";
 import { spawn } from "child_process";
 import { env } from "~/env";
 import { observable } from '@trpc/server/observable';
-import { existsSync, statSync } from "fs";
+import { existsSync, statSync, createWriteStream } from "fs";
 
 interface GitHubRelease {
   tag_name: string;
@@ -133,7 +133,6 @@ export const versionRouter = createTRPCRouter({
       return observable<{ type: 'log' | 'complete' | 'error'; message: string }>((emit) => {
         const logPath = join(process.cwd(), 'update.log');
         let lastSize = 0;
-        let checkInterval: NodeJS.Timeout;
 
         const checkLogFile = async () => {
           try {
@@ -156,16 +155,18 @@ export const versionRouter = createTRPCRouter({
                 emit.next({ type: 'log', message: line });
               }
             }
-          } catch (error) {
+          } catch {
             // File might be being written to, ignore errors
           }
         };
 
         // Start monitoring the log file
-        checkInterval = setInterval(checkLogFile, 500);
+        const checkInterval = setInterval(() => {
+          void checkLogFile();
+        }, 500);
 
         // Also check immediately
-        checkLogFile().catch(console.error);
+        void checkLogFile();
 
         // Cleanup function
         return () => {
@@ -195,7 +196,7 @@ export const versionRouter = createTRPCRouter({
         });
 
         // Capture stdout and stderr to log file
-        const logStream = require('fs').createWriteStream(logPath, { flags: 'a' });
+        const logStream = createWriteStream(logPath, { flags: 'a' });
         child.stdout?.pipe(logStream);
         child.stderr?.pipe(logStream);
 
