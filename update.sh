@@ -462,8 +462,6 @@ stop_application() {
     # Check if systemd service is running and stop it
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
         log "Stopping and disabling systemd service..."
-        systemctl stop pvescriptslocal.service 2>/dev/null || true
-        sleep 2
         if systemctl disable pvescriptslocal.service; then
             log_success "Service stopped and disabled successfully"
         else
