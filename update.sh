@@ -524,6 +524,21 @@ update_files() {
         return 1
     fi
     
+    # Verify critical files exist in source
+    log "Verifying source files..."
+    if [ ! -f "$actual_source_dir/package.json" ]; then
+        log_error "package.json not found in source directory!"
+        return 1
+    fi
+    
+    if [ -f "$actual_source_dir/package-lock.json" ]; then
+        log "Found package-lock.json in source directory"
+        local source_pkg_count=$(grep -c "\"node_modules/" "$actual_source_dir/package-lock.json" 2>/dev/null || echo "0")
+        log "Source package-lock.json contains approximately $source_pkg_count package entries"
+    else
+        log_warning "No package-lock.json found in source directory!"
+    fi
+    
     # Use process substitution instead of pipe to avoid subshell issues
     local files_copied=0
     local files_excluded=0
@@ -575,6 +590,21 @@ update_files() {
     
     log "Files processed: $files_copied copied, $files_excluded excluded"
     
+    # Verify critical files were copied
+    log "Verifying copied files..."
+    if [ ! -f "package.json" ]; then
+        log_error "package.json was not copied to target directory!"
+        return 1
+    fi
+    
+    if [ -f "package-lock.json" ]; then
+        log_success "package-lock.json copied successfully"
+        local target_pkg_count=$(grep -c "\"node_modules/" "package-lock.json" 2>/dev/null || echo "0")
+        log "Target package-lock.json contains approximately $target_pkg_count package entries"
+    else
+        log_warning "package-lock.json was not copied!"
+    fi
+    
     log_success "Application files updated successfully"
 }
 
@@ -616,15 +646,13 @@ install_and_build() {
     # Show package count for verification
     local pkg_count=$(find node_modules -maxdepth 1 -type d 2>/dev/null | wc -l)
     log "Installed packages: approximately $pkg_count top-level packages"
+    
+    # Get audit count for comparison
+    local audit_count=$(npm ls --depth=0 2>/dev/null | grep -c "├─\|└─" || echo "0")
+    log "Direct dependencies installed: $audit_count"
+    
     rm -f "$npm_log"
-
-    npm install > "$npm_log" 2>&1
-
-    cat "$npm_log" | while read -r line; do
-            log "NPM: $line"
-    done
-    rm -f "$npm_log"
-
+    
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
