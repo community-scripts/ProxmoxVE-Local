@@ -383,9 +383,9 @@ check_service() {
 }
 
 
-# Prepare for update (no need to stop processes)
-prepare_for_update() {
-    log "Preparing for update..."
+# Stop the application before updating
+stop_application() {
+    log "Stopping application before update..."
     
     # Change to the application directory if we're not already there
     local app_dir
@@ -406,7 +406,33 @@ prepare_for_update() {
     fi
     
     log "Working from application directory: $(pwd)"
-    log "No need to stop processes - Node.js can handle file updates while running"
+    
+    # Check if systemd service is running and disable it temporarily
+    if check_service && systemctl is-active --quiet pvescriptslocal.service; then
+        log "Disabling systemd service temporarily to prevent auto-restart..."
+        if systemctl disable pvescriptslocal.service; then
+            log_success "Service disabled successfully"
+        else
+            log_error "Failed to disable service"
+            return 1
+        fi
+    else
+        log "No running systemd service found"
+    fi
+    
+    # Kill any remaining npm/node processes
+    log "Killing any remaining npm/node processes..."
+    local pids
+    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        log "Found running processes: $pids"
+        pkill -9 -f "node server.js" 2>/dev/null || true
+        pkill -9 -f "npm start" 2>/dev/null || true
+        sleep 2
+        log_success "Processes killed"
+    else
+        log "No running processes found"
+    fi
 }
 
 # Update application files
@@ -473,7 +499,7 @@ update_files() {
             if [ "$target_dir" != "." ]; then
                 mkdir -p "$target_dir"
             fi
-            log "Copying: $file -> $rel_path"
+            
             if ! cp "$file" "$rel_path"; then
                 log_error "Failed to copy $rel_path"
                 rm -f "$file_list"
@@ -525,18 +551,18 @@ start_application() {
     
     # Use the global variable to determine how to start
     if [ "$SERVICE_WAS_RUNNING" = true ] && check_service; then
-        log "Service was running before update, restarting systemd service..."
-        if systemctl restart pvescriptslocal.service; then
-            log_success "Service restarted successfully"
+        log "Service was running before update, re-enabling and starting systemd service..."
+        if systemctl enable --nowpvescriptslocal.service ; then
+            log_success "Service enabled and started successfully"
             # Wait a moment and check if it's running
             sleep 2
             if systemctl is-active --quiet pvescriptslocal.service; then
                 log_success "Service is running"
             else
-                log_warning "Service restarted but may not be running properly"
+                log_warning "Service started but may not be running properly"
             fi
         else
-            log_error "Failed to restart service, falling back to npm start"
+            log_error "Failed to enable/start service, falling back to npm start"
             start_with_npm
         fi
     else
@@ -619,8 +645,7 @@ main() {
         init_log
         log "Running as detached process"
         sleep 3
-        systemctl stop pvescriptslocal.service
-
+        
     else
         init_log
     fi
@@ -682,8 +707,8 @@ main() {
     # Backup data directory
     backup_data
     
-    # Prepare for update (no need to stop processes)
-    prepare_for_update
+    # Stop the application before updating
+    stop_application
     
     # Download and extract release
     local source_dir
