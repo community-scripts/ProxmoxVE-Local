@@ -170,11 +170,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         // Better ANSI handling
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
-        // Let terminal auto-fit on mobile to prevent text wrapping issues
-        ...(isMobile ? {} : {
-          cols: 80,
-          rows: 24,
-        }),
+        // Use specific dimensions that work well for mobile whiptail dialogs
+        cols: isMobile ? 45 : 80,
+        rows: isMobile ? 18 : 24,
       });
 
       // Add addons
@@ -469,10 +467,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         className={`h-[16rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto ${isMobile ? 'mobile-terminal' : ''}`}
         style={{ 
           minHeight: '256px',
-          // Let terminal auto-fit on mobile
-          width: isMobile ? '100%' : '100%',
-          maxWidth: isMobile ? '100%' : '100%',
-          padding: isMobile ? '0' : '0'
+          // Better centering for mobile
+          display: isMobile ? 'flex' : 'block',
+          justifyContent: isMobile ? 'center' : 'normal',
+          alignItems: isMobile ? 'center' : 'normal',
+          padding: isMobile ? '0 1rem' : '0'
         }}
       />
 
