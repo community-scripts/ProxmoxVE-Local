@@ -579,10 +579,27 @@ install_and_build() {
         log_success "Old node_modules removed"
     fi
     
+    # Remove package-lock.json to avoid version conflicts
+    if [ -f "package-lock.json" ]; then
+        log "Removing old package-lock.json to avoid conflicts..."
+        rm -f package-lock.json
+        log_success "Old package-lock.json removed"
+    fi
+    
+    # Clear npm cache to ensure fresh downloads
+    log "Clearing npm cache..."
+    if npm cache clean --force > /dev/null 2>&1; then
+        log_success "npm cache cleared"
+    else
+        log_warning "Failed to clear npm cache, continuing anyway..."
+    fi
+    
     # Create temporary file for npm output
     local npm_log="/tmp/npm_install_$$.log"
     
-    if ! npm install > "$npm_log" 2>&1; then
+    # Run npm install with verbose output for debugging
+    log "Running npm install (this may take a few minutes)..."
+    if ! npm install --loglevel=verbose > "$npm_log" 2>&1; then
         log_error "Failed to install dependencies"
         log_error "npm install output:"
         cat "$npm_log" | while read -r line; do
