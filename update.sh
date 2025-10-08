@@ -621,6 +621,18 @@ install_and_build() {
     # Check if package-lock.json exists (it should from the new release)
     if [ -f "package-lock.json" ]; then
         log "Using package-lock.json from new release"
+        
+        # Check lock file version
+        local lockfile_version=$(grep -m1 '"lockfileVersion"' package-lock.json | grep -o '[0-9]' | head -1)
+        log "package-lock.json lockfileVersion: $lockfile_version"
+        
+        # Check npm version
+        local npm_version=$(npm --version)
+        log "npm version: $npm_version"
+        
+        # Show file modification time to ensure it wasn't replaced
+        local lock_mtime=$(stat -c '%y' package-lock.json 2>/dev/null || echo "unknown")
+        log "package-lock.json last modified: $lock_mtime"
     else
         log_warning "No package-lock.json found, npm will generate one"
     fi
@@ -648,6 +660,21 @@ install_and_build() {
     
     # Log success and clean up
     log_success "Dependencies installed successfully"
+    
+    # Check if package-lock.json was modified by npm
+    if [ -f "package-lock.json" ]; then
+        local lock_mtime_after=$(stat -c '%y' package-lock.json 2>/dev/null || echo "unknown")
+        log "package-lock.json after install: $lock_mtime_after"
+        
+        local pkg_entries_after=$(grep -c "\"node_modules/" "package-lock.json" 2>/dev/null || echo "0")
+        log "package-lock.json now contains approximately $pkg_entries_after package entries"
+        
+        # Compare with what we expected (738 from the logs)
+        if [ "$pkg_entries_after" -lt 500 ]; then
+            log_warning "Package count seems low! Only $pkg_entries_after entries found."
+            log_warning "npm likely regenerated the package-lock.json instead of using the one from the release!"
+        fi
+    fi
     
     # Show package count for verification
     local pkg_count=$(find node_modules -maxdepth 1 -type d 2>/dev/null | wc -l)
