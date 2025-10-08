@@ -115,34 +115,37 @@ export function VersionDisplay() {
       if (updateLogsData.isComplete) {
         setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
         setIsNetworkError(true);
+        // Start reconnection attempts when we know update is complete
+        startReconnectAttempts();
       }
     }
   }, [updateLogsData]);
 
-  // Monitor for server connection loss and auto-reload
+  // Monitor for server connection loss and auto-reload (fallback only)
   useEffect(() => {
     if (!shouldSubscribe) return;
 
-    // Check if logs have stopped coming for a while
+    // Only use this as a fallback - the main trigger should be completion detection
     const checkInterval = setInterval(() => {
       const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
       
-      // Only start reconnection if we've been updating for at least 30 seconds
-      // and no logs for 10 seconds (to avoid premature reconnection during npm install)
-      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 60000;
-      const noLogsForAWhile = timeSinceLastLog > 40000;
+      // Only start reconnection if we've been updating for at least 3 minutes
+      // and no logs for 60 seconds (very conservative fallback)
+      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
+      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
       
-      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating) {
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
+        console.log('Fallback: Assuming server restart due to long silence');
         setIsNetworkError(true);
         setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
         
         // Start trying to reconnect
         startReconnectAttempts();
       }
-    }, 1500); // Check every 2 seconds instead of 1
+    }, 10000); // Check every 10 seconds
 
     return () => clearInterval(checkInterval);
-  }, [shouldSubscribe, isUpdating, updateStartTime]);
+  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError]);
 
   // Attempt to reconnect and reload page when server is back
   const startReconnectAttempts = () => {
