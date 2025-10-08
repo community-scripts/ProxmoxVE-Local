@@ -63,20 +63,20 @@ export function ScriptDetailModal({
       if (data.success) {
         const message =
           "message" in data ? data.message : "Script loaded successfully";
-        setLoadMessage(`✅ ${message}`);
+        setLoadMessage(`[SUCCESS] ${message}`);
         // Refetch script files status and comparison data to update the UI
         void refetchScriptFiles();
         void refetchComparison();
       } else {
         const error = "error" in data ? data.error : "Failed to load script";
-        setLoadMessage(`❌ ${error}`);
+        setLoadMessage(`[ERROR] ${error}`);
       }
       // Clear message after 5 seconds
       setTimeout(() => setLoadMessage(null), 5000);
     },
     onError: (error) => {
       setIsLoading(false);
-      setLoadMessage(`❌ Error: ${error.message}`);
+      setLoadMessage(`[ERROR] ${error.message}`);
       setTimeout(() => setLoadMessage(null), 5000);
     },
   });

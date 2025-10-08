@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from './ui/button';
+import {  Play, Square, Trash2, X } from 'lucide-react';
 
 interface TerminalProps {
   scriptPath: string;
@@ -215,7 +216,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     
     switch (message.type) {
       case 'start':
-        xtermRef.current.writeln(`${prefix}🚀 ${message.data}`);
+        xtermRef.current.writeln(`${prefix}[START] ${message.data}`);
         setIsRunning(true);
         break;
       case 'output':
@@ -232,14 +233,14 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           xtermRef.current.write(message.data);
         } else if (message.data.includes('exit code') && message.data.includes('clear')) {
           // This is a script error, show it with error prefix
-          xtermRef.current.writeln(`${prefix}❌ ${message.data}`);
+          xtermRef.current.writeln(`${prefix}[ERROR] ${message.data}`);
         } else {
           // This is a real error, show it with error prefix
-          xtermRef.current.writeln(`${prefix}❌ ${message.data}`);
+          xtermRef.current.writeln(`${prefix}[ERROR] ${message.data}`);
         }
         break;
       case 'end':
-        xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
+        xtermRef.current.writeln(`${prefix}[SUCCESS] ${message.data}`);
         setIsRunning(false);
         break;
     }
@@ -337,7 +338,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             size="sm"
             className={isConnected && !isRunning ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
           >
-            ▶️ Start
+            <Play className="h-4 w-4 mr-1" />
+            Start
           </Button>
           
           <Button
@@ -347,7 +349,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             size="sm"
             className={isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
           >
-            ⏹️ Stop
+            <Square className="h-4 w-4 mr-1" />
+            Stop
           </Button>
           
           <Button
@@ -356,7 +359,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             size="sm"
             className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
           >
-            🗑️ Clear
+            <Trash2 className="h-4 w-4 mr-1" />
+            Clear
           </Button>
         </div>
 
@@ -366,7 +370,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           size="sm"
           className="bg-gray-600 text-white hover:bg-gray-700"
         >
-          ✕ Close
+          <X className="h-4 w-4 mr-1" />
+          Close
         </Button>
       </div>
     </div>

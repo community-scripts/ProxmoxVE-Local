@@ -3,6 +3,7 @@
 import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
@@ -20,6 +21,7 @@ function LoadingOverlay({
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

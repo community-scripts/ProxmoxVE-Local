@@ -2,6 +2,11 @@
 
 A modern web-based management interface for Proxmox VE (PVE) helper scripts. This tool provides a user-friendly way to discover, download, and execute community-sourced Proxmox scripts locally with real-time terminal output streaming. No more need for curl -> bash calls, it all happens in your enviroment.
 
+
+<img width="1725" height="1088" alt="image" src="https://github.com/user-attachments/assets/75323765-7375-4346-a41e-08d219275248" />
+
+
+
 ## 🎯 Deployment Options
 
 This application can be deployed in multiple ways to suit different environments:
