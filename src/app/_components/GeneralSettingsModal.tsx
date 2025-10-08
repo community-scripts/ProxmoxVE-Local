@@ -1,0 +1,241 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Toggle } from './ui/toggle';
+
+interface GeneralSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<'general' | 'github'>('general');
+  const [githubToken, setGithubToken] = useState('');
+  const [saveFilter, setSaveFilter] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load existing settings when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadGithubToken();
+      loadSaveFilter();
+    }
+  }, [isOpen]);
+
+  const loadGithubToken = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/settings/github-token');
+      if (response.ok) {
+        const data = await response.json();
+        setGithubToken(data.token || '');
+      }
+    } catch (error) {
+      console.error('Error loading GitHub token:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadSaveFilter = async () => {
+    try {
+      const response = await fetch('/api/settings/save-filter');
+      if (response.ok) {
+        const data = await response.json();
+        setSaveFilter(data.enabled || false);
+      }
+    } catch (error) {
+      console.error('Error loading save filter setting:', error);
+    }
+  };
+
+  const saveSaveFilter = async (enabled: boolean) => {
+    try {
+      const response = await fetch('/api/settings/save-filter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (response.ok) {
+        setSaveFilter(enabled);
+        setMessage({ type: 'success', text: 'Save filter setting updated!' });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error || 'Failed to save setting' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save setting' });
+    }
+  };
+
+  const saveGithubToken = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch('/api/settings/github-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: githubToken }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'GitHub token saved successfully!' });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error || 'Failed to save token' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save token' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
+          <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Settings</h2>
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </Button>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-8 px-4 sm:px-6">
+            <Button
+              onClick={() => setActiveTab('general')}
+              variant="ghost"
+              size="null"
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
+                activeTab === 'general'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              General
+            </Button>
+            <Button
+              onClick={() => setActiveTab('github')}
+              variant="ghost"
+              size="null"
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
+                activeTab === 'github'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              GitHub
+            </Button>
+          </nav>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)]">
+          {activeTab === 'general' && (
+            <div className="space-y-4 sm:space-y-6">
+              
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">General Settings</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  Configure general application preferences and behavior.
+                </p>
+                <div className="space-y-4">
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Save Filters</h4>
+                    <p className="text-sm text-muted-foreground mb-4">Save your configured script filters.</p>
+                    <Toggle
+                      checked={saveFilter}
+                      onCheckedChange={saveSaveFilter}
+                      label="Enable filter saving"
+                    />
+                  </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'github' && (
+            <div className="space-y-4 sm:space-y-6">
+              <div>
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">GitHub Integration</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  Configure GitHub integration for script management and updates.
+                </p>
+                <div className="space-y-4">
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">GitHub Personal Access Token</h4>
+                    <p className="text-sm text-muted-foreground mb-4">Save a GitHub Personal Access Token to circumvent GitHub API rate limits.</p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="github-token" className="block text-sm font-medium text-foreground mb-1">
+                          Token
+                        </label>
+                        <Input
+                          id="github-token"
+                          type="password"
+                          placeholder="Enter your GitHub Personal Access Token"
+                          value={githubToken}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGithubToken(e.target.value)}
+                          disabled={isLoading || isSaving}
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      {message && (
+                        <div className={`p-3 rounded-md text-sm ${
+                          message.type === 'success' 
+                            ? 'bg-green-50 text-green-800 border border-green-200' 
+                            : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={saveGithubToken}
+                          disabled={isSaving || isLoading || !githubToken.trim()}
+                          className="flex-1"
+                        >
+                          {isSaving ? 'Saving...' : 'Save Token'}
+                        </Button>
+                        <Button
+                          onClick={loadGithubToken}
+                          disabled={isLoading || isSaving}
+                          variant="outline"
+                        >
+                          {isLoading ? 'Loading...' : 'Refresh'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
