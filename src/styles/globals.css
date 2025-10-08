@@ -206,9 +206,21 @@ body {
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
+  overflow: hidden !important;
 }
 
 .mobile-terminal .xterm {
   margin: 0 auto !important;
   transform: translateX(0.5rem) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.mobile-terminal .xterm-viewport {
+  overflow: hidden !important;
+}
+
+.mobile-terminal .xterm-screen {
+  width: 100% !important;
+  max-width: 100% !important;
 }
