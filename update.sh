@@ -16,6 +16,9 @@ BACKUP_DIR="/tmp/pve-scripts-backup-$(date +%Y%m%d-%H%M%S)"
 DATA_DIR="./data"
 LOG_FILE="/tmp/update.log"
 
+# Global variable to track if service was running before update
+SERVICE_WAS_RUNNING=false
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -379,6 +382,19 @@ check_service() {
     fi
 }
 
+# Check if systemd service is running
+is_service_running() {
+    if check_service; then
+        if systemctl is-active --quiet pvescriptslocal.service; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
 # Kill application processes directly
 kill_processes() {
     # Try to find and stop the Node.js process
@@ -513,7 +529,7 @@ kill_processes() {
 
 # Stop the application before updating
 stop_application() {
-    log "Stopping application..."
+    log "Stopping application processes..."
     
     # Change to the application directory if we're not already there
     local app_dir
@@ -535,22 +551,12 @@ stop_application() {
     
     log "Working from application directory: $(pwd)"
     
-    # Check if systemd service exists and is active
-    if check_service; then
-        if systemctl is-active --quiet pvescriptslocal.service; then
-            log "Stopping pvescriptslocal service..."
-            if systemctl stop pvescriptslocal.service; then
-                log_success "Service stopped successfully"
-            else
-                log_error "Failed to stop service, falling back to process kill"
-                kill_processes
-            fi
-        else
-            log "Service exists but is not active, checking for running processes..."
-            kill_processes
-        fi
+    # Check if systemd service is running but don't stop it
+    if is_service_running; then
+        log "Systemd service is running, killing npm/node processes only (keeping service running)..."
+        kill_processes
     else
-        log "No systemd service found, stopping processes directly..."
+        log "No running systemd service found, stopping processes directly..."
         kill_processes
     fi
 }
@@ -680,24 +686,24 @@ install_and_build() {
 start_application() {
     log "Starting application..."
     
-    # Check if systemd service exists
-    if check_service; then
-        log "Starting pvescriptslocal service..."
-        if systemctl start pvescriptslocal.service; then
-            log_success "Service started successfully"
+    # Use the global variable to determine how to start
+    if [ "$SERVICE_WAS_RUNNING" = true ] && check_service; then
+        log "Service was running before update, restarting systemd service..."
+        if systemctl restart pvescriptslocal.service; then
+            log_success "Service restarted successfully"
             # Wait a moment and check if it's running
             sleep 2
             if systemctl is-active --quiet pvescriptslocal.service; then
                 log_success "Service is running"
             else
-                log_warning "Service started but may not be running properly"
+                log_warning "Service restarted but may not be running properly"
             fi
         else
-            log_error "Failed to start service, falling back to npm start"
+            log_error "Failed to restart service, falling back to npm start"
             start_with_npm
         fi
     else
-        log "No systemd service found, starting with npm..."
+        log "Service was not running before update or no service exists, starting with npm..."
         start_with_npm
     fi
 }
@@ -787,44 +793,8 @@ main() {
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory"
-        log "Copying update script to temporary location for safe execution..."
-        
-        local temp_script="/tmp/pve-scripts-update-$$.sh"
-        if ! cp "$0" "$temp_script"; then
-            log_error "Failed to copy update script to temporary location"
-            exit 1
-        fi
-        
-        chmod +x "$temp_script"
-        log "Executing update from temporary location: $temp_script"
-        log "Detaching update process to survive service shutdown..."
-        
-        # Use systemd-run if available for complete isolation from the service
-        if command -v systemd-run &> /dev/null; then
-            log "Using systemd-run for maximum isolation..."
-            systemd-run --user --scope --property=KillMode=none bash "$temp_script" --relocated &>/dev/null || {
-                # Fallback to traditional method if systemd-run fails
-                log_warning "systemd-run failed, using nohup/setsid fallback"
-                nohup setsid bash "$temp_script" --relocated </dev/null >>/tmp/update.log 2>&1 &
-            }
-        else
-            # Double-fork technique for complete daemonization
-            (
-                # First fork - become session leader
-                setsid bash -c "
-                    # Second fork - ensure we're not a session leader
-                    (
-                        cd /
-                        exec bash '$temp_script' --relocated </dev/null >>/tmp/update.log 2>&1
-                    ) &
-                " &
-            )
-        fi
-        
-        sleep 1  # Give the detached process time to start
-        log "Update process started and fully detached"
-        log "This process will continue even after the service stops"
-        exit 0
+        bash "$0" --relocated
+        exit $?
     fi
     
     # Ensure we're in the application directory
@@ -860,6 +830,15 @@ main() {
     
     # Check dependencies
     check_dependencies
+    
+    # Check if service was running before update
+    if is_service_running; then
+        SERVICE_WAS_RUNNING=true
+        log "Service was running before update, will restart it after update"
+    else
+        SERVICE_WAS_RUNNING=false
+        log "Service was not running before update, will use npm start after update"
+    fi
     
     # Get latest release info
     local release_info
@@ -916,11 +895,6 @@ main() {
     log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
-    
-    # Clean up temporary script if it exists
-    if [ -f "/tmp/pve-scripts-update-$$.sh" ]; then
-        rm -f "/tmp/pve-scripts-update-$$.sh"
-    fi
     
     # Start the application
     start_application
