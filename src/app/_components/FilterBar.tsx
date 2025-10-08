@@ -18,6 +18,8 @@ interface FilterBarProps {
   totalScripts: number;
   filteredCount: number;
   updatableCount?: number;
+  saveFiltersEnabled?: boolean;
+  isLoadingFilters?: boolean;
 }
 
 const SCRIPT_TYPES = [
@@ -33,6 +35,8 @@ export function FilterBar({
   totalScripts,
   filteredCount,
   updatableCount = 0,
+  saveFiltersEnabled = false,
+  isLoadingFilters = false,
 }: FilterBarProps) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
@@ -78,6 +82,28 @@ export function FilterBar({
 
   return (
     <div className="mb-6 rounded-lg border border-border bg-card p-4 sm:p-6 shadow-sm">
+      {/* Loading State */}
+      {isLoadingFilters && (
+        <div className="mb-4 flex items-center justify-center py-2">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+            <span>Loading saved filters...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Persistence Status */}
+      {!isLoadingFilters && saveFiltersEnabled && (
+        <div className="mb-4 flex items-center justify-center py-1">
+          <div className="flex items-center space-x-2 text-xs text-green-600">
+            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span>Filters are being saved automatically</span>
+          </div>
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="mb-4">
         <div className="relative max-w-md w-full">

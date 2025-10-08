@@ -20,6 +20,8 @@ export function DownloadedScriptsTab() {
     sortBy: 'name',
     sortOrder: 'asc',
   });
+  const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCardsWithCategories.useQuery();
@@ -28,6 +30,62 @@ export function DownloadedScriptsTab() {
     { slug: selectedSlug ?? '' },
     { enabled: !!selectedSlug }
   );
+
+  // Load SAVE_FILTER setting and saved filters on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        // Load SAVE_FILTER setting
+        const saveFilterResponse = await fetch('/api/settings/save-filter');
+        let saveFilterEnabled = false;
+        if (saveFilterResponse.ok) {
+          const saveFilterData = await saveFilterResponse.json();
+          saveFilterEnabled = saveFilterData.enabled ?? false;
+          setSaveFiltersEnabled(saveFilterEnabled);
+        }
+
+        // Load saved filters if SAVE_FILTER is enabled
+        if (saveFilterEnabled) {
+          const filtersResponse = await fetch('/api/settings/filters');
+          if (filtersResponse.ok) {
+            const filtersData = await filtersResponse.json();
+            if (filtersData.filters) {
+              setFilters(filtersData.filters as FilterState);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setIsLoadingFilters(false);
+      }
+    };
+
+    void loadSettings();
+  }, []);
+
+  // Save filters when they change (if SAVE_FILTER is enabled)
+  useEffect(() => {
+    if (!saveFiltersEnabled || isLoadingFilters) return;
+
+    const saveFilters = async () => {
+      try {
+        await fetch('/api/settings/filters', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filters }),
+        });
+      } catch (error) {
+        console.error('Error saving filters:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(() => void saveFilters(), 500);
+    return () => clearTimeout(timeoutId);
+  }, [filters, saveFiltersEnabled, isLoadingFilters]);
 
   // Extract categories from metadata
   const categories = React.useMemo((): string[] => {
@@ -341,6 +399,8 @@ export function DownloadedScriptsTab() {
             totalScripts={downloadedScripts.length}
             filteredCount={filteredScripts.length}
             updatableCount={filterCounts.updatableCount}
+            saveFiltersEnabled={saveFiltersEnabled}
+            isLoadingFilters={isLoadingFilters}
           />
 
           {/* Scripts Grid */}

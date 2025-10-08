@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,8 +25,9 @@ export async function POST(request: NextRequest) {
 
     // Check if SAVE_FILTER already exists
     const saveFilterRegex = /^SAVE_FILTER=.*$/m;
+    const saveFilterMatch = saveFilterRegex.exec(envContent);
     
-    if (saveFilterRegex.test(envContent)) {
+    if (saveFilterMatch) {
       // Replace existing SAVE_FILTER
       envContent = envContent.replace(saveFilterRegex, `SAVE_FILTER=${enabled}`);
     } else {
@@ -57,7 +59,8 @@ export async function GET() {
 
     // Read .env file and extract SAVE_FILTER
     const envContent = fs.readFileSync(envPath, 'utf8');
-    const saveFilterMatch = envContent.match(/^SAVE_FILTER=(.*)$/m);
+    const saveFilterRegex = /^SAVE_FILTER=(.*)$/m;
+    const saveFilterMatch = saveFilterRegex.exec(envContent);
     
     const enabled = saveFilterMatch ? saveFilterMatch[1] === 'true' : false;
     

@@ -14,6 +14,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [activeTab, setActiveTab] = useState<'general' | 'github'>('general');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
+  const [savedFilters, setSavedFilters] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -21,8 +22,9 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   // Load existing settings when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadGithubToken();
-      loadSaveFilter();
+      void loadGithubToken();
+      void loadSaveFilter();
+      void loadSavedFilters();
     }
   }, [isOpen]);
 
@@ -32,7 +34,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       const response = await fetch('/api/settings/github-token');
       if (response.ok) {
         const data = await response.json();
-        setGithubToken(data.token || '');
+        setGithubToken((data.token as string) ?? '');
       }
     } catch (error) {
       console.error('Error loading GitHub token:', error);
@@ -46,7 +48,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       const response = await fetch('/api/settings/save-filter');
       if (response.ok) {
         const data = await response.json();
-        setSaveFilter(data.enabled || false);
+        setSaveFilter((data.enabled as boolean) ?? false);
       }
     } catch (error) {
       console.error('Error loading save filter setting:', error);
@@ -66,12 +68,47 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       if (response.ok) {
         setSaveFilter(enabled);
         setMessage({ type: 'success', text: 'Save filter setting updated!' });
+        
+        // If disabling save filters, clear saved filters
+        if (!enabled) {
+          await clearSavedFilters();
+        }
       } else {
         const errorData = await response.json();
-        setMessage({ type: 'error', text: errorData.error || 'Failed to save setting' });
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to save setting' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save setting' });
+    }
+  };
+
+  const loadSavedFilters = async () => {
+    try {
+      const response = await fetch('/api/settings/filters');
+      if (response.ok) {
+        const data = await response.json();
+        setSavedFilters(data.filters);
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save setting' });
+      console.error('Error loading saved filters:', error);
+    }
+  };
+
+  const clearSavedFilters = async () => {
+    try {
+      const response = await fetch('/api/settings/filters', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setSavedFilters(null);
+        setMessage({ type: 'success', text: 'Saved filters cleared!' });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to clear filters' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to clear filters' });
     }
   };
 
@@ -92,9 +129,9 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
         setMessage({ type: 'success', text: 'GitHub token saved successfully!' });
       } else {
         const errorData = await response.json();
-        setMessage({ type: 'error', text: errorData.error || 'Failed to save token' });
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to save token' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to save token' });
     } finally {
       setIsSaving(false);
@@ -169,6 +206,36 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                       onCheckedChange={saveSaveFilter}
                       label="Enable filter saving"
                     />
+                    
+                    {saveFilter && (
+                      <div className="mt-4 p-3 bg-muted rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">Saved Filters</p>
+                            <p className="text-xs text-muted-foreground">
+                              {savedFilters ? 'Filters are currently saved' : 'No filters saved yet'}
+                            </p>
+                            {savedFilters && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                <div>Search: {savedFilters.searchQuery ?? 'None'}</div>
+                                <div>Types: {savedFilters.selectedTypes?.length ?? 0} selected</div>
+                                <div>Sort: {savedFilters.sortBy} ({savedFilters.sortOrder})</div>
+                              </div>
+                            )}
+                          </div>
+                          {savedFilters && (
+                            <Button
+                              onClick={clearSavedFilters}
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
               </div>
             </div>

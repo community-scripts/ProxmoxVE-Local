@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,8 +25,9 @@ export async function POST(request: NextRequest) {
 
     // Check if GITHUB_TOKEN already exists
     const githubTokenRegex = /^GITHUB_TOKEN=.*$/m;
+    const githubTokenMatch = githubTokenRegex.exec(envContent);
     
-    if (githubTokenRegex.test(envContent)) {
+    if (githubTokenMatch) {
       // Replace existing GITHUB_TOKEN
       envContent = envContent.replace(githubTokenRegex, `GITHUB_TOKEN=${token}`);
     } else {
@@ -57,7 +59,8 @@ export async function GET() {
 
     // Read .env file and extract GITHUB_TOKEN
     const envContent = fs.readFileSync(envPath, 'utf8');
-    const githubTokenMatch = envContent.match(/^GITHUB_TOKEN=(.*)$/m);
+    const githubTokenRegex = /^GITHUB_TOKEN=(.*)$/m;
+    const githubTokenMatch = githubTokenRegex.exec(envContent);
     
     const token = githubTokenMatch ? githubTokenMatch[1] : null;
     
