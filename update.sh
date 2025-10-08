@@ -461,7 +461,7 @@ stop_application() {
     
     # Check if systemd service is running and stop it
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
-        log "Stopping and disabling systemd service..."
+        log "Disabling systemd service..."
         if systemctl disable pvescriptslocal.service; then
             log_success "Service stopped and disabled successfully"
         else
@@ -780,9 +780,19 @@ main() {
     
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
-        log "Detected running from application directory"
-        bash "$0" --relocated
-        exit $?
+        log "Detected running from application directory, creating independent process..."
+        
+        # Use setsid if available to create a completely independent session
+        if command -v setsid &> /dev/null; then
+            log "Using setsid for true process independence"
+            setsid bash "$0" --relocated </dev/null >/dev/null 2>&1 &
+        else
+            log "setsid not available, using standard background process"
+            bash "$0" --relocated </dev/null >/dev/null 2>&1 &
+        fi
+        
+        log "Update process started in background, exiting current process..."
+        exit 0
     fi
     
     # Ensure we're in the application directory
