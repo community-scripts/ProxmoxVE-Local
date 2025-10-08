@@ -74,7 +74,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
             Server Name *
@@ -144,13 +144,14 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
+      <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
         {isEditing && onCancel && (
           <Button
             type="button"
             onClick={onCancel}
             variant="outline"
             size="default"
+            className="w-full sm:w-auto order-2 sm:order-1"
           >
             Cancel
           </Button>
@@ -159,6 +160,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           type="submit"
           variant="default"
           size="default"
+          className="w-full sm:w-auto order-1 sm:order-2"
         >
           {isEditing ? 'Update Server' : 'Add Server'}
         </Button>

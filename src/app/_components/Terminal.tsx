@@ -317,21 +317,21 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
       {/* Terminal Header */}
-      <div className="bg-muted px-4 py-2 flex items-center justify-between border-b border-border">
-        <div className="flex items-center space-x-2">
-          <div className="flex space-x-1">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+      <div className="bg-muted px-2 sm:px-4 py-2 flex items-center justify-between border-b border-border">
+        <div className="flex items-center space-x-2 min-w-0 flex-1">
+          <div className="flex space-x-1 flex-shrink-0">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
           </div>
-          <span className="text-foreground font-mono text-sm ml-2">
+          <span className="text-foreground font-mono text-xs sm:text-sm ml-1 sm:ml-2 truncate">
             {scriptName} {mode === 'ssh' && server && `(SSH: ${server.name})`}
           </span>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-muted-foreground text-xs hidden sm:inline">
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
@@ -340,22 +340,23 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
-        className="h-[32rem] w-full max-w-4xl mx-auto"
-        style={{ minHeight: '512px' }}
+        className="h-[20rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
+        style={{ minHeight: '320px' }}
       />
 
       {/* Terminal Controls */}
-      <div className="bg-muted px-4 py-2 flex items-center justify-between border-t border-border">
-        <div className="flex space-x-2">
+      <div className="bg-muted px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-border">
+        <div className="flex flex-wrap gap-1 sm:gap-2">
           <Button
             onClick={startScript}
             disabled={!isConnected || isRunning}
             variant="default"
             size="sm"
-            className={isConnected && !isRunning ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
+            className={`text-xs sm:text-sm ${isConnected && !isRunning ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
           >
-            <Play className="h-4 w-4 mr-1" />
-            Start
+            <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+            <span className="hidden sm:inline">Start</span>
+            <span className="sm:hidden">▶</span>
           </Button>
           
           <Button
@@ -363,20 +364,22 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             disabled={!isRunning}
             variant="default"
             size="sm"
-            className={isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}
+            className={`text-xs sm:text-sm ${isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
           >
-            <Square className="h-4 w-4 mr-1" />
-            Stop
+            <Square className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+            <span className="hidden sm:inline">Stop</span>
+            <span className="sm:hidden">⏹</span>
           </Button>
           
           <Button
             onClick={clearOutput}
             variant="secondary"
             size="sm"
-            className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            className="text-xs sm:text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80"
           >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Clear
+            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+            <span className="hidden sm:inline">Clear</span>
+            <span className="sm:hidden">🗑</span>
           </Button>
         </div>
 
@@ -384,9 +387,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           onClick={onClose}
           variant="secondary"
           size="sm"
-          className="bg-gray-600 text-white hover:bg-gray-700"
+          className="text-xs sm:text-sm bg-gray-600 text-white hover:bg-gray-700 w-full sm:w-auto"
         >
-          <X className="h-4 w-4 mr-1" />
+          <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
           Close
         </Button>
       </div>

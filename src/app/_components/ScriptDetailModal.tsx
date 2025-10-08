@@ -136,38 +136,63 @@ export function ScriptDetailModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] min-h-[80vh] overflow-y-auto border border-border">
+      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] min-h-[80vh] overflow-y-auto border border-border mx-2 sm:mx-4 lg:mx-0">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border p-6">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between border-b border-border p-4 sm:p-6">
+          <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
             {script.logo && !imageError ? (
               <Image
                 src={script.logo}
                 alt={`${script.name} logo`}
                 width={64}
                 height={64}
-                className="h-16 w-16 rounded-lg object-contain"
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-lg object-contain flex-shrink-0"
                 onError={handleImageError}
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
-                <span className="text-2xl font-semibold text-muted-foreground">
+              <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-lg bg-muted flex-shrink-0">
+                <span className="text-lg sm:text-2xl font-semibold text-muted-foreground">
                   {script.name.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
                 {script.name}
               </h2>
-              <div className="mt-1 flex items-center space-x-2">
+              <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
                 <TypeBadge type={script.type} />
                 {script.updateable && <UpdateableBadge />}
                 {script.privileged && <PrivilegedBadge />}
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          
+          {/* Close Button */}
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground flex-shrink-0 ml-4"
+          >
+            <svg
+              className="h-5 w-5 sm:h-6 sm:w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </Button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-4 sm:p-6 border-b border-border">
             {/* Install Button - only show if script files exist */}
             {scriptFilesData?.success &&
               scriptFilesData.ctExists &&
@@ -176,7 +201,7 @@ export function ScriptDetailModal({
                   onClick={handleInstallScript}
                   variant="outline"
                   size="default"
-                  className="flex items-center space-x-2"
+                  className="w-full sm:w-auto flex items-center justify-center space-x-2"
                 >
                   <svg
                     className="h-4 w-4"
@@ -202,7 +227,7 @@ export function ScriptDetailModal({
                   onClick={handleViewScript}
                   variant="outline"
                   size="default"
-                  className="flex items-center space-x-2 "
+                  className="w-full sm:w-auto flex items-center justify-center space-x-2"
                 >
                   <svg
                     className="h-4 w-4"
@@ -335,39 +360,18 @@ export function ScriptDetailModal({
                 );
               }
             })()}
-            <Button
-              onClick={onClose}
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </Button>
-          </div>
         </div>
 
         {/* Load Message */}
         {loadMessage && (
-          <div className="mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+          <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
             {loadMessage}
           </div>
         )}
 
         {/* Script Files Status */}
         {(scriptFilesLoading || comparisonLoading) && (
-          <div className="mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+          <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
             <div className="flex items-center space-x-2">
               <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
               <span>Loading script status...</span>
@@ -392,8 +396,8 @@ export function ScriptDetailModal({
             }
 
             return (
-              <div className="mx-6 mb-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                <div className="flex items-center space-x-4">
+              <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                   <div className="flex items-center space-x-2">
                     <div
                       className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-muted"}`}
@@ -433,7 +437,7 @@ export function ScriptDetailModal({
                     )}
                 </div>
                 {scriptFilesData.files.length > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
+                  <div className="mt-2 text-xs text-muted-foreground break-words">
                     Files: {scriptFilesData.files.join(", ")}
                   </div>
                 )}
@@ -442,21 +446,21 @@ export function ScriptDetailModal({
           })()}
 
         {/* Content */}
-        <div className="space-y-6 p-6">
+        <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
           {/* Description */}
           <div>
-            <h3 className="mb-2 text-lg font-semibold text-foreground">
+            <h3 className="mb-2 text-base sm:text-lg font-semibold text-foreground">
               Description
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               {script.description}
             </p>
           </div>
 
           {/* Basic Information */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-foreground">
+              <h3 className="mb-3 text-base sm:text-lg font-semibold text-foreground">
                 Basic Information
               </h3>
               <dl className="space-y-2">
@@ -508,7 +512,7 @@ export function ScriptDetailModal({
             </div>
 
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-foreground">
+              <h3 className="mb-3 text-base sm:text-lg font-semibold text-foreground">
                 Links
               </h3>
               <dl className="space-y-2">
@@ -555,24 +559,24 @@ export function ScriptDetailModal({
             script.type !== "pve" &&
             script.type !== "addon" && (
               <div>
-                <h3 className="mb-3 text-lg font-semibold text-foreground">
+                <h3 className="mb-3 text-base sm:text-lg font-semibold text-foreground">
                   Install Methods
                 </h3>
                 <div className="space-y-4">
                   {script.install_methods.map((method, index) => (
                     <div
                       key={index}
-                      className="rounded-lg border border-border bg-card p-4"
+                      className="rounded-lg border border-border bg-card p-3 sm:p-4"
                     >
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="font-medium text-foreground capitalize">
+                      <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between space-y-1 sm:space-y-0">
+                        <h4 className="text-sm sm:text-base font-medium text-foreground capitalize">
                           {method.type}
                         </h4>
-                        <span className="font-mono text-sm text-muted-foreground">
+                        <span className="font-mono text-xs sm:text-sm text-muted-foreground break-all">
                           {method.script}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm lg:grid-cols-4">
                         <div>
                           <dt className="font-medium text-muted-foreground">
                             CPU
@@ -616,7 +620,7 @@ export function ScriptDetailModal({
           {(script.default_credentials.username ??
             script.default_credentials.password) && (
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-foreground">
+              <h3 className="mb-3 text-base sm:text-lg font-semibold text-foreground">
                 Default Credentials
               </h3>
               <dl className="space-y-2">

@@ -69,7 +69,7 @@ export function DiffViewer({ scriptSlug, filePath, isOpen, onClose }: DiffViewer
       className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4 z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-border">
+      <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-border mx-4 sm:mx-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>

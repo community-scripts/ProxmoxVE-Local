@@ -229,18 +229,18 @@ export function VersionDisplay() {
       {/* Loading overlay */}
       {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
       
-      <div className="flex items-center gap-2">
-        <Badge variant={isUpToDate ? "default" : "secondary"}>
+      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
+        <Badge variant={isUpToDate ? "default" : "secondary"} className="text-xs">
           v{currentVersion}
         </Badge>
         
         {updateAvailable && releaseInfo && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
             <div className="relative group">
-              <Badge variant="destructive" className="animate-pulse cursor-help">
+              <Badge variant="destructive" className="animate-pulse cursor-help text-xs">
                 Update Available
               </Badge>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 hidden sm:block">
                 <div className="text-center">
                   <div className="font-semibold mb-1">How to update:</div>
                   <div>Click the button to update, when installed via the helper script</div>
@@ -255,38 +255,42 @@ export function VersionDisplay() {
               </div>
             </div>
             
-            <Button
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              size="sm"
-              variant="destructive"
-              className="text-xs h-6 px-2"
-            >
-              {isUpdating ? (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Download className="h-3 w-3 mr-1" />
-                  Update Now
-                </>
-              )}
-            </Button>
-            
-            <a
-              href={releaseInfo.htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              title="View latest release"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleUpdate}
+                disabled={isUpdating}
+                size="sm"
+                variant="destructive"
+                className="text-xs h-6 px-2"
+              >
+                {isUpdating ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    <span className="hidden sm:inline">Updating...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">Update Now</span>
+                    <span className="sm:hidden">Update</span>
+                  </>
+                )}
+              </Button>
+              
+              <a
+                href={releaseInfo.htmlUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="View latest release"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
             
             {updateResult && (
-              <div className={`text-xs px-2 py-1 rounded ${
+              <div className={`text-xs px-2 py-1 rounded text-center ${
                 updateResult.success 
                   ? 'bg-chart-2/20 text-chart-2 border border-chart-2/30' 
                   : 'bg-destructive/20 text-destructive border border-destructive/30'

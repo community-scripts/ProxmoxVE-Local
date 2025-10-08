@@ -7,7 +7,8 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 export const metadata: Metadata = {
   title: "PVE Scripts local",
-  description: "",
+  description: "Manage and execute Proxmox helper scripts locally with live output streaming",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   icons: [
     { rel: "icon", url: "/favicon.png", type: "image/png" },
     { rel: "icon", url: "/favicon.ico", sizes: "any" },
