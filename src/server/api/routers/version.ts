@@ -4,6 +4,7 @@ import { join } from "path";
 import { spawn } from "child_process";
 import { env } from "~/env";
 import { existsSync, createWriteStream } from "fs";
+import stripAnsi from "strip-ansi";
 
 interface GitHubRelease {
   tag_name: string;
@@ -141,7 +142,9 @@ export const versionRouter = createTRPCRouter({
         }
 
         const logs = await readFile(logPath, 'utf-8');
-        const logLines = logs.split('\n').filter(line => line.trim());
+        const logLines = logs.split('\n')
+          .filter(line => line.trim())
+          .map(line => stripAnsi(line)); // Strip ANSI color codes
         
         // Check if update is complete by looking for completion indicators
         const isComplete = logLines.some(line => 
