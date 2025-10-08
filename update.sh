@@ -770,9 +770,11 @@ main() {
     # Check if this is the relocated/detached version first
     if [ "${1:-}" = "--relocated" ]; then
         export PVE_UPDATE_RELOCATED=1
-        init_log
-        log "Running as detached process"
+        # Give the parent process time to exit
         sleep 3
+        init_log
+        log "Running as detached process (PID: $$)"
+        log "Parent process has exited, we are now independent"
         
     else
         init_log
@@ -782,24 +784,51 @@ main() {
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory, creating independent process..."
         
+        # Copy script to /tmp to ensure it's not affected by directory operations
+        local temp_script="/tmp/pve-update-script-$$.sh"
+        log "Copying update script to: $temp_script"
+        cp "$0" "$temp_script"
+        chmod +x "$temp_script"
+        
+        # Store the application directory for the relocated script
+        local app_dir_path="$(pwd)"
+        
         # Use setsid if available to create a completely independent session
         if command -v setsid &> /dev/null; then
             log "Using setsid for true process independence"
-            setsid bash "$0" --relocated </dev/null >/dev/null 2>&1 &
+            setsid bash "$temp_script" --relocated "$app_dir_path" </dev/null >>/tmp/update.log 2>&1 &
         else
             log "setsid not available, using standard background process"
-            bash "$0" --relocated </dev/null >/dev/null 2>&1 &
+            bash "$temp_script" --relocated "$app_dir_path" </dev/null >>/tmp/update.log 2>&1 &
         fi
         
-        log "Update process started in background, exiting current process..."
+        local child_pid=$!
+        log "Update process started in background with PID: $child_pid"
+        log "Update logs will be written to: /tmp/update.log"
+        log "Current process exiting to allow update to proceed..."
+        sleep 1
         exit 0
     fi
     
     # Ensure we're in the application directory
     local app_dir
     
+    # Check if app directory was passed as argument (from relocation)
+    if [ -n "${2:-}" ]; then
+        app_dir="$2"
+        log "Using application directory from argument: $app_dir"
+        if [ -d "$app_dir" ]; then
+            cd "$app_dir" || {
+                log_error "Failed to change to application directory: $app_dir"
+                exit 1
+            }
+            log "Changed to application directory: $(pwd)"
+        else
+            log_error "Provided application directory does not exist: $app_dir"
+            exit 1
+        fi
     # First check if we're already in the right directory
-    if [ -f "package.json" ] && [ -f "server.js" ]; then
+    elif [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
         log "Already in application directory: $app_dir"
     else
@@ -886,6 +915,16 @@ main() {
     log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
+    
+    # Clean up temporary script copy if it exists
+    if [ -n "${PVE_UPDATE_RELOCATED:-}" ]; then
+        local script_path="$0"
+        if [[ "$script_path" == /tmp/pve-update-script-* ]]; then
+            log "Scheduling cleanup of temporary script: $script_path"
+            # Schedule deletion after script exits
+            (sleep 5 && rm -f "$script_path" 2>/dev/null) &
+        fi
+    fi
     
     # Start the application
     start_application
