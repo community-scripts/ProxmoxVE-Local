@@ -79,8 +79,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             console.log('Clearing terminal for whiptail redraw');
             xtermRef.current.clear();
             xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
+            // Small delay to ensure clear is processed
+            setTimeout(() => {
+              xtermRef.current.write(message.data);
+            }, 10);
+          } else {
+            xtermRef.current.write(message.data);
           }
-          xtermRef.current.write(message.data);
         } else {
           xtermRef.current.write(message.data);
         }
@@ -155,7 +160,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           foreground: '#00ff00',
           cursor: '#00ff00',
         },
-        fontSize: isMobile ? 6 : 14,
+        fontSize: isMobile ? 7 : 14,
         fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
         cursorBlink: true,
         cursorStyle: 'block',
