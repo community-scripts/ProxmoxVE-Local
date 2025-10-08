@@ -201,27 +201,34 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Mobile terminal centering */
+/* Mobile terminal centering - let virtual terminal overflow and center the content */
 .mobile-terminal {
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
-  padding: 0 1rem !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 
 .mobile-terminal .xterm {
   margin: 0 auto !important;
   width: 100% !important;
   max-width: 100% !important;
-  transform: translateX(0.5rem) !important;
+  /* Center the virtual terminal content */
+  transform: translateX(0) !important;
 }
 
 .mobile-terminal .xterm-viewport {
   width: 100% !important;
   overflow: hidden !important;
+  /* Center the viewport to show the middle of the virtual terminal */
+  display: flex !important;
+  justify-content: center !important;
 }
 
 .mobile-terminal .xterm-screen {
   width: 100% !important;
   max-width: 100% !important;
+  /* Let the screen be larger than the viewport */
+  min-width: 100% !important;
 }
