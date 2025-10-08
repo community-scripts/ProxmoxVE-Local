@@ -149,12 +149,24 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
       // Handle terminal input
       terminal.onData((data) => {
+        console.log('=== KEYBOARD INPUT DEBUG ===');
+        console.log('Keyboard input received:', data);
+        console.log('Input bytes:', Array.from(data).map(c => c.charCodeAt(0)));
+        console.log('WebSocket ref exists:', !!wsRef.current);
+        console.log('WebSocket readyState:', wsRef.current?.readyState);
+        console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
+        
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
+          const message = {
             action: 'input',
             executionId,
-            input: data
-          }));
+            data: data  // Changed from 'input' to 'data' to match mobile input
+          };
+          console.log('Sending keyboard WebSocket message:', JSON.stringify(message, null, 2));
+          wsRef.current.send(JSON.stringify(message));
+          console.log('Keyboard WebSocket message sent successfully');
+        } else {
+          console.warn('WebSocket not connected for keyboard input');
         }
       });
 
