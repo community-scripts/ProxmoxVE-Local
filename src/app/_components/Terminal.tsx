@@ -60,10 +60,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         console.log('Contains cursor positioning:', message.data.includes('\x1b[') && message.data.includes('H'));
         console.log('In whiptail session:', inWhiptailSession);
         
-        // Detect whiptail sessions
+        // Detect whiptail sessions and clear immediately
         if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
           setInWhiptailSession(true);
           console.log('Whiptail session detected!');
+          // Clear terminal immediately when whiptail starts
+          xtermRef.current.clear();
+          xtermRef.current.write('\x1b[2J\x1b[H');
         }
         
         // Check for screen clearing sequences and handle them properly
@@ -75,19 +78,17 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           // This is a cursor positioning sequence, often implies a redraw of the entire screen
           console.log('Cursor positioning detected (implies redraw):', message.data);
           if (inWhiptailSession) {
-            // In whiptail session, be more aggressive about clearing
-            console.log('Clearing terminal for whiptail redraw');
-            // Multiple clear operations to ensure complete clearing
+            // In whiptail session, completely reset the terminal
+            console.log('Resetting terminal for whiptail redraw');
+            // Completely clear everything
             xtermRef.current.clear();
-            xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
-            xtermRef.current.write('\x1b[3J'); // Clear scrollback buffer
-            xtermRef.current.write('\x1b[2J'); // Clear screen again
-            // Force clear the terminal buffer
-            xtermRef.current.clear();
-            // Longer delay to ensure all clears are processed
+            xtermRef.current.write('\x1b[2J\x1b[H\x1b[3J\x1b[2J');
+            // Reset the terminal state
+            xtermRef.current.reset();
+            // Write the new content after reset
             setTimeout(() => {
               xtermRef.current.write(message.data);
-            }, 50);
+            }, 100);
           } else {
             xtermRef.current.write(message.data);
           }
