@@ -297,6 +297,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   const sendInput = (input: string) => {
     console.log('Sending input:', input, 'to execution:', executionId);
+    console.log('Input bytes:', Array.from(input).map(c => c.charCodeAt(0)));
     setLastInputSent(input);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -426,7 +427,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             </div>
             
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 onClick={handleEnterKey}
                 variant="outline"
@@ -444,6 +445,15 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 disabled={!isConnected}
               >
                 Yes (y)
+              </Button>
+              <Button
+                onClick={() => sendInput('1')}
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                disabled={!isConnected}
+              >
+                Test (1)
               </Button>
             </div>
             

@@ -281,11 +281,13 @@ export class ScriptExecutionHandler {
         if (typeof execution.process.write === 'function' && !execution.process.stdin) {
           // This is a pty process (SSH execution)
           console.log('Writing to pty process:', input);
+          console.log('Input bytes for pty:', Array.from(input).map(c => c.charCodeAt(0)));
           execution.process.write(input);
           console.log('Successfully wrote to pty process');
         } else if (execution.process.stdin && !execution.process.stdin.destroyed) {
           // This is a regular process (local execution)
           console.log('Writing to stdin:', input);
+          console.log('Input bytes for stdin:', Array.from(input).map(c => c.charCodeAt(0)));
           execution.process.stdin.write(input);
           console.log('Successfully wrote to stdin');
         } else {
