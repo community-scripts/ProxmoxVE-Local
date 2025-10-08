@@ -50,7 +50,18 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
-        xtermRef.current.write(message.data);
+        // Check for screen clearing sequences and handle them properly
+        if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
+          // This is a clear screen sequence, ensure it's processed correctly
+          console.log('Clear screen detected:', message.data);
+          xtermRef.current.write(message.data);
+        } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
+          // This might be a cursor positioning sequence
+          console.log('Cursor positioning detected:', message.data);
+          xtermRef.current.write(message.data);
+        } else {
+          xtermRef.current.write(message.data);
+        }
         break;
       case 'error':
         // Check if this looks like ANSI terminal output (contains escape codes)
@@ -130,6 +141,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         macOptionIsMeta: false,
         rightClickSelectsWord: false,
         wordSeparator: ' ()[]{}\'"`<>|',
+        // Better ANSI handling
+        allowProposedApi: true,
         // Mobile-specific settings
         ...(isMobile && {
           rows: 20,
@@ -142,6 +155,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       const webLinksAddon = new WebLinksAddon();
       terminal.loadAddon(fitAddon);
       terminal.loadAddon(webLinksAddon);
+      
+      // Enable better ANSI handling
+      terminal.options.allowProposedApi = true;
 
       // Open terminal
       terminal.open(terminalRef.current);
