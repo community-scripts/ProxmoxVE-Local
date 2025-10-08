@@ -332,6 +332,17 @@ download_release() {
 clear_original_directory() {
     log "Clearing original directory..."
     
+    # Remove old lock files and node_modules before update
+    if [ -f "package-lock.json" ]; then
+        log "Removing old package-lock.json..."
+        rm -f package-lock.json
+    fi
+    
+    if [ -d "node_modules" ]; then
+        log "Removing old node_modules directory..."
+        rm -rf node_modules
+    fi
+    
     # List of files/directories to preserve (already backed up)
     local preserve_patterns=(
         "data"
@@ -340,7 +351,6 @@ clear_original_directory() {
         "update.log"
         "*.backup"
         "*.bak"
-        "node_modules"
         ".git"
     )
     
@@ -572,41 +582,28 @@ update_files() {
 install_and_build() {
     log "Installing dependencies..."
     
-    # Remove old node_modules to avoid conflicts with new dependencies
-    if [ -d "node_modules" ]; then
-        log "Removing old node_modules directory for clean install..."
-        rm -rf node_modules
-        log_success "Old node_modules removed"
+    # Verify package.json exists
+    if [ ! -f "package.json" ]; then
+        log_error "package.json not found! Cannot install dependencies."
+        return 1
     fi
     
-    # Remove package-lock.json to avoid version conflicts
+    # Check if package-lock.json exists (it should from the new release)
     if [ -f "package-lock.json" ]; then
-        log "Removing old package-lock.json to avoid conflicts..."
-        rm -f package-lock.json
-        log_success "Old package-lock.json removed"
-    fi
-    
-    # Clear npm cache to ensure fresh downloads
-    log "Clearing npm cache..."
-    if npm cache clean --force > /dev/null 2>&1; then
-        log_success "npm cache cleared"
+        log "Using package-lock.json from new release"
     else
-        log_warning "Failed to clear npm cache, continuing anyway..."
+        log_warning "No package-lock.json found, npm will generate one"
     fi
     
     # Create temporary file for npm output
     local npm_log="/tmp/npm_install_$$.log"
-    npm install --loglevel=verbose > "$npm_log" 2>&1
-    cat "$npm_log" | while read -r line; do
-            log_error "NPM: $line"
-    done
-    rm -f "$npm_log"
-    # Run npm install with verbose output for debugging
+    
+    # Run npm install (using the new package.json and package-lock.json from release)
     log "Running npm install (this may take a few minutes)..."
-    if ! npm install --loglevel=verbose > "$npm_log" 2>&1; then
+    if ! npm install > "$npm_log" 2>&1; then
         log_error "Failed to install dependencies"
-        log_error "npm install output:"
-        cat "$npm_log" | while read -r line; do
+        log_error "npm install output (last 50 lines):"
+        tail -50 "$npm_log" | while read -r line; do
             log_error "NPM: $line"
         done
         rm -f "$npm_log"
@@ -615,6 +612,10 @@ install_and_build() {
     
     # Log success and clean up
     log_success "Dependencies installed successfully"
+    
+    # Show package count for verification
+    local pkg_count=$(find node_modules -maxdepth 1 -type d 2>/dev/null | wc -l)
+    log "Installed packages: approximately $pkg_count top-level packages"
     rm -f "$npm_log"
     
     log "Building application..."
