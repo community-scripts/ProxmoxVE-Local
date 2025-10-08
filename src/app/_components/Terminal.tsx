@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from './ui/button';
-import { Play, Square, Trash2, X, Send, Keyboard, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Square, Trash2, X, Send, Keyboard, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface TerminalProps {
   scriptPath: string;
@@ -413,7 +413,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             <span className="text-sm font-medium text-foreground">Mobile Input</span>
             {lastInputSent && (
               <span className="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">
-                Sent: {lastInputSent === '\r' ? 'Enter' : lastInputSent === '\x1b[A' ? 'Up' : lastInputSent === '\x1b[B' ? 'Down' : lastInputSent}
+                Sent: {lastInputSent === '\r' ? 'Enter' : 
+                       lastInputSent === '\x1b[A' ? 'Up' : 
+                       lastInputSent === '\x1b[B' ? 'Down' : 
+                       lastInputSent === '\x1b[C' ? 'Right' : 
+                       lastInputSent === '\x1b[D' ? 'Left' : 
+                       lastInputSent}
               </span>
             )}
           </div>
@@ -430,7 +435,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         
         {showMobileInput && (
           <div className="space-y-3">
-            {/* Navigation and Action Buttons */}
+            {/* Navigation Buttons */}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => {
@@ -457,6 +462,36 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
               >
                 <ChevronDown className="h-4 w-4" />
                 Down
+              </Button>
+            </div>
+            
+            {/* Left/Right Navigation Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => {
+                  console.log('=== LEFT BUTTON CLICKED ===');
+                  sendInput('\x1b[D');
+                }}
+                variant="outline"
+                size="sm"
+                className="text-sm flex items-center justify-center gap-2"
+                disabled={!isConnected}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Left
+              </Button>
+              <Button
+                onClick={() => {
+                  console.log('=== RIGHT BUTTON CLICKED ===');
+                  sendInput('\x1b[C');
+                }}
+                variant="outline"
+                size="sm"
+                className="text-sm flex items-center justify-center gap-2"
+                disabled={!isConnected}
+              >
+                <ChevronRight className="h-4 w-4" />
+                Right
               </Button>
             </div>
             
