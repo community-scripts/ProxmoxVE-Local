@@ -94,7 +94,7 @@ export function ScriptInstallationCard({
             />
           ) : (
             <div className="text-sm font-mono text-foreground break-all">
-              {script.container_id || '-'}
+              {script.container_id ?? '-'}
             </div>
           )}
         </div>

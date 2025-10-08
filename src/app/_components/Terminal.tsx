@@ -124,7 +124,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         setIsRunning(false);
         break;
     }
-  }, [scriptPath, containerId, scriptName]);
+  }, [scriptPath, containerId, scriptName, inWhiptailSession]);
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -137,9 +137,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     // Only initialize on client side
     if (!isClient || !terminalRef.current || xtermRef.current) return;
 
+    // Store ref value to avoid stale closure
+    const terminalElement = terminalRef.current;
+
     // Use setTimeout to ensure DOM is fully ready
     const initTerminal = async () => {
-      if (!terminalRef.current || xtermRef.current) return;
+      if (!terminalElement || xtermRef.current) return;
 
       // Dynamically import xterm modules to avoid SSR issues
       const { Terminal: XTerm } = await import('@xterm/xterm');
@@ -184,7 +187,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       terminal.options.allowProposedApi = true;
 
       // Open terminal
-      terminal.open(terminalRef.current);
+      terminal.open(terminalElement);
       
       // Fit after a small delay to ensure proper sizing
       setTimeout(() => {
@@ -212,7 +215,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       window.addEventListener('resize', handleResize);
       
       // Store the handler for cleanup
-      (terminalRef.current as any).resizeHandler = handleResize;
+      (terminalElement as any).resizeHandler = handleResize;
 
       // Store references
       xtermRef.current = terminal;
@@ -242,8 +245,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
     return () => {
       clearTimeout(timeoutId);
-      if (terminalRef.current && (terminalRef.current as any).resizeHandler) {
-        window.removeEventListener('resize', (terminalRef.current as any).resizeHandler as (this: Window, ev: UIEvent) => any);
+      if (terminalElement && (terminalElement as any).resizeHandler) {
+        window.removeEventListener('resize', (terminalElement as any).resizeHandler as (this: Window, ev: UIEvent) => any);
       }
       if (xtermRef.current) {
         xtermRef.current.dispose();
@@ -251,7 +254,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         fitAddonRef.current = null;
       }
     };
-  }, [executionId, isClient, inWhiptailSession]);
+  }, [executionId, isClient, inWhiptailSession, isMobile]);
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
