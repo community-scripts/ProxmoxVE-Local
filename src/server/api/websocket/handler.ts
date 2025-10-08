@@ -50,10 +50,10 @@ export class ScriptExecutionHandler {
     });
   }
 
-  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any }) {
-    const { action, scriptPath, executionId, mode, server } = message;
+  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; data?: string }) {
+    const { action, scriptPath, executionId, mode, server, data } = message;
     
-    console.log('WebSocket message received:', { action, scriptPath, executionId, mode, server: server ? { name: server.name, ip: server.ip } : null });
+    console.log('WebSocket message received:', { action, scriptPath, executionId, mode, server: server ? { name: server.name, ip: server.ip } : null, hasData: !!data });
 
     switch (action) {
       case 'start':
@@ -71,6 +71,18 @@ export class ScriptExecutionHandler {
       case 'stop':
         if (executionId) {
           this.stopScriptExecution(executionId);
+        }
+        break;
+
+      case 'input':
+        if (executionId && data !== undefined) {
+          this.sendInputToExecution(executionId, data);
+        } else {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: 'Missing executionId or input data',
+            timestamp: Date.now()
+          });
         }
         break;
 
@@ -244,6 +256,59 @@ export class ScriptExecutionHandler {
       this.sendMessage(execution.ws, {
         type: 'end',
         data: 'Script execution stopped by user',
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  private sendInputToExecution(executionId: string, input: string) {
+    console.log('sendInputToExecution called:', { executionId, input, inputLength: input.length });
+    const execution = this.activeExecutions.get(executionId);
+    console.log('Active executions:', Array.from(this.activeExecutions.keys()));
+    
+    if (execution && execution.process) {
+      console.log('Execution found, process details:', {
+        hasStdin: !!execution.process.stdin,
+        stdinDestroyed: execution.process.stdin?.destroyed,
+        processPid: execution.process.pid,
+        processKilled: execution.process.killed,
+        hasWrite: typeof execution.process.write === 'function',
+        isPty: !!(execution.process as any).write && !execution.process.stdin
+      });
+      
+      try {
+        // Check if it's a pty process (SSH) or regular process
+        if (typeof execution.process.write === 'function' && !execution.process.stdin) {
+          // This is a pty process (SSH execution)
+          console.log('Writing to pty process:', input);
+          execution.process.write(input);
+          console.log('Successfully wrote to pty process');
+        } else if (execution.process.stdin && !execution.process.stdin.destroyed) {
+          // This is a regular process (local execution)
+          console.log('Writing to stdin:', input);
+          execution.process.stdin.write(input);
+          console.log('Successfully wrote to stdin');
+        } else {
+          console.warn('Process input not available or destroyed');
+          this.sendMessage(execution.ws, {
+            type: 'error',
+            data: 'Process input not available',
+            timestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('Error sending input to execution:', error);
+        this.sendMessage(execution.ws, {
+          type: 'error',
+          data: `Failed to send input: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: Date.now()
+        });
+      }
+    } else {
+      console.warn('No active execution found for input:', executionId);
+      this.sendMessage(execution.ws, {
+        type: 'error',
+        data: `No active execution found for ID: ${executionId}`,
         timestamp: Date.now()
       });
     }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from './ui/button';
-import {  Play, Square, Trash2, X } from 'lucide-react';
+import { Play, Square, Trash2, X, Send, Keyboard, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface TerminalProps {
   scriptPath: string;
@@ -24,6 +24,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [mobileInput, setMobileInput] = useState('');
+  const [showMobileInput, setShowMobileInput] = useState(false);
+  const [lastInputSent, setLastInputSent] = useState<string | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -229,6 +232,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data as string) as TerminalMessage;
+          console.log('WebSocket message received:', message);
           handleMessage(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -291,6 +295,35 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     }
   };
 
+  const sendInput = (input: string) => {
+    console.log('Sending input:', input, 'to execution:', executionId);
+    setLastInputSent(input);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'input',
+        executionId,
+        data: input
+      }));
+      // Clear the feedback after 2 seconds
+      setTimeout(() => setLastInputSent(null), 2000);
+    } else {
+      console.warn('WebSocket not connected, cannot send input');
+    }
+  };
+
+  const handleMobileInput = (input: string) => {
+    sendInput(input);
+    setMobileInput('');
+  };
+
+  const handleNumberInput = (number: number) => {
+    sendInput(number.toString());
+  };
+
+  const handleEnterKey = () => {
+    sendInput('\r');
+  };
+
   // Don't render on server side
   if (!isClient) {
     return (
@@ -343,6 +376,105 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         className="h-[20rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto"
         style={{ minHeight: '320px' }}
       />
+
+      {/* Mobile Input Controls - Only show on mobile */}
+      <div className="block sm:hidden bg-muted/50 px-2 py-3 border-t border-border">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">Mobile Input</span>
+            {lastInputSent && (
+              <span className="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">
+                Sent: {lastInputSent === '\r' ? 'Enter' : lastInputSent === '\x1b[A' ? 'Up' : lastInputSent === '\x1b[B' ? 'Down' : lastInputSent}
+              </span>
+            )}
+          </div>
+          <Button
+            onClick={() => setShowMobileInput(!showMobileInput)}
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+          >
+            <Keyboard className="h-4 w-4 mr-1" />
+            {showMobileInput ? 'Hide' : 'Show'} Input
+          </Button>
+        </div>
+        
+        {showMobileInput && (
+          <div className="space-y-3">
+            {/* Navigation and Action Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => sendInput('\x1b[A')}
+                variant="outline"
+                size="sm"
+                className="text-sm flex items-center justify-center gap-2"
+                disabled={!isConnected}
+              >
+                <ChevronUp className="h-4 w-4" />
+                Up
+              </Button>
+              <Button
+                onClick={() => sendInput('\x1b[B')}
+                variant="outline"
+                size="sm"
+                className="text-sm flex items-center justify-center gap-2"
+                disabled={!isConnected}
+              >
+                <ChevronDown className="h-4 w-4" />
+                Down
+              </Button>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={handleEnterKey}
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                disabled={!isConnected}
+              >
+                Enter
+              </Button>
+              <Button
+                onClick={() => sendInput('y')}
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                disabled={!isConnected}
+              >
+                Yes (y)
+              </Button>
+            </div>
+            
+            {/* Custom Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={mobileInput}
+                onChange={(e) => setMobileInput(e.target.value)}
+                placeholder="Type command..."
+                className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleMobileInput(mobileInput);
+                  }
+                }}
+                disabled={!isConnected}
+              />
+              <Button
+                onClick={() => handleMobileInput(mobileInput)}
+                variant="default"
+                size="sm"
+                disabled={!isConnected || !mobileInput.trim()}
+                className="px-3"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Terminal Controls */}
       <div className="bg-muted px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-border">
