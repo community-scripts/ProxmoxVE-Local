@@ -155,6 +155,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         console.log('WebSocket ref exists:', !!wsRef.current);
         console.log('WebSocket readyState:', wsRef.current?.readyState);
         console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
+        console.log('WebSocket URL:', wsRef.current?.url);
+        console.log('WebSocket protocol:', wsRef.current?.protocol);
         
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           const message = {
@@ -163,6 +165,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             data: data  // Changed from 'input' to 'data' to match mobile input
           };
           console.log('Sending keyboard WebSocket message:', JSON.stringify(message, null, 2));
+          console.log('WebSocket object:', wsRef.current);
           wsRef.current.send(JSON.stringify(message));
           console.log('Keyboard WebSocket message sent successfully');
         } else {
@@ -315,6 +318,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     console.log('WebSocket readyState:', wsRef.current?.readyState);
     console.log('WebSocket OPEN constant:', WebSocket.OPEN);
     console.log('Is connected:', wsRef.current?.readyState === WebSocket.OPEN);
+    console.log('WebSocket URL:', wsRef.current?.url);
+    console.log('WebSocket protocol:', wsRef.current?.protocol);
     
     setLastInputSent(input);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -324,6 +329,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         data: input
       };
       console.log('Sending WebSocket message:', JSON.stringify(message, null, 2));
+      console.log('WebSocket object:', wsRef.current);
       wsRef.current.send(JSON.stringify(message));
       console.log('WebSocket message sent successfully');
       // Clear the feedback after 2 seconds
