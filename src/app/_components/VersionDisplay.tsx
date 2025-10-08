@@ -23,23 +23,23 @@ function LoadingOverlay({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-card rounded-lg p-8 shadow-2xl border border-border max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
-            <div className="absolute inset-0 rounded-full border-2 border-blue-200 dark:border-blue-800 animate-pulse"></div>
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse"></div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            <h3 className="text-lg font-semibold text-card-foreground mb-2">
               {isNetworkError ? 'Server Restarting' : 'Updating Application'}
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               {isNetworkError 
                 ? 'The server is restarting after the update...' 
                 : 'Please stand by while we update your application...'
               }
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               {isNetworkError 
                 ? 'This may take a few moments. The page will reload automatically.'
                 : 'The server will restart automatically when complete.'
@@ -49,7 +49,7 @@ function LoadingOverlay({
           
           {/* Log output */}
           {logs.length > 0 && (
-            <div className="w-full mt-4 bg-gray-900 dark:bg-gray-950 rounded-lg p-4 font-mono text-xs text-green-400 max-h-60 overflow-y-auto">
+            <div className="w-full mt-4 bg-card border border-border rounded-lg p-4 font-mono text-xs text-chart-2 max-h-60 overflow-y-auto terminal-output">
               {logs.map((log, index) => (
                 <div key={index} className="mb-1 whitespace-pre-wrap break-words">
                   {log}
@@ -60,9 +60,9 @@ function LoadingOverlay({
           )}
 
           <div className="flex space-x-1">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
       </div>
@@ -283,8 +283,8 @@ export function VersionDisplay() {
             {updateResult && (
               <div className={`text-xs px-2 py-1 rounded ${
                 updateResult.success 
-                  ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-                  : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                  ? 'bg-chart-2/20 text-chart-2 border border-chart-2/30' 
+                  : 'bg-destructive/20 text-destructive border border-destructive/30'
               }`}>
                 {updateResult.message}
               </div>
@@ -293,7 +293,7 @@ export function VersionDisplay() {
         )}
         
         {isUpToDate && (
-          <span className="text-xs text-green-600 dark:text-green-400">
+          <span className="text-xs text-chart-2">
             ✓ Up to date
           </span>
         )}
