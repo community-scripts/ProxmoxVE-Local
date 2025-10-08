@@ -162,7 +162,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           const message = {
             action: 'input',
             executionId,
-            data: data  // Changed from 'input' to 'data' to match mobile input
+            input: data  // Reverted back to 'input' field - server expects this
           };
           console.log('Sending keyboard WebSocket message:', JSON.stringify(message, null, 2));
           console.log('WebSocket object:', wsRef.current);
@@ -326,7 +326,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       const message = {
         action: 'input',
         executionId,
-        data: input
+        input: input  // Changed to 'input' field to match server expectations
       };
       console.log('Sending WebSocket message:', JSON.stringify(message, null, 2));
       console.log('WebSocket object:', wsRef.current);
