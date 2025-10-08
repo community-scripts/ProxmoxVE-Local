@@ -53,7 +53,9 @@ export class ScriptExecutionHandler {
   private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; data?: string }) {
     const { action, scriptPath, executionId, mode, server, data } = message;
     
+    console.log('=== WEBSOCKET MESSAGE DEBUG ===');
     console.log('WebSocket message received:', { action, scriptPath, executionId, mode, server: server ? { name: server.name, ip: server.ip } : null, hasData: !!data });
+    console.log('Full message object:', JSON.stringify(message, null, 2));
 
     switch (action) {
       case 'start':
@@ -75,9 +77,13 @@ export class ScriptExecutionHandler {
         break;
 
       case 'input':
+        console.log('=== INPUT ACTION DEBUG ===');
+        console.log('Input action received:', { executionId, data, hasExecutionId: !!executionId, hasData: data !== undefined });
         if (executionId && data !== undefined) {
+          console.log('Calling sendInputToExecution...');
           this.sendInputToExecution(executionId, data);
         } else {
+          console.log('Input action failed - missing executionId or data');
           this.sendMessage(ws, {
             type: 'error',
             data: 'Missing executionId or input data',
