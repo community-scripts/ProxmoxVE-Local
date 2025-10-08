@@ -50,6 +50,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
+        console.log('=== OUTPUT DEBUG ===');
+        console.log('Output data length:', message.data.length);
+        console.log('Output preview:', message.data.substring(0, 200));
+        console.log('Contains ANSI codes:', message.data.includes('\x1b[') || message.data.includes('\u001b['));
+        console.log('Contains clear screen:', message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J'));
+        console.log('Contains cursor positioning:', message.data.includes('\x1b[') && message.data.includes('H'));
+        
         // Check for screen clearing sequences and handle them properly
         if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
           // This is a clear screen sequence, ensure it's processed correctly
@@ -58,7 +65,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
           // This is a cursor positioning sequence, often implies a redraw of the entire screen
           console.log('Cursor positioning detected (implies redraw):', message.data);
-          // Explicitly clear the screen before writing new content to prevent duplication
+          // Try a more aggressive clear - clear entire buffer and reset
+          xtermRef.current.clear();
           xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
           xtermRef.current.write(message.data);
         } else {
