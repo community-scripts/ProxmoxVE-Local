@@ -65,7 +65,7 @@
 /* Semantic color utility classes */
 .bg-background { background-color: hsl(var(--background)); }
 .text-foreground { color: hsl(var(--foreground)); }
-.bg-card { background-color: hsl(var(--card)); }
+.bg-card { background-color: hsl(var(--card)) !important; }
 .text-card-foreground { color: hsl(var(--card-foreground)); }
 .bg-popover { background-color: hsl(var(--popover)); }
 .text-popover-foreground { color: hsl(var(--popover-foreground)); }

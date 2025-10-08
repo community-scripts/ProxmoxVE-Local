@@ -23,6 +23,8 @@ export const env = createEnv({
     ALLOWED_SCRIPT_PATHS: z.string().default("scripts/"),
     // WebSocket Configuration
     WEBSOCKET_PORT: z.string().default("3001"),
+    // GitHub Configuration
+    GITHUB_TOKEN: z.string().optional(),
   },
 
   /**
@@ -52,6 +54,8 @@ export const env = createEnv({
     ALLOWED_SCRIPT_PATHS: process.env.ALLOWED_SCRIPT_PATHS,
     // WebSocket Configuration
     WEBSOCKET_PORT: process.env.WEBSOCKET_PORT,
+    // GitHub Configuration
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

@@ -3,40 +3,68 @@
 import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { ExternalLink, Download, RefreshCw, Loader2, Check } from "lucide-react";
-import { useState } from "react";
 
-// Loading overlay component
-function LoadingOverlay({ isNetworkError = false }: { isNetworkError?: boolean }) {
+import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+
+// Loading overlay component with log streaming
+function LoadingOverlay({ 
+  isNetworkError = false, 
+  logs = [] 
+}: { 
+  isNetworkError?: boolean; 
+  logs?: string[];
+}) {
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new logs arrive
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-md mx-4">
+      <div className="bg-card rounded-lg p-8 shadow-2xl border border-border max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
-            <div className="absolute inset-0 rounded-full border-2 border-blue-200 dark:border-blue-800 animate-pulse"></div>
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse"></div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            <h3 className="text-lg font-semibold text-card-foreground mb-2">
               {isNetworkError ? 'Server Restarting' : 'Updating Application'}
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               {isNetworkError 
                 ? 'The server is restarting after the update...' 
                 : 'Please stand by while we update your application...'
               }
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               {isNetworkError 
-                ? 'This may take a few moments. The page will reload automatically. You may see a blank page for up to a minute!.'
+                ? 'This may take a few moments. The page will reload automatically.'
                 : 'The server will restart automatically when complete.'
               }
             </p>
           </div>
+          
+          {/* Log output */}
+          {logs.length > 0 && (
+            <div className="w-full mt-4 bg-card border border-border rounded-lg p-4 font-mono text-xs text-chart-2 max-h-60 overflow-y-auto terminal-output">
+              {logs.map((log, index) => (
+                <div key={index} className="mb-1 whitespace-pre-wrap break-words">
+                  {log}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          )}
+
           <div className="flex space-x-1">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
       </div>
@@ -48,79 +76,126 @@ export function VersionDisplay() {
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [updateLogs, setUpdateLogs] = useState<string[]>([]);
+  const [shouldSubscribe, setShouldSubscribe] = useState(false);
+  const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
+  const lastLogTimeRef = useRef<number>(Date.now());
+  const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
-    onSuccess: (result: any) => {
-      const now = Date.now();
-      const elapsed = updateStartTime ? now - updateStartTime : 0;
- 
-      
+    onSuccess: (result) => {
       setUpdateResult({ success: result.success, message: result.message });
       
       if (result.success) {
-        // The script now runs independently, so we show a longer overlay
-        // and wait for the server to restart
-        setIsNetworkError(true);
-        setUpdateResult({ success: true, message: 'Update in progress... Server will restart automatically.' });
-
-        // Wait longer for the update to complete and server to restart
-        setTimeout(() => {
-          setIsUpdating(false);
-          setIsNetworkError(false);
-          // Try to reload after the update completes
-          setTimeout(() => {
-            window.location.reload();
-          }, 10000); // 10 seconds to allow for update completion
-        }, 5000); // Show overlay for 5 seconds
+        // Start subscribing to update logs
+        setShouldSubscribe(true);
+        setUpdateLogs(['Update started...']);
       } else {
-        // For errors, show for at least 1 second
-        const remainingTime = Math.max(0, 1000 - elapsed);
-        setTimeout(() => {
-          setIsUpdating(false);
-        }, remainingTime);
+        setIsUpdating(false);
       }
     },
     onError: (error) => {
-      const now = Date.now();
-      const elapsed = updateStartTime ? now - updateStartTime : 0;
-      
-      // Check if this is a network error (expected during server restart)
-      const isNetworkError = error.message.includes('Failed to fetch') || 
-                            error.message.includes('NetworkError') ||
-                            error.message.includes('fetch') ||
-                            error.message.includes('network');
-      
-      if (isNetworkError && elapsed < 60000) { // If it's a network error within 30 seconds, treat as success
-        setIsNetworkError(true);
-        setUpdateResult({ success: true, message: 'Update in progress... Server is restarting.' });
-        
-        // Wait longer for server to come back up
-        setTimeout(() => {
-          setIsUpdating(false);
-          setIsNetworkError(false);
-          // Try to reload after a longer delay
-          setTimeout(() => {
-            window.location.reload();
-          }, 5000);
-        }, 3000);
-      } else {
-        // For real errors, show for at least 1 second
-        setUpdateResult({ success: false, message: error.message });
-        const remainingTime = Math.max(0, 1000 - elapsed);
-        setTimeout(() => {
-          setIsUpdating(false);
-        }, remainingTime);
-      }
+      setUpdateResult({ success: false, message: error.message });
+      setIsUpdating(false);
     }
   });
+
+  // Poll for update logs
+  const { data: updateLogsData } = api.version.getUpdateLogs.useQuery(undefined, {
+    enabled: shouldSubscribe,
+    refetchInterval: 1000, // Poll every second
+    refetchIntervalInBackground: true,
+  });
+
+  // Update logs when data changes
+  useEffect(() => {
+    if (updateLogsData?.success && updateLogsData.logs) {
+      lastLogTimeRef.current = Date.now();
+      setUpdateLogs(updateLogsData.logs);
+      
+      if (updateLogsData.isComplete) {
+        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+        setIsNetworkError(true);
+        // Start reconnection attempts when we know update is complete
+        startReconnectAttempts();
+      }
+    }
+  }, [updateLogsData]);
+
+  // Monitor for server connection loss and auto-reload (fallback only)
+  useEffect(() => {
+    if (!shouldSubscribe) return;
+
+    // Only use this as a fallback - the main trigger should be completion detection
+    const checkInterval = setInterval(() => {
+      const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
+      
+      // Only start reconnection if we've been updating for at least 3 minutes
+      // and no logs for 60 seconds (very conservative fallback)
+      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
+      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
+      
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
+        console.log('Fallback: Assuming server restart due to long silence');
+        setIsNetworkError(true);
+        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
+        
+        // Start trying to reconnect
+        startReconnectAttempts();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError]);
+
+  // Attempt to reconnect and reload page when server is back
+  const startReconnectAttempts = () => {
+    if (reconnectIntervalRef.current) return;
+    
+    setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
+    
+    reconnectIntervalRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          // Try to fetch the root path to check if server is back
+          const response = await fetch('/', { method: 'HEAD' });
+          if (response.ok || response.status === 200) {
+            setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
+            
+            // Clear interval and reload
+            if (reconnectIntervalRef.current) {
+              clearInterval(reconnectIntervalRef.current);
+            }
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        } catch {
+          // Server still down, keep trying
+        }
+      })();
+    }, 2000);
+  };
+
+  // Cleanup reconnect interval on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectIntervalRef.current) {
+        clearInterval(reconnectIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleUpdate = () => {
     setIsUpdating(true);
     setUpdateResult(null);
     setIsNetworkError(false);
+    setUpdateLogs([]);
+    setShouldSubscribe(false);
     setUpdateStartTime(Date.now());
+    lastLogTimeRef.current = Date.now();
     executeUpdate.mutate();
   };
 
@@ -152,7 +227,7 @@ export function VersionDisplay() {
   return (
     <>
       {/* Loading overlay */}
-      {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} />}
+      {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
       
       <div className="flex items-center gap-2">
         <Badge variant={isUpToDate ? "default" : "secondary"}>
@@ -168,7 +243,7 @@ export function VersionDisplay() {
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                 <div className="text-center">
                   <div className="font-semibold mb-1">How to update:</div>
-                  <div>Click the button to update</div>
+                  <div>Click the button to update, when installed via the helper script</div>
                   <div>or update manually:</div>
                   <div>cd $PVESCRIPTLOCAL_DIR</div>
                   <div>git pull</div>
@@ -213,8 +288,8 @@ export function VersionDisplay() {
             {updateResult && (
               <div className={`text-xs px-2 py-1 rounded ${
                 updateResult.success 
-                  ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-                  : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                  ? 'bg-chart-2/20 text-chart-2 border border-chart-2/30' 
+                  : 'bg-destructive/20 text-destructive border border-destructive/30'
               }`}>
                 {updateResult.message}
               </div>
@@ -223,9 +298,8 @@ export function VersionDisplay() {
         )}
         
         {isUpToDate && (
-          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-            <Check className="h-3 w-3" />
-            Up to date
+          <span className="text-xs text-chart-2">
+            ✓ Up to date
           </span>
         )}
       </div>

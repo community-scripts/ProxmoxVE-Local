@@ -1,13 +1,31 @@
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { readFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { spawn } from "child_process";
+import { env } from "~/env";
+import { existsSync, createWriteStream } from "fs";
+import stripAnsi from "strip-ansi";
 
 interface GitHubRelease {
   tag_name: string;
   name: string;
   published_at: string;
   html_url: string;
+}
+
+// Helper function to fetch from GitHub API with optional authentication
+async function fetchGitHubAPI(url: string) {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'ProxmoxVE-Local'
+  };
+  
+  // Add authentication header if token is available
+  if (env.GITHUB_TOKEN) {
+    headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+  }
+  
+  return fetch(url, { headers });
 }
 
 export const versionRouter = createTRPCRouter({
@@ -34,7 +52,7 @@ export const versionRouter = createTRPCRouter({
   getLatestRelease: publicProcedure
     .query(async () => {
       try {
-        const response = await fetch('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
         
         if (!response.ok) {
           throw new Error(`GitHub API error: ${response.status}`);
@@ -70,7 +88,7 @@ export const versionRouter = createTRPCRouter({
         const currentVersion = (await readFile(versionPath, 'utf-8')).trim();
         
 
-        const response = await fetch('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
         
         if (!response.ok) {
           throw new Error(`GitHub API error: ${response.status}`);
@@ -109,20 +127,79 @@ export const versionRouter = createTRPCRouter({
       }
     }),
 
+  // Get update logs from the log file
+  getUpdateLogs: publicProcedure
+    .query(async () => {
+      try {
+        const logPath = join(process.cwd(), 'update.log');
+        
+        if (!existsSync(logPath)) {
+          return {
+            success: true,
+            logs: [],
+            isComplete: false
+          };
+        }
+
+        const logs = await readFile(logPath, 'utf-8');
+        const logLines = logs.split('\n')
+          .filter(line => line.trim())
+          .map(line => stripAnsi(line)); // Strip ANSI color codes
+        
+        // Check if update is complete by looking for completion indicators
+        const isComplete = logLines.some(line => 
+          line.includes('Update complete') || 
+          line.includes('Server restarting') ||
+          line.includes('npm start') ||
+          line.includes('Restarting server') ||
+          line.includes('Server started') ||
+          line.includes('Ready on http') ||
+          line.includes('Application started') ||
+          line.includes('Service enabled and started successfully') ||
+          line.includes('Service is running') ||
+          line.includes('Update completed successfully')
+        );
+
+        return {
+          success: true,
+          logs: logLines,
+          isComplete
+        };
+      } catch (error) {
+        console.error('Error reading update logs:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read update logs',
+          logs: [],
+          isComplete: false
+        };
+      }
+    }),
+
   // Execute update script
   executeUpdate: publicProcedure
     .mutation(async () => {
       try {
         const updateScriptPath = join(process.cwd(), 'update.sh');
+        const logPath = join(process.cwd(), 'update.log');
+        
+        // Clear/create the log file
+        await writeFile(logPath, '', 'utf-8');
         
         // Spawn the update script as a detached process using nohup
         // This allows it to run independently and kill the parent Node.js process
-        const child = spawn('nohup', ['bash', updateScriptPath], {
+        // Redirect output to log file
+        const child = spawn('bash', [updateScriptPath], {
           cwd: process.cwd(),
-          stdio: ['ignore', 'ignore', 'ignore'],
+          stdio: ['ignore', 'pipe', 'pipe'],
           shell: false,
           detached: true
         });
+
+        // Capture stdout and stderr to log file
+        const logStream = createWriteStream(logPath, { flags: 'a' });
+        child.stdout?.pipe(logStream);
+        child.stderr?.pipe(logStream);
 
         // Unref the child process so it doesn't keep the parent alive
         child.unref();
