@@ -170,9 +170,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         // Better ANSI handling
         allowProposedApi: true,
         // Force proper terminal behavior for interactive applications
-        // Use appropriate dimensions on mobile to prevent text wrapping issues
-        cols: isMobile ? 60 : 80,
-        rows: isMobile ? 20 : 24,
+        // Let terminal auto-fit on mobile to prevent text wrapping issues
+        ...(isMobile ? {} : {
+          cols: 80,
+          rows: 24,
+        }),
       });
 
       // Add addons
@@ -190,6 +192,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       // Fit after a small delay to ensure proper sizing
       setTimeout(() => {
         fitAddon.fit();
+        // Force fit again after a longer delay for mobile
+        if (isMobile) {
+          setTimeout(() => {
+            fitAddon.fit();
+          }, 500);
+        }
       }, 100);
 
       // Add resize listener for mobile responsiveness
@@ -461,9 +469,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         className={`h-[16rem] sm:h-[24rem] lg:h-[32rem] w-full max-w-4xl mx-auto ${isMobile ? 'mobile-terminal' : ''}`}
         style={{ 
           minHeight: '256px',
-          // Center the terminal content on mobile using transform
-          transform: isMobile ? 'translateX(0.5rem)' : 'none',
-          padding: isMobile ? '0 0.5rem' : '0'
+          // Let terminal auto-fit on mobile
+          width: isMobile ? '100%' : '100%',
+          maxWidth: isMobile ? '100%' : '100%',
+          padding: isMobile ? '0' : '0'
         }}
       />
 
