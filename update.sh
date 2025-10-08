@@ -596,7 +596,7 @@ install_and_build() {
     
     # Create temporary file for npm output
     local npm_log="/tmp/npm_install_$$.log"
-    
+    npm install --loglevel=verbose
     # Run npm install with verbose output for debugging
     log "Running npm install (this may take a few minutes)..."
     if ! npm install --loglevel=verbose > "$npm_log" 2>&1; then
