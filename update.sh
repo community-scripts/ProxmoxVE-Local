@@ -459,29 +459,67 @@ stop_application() {
     
     log "Working from application directory: $(pwd)"
     
-    # Check if systemd service is running and disable it temporarily
+    # Check if systemd service is running and stop it
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
-        log "Disabling systemd service temporarily to prevent auto-restart..."
+        log "Stopping and disabling systemd service..."
+        systemctl stop pvescriptslocal.service 2>/dev/null || true
+        sleep 2
         if systemctl disable pvescriptslocal.service; then
-            log_success "Service disabled successfully"
+            log_success "Service stopped and disabled successfully"
         else
-            log_error "Failed to disable service"
-            return 1
+            log_warning "Failed to disable service, but continuing..."
         fi
     else
         log "No running systemd service found"
     fi
     
-    # Kill any remaining npm/node processes
+    # Kill any remaining npm/node processes related to server.js
     log "Killing any remaining npm/node processes..."
-    local pids
-    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-    if [ -n "$pids" ]; then
-        log "Found running processes: $pids"
-        pkill -9 -f "node server.js" 2>/dev/null || true
-        pkill -9 -f "npm start" 2>/dev/null || true
+    
+    # Find all related processes
+    local npm_pids node_pids sh_pids
+    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
+    node_pids=$(pgrep -f "node server.js" 2>/dev/null || true)
+    sh_pids=$(pgrep -f "sh -c node server.js" 2>/dev/null || true)
+    
+    if [ -n "$npm_pids" ] || [ -n "$node_pids" ] || [ -n "$sh_pids" ]; then
+        log "Found running processes:"
+        [ -n "$npm_pids" ] && log "  npm: $npm_pids"
+        [ -n "$node_pids" ] && log "  node: $node_pids"
+        [ -n "$sh_pids" ] && log "  sh: $sh_pids"
+        
+        # Kill node processes first (the actual server)
+        if [ -n "$node_pids" ]; then
+            log "Killing node processes..."
+            echo "$node_pids" | xargs -r kill -9 2>/dev/null || true
+        fi
+        
+        # Kill shell wrapper processes
+        if [ -n "$sh_pids" ]; then
+            log "Killing shell wrapper processes..."
+            echo "$sh_pids" | xargs -r kill -9 2>/dev/null || true
+        fi
+        
+        # Kill npm processes last
+        if [ -n "$npm_pids" ]; then
+            log "Killing npm processes..."
+            echo "$npm_pids" | xargs -r kill -9 2>/dev/null || true
+        fi
+        
+        # Wait and verify they're dead
         sleep 2
-        log_success "Processes killed"
+        
+        # Check if any processes are still running
+        local remaining
+        remaining=$(pgrep -f "npm start|node server.js|sh -c node server.js" 2>/dev/null || true)
+        if [ -n "$remaining" ]; then
+            log_warning "Some processes may still be running: $remaining"
+            log "Attempting forceful kill..."
+            echo "$remaining" | xargs -r kill -9 2>/dev/null || true
+            sleep 1
+        fi
+        
+        log_success "All processes killed"
     else
         log "No running processes found"
     fi
