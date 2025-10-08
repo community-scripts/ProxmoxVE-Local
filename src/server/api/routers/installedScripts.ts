@@ -203,5 +203,349 @@ export const installedScriptsRouter = createTRPCRouter({
           stats: null
         };
       }
+    }),
+
+  // Auto-detect LXC containers with community-script tag
+  autoDetectLXCContainers: publicProcedure
+    .input(z.object({ serverId: z.number() }))
+    .mutation(async ({ input }) => {
+      console.log('=== AUTO-DETECT API ENDPOINT CALLED ===');
+      console.log('Input received:', input);
+      console.log('Timestamp:', new Date().toISOString());
+      
+      try {
+        console.log('Starting auto-detect LXC containers for server ID:', input.serverId);
+        
+        const db = getDatabase();
+        const server = db.getServerById(input.serverId);
+        
+        if (!server) {
+          console.error('Server not found for ID:', input.serverId);
+          return {
+            success: false,
+            error: 'Server not found',
+            detectedContainers: []
+          };
+        }
+
+        console.log('Found server:', (server as any).name, 'at', (server as any).ip);
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+        
+              // Test SSH connection first
+              console.log('Testing SSH connection...');
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+              const connectionTest = await sshService.testSSHConnection(server as any);
+              console.log('SSH connection test result:', connectionTest);
+              
+              if (!(connectionTest as any).success) {
+                return {
+                  success: false,
+                  error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+                  detectedContainers: []
+                };
+              }
+
+        console.log('SSH connection successful, scanning for LXC containers...');
+
+        // Use the working approach - manual loop through all config files
+        const command = `for file in /etc/pve/lxc/*.conf; do if [ -f "$file" ]; then if grep -q "community-script" "$file"; then echo "$file"; fi; fi; done`;
+        let detectedContainers: any[] = [];
+
+        console.log('Executing manual loop command...');
+        console.log('Command:', command);
+
+        let commandOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+         
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            command,
+            (data: string) => {
+              console.log('Command output chunk:', data);
+              commandOutput += data;
+            },
+            (error: string) => {
+              console.error('Command error:', error);
+            },
+            (exitCode: number) => {
+              console.log('Command exit code:', exitCode);
+              console.log('Full command output:', commandOutput);
+              
+              // Parse the complete output to get config file paths that contain community-script tag
+              const configFiles = commandOutput.split('\n')
+                .filter((line: string) => line.trim())
+                .map((line: string) => line.trim())
+                .filter((line: string) => line.endsWith('.conf'));
+              
+              console.log('Found config files with community-script tag:', configFiles.length);
+              console.log('Config files:', configFiles);
+
+              // Process each config file to extract hostname
+              const processPromises = configFiles.map(async (configPath: string) => {
+                try {
+                  const containerId = configPath.split('/').pop()?.replace('.conf', '');
+                  if (!containerId) return null;
+
+                  console.log('Processing container:', containerId, 'from', configPath);
+
+                  // Read the config file content
+                  const readCommand = `cat "${configPath}" 2>/dev/null`;
+                  
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                  return new Promise<any>((readResolve) => {
+                   
+                    void sshExecutionService.executeCommand(
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                      server as any,
+                      readCommand,
+                      (configData: string) => {
+                        console.log('Config data for', containerId, ':', configData.substring(0, 300) + '...');
+                        
+                        // Parse config file for hostname
+                        const lines = configData.split('\n');
+                        let hostname = '';
+
+                        for (const line of lines) {
+                          const trimmedLine = line.trim();
+                          if (trimmedLine.startsWith('hostname:')) {
+                            hostname = trimmedLine.substring(9).trim();
+                            console.log('Found hostname for', containerId, ':', hostname);
+                            break;
+                          }
+                        }
+
+                        if (hostname) {
+                          const container = {
+                            containerId,
+                            hostname,
+                            configPath,
+                            serverId: (server as any).id,
+                            serverName: (server as any).name
+                          };
+                          console.log('Adding container to detected list:', container);
+                          readResolve(container);
+                        } else {
+                          console.log('No hostname found for', containerId);
+                          readResolve(null);
+                        }
+                      },
+                      (readError: string) => {
+                        console.error(`Error reading config file ${configPath}:`, readError);
+                        readResolve(null);
+                      },
+                      (_exitCode: number) => {
+                        readResolve(null);
+                      }
+                    );
+                  });
+                } catch (error) {
+                  console.error(`Error processing config file ${configPath}:`, error);
+                  return null;
+                }
+              });
+
+              // Wait for all config files to be processed
+              void Promise.all(processPromises).then((results) => {
+                detectedContainers = results.filter(result => result !== null);
+                console.log('Final detected containers:', detectedContainers.length);
+                resolve();
+              }).catch((error) => {
+                console.error('Error processing config files:', error);
+                reject(new Error(`Error processing config files: ${error}`));
+              });
+            }
+          );
+        });
+
+        console.log('Detected containers:', detectedContainers.length);
+
+        // Get existing scripts to check for duplicates
+        const existingScripts = db.getAllInstalledScripts();
+        console.log('Existing scripts in database:', existingScripts.length);
+
+        // Create installed script records for detected containers (skip duplicates)
+        const createdScripts = [];
+        const skippedScripts = [];
+        
+        for (const container of detectedContainers) {
+          try {
+            // Check if a script with this container_id and server_id already exists
+            const duplicate = existingScripts.find((script: any) => 
+              script.container_id === container.containerId && 
+              script.server_id === container.serverId
+            );
+
+            if (duplicate) {
+              console.log(`Skipping duplicate: ${container.hostname} (${container.containerId}) already exists`);
+              skippedScripts.push({
+                containerId: container.containerId,
+                hostname: container.hostname,
+                serverName: container.serverName
+              });
+              continue;
+            }
+
+            console.log('Creating script record for:', container.hostname, container.containerId);
+            const result = db.createInstalledScript({
+              script_name: container.hostname,
+              script_path: `detected/${container.hostname}`,
+              container_id: container.containerId,
+              server_id: container.serverId,
+              execution_mode: 'ssh',
+              status: 'success',
+              output_log: `Auto-detected from LXC config: ${container.configPath}`
+            });
+            
+            createdScripts.push({
+              id: result.lastInsertRowid,
+              containerId: container.containerId,
+              hostname: container.hostname,
+              serverName: container.serverName
+            });
+            console.log('Created script record with ID:', result.lastInsertRowid);
+          } catch (error) {
+            console.error(`Error creating script record for ${container.hostname}:`, error);
+          }
+        }
+
+        const message = skippedScripts.length > 0 
+          ? `Auto-detection completed. Found ${detectedContainers.length} containers with community-script tag. Added ${createdScripts.length} new scripts, skipped ${skippedScripts.length} duplicates.`
+          : `Auto-detection completed. Found ${detectedContainers.length} containers with community-script tag. Added ${createdScripts.length} new scripts.`;
+
+        return {
+          success: true,
+          message: message,
+          detectedContainers: createdScripts,
+          skippedContainers: skippedScripts
+        };
+      } catch (error) {
+        console.error('Error in autoDetectLXCContainers:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to auto-detect LXC containers',
+          detectedContainers: []
+        };
+      }
+    }),
+
+  // Cleanup orphaned scripts (check if LXC containers still exist on servers)
+  cleanupOrphanedScripts: publicProcedure
+    .mutation(async () => {
+      try {
+        console.log('=== CLEANUP ORPHANED SCRIPTS API ENDPOINT CALLED ===');
+        console.log('Timestamp:', new Date().toISOString());
+        
+        const db = getDatabase();
+        const allScripts = db.getAllInstalledScripts();
+        const allServers = db.getAllServers();
+        
+        console.log('Found scripts:', allScripts.length);
+        console.log('Found servers:', allServers.length);
+        
+        if (allScripts.length === 0) {
+          return {
+            success: true,
+            message: 'No scripts to check',
+            deletedCount: 0,
+            deletedScripts: []
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        const deletedScripts: string[] = [];
+        const scriptsToCheck = allScripts.filter((script: any) => 
+          script.execution_mode === 'ssh' && 
+          script.server_id && 
+          script.container_id
+        );
+
+        console.log('Scripts to check for cleanup:', scriptsToCheck.length);
+
+        for (const script of scriptsToCheck) {
+          try {
+            const scriptData = script as any;
+            const server = allServers.find((s: any) => s.id === scriptData.server_id);
+            if (!server) {
+              console.log(`Server not found for script ${scriptData.script_name}, marking for deletion`);
+              db.deleteInstalledScript(Number(scriptData.id));
+              deletedScripts.push(String(scriptData.script_name));
+              continue;
+            }
+
+            console.log(`Checking script ${scriptData.script_name} on server ${(server as any).name}`);
+
+            // Test SSH connection
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            const connectionTest = await sshService.testSSHConnection(server as any);
+            if (!(connectionTest as any).success) {
+              console.log(`SSH connection failed for server ${(server as any).name}, skipping script ${scriptData.script_name}`);
+              continue;
+            }
+
+            // Check if the container config file still exists
+            const checkCommand = `test -f "/etc/pve/lxc/${scriptData.container_id}.conf" && echo "exists" || echo "not_found"`;
+            
+            const containerExists = await new Promise<boolean>((resolve) => {
+             
+              void sshExecutionService.executeCommand(
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                server as any,
+                checkCommand,
+                (data: string) => {
+                  console.log(`Container check result for ${scriptData.script_name}:`, data.trim());
+                  resolve(data.trim() === 'exists');
+                },
+                (error: string) => {
+                  console.error(`Error checking container ${scriptData.script_name}:`, error);
+                  resolve(false);
+                },
+                (_exitCode: number) => {
+                  resolve(false);
+                }
+              );
+            });
+
+            if (!containerExists) {
+              console.log(`Container ${scriptData.container_id} not found on server ${(server as any).name}, deleting script ${scriptData.script_name}`);
+              db.deleteInstalledScript(Number(scriptData.id));
+              deletedScripts.push(String(scriptData.script_name));
+            } else {
+              console.log(`Container ${scriptData.container_id} still exists on server ${(server as any).name}, keeping script ${scriptData.script_name}`);
+            }
+
+          } catch (error) {
+            console.error(`Error checking script ${(script as any).script_name}:`, error);
+          }
+        }
+
+        console.log('Cleanup completed. Deleted scripts:', deletedScripts);
+
+        return {
+          success: true,
+          message: `Cleanup completed. ${deletedScripts.length} orphaned script(s) removed.`,
+          deletedCount: deletedScripts.length,
+          deletedScripts: deletedScripts
+        };
+      } catch (error) {
+        console.error('Error in cleanupOrphanedScripts:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to cleanup orphaned scripts',
+          deletedCount: 0,
+          deletedScripts: []
+        };
+      }
     })
 });
