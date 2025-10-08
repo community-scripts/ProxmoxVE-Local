@@ -16,6 +16,10 @@ BACKUP_DIR="/tmp/pve-scripts-backup-$(date +%Y%m%d-%H%M%S)"
 DATA_DIR="./data"
 LOG_FILE="/tmp/update.log"
 
+# GitHub Personal Access Token for higher rate limits (optional)
+# Set GITHUB_TOKEN environment variable or create .github_token file
+GITHUB_TOKEN=""
+
 # Global variable to track if service was running before update
 SERVICE_WAS_RUNNING=false
 
@@ -25,6 +29,33 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Load GitHub token
+load_github_token() {
+    # Try environment variable first
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        log "Using GitHub token from environment variable"
+        return 0
+    fi
+    
+    # Try .github_token file
+    if [ -f ".github_token" ]; then
+        GITHUB_TOKEN=$(cat .github_token | tr -d '\n\r')
+        log "Using GitHub token from .github_token file"
+        return 0
+    fi
+    
+    # Try ~/.github_token file
+    if [ -f "$HOME/.github_token" ]; then
+        GITHUB_TOKEN=$(cat "$HOME/.github_token" | tr -d '\n\r')
+        log "Using GitHub token from ~/.github_token file"
+        return 0
+    fi
+    
+    log_warning "No GitHub token found. Using unauthenticated requests (lower rate limits)"
+    log_warning "To use a token, set GITHUB_TOKEN environment variable or create .github_token file"
+    return 1
+}
 
 # Initialize log file
 init_log() {
@@ -86,8 +117,18 @@ check_dependencies() {
 get_latest_release() {
     log "Fetching latest release information from GitHub..."
     
+    local curl_opts="-s --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3"
+    
+    # Add authentication header if token is available
+    if [ -n "$GITHUB_TOKEN" ]; then
+        curl_opts="$curl_opts -H \"Authorization: token $GITHUB_TOKEN\""
+        log "Using authenticated GitHub API request"
+    else
+        log "Using unauthenticated GitHub API request (lower rate limits)"
+    fi
+    
     local release_info
-    if ! release_info=$(curl -s --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3 "$GITHUB_API/releases/latest"); then
+    if ! release_info=$(eval "curl $curl_opts \"$GITHUB_API/releases/latest\""); then
         log_error "Failed to fetch release information from GitHub API (timeout or network error)"
         exit 1
     fi
@@ -527,20 +568,44 @@ update_files() {
 # Install dependencies and build
 install_and_build() {
     log "Installing dependencies..."
-    npm install
-    if ! npm install; then
+    
+    # Create temporary file for npm output
+    local npm_log="/tmp/npm_install_$$.log"
+    
+    if ! npm install > "$npm_log" 2>&1; then
         log_error "Failed to install dependencies"
+        log_error "npm install output:"
+        cat "$npm_log" | while read -r line; do
+            log_error "NPM: $line"
+        done
+        rm -f "$npm_log"
         return 1
     fi
+    
+    # Log success and clean up
+    log_success "Dependencies installed successfully"
+    rm -f "$npm_log"
     
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
     
-    if ! npm run build; then
+    # Create temporary file for npm build output
+    local build_log="/tmp/npm_build_$$.log"
+    
+    if ! npm run build > "$build_log" 2>&1; then
         log_error "Failed to build application"
+        log_error "npm run build output:"
+        cat "$build_log" | while read -r line; do
+            log_error "BUILD: $line"
+        done
+        rm -f "$build_log"
         return 1
     fi
+    
+    # Log success and clean up
+    log_success "Application built successfully"
+    rm -f "$build_log"
     
     log_success "Dependencies installed and application built successfully"
 }
@@ -552,7 +617,7 @@ start_application() {
     # Use the global variable to determine how to start
     if [ "$SERVICE_WAS_RUNNING" = true ] && check_service; then
         log "Service was running before update, re-enabling and starting systemd service..."
-        if systemctl enable --nowpvescriptslocal.service ; then
+        if systemctl enable --now pvescriptslocal.service; then
             log_success "Service enabled and started successfully"
             # Wait a moment and check if it's running
             sleep 2
@@ -690,6 +755,9 @@ main() {
     
     # Check dependencies
     check_dependencies
+    
+    # Load GitHub token for higher rate limits
+    load_github_token
     
     # Check if service was running before update
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
