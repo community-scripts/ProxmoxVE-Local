@@ -414,6 +414,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             {lastInputSent && (
               <span className="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">
                 Sent: {lastInputSent === '\r' ? 'Enter' : 
+                       lastInputSent === ' ' ? 'Space' :
                        lastInputSent === '\x1b[A' ? 'Up' : 
                        lastInputSent === '\x1b[B' ? 'Down' : 
                        lastInputSent === '\x1b[C' ? 'Right' : 
@@ -496,7 +497,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             </div>
             
             {/* Action Buttons */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => {
                   console.log('=== ENTER BUTTON CLICKED ===');
@@ -511,27 +512,15 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
               </Button>
               <Button
                 onClick={() => {
-                  console.log('=== YES BUTTON CLICKED ===');
-                  sendInput('y');
+                  console.log('=== SPACEBAR BUTTON CLICKED ===');
+                  sendInput(' ');
                 }}
                 variant="outline"
                 size="sm"
                 className="text-sm"
                 disabled={!isConnected}
               >
-                Yes (y)
-              </Button>
-              <Button
-                onClick={() => {
-                  console.log('=== TEST BUTTON CLICKED ===');
-                  sendInput('1');
-                }}
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                disabled={!isConnected}
-              >
-                Test (1)
+                Space
               </Button>
             </div>
             
