@@ -225,52 +225,11 @@ download_release() {
     fi
     
     # Download release with timeout and progress
-    log "Downloading from: $download_url"
-    log "Target file: $archive_file"
-    log "Starting curl download..."
-    
-    # Test if curl is working
-    log "Testing curl availability..."
-    if ! command -v curl >/dev/null 2>&1; then
-        log_error "curl command not found"
+    if ! curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -o "$archive_file" "$download_url" 2>/dev/null; then
+        log_error "Failed to download release from GitHub"
         rm -rf "$temp_dir"
         exit 1
     fi
-    
-    # Test basic connectivity
-    log "Testing basic connectivity..."
-    if ! curl -s --connect-timeout 10 --max-time 30 "https://api.github.com" >/dev/null 2>&1; then
-        log_error "Cannot reach GitHub API"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    log_success "Connectivity test passed"
-    
-    # Create a temporary file for curl output
-    local curl_log="/tmp/curl_log_$$.txt"
-    
-    # Run curl with verbose output
-    if curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -v -o "$archive_file" "$download_url" > "$curl_log" 2>&1; then
-        log_success "Curl command completed successfully"
-        # Show some of the curl output for debugging
-        log "Curl output (first 10 lines):"
-        head -10 "$curl_log" | while read -r line; do
-            log "CURL: $line"
-        done
-    else
-        local curl_exit_code=$?
-        log_error "Curl command failed with exit code: $curl_exit_code"
-        log_error "Curl output:"
-        cat "$curl_log" | while read -r line; do
-            log_error "CURL: $line"
-        done
-        rm -f "$curl_log"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Clean up curl log
-    rm -f "$curl_log"
     
     # Verify download
     if [ ! -f "$archive_file" ] || [ ! -s "$archive_file" ]; then
@@ -279,52 +238,35 @@ download_release() {
         exit 1
     fi
     
-    local file_size
-    file_size=$(stat -c%s "$archive_file" 2>/dev/null || echo "0")
-    log_success "Downloaded release ($file_size bytes)"
+    log_success "Downloaded release"
     
     # Extract release
-    log "Extracting release..."
-    if ! tar -xzf "$archive_file" -C "$temp_dir"; then
+    if ! tar -xzf "$archive_file" -C "$temp_dir" 2>/dev/null; then
         log_error "Failed to extract release"
         rm -rf "$temp_dir"
         exit 1
     fi
     
-    # Debug: List contents after extraction
-    log "Contents after extraction:"
-    ls -la "$temp_dir" >&2 || true
-    
     # Find the extracted directory (GitHub tarballs have a root directory)
-    log "Looking for extracted directory with pattern: ${REPO_NAME}-*"
     local extracted_dir
-    extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" 2>/dev/null | head -1)
+    extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" 2>/dev/null | head -1)
     
-    # If not found with repo name, try alternative patterns
+    # Try alternative patterns if not found
     if [ -z "$extracted_dir" ]; then
-        log "Trying pattern: community-scripts-ProxmoxVE-Local-*"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" 2>/dev/null | head -1)
+        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" 2>/dev/null | head -1)
     fi
     
     if [ -z "$extracted_dir" ]; then
-        log "Trying pattern: ProxmoxVE-Local-*"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "ProxmoxVE-Local-*" 2>/dev/null | head -1)
+        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" 2>/dev/null | head -1)
     fi
     
-    if [ -z "$extracted_dir" ]; then
-        log "Trying any directory in temp folder"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" 2>/dev/null | head -1)
-    fi
-    
-    # If still not found, error out
     if [ -z "$extracted_dir" ]; then
         log_error "Could not find extracted directory"
         rm -rf "$temp_dir"
         exit 1
     fi
     
-    log_success "Found extracted directory: $extracted_dir"
-    log_success "Release downloaded and extracted successfully"
+    log_success "Release extracted successfully"
     echo "$extracted_dir"
 }
 
@@ -333,15 +275,8 @@ clear_original_directory() {
     log "Clearing original directory..."
     
     # Remove old lock files and node_modules before update
-    if [ -f "package-lock.json" ]; then
-        log "Removing old package-lock.json..."
-        rm -f package-lock.json
-    fi
-    
-    if [ -d "node_modules" ]; then
-        log "Removing old node_modules directory..."
-        rm -rf node_modules
-    fi
+    rm -f package-lock.json 2>/dev/null
+    rm -rf node_modules 2>/dev/null
     
     # List of files/directories to preserve (already backed up)
     local preserve_patterns=(
@@ -525,33 +460,18 @@ update_files() {
     fi
     
     # Verify critical files exist in source
-    log "Verifying source files..."
     if [ ! -f "$actual_source_dir/package.json" ]; then
         log_error "package.json not found in source directory!"
         return 1
-    fi
-    
-    if [ -f "$actual_source_dir/package-lock.json" ]; then
-        log "Found package-lock.json in source directory"
-        local source_pkg_count=$(grep -c "\"node_modules/" "$actual_source_dir/package-lock.json" 2>/dev/null || echo "0")
-        log "Source package-lock.json contains approximately $source_pkg_count package entries"
-    else
-        log_warning "No package-lock.json found in source directory!"
     fi
     
     # Use process substitution instead of pipe to avoid subshell issues
     local files_copied=0
     local files_excluded=0
     
-    log "Starting file copy process from: $actual_source_dir"
-    
     # Create a temporary file list to avoid process substitution issues
     local file_list="/tmp/file_list_$$.txt"
     find "$actual_source_dir" -type f > "$file_list"
-    
-    local total_files
-    total_files=$(wc -l < "$file_list")
-    log "Found $total_files files to process"
     
     while IFS= read -r file; do
         local rel_path="${file#$actual_source_dir/}"
@@ -575,37 +495,27 @@ update_files() {
                 log_error "Failed to copy $rel_path"
                 rm -f "$file_list"
                 return 1
-            else
-                files_copied=$((files_copied + 1))
-               
             fi
+            files_copied=$((files_copied + 1))
         else
             files_excluded=$((files_excluded + 1))
-            log "Excluded: $rel_path"
         fi
     done < "$file_list"
     
     # Clean up temporary file
     rm -f "$file_list"
     
-    log "Files processed: $files_copied copied, $files_excluded excluded"
-    
     # Verify critical files were copied
-    log "Verifying copied files..."
     if [ ! -f "package.json" ]; then
         log_error "package.json was not copied to target directory!"
         return 1
     fi
     
-    if [ -f "package-lock.json" ]; then
-        log_success "package-lock.json copied successfully"
-        local target_pkg_count=$(grep -c "\"node_modules/" "package-lock.json" 2>/dev/null || echo "0")
-        log "Target package-lock.json contains approximately $target_pkg_count package entries"
-    else
+    if [ ! -f "package-lock.json" ]; then
         log_warning "package-lock.json was not copied!"
     fi
     
-    log_success "Application files updated successfully"
+    log_success "Application files updated successfully ($files_copied files)"
 }
 
 # Install dependencies and build
@@ -618,25 +528,7 @@ install_and_build() {
         return 1
     fi
     
-    log "Current working directory: $(pwd)"
-    log "Current NODE_ENV: ${NODE_ENV:-<not set>}"
-    log "Current npm config production: $(npm config get production)"
-    # Check if package-lock.json exists (it should from the new release)
-    if [ -f "package-lock.json" ]; then
-        log "Using package-lock.json from new release"
-        
-        # Check lock file version
-        local lockfile_version=$(grep -m1 '"lockfileVersion"' package-lock.json | grep -o '[0-9]' | head -1)
-        log "package-lock.json lockfileVersion: $lockfile_version"
-        
-        # Check npm version
-        local npm_version=$(npm --version)
-        log "npm version: $npm_version"
-        
-        # Show file modification time to ensure it wasn't replaced
-        local lock_mtime=$(stat -c '%y' package-lock.json 2>/dev/null || echo "unknown")
-        log "package-lock.json last modified: $lock_mtime"
-    else
+    if [ ! -f "package-lock.json" ]; then
         log_warning "No package-lock.json found, npm will generate one"
     fi
     
@@ -646,12 +538,17 @@ install_and_build() {
     # Ensure NODE_ENV is not set to production during install (we need devDependencies for build)
     local old_node_env="${NODE_ENV:-}"
     export NODE_ENV=development
-    log "Setting NODE_ENV=development to ensure devDependencies are installed"
     
     # Run npm install to get ALL dependencies including devDependencies
-    log "Running npm install --include=dev (this may take a few minutes)..."
-    npm install --include=dev > "$npm_log" 2>&1
-    local npm_exit_code=$?
+    if ! npm install --include=dev > "$npm_log" 2>&1; then
+        log_error "Failed to install dependencies"
+        log_error "npm install output (last 30 lines):"
+        tail -30 "$npm_log" | while read -r line; do
+            log_error "NPM: $line"
+        done
+        rm -f "$npm_log"
+        return 1
+    fi
     
     # Restore NODE_ENV
     if [ -n "$old_node_env" ]; then
@@ -660,45 +557,7 @@ install_and_build() {
         unset NODE_ENV
     fi
     
-    # Always show npm output (last 30 lines)
-    log "npm install output (last 30 lines):"
-    tail -30 "$npm_log" | while read -r line; do
-        log "NPM: $line"
-    done
-    
-    # Check if npm install failed
-    if [ $npm_exit_code -ne 0 ]; then
-        log_error "Failed to install dependencies (exit code: $npm_exit_code)"
-        rm -f "$npm_log"
-        return 1
-    fi
-    
-    # Log success and clean up
     log_success "Dependencies installed successfully"
-    
-    # Check if package-lock.json was modified by npm
-    if [ -f "package-lock.json" ]; then
-        local lock_mtime_after=$(stat -c '%y' package-lock.json 2>/dev/null || echo "unknown")
-        log "package-lock.json after install: $lock_mtime_after"
-        
-        local pkg_entries_after=$(grep -c "\"node_modules/" "package-lock.json" 2>/dev/null || echo "0")
-        log "package-lock.json now contains approximately $pkg_entries_after package entries"
-        
-        # Compare with what we expected (738 from the logs)
-        if [ "$pkg_entries_after" -lt 500 ]; then
-            log_warning "Package count seems low! Only $pkg_entries_after entries found."
-            log_warning "npm likely regenerated the package-lock.json instead of using the one from the release!"
-        fi
-    fi
-    
-    # Show package count for verification
-    local pkg_count=$(find node_modules -maxdepth 1 -type d 2>/dev/null | wc -l)
-    log "Installed packages: approximately $pkg_count top-level packages"
-    
-    # Get audit count for comparison
-    local audit_count=$(npm ls --depth=0 2>/dev/null | grep -c "├─\|└─" || echo "0")
-    log "Direct dependencies installed: $audit_count"
-    
     rm -f "$npm_log"
     
     log "Building application..."
@@ -843,7 +702,6 @@ main() {
     # First check if we're already in the right directory
     if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
-        log "Already in application directory: $app_dir"
     else
         # Try multiple common locations
         for search_path in /opt /root /home /usr/local; do
@@ -860,10 +718,8 @@ main() {
                 log_error "Failed to change to application directory: $app_dir"
                 exit 1
             }
-            log "Changed to application directory: $(pwd)"
         else
             log_error "Could not find application directory"
-            log "Searched in: /opt, /root, /home, /usr/local"
             exit 1
         fi
     fi
@@ -877,10 +733,8 @@ main() {
     # Check if service was running before update
     if check_service && systemctl is-active --quiet pvescriptslocal.service; then
         SERVICE_WAS_RUNNING=true
-        log "Service was running before update, will restart it after update"
     else
         SERVICE_WAS_RUNNING=false
-        log "Service was not running before update, will use npm start after update"
     fi
     
     # Get latest release info
@@ -896,36 +750,26 @@ main() {
     # Download and extract release
     local source_dir
     source_dir=$(download_release "$release_info")
-    log "Download completed, source_dir: $source_dir"
     
     # Clear the original directory before updating
-    log "Clearing original directory..."
     clear_original_directory
-    log "Original directory cleared successfully"
     
     # Update files
-    log "Starting file update process..."
     if ! update_files "$source_dir"; then
         log_error "File update failed, rolling back..."
         rollback
     fi
-    log "File update completed successfully"
     
     # Restore .env and data directory before building
-    log "Restoring backup files..."
     restore_backup_files
-    log "Backup files restored successfully"
     
     # Install dependencies and build
-    log "Starting install and build process..."
     if ! install_and_build; then
         log_error "Install and build failed, rolling back..."
         rollback
     fi
-    log "Install and build completed successfully"
     
     # Cleanup
-    log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
     

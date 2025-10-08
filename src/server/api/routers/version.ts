@@ -1,8 +1,10 @@
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { readFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { spawn } from "child_process";
 import { env } from "~/env";
+import { observable } from '@trpc/server/observable';
+import { existsSync, statSync } from "fs";
 
 interface GitHubRelease {
   tag_name: string;
@@ -125,20 +127,77 @@ export const versionRouter = createTRPCRouter({
       }
     }),
 
+  // Stream update progress by monitoring the log file
+  streamUpdateProgress: publicProcedure
+    .subscription(() => {
+      return observable<{ type: 'log' | 'complete' | 'error'; message: string }>((emit) => {
+        const logPath = join(process.cwd(), 'update.log');
+        let lastSize = 0;
+        let checkInterval: NodeJS.Timeout;
+
+        const checkLogFile = async () => {
+          try {
+            if (!existsSync(logPath)) {
+              return;
+            }
+
+            const stats = statSync(logPath);
+            const currentSize = stats.size;
+
+            if (currentSize > lastSize) {
+              // Read only the new content
+              const fileHandle = await readFile(logPath, 'utf-8');
+              const newContent = fileHandle.slice(lastSize);
+              lastSize = currentSize;
+
+              // Emit new log lines
+              const lines = newContent.split('\n').filter(line => line.trim());
+              for (const line of lines) {
+                emit.next({ type: 'log', message: line });
+              }
+            }
+          } catch (error) {
+            // File might be being written to, ignore errors
+          }
+        };
+
+        // Start monitoring the log file
+        checkInterval = setInterval(checkLogFile, 500);
+
+        // Also check immediately
+        checkLogFile().catch(console.error);
+
+        // Cleanup function
+        return () => {
+          clearInterval(checkInterval);
+        };
+      });
+    }),
+
   // Execute update script
   executeUpdate: publicProcedure
     .mutation(async () => {
       try {
         const updateScriptPath = join(process.cwd(), 'update.sh');
+        const logPath = join(process.cwd(), 'update.log');
+        
+        // Clear/create the log file
+        await writeFile(logPath, '', 'utf-8');
         
         // Spawn the update script as a detached process using nohup
         // This allows it to run independently and kill the parent Node.js process
-        const child = spawn('nohup', ['bash', updateScriptPath], {
+        // Redirect output to log file
+        const child = spawn('bash', [updateScriptPath], {
           cwd: process.cwd(),
-          stdio: ['ignore', 'ignore', 'ignore'],
+          stdio: ['ignore', 'pipe', 'pipe'],
           shell: false,
           detached: true
         });
+
+        // Capture stdout and stderr to log file
+        const logStream = require('fs').createWriteStream(logPath, { flags: 'a' });
+        child.stdout?.pipe(logStream);
+        child.stderr?.pipe(logStream);
 
         // Unref the child process so it doesn't keep the parent alive
         child.unref();
