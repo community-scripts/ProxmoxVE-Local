@@ -16,12 +16,57 @@ BACKUP_DIR="/tmp/pve-scripts-backup-$(date +%Y%m%d-%H%M%S)"
 DATA_DIR="./data"
 LOG_FILE="/tmp/update.log"
 
+# GitHub Personal Access Token for higher rate limits (optional)
+# Set GITHUB_TOKEN environment variable or create .github_token file
+GITHUB_TOKEN=""
+
+# Global variable to track if service was running before update
+SERVICE_WAS_RUNNING=false
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Load GitHub token
+load_github_token() {
+    # Try environment variable first
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        log "Using GitHub token from environment variable"
+        return 0
+    fi
+    
+    # Try .env file
+    if [ -f ".env" ]; then
+        local env_token
+        env_token=$(grep "^GITHUB_TOKEN=" .env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d '\n\r')
+        if [ -n "$env_token" ]; then
+            GITHUB_TOKEN="$env_token"
+            log "Using GitHub token from .env file"
+            return 0
+        fi
+    fi
+    
+    # Try .github_token file
+    if [ -f ".github_token" ]; then
+        GITHUB_TOKEN=$(cat .github_token | tr -d '\n\r')
+        log "Using GitHub token from .github_token file"
+        return 0
+    fi
+    
+    # Try ~/.github_token file
+    if [ -f "$HOME/.github_token" ]; then
+        GITHUB_TOKEN=$(cat "$HOME/.github_token" | tr -d '\n\r')
+        log "Using GitHub token from ~/.github_token file"
+        return 0
+    fi
+    
+    log_warning "No GitHub token found. Using unauthenticated requests (lower rate limits)"
+    log_warning "To use a token, add GITHUB_TOKEN=your_token to .env file or set GITHUB_TOKEN environment variable"
+    return 1
+}
 
 # Initialize log file
 init_log() {
@@ -83,8 +128,18 @@ check_dependencies() {
 get_latest_release() {
     log "Fetching latest release information from GitHub..."
     
+    local curl_opts="-s --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3"
+    
+    # Add authentication header if token is available
+    if [ -n "$GITHUB_TOKEN" ]; then
+        curl_opts="$curl_opts -H \"Authorization: token $GITHUB_TOKEN\""
+        log "Using authenticated GitHub API request"
+    else
+        log "Using unauthenticated GitHub API request (lower rate limits)"
+    fi
+    
     local release_info
-    if ! release_info=$(curl -s --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3 "$GITHUB_API/releases/latest"); then
+    if ! release_info=$(eval "curl $curl_opts \"$GITHUB_API/releases/latest\""); then
         log_error "Failed to fetch release information from GitHub API (timeout or network error)"
         exit 1
     fi
@@ -170,52 +225,11 @@ download_release() {
     fi
     
     # Download release with timeout and progress
-    log "Downloading from: $download_url"
-    log "Target file: $archive_file"
-    log "Starting curl download..."
-    
-    # Test if curl is working
-    log "Testing curl availability..."
-    if ! command -v curl >/dev/null 2>&1; then
-        log_error "curl command not found"
+    if ! curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -o "$archive_file" "$download_url" 2>/dev/null; then
+        log_error "Failed to download release from GitHub"
         rm -rf "$temp_dir"
         exit 1
     fi
-    
-    # Test basic connectivity
-    log "Testing basic connectivity..."
-    if ! curl -s --connect-timeout 10 --max-time 30 "https://api.github.com" >/dev/null 2>&1; then
-        log_error "Cannot reach GitHub API"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    log_success "Connectivity test passed"
-    
-    # Create a temporary file for curl output
-    local curl_log="/tmp/curl_log_$$.txt"
-    
-    # Run curl with verbose output
-    if curl -L --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -v -o "$archive_file" "$download_url" > "$curl_log" 2>&1; then
-        log_success "Curl command completed successfully"
-        # Show some of the curl output for debugging
-        log "Curl output (first 10 lines):"
-        head -10 "$curl_log" | while read -r line; do
-            log "CURL: $line"
-        done
-    else
-        local curl_exit_code=$?
-        log_error "Curl command failed with exit code: $curl_exit_code"
-        log_error "Curl output:"
-        cat "$curl_log" | while read -r line; do
-            log_error "CURL: $line"
-        done
-        rm -f "$curl_log"
-        rm -rf "$temp_dir"
-        exit 1
-    fi
-    
-    # Clean up curl log
-    rm -f "$curl_log"
     
     # Verify download
     if [ ! -f "$archive_file" ] || [ ! -s "$archive_file" ]; then
@@ -224,58 +238,45 @@ download_release() {
         exit 1
     fi
     
-    local file_size
-    file_size=$(stat -c%s "$archive_file" 2>/dev/null || echo "0")
-    log_success "Downloaded release ($file_size bytes)"
+    log_success "Downloaded release"
     
     # Extract release
-    log "Extracting release..."
-    if ! tar -xzf "$archive_file" -C "$temp_dir"; then
+    if ! tar -xzf "$archive_file" -C "$temp_dir" 2>/dev/null; then
         log_error "Failed to extract release"
         rm -rf "$temp_dir"
         exit 1
     fi
     
-    # Debug: List contents after extraction
-    log "Contents after extraction:"
-    ls -la "$temp_dir" >&2 || true
-    
     # Find the extracted directory (GitHub tarballs have a root directory)
-    log "Looking for extracted directory with pattern: ${REPO_NAME}-*"
     local extracted_dir
-    extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" 2>/dev/null | head -1)
+    extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" 2>/dev/null | head -1)
     
-    # If not found with repo name, try alternative patterns
+    # Try alternative patterns if not found
     if [ -z "$extracted_dir" ]; then
-        log "Trying pattern: community-scripts-ProxmoxVE-Local-*"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" 2>/dev/null | head -1)
+        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "${REPO_NAME}-*" 2>/dev/null | head -1)
     fi
     
     if [ -z "$extracted_dir" ]; then
-        log "Trying pattern: ProxmoxVE-Local-*"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d -name "ProxmoxVE-Local-*" 2>/dev/null | head -1)
+        extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" 2>/dev/null | head -1)
     fi
     
-    if [ -z "$extracted_dir" ]; then
-        log "Trying any directory in temp folder"
-        extracted_dir=$(timeout 10 find "$temp_dir" -maxdepth 1 -type d ! -name "$temp_dir" 2>/dev/null | head -1)
-    fi
-    
-    # If still not found, error out
     if [ -z "$extracted_dir" ]; then
         log_error "Could not find extracted directory"
         rm -rf "$temp_dir"
         exit 1
     fi
     
-    log_success "Found extracted directory: $extracted_dir"
-    log_success "Release downloaded and extracted successfully"
+    log_success "Release extracted successfully"
     echo "$extracted_dir"
 }
 
 # Clear the original directory before updating
 clear_original_directory() {
     log "Clearing original directory..."
+    
+    # Remove old lock files and node_modules before update
+    rm -f package-lock.json 2>/dev/null
+    rm -rf node_modules 2>/dev/null
     
     # List of files/directories to preserve (already backed up)
     local preserve_patterns=(
@@ -285,7 +286,6 @@ clear_original_directory() {
         "update.log"
         "*.backup"
         "*.bak"
-        "node_modules"
         ".git"
     )
     
@@ -368,148 +368,21 @@ restore_backup_files() {
 
 # Check if systemd service exists
 check_service() {
-    if systemctl list-unit-files | grep -q "^pvescriptslocal.service"; then
+    # systemctl status returns 0-3 if service exists (running, exited, failed, etc.)
+    # and returns 4 if service unit is not found
+    systemctl status pvescriptslocal.service &>/dev/null
+    local exit_code=$?
+    if [ $exit_code -le 3 ]; then
         return 0
     else
         return 1
     fi
 }
 
-# Kill application processes directly
-kill_processes() {
-    # Try to find and stop the Node.js process
-    local pids
-    pids=$(pgrep -f "node server.js" 2>/dev/null || true)
-    
-    # Also check for npm start processes
-    local npm_pids
-    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
-    
-    # Combine all PIDs
-    if [ -n "$npm_pids" ]; then
-        pids="$pids $npm_pids"
-    fi
-    
-    if [ -n "$pids" ]; then
-        log "Stopping application processes: $pids"
-        
-        # Send TERM signal to each PID individually
-        for pid in $pids; do
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-                log "Sending TERM signal to PID: $pid"
-                kill -TERM "$pid" 2>/dev/null || true
-            fi
-        done
-        
-        # Wait for graceful shutdown with timeout
-        log "Waiting for graceful shutdown..."
-        local wait_count=0
-        local max_wait=10  # Maximum 10 seconds
-        
-        while [ $wait_count -lt $max_wait ]; do
-            local still_running
-            still_running=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-            if [ -z "$still_running" ]; then
-                log_success "Processes stopped gracefully"
-                break
-            fi
-            sleep 1
-            wait_count=$((wait_count + 1))
-            log "Waiting... ($wait_count/$max_wait)"
-        done
-        
-        # Force kill any remaining processes
-        local remaining_pids
-        remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-        if [ -n "$remaining_pids" ]; then
-            log_warning "Force killing remaining processes: $remaining_pids"
-            pkill -9 -f "node server.js" 2>/dev/null || true
-            pkill -9 -f "npm start" 2>/dev/null || true
-            sleep 1
-        fi
-        
-        # Final check
-        local final_check
-        final_check=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-        if [ -n "$final_check" ]; then
-            log_warning "Some processes may still be running: $final_check"
-        else
-            log_success "All application processes stopped"
-        fi
-    else
-        log "No running application processes found"
-    fi
-}
-
-# Kill application processes directly
-kill_processes() {
-    # Try to find and stop the Node.js process
-    local pids
-    pids=$(pgrep -f "node server.js" 2>/dev/null || true)
-    
-    # Also check for npm start processes
-    local npm_pids
-    npm_pids=$(pgrep -f "npm start" 2>/dev/null || true)
-    
-    # Combine all PIDs
-    if [ -n "$npm_pids" ]; then
-        pids="$pids $npm_pids"
-    fi
-    
-    if [ -n "$pids" ]; then
-        log "Stopping application processes: $pids"
-        
-        # Send TERM signal to each PID individually
-        for pid in $pids; do
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-                log "Sending TERM signal to PID: $pid"
-                kill -TERM "$pid" 2>/dev/null || true
-            fi
-        done
-        
-        # Wait for graceful shutdown with timeout
-        log "Waiting for graceful shutdown..."
-        local wait_count=0
-        local max_wait=10  # Maximum 10 seconds
-        
-        while [ $wait_count -lt $max_wait ]; do
-            local still_running
-            still_running=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-            if [ -z "$still_running" ]; then
-                log_success "Processes stopped gracefully"
-                break
-            fi
-            sleep 1
-            wait_count=$((wait_count + 1))
-            log "Waiting... ($wait_count/$max_wait)"
-        done
-        
-        # Force kill any remaining processes
-        local remaining_pids
-        remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-        if [ -n "$remaining_pids" ]; then
-            log_warning "Force killing remaining processes: $remaining_pids"
-            pkill -9 -f "node server.js" 2>/dev/null || true
-            pkill -9 -f "npm start" 2>/dev/null || true
-            sleep 1
-        fi
-        
-        # Final check
-        local final_check
-        final_check=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-        if [ -n "$final_check" ]; then
-            log_warning "Some processes may still be running: $final_check"
-        else
-            log_success "All application processes stopped"
-        fi
-    else
-        log "No running application processes found"
-    fi
-}
 
 # Stop the application before updating
 stop_application() {
-    log "Stopping application..."
+    
     
     # Change to the application directory if we're not already there
     local app_dir
@@ -531,23 +404,31 @@ stop_application() {
     
     log "Working from application directory: $(pwd)"
     
-    # Check if systemd service exists and is active
-    if check_service; then
-        if systemctl is-active --quiet pvescriptslocal.service; then
-            log "Stopping pvescriptslocal service..."
-            if systemctl stop pvescriptslocal.service; then
-                log_success "Service stopped successfully"
-            else
-                log_error "Failed to stop service, falling back to process kill"
-                kill_processes
-            fi
+    # Check if systemd service is running and disable it temporarily
+    if check_service && systemctl is-active --quiet pvescriptslocal.service; then
+        log "Disabling systemd service temporarily to prevent auto-restart..."
+        if systemctl disable pvescriptslocal.service; then
+            log_success "Service disabled successfully"
         else
-            log "Service exists but is not active, checking for running processes..."
-            kill_processes
+            log_error "Failed to disable service"
+            return 1
         fi
     else
-        log "No systemd service found, stopping processes directly..."
-        kill_processes
+        log "No running systemd service found"
+    fi
+    
+    # Kill any remaining npm/node processes
+    log "Killing any remaining npm/node processes..."
+    local pids
+    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        log "Found running processes: $pids"
+        pkill -9 -f "node server.js" 2>/dev/null || true
+        pkill -9 -f "npm start" 2>/dev/null || true
+        sleep 2
+        log_success "Processes killed"
+    else
+        log "No running processes found"
     fi
 }
 
@@ -578,25 +459,19 @@ update_files() {
         return 1
     fi
     
+    # Verify critical files exist in source
+    if [ ! -f "$actual_source_dir/package.json" ]; then
+        log_error "package.json not found in source directory!"
+        return 1
+    fi
+    
     # Use process substitution instead of pipe to avoid subshell issues
     local files_copied=0
     local files_excluded=0
     
-    log "Starting file copy process from: $actual_source_dir"
-    
     # Create a temporary file list to avoid process substitution issues
     local file_list="/tmp/file_list_$$.txt"
     find "$actual_source_dir" -type f > "$file_list"
-    
-    local total_files
-    total_files=$(wc -l < "$file_list")
-    log "Found $total_files files to process"
-    
-    # Show first few files for debugging
-    log "First few files to process:"
-    head -5 "$file_list" | while read -r f; do
-        log "  - $f"
-    done
     
     while IFS= read -r file; do
         local rel_path="${file#$actual_source_dir/}"
@@ -615,59 +490,96 @@ update_files() {
             if [ "$target_dir" != "." ]; then
                 mkdir -p "$target_dir"
             fi
-            log "Copying: $file -> $rel_path"
+            
             if ! cp "$file" "$rel_path"; then
                 log_error "Failed to copy $rel_path"
                 rm -f "$file_list"
                 return 1
-            else
-                files_copied=$((files_copied + 1))
-                if [ $((files_copied % 10)) -eq 0 ]; then
-                    log "Copied $files_copied files so far..."
-                fi
             fi
+            files_copied=$((files_copied + 1))
         else
             files_excluded=$((files_excluded + 1))
-            log "Excluded: $rel_path"
         fi
     done < "$file_list"
     
     # Clean up temporary file
     rm -f "$file_list"
     
-    log "Files processed: $files_copied copied, $files_excluded excluded"
+    # Verify critical files were copied
+    if [ ! -f "package.json" ]; then
+        log_error "package.json was not copied to target directory!"
+        return 1
+    fi
     
-    log_success "Application files updated successfully"
+    if [ ! -f "package-lock.json" ]; then
+        log_warning "package-lock.json was not copied!"
+    fi
+    
+    log_success "Application files updated successfully ($files_copied files)"
 }
 
 # Install dependencies and build
 install_and_build() {
     log "Installing dependencies..."
     
-    if ! npm install; then
-        log_error "Failed to install dependencies"
+    # Verify package.json exists
+    if [ ! -f "package.json" ]; then
+        log_error "package.json not found! Cannot install dependencies."
         return 1
     fi
     
-    # Ensure no processes are running before build
-    log "Ensuring no conflicting processes are running..."
-    local pids
-    pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-    if [ -n "$pids" ]; then
-        log_warning "Found running processes, stopping them: $pids"
-        pkill -9 -f "node server.js" 2>/dev/null || true
-        pkill -9 -f "npm start" 2>/dev/null || true
-        sleep 2
+    if [ ! -f "package-lock.json" ]; then
+        log_warning "No package-lock.json found, npm will generate one"
     fi
+    
+    # Create temporary file for npm output
+    local npm_log="/tmp/npm_install_$$.log"
+    
+    # Ensure NODE_ENV is not set to production during install (we need devDependencies for build)
+    local old_node_env="${NODE_ENV:-}"
+    export NODE_ENV=development
+    
+    # Run npm install to get ALL dependencies including devDependencies
+    if ! npm install --include=dev > "$npm_log" 2>&1; then
+        log_error "Failed to install dependencies"
+        log_error "npm install output (last 30 lines):"
+        tail -30 "$npm_log" | while read -r line; do
+            log_error "NPM: $line"
+        done
+        rm -f "$npm_log"
+        return 1
+    fi
+    
+    # Restore NODE_ENV
+    if [ -n "$old_node_env" ]; then
+        export NODE_ENV="$old_node_env"
+    else
+        unset NODE_ENV
+    fi
+    
+    log_success "Dependencies installed successfully"
+    rm -f "$npm_log"
     
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
     
-    if ! npm run build; then
+    # Create temporary file for npm build output
+    local build_log="/tmp/npm_build_$$.log"
+    
+    if ! npm run build > "$build_log" 2>&1; then
         log_error "Failed to build application"
+        log_error "npm run build output:"
+        cat "$build_log" | while read -r line; do
+            log_error "BUILD: $line"
+        done
+        rm -f "$build_log"
         return 1
     fi
+    
+    # Log success and clean up
+    log_success "Application built successfully"
+    rm -f "$build_log"
     
     log_success "Dependencies installed and application built successfully"
 }
@@ -676,11 +588,11 @@ install_and_build() {
 start_application() {
     log "Starting application..."
     
-    # Check if systemd service exists
-    if check_service; then
-        log "Starting pvescriptslocal service..."
-        if systemctl start pvescriptslocal.service; then
-            log_success "Service started successfully"
+    # Use the global variable to determine how to start
+    if [ "$SERVICE_WAS_RUNNING" = true ] && check_service; then
+        log "Service was running before update, re-enabling and starting systemd service..."
+        if systemctl enable --now pvescriptslocal.service; then
+            log_success "Service enabled and started successfully"
             # Wait a moment and check if it's running
             sleep 2
             if systemctl is-active --quiet pvescriptslocal.service; then
@@ -689,11 +601,11 @@ start_application() {
                 log_warning "Service started but may not be running properly"
             fi
         else
-            log_error "Failed to start service, falling back to npm start"
+            log_error "Failed to enable/start service, falling back to npm start"
             start_with_npm
         fi
     else
-        log "No systemd service found, starting with npm..."
+        log "Service was not running before update or no service exists, starting with npm..."
         start_with_npm
     fi
 }
@@ -766,25 +678,22 @@ rollback() {
 
 # Main update process
 main() {
-    init_log
+    # Check if this is the relocated/detached version first
+    if [ "${1:-}" = "--relocated" ]; then
+        export PVE_UPDATE_RELOCATED=1
+        init_log
+        log "Running as detached process"
+        sleep 3
+        
+    else
+        init_log
+    fi
     
     # Check if we're running from the application directory and not already relocated
     if [ -z "${PVE_UPDATE_RELOCATED:-}" ] && [ -f "package.json" ] && [ -f "server.js" ]; then
         log "Detected running from application directory"
-        log "Copying update script to temporary location for safe execution..."
-        
-        local temp_script="/tmp/pve-scripts-update-$$.sh"
-        if ! cp "$0" "$temp_script"; then
-            log_error "Failed to copy update script to temporary location"
-            exit 1
-        fi
-        
-        chmod +x "$temp_script"
-        log "Executing update from temporary location: $temp_script"
-        
-        # Set flag to prevent infinite loop and execute from temporary location
-        export PVE_UPDATE_RELOCATED=1
-        exec "$temp_script" "$@"
+        bash "$0" --relocated
+        exit $?
     fi
     
     # Ensure we're in the application directory
@@ -793,7 +702,6 @@ main() {
     # First check if we're already in the right directory
     if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
-        log "Already in application directory: $app_dir"
     else
         # Try multiple common locations
         for search_path in /opt /root /home /usr/local; do
@@ -810,16 +718,24 @@ main() {
                 log_error "Failed to change to application directory: $app_dir"
                 exit 1
             }
-            log "Changed to application directory: $(pwd)"
         else
             log_error "Could not find application directory"
-            log "Searched in: /opt, /root, /home, /usr/local"
             exit 1
         fi
     fi
     
     # Check dependencies
     check_dependencies
+    
+    # Load GitHub token for higher rate limits
+    load_github_token
+    
+    # Check if service was running before update
+    if check_service && systemctl is-active --quiet pvescriptslocal.service; then
+        SERVICE_WAS_RUNNING=true
+    else
+        SERVICE_WAS_RUNNING=false
+    fi
     
     # Get latest release info
     local release_info
@@ -828,59 +744,34 @@ main() {
     # Backup data directory
     backup_data
     
-    # Stop the application before updating (now running from /tmp/)
+    # Stop the application before updating
     stop_application
-    
-    # Double-check that no processes are running
-    local remaining_pids
-    remaining_pids=$(pgrep -f "node server.js\|npm start" 2>/dev/null || true)
-    if [ -n "$remaining_pids" ]; then
-        log_warning "Force killing remaining processes"
-        pkill -9 -f "node server.js" 2>/dev/null || true
-        pkill -9 -f "npm start" 2>/dev/null || true
-        sleep 2
-    fi
     
     # Download and extract release
     local source_dir
     source_dir=$(download_release "$release_info")
-    log "Download completed, source_dir: $source_dir"
     
     # Clear the original directory before updating
-    log "Clearing original directory..."
     clear_original_directory
-    log "Original directory cleared successfully"
     
     # Update files
-    log "Starting file update process..."
     if ! update_files "$source_dir"; then
         log_error "File update failed, rolling back..."
         rollback
     fi
-    log "File update completed successfully"
     
     # Restore .env and data directory before building
-    log "Restoring backup files..."
     restore_backup_files
-    log "Backup files restored successfully"
     
     # Install dependencies and build
-    log "Starting install and build process..."
     if ! install_and_build; then
         log_error "Install and build failed, rolling back..."
         rollback
     fi
-    log "Install and build completed successfully"
     
     # Cleanup
-    log "Cleaning up temporary files..."
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
-    
-    # Clean up temporary script if it exists
-    if [ -f "/tmp/pve-scripts-update-$$.sh" ]; then
-        rm -f "/tmp/pve-scripts-update-$$.sh"
-    fi
     
     # Start the application
     start_application
