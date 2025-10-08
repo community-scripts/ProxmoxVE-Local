@@ -617,7 +617,10 @@ install_and_build() {
         log_error "package.json not found! Cannot install dependencies."
         return 1
     fi
+    
     log "Current working directory: $(pwd)"
+    log "Current NODE_ENV: ${NODE_ENV:-<not set>}"
+    log "Current npm config production: $(npm config get production)"
     # Check if package-lock.json exists (it should from the new release)
     if [ -f "package-lock.json" ]; then
         log "Using package-lock.json from new release"
@@ -643,6 +646,7 @@ install_and_build() {
     # Ensure NODE_ENV is not set to production during install (we need devDependencies for build)
     local old_node_env="${NODE_ENV:-}"
     export NODE_ENV=development
+    log "Setting NODE_ENV=development to ensure devDependencies are installed"
     
     # Run npm install to get ALL dependencies including devDependencies
     log "Running npm install --include=dev (this may take a few minutes)..."
