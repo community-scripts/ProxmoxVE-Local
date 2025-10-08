@@ -492,23 +492,6 @@ update_files() {
     local source_dir="$1"
     
     log "Updating application files..."
-    log "Source directory: $source_dir"
-    
-    # Verify source directory exists and has files
-    if [ ! -d "$source_dir" ]; then
-        log_error "Source directory does not exist: $source_dir"
-        return 1
-    fi
-    
-    # Check if package.json exists in source
-    if [ ! -f "$source_dir/package.json" ]; then
-        log_error "package.json not found in source directory: $source_dir"
-        log_error "Directory contents:"
-        ls -la "$source_dir" | head -20
-        return 1
-    fi
-    
-    log_success "Found package.json in source directory"
     
     # List of files/directories to exclude from update
     local exclude_patterns=(
@@ -522,22 +505,31 @@ update_files() {
         "*.bak"
     )
     
+    # Find the actual source directory (strip the top-level directory)
+    local actual_source_dir
+    actual_source_dir=$(find "$source_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" | head -1)
+    
+    if [ -z "$actual_source_dir" ]; then
+        log_error "Could not find the actual source directory in $source_dir"
+        return 1
+    fi
+    
     # Use process substitution instead of pipe to avoid subshell issues
     local files_copied=0
     local files_excluded=0
     
-    log "Starting file copy process from: $source_dir"
+    log "Starting file copy process from: $actual_source_dir"
     
     # Create a temporary file list to avoid process substitution issues
     local file_list="/tmp/file_list_$$.txt"
-    find "$source_dir" -type f > "$file_list"
+    find "$actual_source_dir" -type f > "$file_list"
     
     local total_files
     total_files=$(wc -l < "$file_list")
     log "Found $total_files files to process"
     
     while IFS= read -r file; do
-        local rel_path="${file#$source_dir/}"
+        local rel_path="${file#$actual_source_dir/}"
         local should_exclude=false
         
         for pattern in "${exclude_patterns[@]}"; do
@@ -564,6 +556,7 @@ update_files() {
             fi
         else
             files_excluded=$((files_excluded + 1))
+            log "Excluded: $rel_path"
         fi
     done < "$file_list"
     
@@ -572,14 +565,7 @@ update_files() {
     
     log "Files processed: $files_copied copied, $files_excluded excluded"
     
-    # Verify critical files were copied
-    if [ ! -f "package.json" ]; then
-        log_error "package.json was not copied to target directory!"
-        return 1
-    fi
-    
     log_success "Application files updated successfully"
-    log_success "Verified package.json exists in target directory"
 }
 
 # Install dependencies and build
@@ -626,37 +612,6 @@ install_and_build() {
     # Log success and clean up
     log_success "Dependencies installed successfully"
     rm -f "$npm_log"
-    
-    # Verify critical dependencies are installed
-    log "Verifying critical dependencies..."
-    local missing_deps=()
-    
-    if [ ! -d "node_modules/@tailwindcss/postcss" ] && [ ! -d "node_modules/@tailwindcss" ]; then
-        missing_deps+=("@tailwindcss/postcss or @tailwindcss")
-    fi
-    
-    if [ ! -d "node_modules/next" ]; then
-        missing_deps+=("next")
-    fi
-    
-    if [ ${#missing_deps[@]} -ne 0 ]; then
-        log_error "Critical dependencies missing after npm install: ${missing_deps[*]}"
-        log_error "Attempting to install missing dependencies explicitly..."
-        
-        # Try installing missing packages explicitly
-        if ! npm install @tailwindcss/postcss @tailwindcss/cli tailwindcss@next --save-dev > "$npm_log" 2>&1; then
-            log_error "Failed to install missing Tailwind packages"
-            cat "$npm_log" | while read -r line; do
-                log_error "NPM: $line"
-            done
-            rm -f "$npm_log"
-            return 1
-        fi
-        
-        log_success "Missing dependencies installed"
-    else
-        log_success "All critical dependencies verified"
-    fi
     
     log "Building application..."
     # Set NODE_ENV to production for build
