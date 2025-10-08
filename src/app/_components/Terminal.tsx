@@ -77,12 +77,17 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           if (inWhiptailSession) {
             // In whiptail session, be more aggressive about clearing
             console.log('Clearing terminal for whiptail redraw');
+            // Multiple clear operations to ensure complete clearing
             xtermRef.current.clear();
             xtermRef.current.write('\x1b[2J\x1b[H'); // Clear screen and move cursor to home
-            // Small delay to ensure clear is processed
+            xtermRef.current.write('\x1b[3J'); // Clear scrollback buffer
+            xtermRef.current.write('\x1b[2J'); // Clear screen again
+            // Force clear the terminal buffer
+            xtermRef.current.clear();
+            // Longer delay to ensure all clears are processed
             setTimeout(() => {
               xtermRef.current.write(message.data);
-            }, 10);
+            }, 50);
           } else {
             xtermRef.current.write(message.data);
           }
