@@ -415,6 +415,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
               <span className="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded">
                 Sent: {lastInputSent === '\r' ? 'Enter' : 
                        lastInputSent === ' ' ? 'Space' :
+                       lastInputSent === '\b' ? 'Backspace' :
                        lastInputSent === '\x1b[A' ? 'Up' : 
                        lastInputSent === '\x1b[B' ? 'Down' : 
                        lastInputSent === '\x1b[C' ? 'Right' : 
@@ -497,7 +498,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             </div>
             
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 onClick={() => {
                   console.log('=== ENTER BUTTON CLICKED ===');
@@ -521,6 +522,18 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
                 disabled={!isConnected}
               >
                 Space
+              </Button>
+              <Button
+                onClick={() => {
+                  console.log('=== BACKSPACE BUTTON CLICKED ===');
+                  sendInput('\b');
+                }}
+                variant="outline"
+                size="sm"
+                className="text-sm"
+                disabled={!isConnected}
+              >
+                ⌫ Backspace
               </Button>
             </div>
             
