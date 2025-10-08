@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from './ui/button';
 import {  Play, Square, Trash2, X } from 'lucide-react';
@@ -33,6 +33,60 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const hasConnectedRef = useRef<boolean>(false);
 
   const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
+
+  const handleMessage = useCallback((message: TerminalMessage) => {
+    if (!xtermRef.current) return;
+
+    const timestamp = new Date(message.timestamp).toLocaleTimeString();
+    const prefix = `[${timestamp}] `;
+    
+    switch (message.type) {
+      case 'start':
+        xtermRef.current.writeln(`${prefix}[START] ${message.data}`);
+        setIsRunning(true);
+        break;
+      case 'output':
+        // Write directly to terminal - xterm.js handles ANSI codes natively
+        xtermRef.current.write(message.data);
+        break;
+      case 'error':
+        // Check if this looks like ANSI terminal output (contains escape codes)
+        if (message.data.includes('\x1B[') || message.data.includes('\u001b[')) {
+          // This is likely terminal output sent to stderr, treat it as normal output
+          xtermRef.current.write(message.data);
+        } else if (message.data.includes('TERM environment variable not set')) {
+          // This is a common warning, treat as normal output
+          xtermRef.current.write(message.data);
+        } else if (message.data.includes('exit code') && message.data.includes('clear')) {
+          // This is a script error, show it with error prefix
+          xtermRef.current.writeln(`${prefix}[ERROR] ${message.data}`);
+        } else {
+          // This is a real error, show it with error prefix
+          xtermRef.current.writeln(`${prefix}[ERROR] ${message.data}`);
+        }
+        break;
+      case 'end':
+        // Check if this is an LXC creation script
+        const isLxcCreation = scriptPath.includes('ct/') || 
+                             scriptPath.includes('create_lxc') || 
+                             (containerId != null) ||
+                             scriptName.includes('lxc') ||
+                             scriptName.includes('container');
+        
+        if (isLxcCreation && message.data.includes('SSH script execution finished with code: 0')) {
+          // Display prominent LXC creation completion message
+          xtermRef.current.writeln('');
+          xtermRef.current.writeln('#########################################');
+          xtermRef.current.writeln('########## LXC CREATION FINISHED ########');
+          xtermRef.current.writeln('#########################################');
+          xtermRef.current.writeln('');
+        } else {
+          xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
+        }
+        setIsRunning(false);
+        break;
+    }
+  }, [scriptPath, containerId, scriptName]);
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -206,8 +260,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, executionId, mode, server, isUpdate, containerId]);
+  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage]);
 
+<<<<<<< HEAD
   const handleMessage = (message: TerminalMessage) => {
     if (!xtermRef.current) return;
 
@@ -261,6 +316,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
     }
   };
+=======
+>>>>>>> 681c70d (Fix linting errors in Terminal.tsx)
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
