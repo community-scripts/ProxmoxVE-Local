@@ -181,12 +181,12 @@ export function InstalledScriptsTab() {
           bValue = b.script_name.toLowerCase();
           break;
         case 'container_id':
-          aValue = a.container_id || '';
-          bValue = b.container_id || '';
+          aValue = a.container_id ?? '';
+          bValue = b.container_id ?? '';
           break;
         case 'server_name':
-          aValue = a.server_name || 'Local';
-          bValue = b.server_name || 'Local';
+          aValue = a.server_name ?? 'Local';
+          bValue = b.server_name ?? 'Local';
           break;
         case 'status':
           aValue = a.status;
