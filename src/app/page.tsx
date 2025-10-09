@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ScriptsGrid } from './_components/ScriptsGrid';
 import { DownloadedScriptsTab } from './_components/DownloadedScriptsTab';
 import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
@@ -16,9 +16,25 @@ import { Rocket, Package, HardDrive, FolderOpen } from 'lucide-react';
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
   const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>('scripts');
+  const terminalRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTerminal = () => {
+    if (terminalRef.current) {
+      // Get the element's position and scroll with a small offset for better mobile experience
+      const elementTop = terminalRef.current.offsetTop;
+      const offset = window.innerWidth < 768 ? 20 : 0; // Small offset on mobile
+      
+      window.scrollTo({
+        top: elementTop - offset,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleRunScript = (scriptPath: string, scriptName: string, mode?: 'local' | 'ssh', server?: any) => {
     setRunningScript({ path: scriptPath, name: scriptName, mode, server });
+    // Scroll to terminal after a short delay to ensure it's rendered
+    setTimeout(scrollToTerminal, 100);
   };
 
   const handleCloseTerminal = () => {
@@ -102,7 +118,7 @@ export default function Home() {
 
         {/* Running Script Terminal */}
         {runningScript && (
-          <div className="mb-8">
+          <div ref={terminalRef} className="mb-8">
             <Terminal
               scriptPath={runningScript.path}
               onClose={handleCloseTerminal}
@@ -118,7 +134,7 @@ export default function Home() {
         )}
         
         {activeTab === 'downloaded' && (
-          <DownloadedScriptsTab />
+          <DownloadedScriptsTab onInstallScript={handleRunScript} />
         )}
         
         {activeTab === 'installed' && (

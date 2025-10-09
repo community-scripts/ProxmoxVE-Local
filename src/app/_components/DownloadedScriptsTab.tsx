@@ -9,7 +9,16 @@ import { FilterBar, type FilterState } from './FilterBar';
 import { Button } from './ui/button';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
 
-export function DownloadedScriptsTab() {
+interface DownloadedScriptsTabProps {
+  onInstallScript?: (
+    scriptPath: string,
+    scriptName: string,
+    mode?: "local" | "ssh",
+    server?: any,
+  ) => void;
+}
+
+export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabProps) {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -462,9 +471,7 @@ export function DownloadedScriptsTab() {
             script={scriptData?.success ? scriptData.script : null}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            onInstallScript={() => {
-              // Downloaded scripts don't need installation
-            }}
+            onInstallScript={onInstallScript}
           />
         </div>
       </div>

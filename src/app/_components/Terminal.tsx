@@ -29,6 +29,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
   const [inWhiptailSession, setInWhiptailSession] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isStopped, setIsStopped] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -64,23 +65,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
           // This is a clear screen sequence, ensure it's processed correctly
           xtermRef.current.write(message.data);
-        } else if (message.data.includes('\x1b[') && message.data.includes('H')) {
-          // This is a cursor positioning sequence, often implies a redraw of the entire screen
-          if (inWhiptailSession) {
-            // In whiptail session, completely reset the terminal
-            // Completely clear everything
-            xtermRef.current.clear();
-            xtermRef.current.write('\x1b[2J\x1b[H\x1b[3J\x1b[2J');
-            // Reset the terminal state
-            xtermRef.current.reset();
-            // Write the new content after reset
-            setTimeout(() => {
-              xtermRef.current.write(message.data);
-            }, 100);
-          } else {
-            xtermRef.current.write(message.data);
-          }
         } else {
+          // Let xterm handle all ANSI sequences naturally
           xtermRef.current.write(message.data);
         }
         break;
@@ -153,9 +139,27 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       
       const terminal = new XTerm({
         theme: {
-          background: '#000000',
-          foreground: '#00ff00',
-          cursor: '#00ff00',
+          background: '#0d1117',
+          foreground: '#e6edf3',
+          cursor: '#58a6ff',
+          cursorAccent: '#0d1117',
+          // Let ANSI colors work naturally - only define basic colors
+          black: '#484f58',
+          red: '#f85149',
+          green: '#3fb950',
+          yellow: '#d29922',
+          blue: '#58a6ff',
+          magenta: '#bc8cff',
+          cyan: '#39d353',
+          white: '#b1bac4',
+          brightBlack: '#6e7681',
+          brightRed: '#ff7b72',
+          brightGreen: '#56d364',
+          brightYellow: '#e3b341',
+          brightBlue: '#79c0ff',
+          brightMagenta: '#d2a8ff',
+          brightCyan: '#56d364',
+          brightWhite: '#f0f6fc',
         },
         fontSize: isMobile ? 7 : 14,
         fontFamily: 'JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace',
@@ -188,6 +192,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
       // Open terminal
       terminal.open(terminalElement);
+      
+      // Ensure proper terminal rendering
+      setTimeout(() => {
+        terminal.refresh(0, terminal.rows - 1);
+        // Ensure cursor is properly positioned
+        terminal.focus();
+      }, 100);
       
       // Fit after a small delay to ensure proper sizing
       setTimeout(() => {
@@ -269,6 +280,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     }
 
     isConnectingRef.current = true;
+    const isInitialConnection = !hasConnectedRef.current;
     hasConnectedRef.current = true;
 
     // Small delay to prevent rapid reconnection
@@ -284,17 +296,19 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         setIsConnected(true);
         isConnectingRef.current = false;
         
-        // Send start message immediately after connection
-        const message = {
-          action: 'start',
-          scriptPath,
-          executionId,
-          mode,
-          server,
-          isUpdate,
-          containerId
-        };
-        ws.send(JSON.stringify(message));
+        // Only auto-start on initial connection, not on reconnections
+        if (isInitialConnection && !isRunning) {
+          const message = {
+            action: 'start',
+            scriptPath,
+            executionId,
+            mode,
+            server,
+            isUpdate,
+            containerId
+          };
+          ws.send(JSON.stringify(message));
+        }
       };
 
       ws.onmessage = (event) => {
@@ -335,7 +349,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage, isMobile]);
 
   const startScript = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
+      setIsStopped(false);
       wsRef.current.send(JSON.stringify({
         action: 'start',
         scriptPath,
@@ -350,6 +365,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   const stopScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      setIsStopped(true);
+      setIsRunning(false);
       wsRef.current.send(JSON.stringify({
         action: 'stop',
         executionId
@@ -586,10 +603,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         <div className="flex flex-wrap gap-1 sm:gap-2">
           <Button
             onClick={startScript}
-            disabled={!isConnected || isRunning}
+            disabled={!isConnected || (isRunning && !isStopped)}
             variant="default"
             size="sm"
-            className={`text-xs sm:text-sm ${isConnected && !isRunning ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+            className={`text-xs sm:text-sm ${isConnected && (!isRunning || isStopped) ? 'bg-green-600 hover:bg-green-700' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
           >
             <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             <span className="hidden sm:inline">Start</span>
