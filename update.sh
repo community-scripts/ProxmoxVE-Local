@@ -592,6 +592,7 @@ start_application() {
     if [ "$SERVICE_WAS_RUNNING" = true ] && check_service; then
         log "Service was running before update, re-enabling and starting systemd service..."
         if systemctl enable --now pvescriptslocal.service; then
+            systemctl restart pvescriptslocal.service
             log_success "Service enabled and started successfully"
             # Wait a moment and check if it's running
             sleep 2
