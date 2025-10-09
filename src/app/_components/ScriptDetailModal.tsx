@@ -120,9 +120,6 @@ export function ScriptDetailModal({
       // Pass execution mode and server info to the parent
       onInstallScript(scriptPath, scriptName, mode, server);
 
-      // Scroll to top of the page to see the terminal
-      window.scrollTo({ top: 0, behavior: "smooth" });
-
       onClose(); // Close the modal when starting installation
     }
   };
