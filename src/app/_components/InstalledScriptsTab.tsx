@@ -26,6 +26,8 @@ export function InstalledScriptsTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'in_progress'>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('script_name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
@@ -154,20 +156,58 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
-  // Filter scripts based on search and filters
-  const filteredScripts = scripts.filter((script: InstalledScript) => {
-    const matchesSearch = script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (script.container_id?.includes(searchTerm) ?? false) ||
-                         (script.server_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    
-    const matchesStatus = statusFilter === 'all' || script.status === statusFilter;
-    
-    const matchesServer = serverFilter === 'all' || 
-                         (serverFilter === 'local' && !script.server_name) ||
-                         (script.server_name === serverFilter);
-    
-    return matchesSearch && matchesStatus && matchesServer;
-  });
+  // Filter and sort scripts
+  const filteredScripts = scripts
+    .filter((script: InstalledScript) => {
+      const matchesSearch = script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (script.container_id?.includes(searchTerm) ?? false) ||
+                           (script.server_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      
+      const matchesStatus = statusFilter === 'all' || script.status === statusFilter;
+      
+      const matchesServer = serverFilter === 'all' || 
+                           (serverFilter === 'local' && !script.server_name) ||
+                           (script.server_name === serverFilter);
+      
+      return matchesSearch && matchesStatus && matchesServer;
+    })
+    .sort((a: InstalledScript, b: InstalledScript) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'script_name':
+          aValue = a.script_name.toLowerCase();
+          bValue = b.script_name.toLowerCase();
+          break;
+        case 'container_id':
+          aValue = a.container_id || '';
+          bValue = b.container_id || '';
+          break;
+        case 'server_name':
+          aValue = a.server_name || 'Local';
+          bValue = b.server_name || 'Local';
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'installation_date':
+          aValue = new Date(a.installation_date).getTime();
+          bValue = new Date(b.installation_date).getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
 
   // Get unique servers for filter
   const uniqueServers: string[] = [];
@@ -296,6 +336,15 @@ export function InstalledScriptsTab() {
   const handleCancelAutoDetect = () => {
     setShowAutoDetectForm(false);
     setAutoDetectServerId('');
+  };
+
+  const handleSort = (field: 'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
 
@@ -652,20 +701,70 @@ export function InstalledScriptsTab() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Script Name
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('script_name')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Script Name</span>
+                        {sortField === 'script_name' && (
+                          <span className="text-primary">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Container ID
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('container_id')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Container ID</span>
+                        {sortField === 'container_id' && (
+                          <span className="text-primary">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Server
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('server_name')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Server</span>
+                        {sortField === 'server_name' && (
+                          <span className="text-primary">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Status
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Status</span>
+                        {sortField === 'status' && (
+                          <span className="text-primary">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Installation Date
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
+                      onClick={() => handleSort('installation_date')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Installation Date</span>
+                        {sortField === 'installation_date' && (
+                          <span className="text-primary">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
