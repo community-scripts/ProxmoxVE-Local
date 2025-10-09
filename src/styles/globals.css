@@ -128,7 +128,7 @@
 
 /* Terminal-specific styles for ANSI escape code rendering */
 .terminal-output {
-  font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   line-height: 1.2;
 }
 
@@ -140,6 +140,25 @@
 .terminal-output * {
   color: inherit;
   background-color: inherit;
+}
+
+/* Enhanced terminal styling */
+.xterm {
+  padding: 0.5rem;
+}
+
+/* Set basic background - let ANSI colors work naturally */
+.xterm .xterm-viewport {
+  background-color: #0d1117;
+}
+
+.xterm .xterm-screen {
+  background-color: #0d1117;
+}
+
+/* Better selection colors */
+.xterm .xterm-selection {
+  background-color: #264f78;
 }
 
 /* Mobile-specific improvements */
