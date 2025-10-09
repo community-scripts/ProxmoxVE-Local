@@ -118,7 +118,7 @@ export default function Home() {
         )}
         
         {activeTab === 'downloaded' && (
-          <DownloadedScriptsTab />
+          <DownloadedScriptsTab onInstallScript={handleRunScript} />
         )}
         
         {activeTab === 'installed' && (
