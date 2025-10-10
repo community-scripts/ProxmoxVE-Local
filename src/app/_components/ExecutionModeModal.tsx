@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Server } from '../../types/server';
 import { Button } from './ui/button';
+import { ColorCodedDropdown } from './ColorCodedDropdown';
 
 interface ExecutionModeModalProps {
   isOpen: boolean;
@@ -49,6 +50,10 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
     
     onExecute(selectedMode, selectedServer ?? undefined);
     onClose();
+  };
+
+  const handleServerSelect = (server: Server | null) => {
+    setSelectedServer(server);
   };
 
   const handleModeChange = (mode: 'local' | 'ssh') => {
@@ -161,23 +166,12 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                   <p className="text-xs mt-1">Add servers in Settings to use SSH execution</p>
                 </div>
               ) : (
-                <select
-                  id="server"
-                  value={selectedServer?.id ?? ''}
-                  onChange={(e) => {
-                    const serverId = parseInt(e.target.value);
-                    const server = servers.find(s => s.id === serverId);
-                    setSelectedServer(server ?? null);
-                  }}
-                  className="w-full px-3 py-2 border border-input rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-background text-foreground"
-                >
-                  <option value="">Select a server...</option>
-                  {servers.map((server) => (
-                    <option key={server.id} value={server.id}>
-                      {server.name} ({server.ip}) - {server.user}
-                    </option>
-                  ))}
-                </select>
+                <ColorCodedDropdown
+                  servers={servers}
+                  selectedServer={selectedServer}
+                  onServerSelect={handleServerSelect}
+                  placeholder="Select a server..."
+                />
               )}
             </div>
           )}
