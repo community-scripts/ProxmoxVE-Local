@@ -26,13 +26,13 @@ export default function Home() {
 
   // Calculate script counts
   const scriptCounts = {
-    available: scriptCardsData?.success ? scriptCardsData.cards?.length || 0 : 0,
+    available: scriptCardsData?.success ? scriptCardsData.cards?.length ?? 0 : 0,
     downloaded: (() => {
       if (!scriptCardsData?.success || !localScriptsData?.scripts) return 0;
       
       // Count scripts that are both in GitHub data and have local versions
-      const githubScripts = scriptCardsData.cards || [];
-      const localScripts = localScriptsData.scripts || [];
+      const githubScripts = scriptCardsData.cards ?? [];
+      const localScripts = localScriptsData.scripts ?? [];
       
       return githubScripts.filter(script => {
         if (!script?.name) return false;
@@ -44,7 +44,7 @@ export default function Home() {
         });
       }).length;
     })(),
-    installed: installedScriptsData?.scripts?.length || 0
+    installed: installedScriptsData?.scripts?.length ?? 0
   };
 
   const scrollToTerminal = () => {
