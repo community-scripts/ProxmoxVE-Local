@@ -25,6 +25,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [authEnabled, setAuthEnabled] = useState(false);
   const [authHasCredentials, setAuthHasCredentials] = useState(false);
+  const [authSetupCompleted, setAuthSetupCompleted] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
   // Load existing settings when modal opens
@@ -151,10 +152,11 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     try {
       const response = await fetch('/api/settings/auth-credentials');
       if (response.ok) {
-        const data = await response.json() as { username: string; enabled: boolean; hasCredentials: boolean };
+        const data = await response.json() as { username: string; enabled: boolean; hasCredentials: boolean; setupCompleted: boolean };
         setAuthUsername(data.username ?? '');
         setAuthEnabled(data.enabled ?? false);
         setAuthHasCredentials(data.hasCredentials ?? false);
+        setAuthSetupCompleted(data.setupCompleted ?? false);
       }
     } catch (error) {
       console.error('Error loading auth credentials:', error);
@@ -418,9 +420,11 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                   <div className="p-4 border border-border rounded-lg">
                     <h4 className="font-medium text-foreground mb-2">Authentication Status</h4>
                     <p className="text-sm text-muted-foreground mb-4">
-                      {authHasCredentials 
-                        ? `Authentication is ${authEnabled ? 'enabled' : 'disabled'}. Current username: ${authUsername}`
-                        : 'Authentication is not configured yet.'
+                      {authSetupCompleted 
+                        ? (authHasCredentials 
+                          ? `Authentication is ${authEnabled ? 'enabled' : 'disabled'}. Current username: ${authUsername}`
+                          : `Authentication is ${authEnabled ? 'enabled' : 'disabled'}. No credentials configured.`)
+                        : 'Authentication setup has not been completed yet.'
                       }
                     </p>
                     
@@ -438,7 +442,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                         <Toggle
                           checked={authEnabled}
                           onCheckedChange={toggleAuthEnabled}
-                          disabled={authLoading || !authHasCredentials}
+                          disabled={authLoading || !authSetupCompleted}
                           label="Enable authentication"
                         />
                       </div>
