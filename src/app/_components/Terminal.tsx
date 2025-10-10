@@ -247,7 +247,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         fitAddonRef.current = null;
       }
     };
-  }, [executionId, isClient, inWhiptailSession, isMobile]);
+  }, [executionId, isClient, isMobile]);
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
