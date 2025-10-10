@@ -53,19 +53,17 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
-        // Detect whiptail sessions and clear immediately
+        // Detect whiptail sessions but don't interfere with the display
         if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
           setInWhiptailSession(true);
-          // Clear terminal immediately when whiptail starts
-          xtermRef.current.clear();
-          xtermRef.current.write('\x1b[2J\x1b[H');
-        }
-        
-        // Check for screen clearing sequences and handle them properly
-        if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
-          // This is a clear screen sequence, ensure it's processed correctly
+          // Don't clear the terminal - let whiptail handle its own display
+          // Just write the data normally
           xtermRef.current.write(message.data);
         } else {
+          // Check if we're exiting a whiptail session
+          if (inWhiptailSession && (message.data.includes('exited') || message.data.includes('finished') || message.data.includes('completed'))) {
+            setInWhiptailSession(false);
+          }
           // Let xterm handle all ANSI sequences naturally
           xtermRef.current.write(message.data);
         }
@@ -89,6 +87,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       case 'end':
         // Reset whiptail session
         setInWhiptailSession(false);
+        setIsRunning(false);
         
         // Check if this is an LXC creation script
         const isLxcCreation = scriptPath.includes('ct/') || 
@@ -107,7 +106,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         } else {
           xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
         }
-        setIsRunning(false);
         break;
     }
   }, [scriptPath, containerId, scriptName]);
@@ -298,10 +296,14 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         
         // Only auto-start on initial connection, not on reconnections
         if (isInitialConnection && !isRunning) {
+          // Generate a new execution ID for the initial run
+          const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          setExecutionId(newExecutionId);
+          
           const message = {
             action: 'start',
             scriptPath,
-            executionId,
+            executionId: newExecutionId,
             mode,
             server,
             isUpdate,
