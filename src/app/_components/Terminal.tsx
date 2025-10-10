@@ -332,7 +332,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, mode, server, isUpdate, containerId, handleMessage, isMobile, isRunning]);
+  }, [scriptPath, mode, server, isUpdate, containerId, isMobile, isRunning]);
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
