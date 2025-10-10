@@ -278,6 +278,18 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
             >
               GitHub
             </Button>
+            <Button
+              onClick={() => setActiveTab('auth')}
+              variant="ghost"
+              size="null"
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
+                activeTab === 'auth'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              Authentication
+            </Button>
           </nav>
         </div>
 
