@@ -37,7 +37,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
         const response = await fetch('/api/settings/color-coding');
         if (response.ok) {
           const data = await response.json();
-          setColorCodingEnabled(data.enabled ?? false);
+          setColorCodingEnabled(Boolean(data.enabled));
         }
       } catch (error) {
         console.error('Error loading color coding setting:', error);

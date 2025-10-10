@@ -4,7 +4,6 @@ import { useState } from 'react';
 import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
 import { Button } from './ui/button';
-import { getContrastColor } from '../../lib/colorUtils';
 
 interface ServerListProps {
   servers: Server[];
