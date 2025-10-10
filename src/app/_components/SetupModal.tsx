@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Toggle } from './ui/toggle';
 import { Lock, User, Shield, AlertCircle } from 'lucide-react';
 
 interface SetupModalProps {
@@ -14,6 +15,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [enableAuth, setEnableAuth] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +36,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password, enabled: true }),
+        body: JSON.stringify({ username, password, enabled: enableAuth }),
       });
 
       if (response.ok) {
@@ -127,6 +129,26 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
                   className="pl-10"
                   required
                   minLength={6}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border border-border rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-foreground mb-1">Enable Authentication</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {enableAuth 
+                      ? 'Authentication will be required on every page load'
+                      : 'Authentication will be optional (can be enabled later in settings)'
+                    }
+                  </p>
+                </div>
+                <Toggle
+                  checked={enableAuth}
+                  onCheckedChange={setEnableAuth}
+                  disabled={isLoading}
+                  label="Enable authentication"
                 />
               </div>
             </div>
