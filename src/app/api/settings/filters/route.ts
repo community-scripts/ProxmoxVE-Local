@@ -81,7 +81,14 @@ export async function GET() {
     }
 
     try {
-      const filters = JSON.parse(filtersMatch[1]!);
+      const filtersJson = filtersMatch[1]?.trim();
+      
+      // Check if filters JSON is empty or invalid
+      if (!filtersJson || filtersJson === '') {
+        return NextResponse.json({ filters: null });
+      }
+      
+      const filters = JSON.parse(filtersJson);
       
       // Validate the parsed filters
       const requiredFields = ['searchQuery', 'showUpdatable', 'selectedTypes', 'sortBy', 'sortOrder'];

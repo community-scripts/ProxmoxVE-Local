@@ -42,6 +42,16 @@ const config = {
     'http://172.31.*',
     'http://192.168.*',
   ],
+
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer) {
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+      };
+    }
+    return config;
+  },
 };
 
 export default config;

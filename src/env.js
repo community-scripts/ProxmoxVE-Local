@@ -25,6 +25,12 @@ export const env = createEnv({
     WEBSOCKET_PORT: z.string().default("3001"),
     // GitHub Configuration
     GITHUB_TOKEN: z.string().optional(),
+    // Authentication Configuration
+    AUTH_USERNAME: z.string().optional(),
+    AUTH_PASSWORD_HASH: z.string().optional(),
+    AUTH_ENABLED: z.string().optional(),
+    AUTH_SETUP_COMPLETED: z.string().optional(),
+    JWT_SECRET: z.string().optional(),
   },
 
   /**
@@ -56,6 +62,12 @@ export const env = createEnv({
     WEBSOCKET_PORT: process.env.WEBSOCKET_PORT,
     // GitHub Configuration
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+    // Authentication Configuration
+    AUTH_USERNAME: process.env.AUTH_USERNAME,
+    AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH,
+    AUTH_ENABLED: process.env.AUTH_ENABLED,
+    AUTH_SETUP_COMPLETED: process.env.AUTH_SETUP_COMPLETED,
+    JWT_SECRET: process.env.JWT_SECRET,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

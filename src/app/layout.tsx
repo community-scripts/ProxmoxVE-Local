@@ -4,6 +4,8 @@ import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
+import { AuthProvider } from "./_components/AuthProvider";
+import { AuthGuard } from "./_components/AuthGuard";
 
 export const metadata: Metadata = {
   title: "PVE Scripts local",
@@ -45,7 +47,13 @@ export default function RootLayout({
         className="bg-background text-foreground transition-colors"
         suppressHydrationWarning={true}
       >
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <AuthProvider>
+            <AuthGuard>
+              {children}
+            </AuthGuard>
+          </AuthProvider>
+        </TRPCReactProvider>
       </body>
     </html>
   );

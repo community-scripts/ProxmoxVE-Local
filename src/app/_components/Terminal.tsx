@@ -110,7 +110,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         setIsRunning(false);
         break;
     }
-  }, [scriptPath, containerId, scriptName, inWhiptailSession]);
+  }, [scriptPath, containerId, scriptName]);
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -346,7 +346,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage, isMobile]);
+  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage, isMobile, isRunning]);
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
