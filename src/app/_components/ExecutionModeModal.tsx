@@ -19,24 +19,20 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
-  const [hasAutoExecuted, setHasAutoExecuted] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setHasAutoExecuted(false);
       void fetchServers();
     }
   }, [isOpen]);
 
-  // Auto-execute when exactly one server is available
+  // Auto-select server when exactly one server is available
   useEffect(() => {
-    if (isOpen && !loading && servers.length === 1 && !hasAutoExecuted) {
-      setHasAutoExecuted(true);
-      onExecute('ssh', servers[0]);
-      onClose();
+    if (isOpen && !loading && servers.length === 1) {
+      setSelectedServer(servers[0] ?? null);
     }
-  }, [isOpen, loading, servers, hasAutoExecuted, onExecute, onClose]);
+  }, [isOpen, loading, servers]);
 
   // Refresh servers when settings modal closes
   const handleSettingsModalClose = () => {
@@ -54,7 +50,11 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
         throw new Error('Failed to fetch servers');
       }
       const data = await response.json();
-      setServers(data as Server[]);
+      // Sort servers by name alphabetically
+      const sortedServers = (data as Server[]).sort((a, b) => 
+        (a.name ?? '').localeCompare(b.name ?? '')
+      );
+      setServers(sortedServers);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -101,12 +101,6 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
 
           {/* Content */}
           <div className="p-6">
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Select server to execute &quot;{scriptName}&quot;
-              </h3>
-            </div>
-
             {error && (
               <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                 <div className="flex">
@@ -122,58 +116,113 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
               </div>
             )}
 
-            {/* Server Selection */}
-            <div className="mb-6">
-              <label htmlFor="server" className="block text-sm font-medium text-foreground mb-2">
-                Select Server
-              </label>
-              {loading ? (
-                <div className="text-center py-4">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  <p className="mt-2 text-sm text-muted-foreground">Loading servers...</p>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading servers...</p>
+              </div>
+            ) : servers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">No servers configured</p>
+                <p className="text-xs mt-1">Add servers in Settings to execute scripts</p>
+                <Button
+                  onClick={() => setSettingsModalOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                >
+                  Open Server Settings
+                </Button>
+              </div>
+            ) : servers.length === 1 ? (
+              /* Single Server Confirmation View */
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    Install Script Confirmation
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Do you want to install &quot;{scriptName}&quot; on the following server?
+                  </p>
                 </div>
-              ) : servers.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p className="text-sm">No servers configured</p>
-                  <p className="text-xs mt-1">Add servers in Settings to execute scripts</p>
+                
+                <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {selectedServer?.name ?? 'Unnamed Server'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedServer?.ip}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3">
                   <Button
-                    onClick={() => setSettingsModalOpen(true)}
+                    onClick={onClose}
                     variant="outline"
-                    size="sm"
-                    className="mt-3"
+                    size="default"
                   >
-                    Open Server Settings
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleExecute}
+                    variant="default"
+                    size="default"
+                  >
+                    Install
                   </Button>
                 </div>
-              ) : (
-                <ColorCodedDropdown
-                  servers={servers}
-                  selectedServer={selectedServer}
-                  onServerSelect={handleServerSelect}
-                  placeholder="Select a server..."
-                />
-              )}
-            </div>
+              </div>
+            ) : (
+              /* Multiple Servers Selection View */
+              <div className="space-y-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    Select server to execute &quot;{scriptName}&quot;
+                  </h3>
+                </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3">
-              <Button
-                onClick={onClose}
-                variant="outline"
-                size="default"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleExecute}
-                disabled={!selectedServer}
-                variant="default"
-                size="default"
-                className={!selectedServer ? 'bg-gray-400 cursor-not-allowed' : ''}
-              >
-                Run on Server
-              </Button>
-            </div>
+                {/* Server Selection */}
+                <div className="mb-6">
+                  <label htmlFor="server" className="block text-sm font-medium text-foreground mb-2">
+                    Select Server
+                  </label>
+                  <ColorCodedDropdown
+                    servers={servers}
+                    selectedServer={selectedServer}
+                    onServerSelect={handleServerSelect}
+                    placeholder="Select a server..."
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3">
+                  <Button
+                    onClick={onClose}
+                    variant="outline"
+                    size="default"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleExecute}
+                    disabled={!selectedServer}
+                    variant="default"
+                    size="default"
+                    className={!selectedServer ? 'bg-gray-400 cursor-not-allowed' : ''}
+                  >
+                    Run on Server
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

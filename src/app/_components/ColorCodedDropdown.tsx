@@ -94,7 +94,9 @@ export function ColorCodedDropdown({
           </button>
           
           {/* Server Options */}
-          {servers.map((server) => (
+          {servers
+            .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+            .map((server) => (
             <button
               key={server.id}
               type="button"

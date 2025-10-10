@@ -31,7 +31,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         throw new Error('Failed to fetch servers');
       }
       const data = await response.json();
-      setServers(data as Server[]);
+      // Sort servers by name alphabetically
+      const sortedServers = (data as Server[]).sort((a, b) => 
+        (a.name ?? '').localeCompare(b.name ?? '')
+      );
+      setServers(sortedServers);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
