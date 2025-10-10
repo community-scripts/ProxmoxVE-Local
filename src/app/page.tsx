@@ -12,11 +12,40 @@ import { SettingsButton } from './_components/SettingsButton';
 import { VersionDisplay } from './_components/VersionDisplay';
 import { Button } from './_components/ui/button';
 import { Rocket, Package, HardDrive, FolderOpen } from 'lucide-react';
+import { api } from '~/trpc/react';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
   const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>('scripts');
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  // Fetch data for script counts
+  const { data: scriptCardsData } = api.scripts.getScriptCardsWithCategories.useQuery();
+  const { data: localScriptsData } = api.scripts.getCtScripts.useQuery();
+  const { data: installedScriptsData } = api.installedScripts.getAllInstalledScripts.useQuery();
+
+  // Calculate script counts
+  const scriptCounts = {
+    available: scriptCardsData?.success ? scriptCardsData.cards?.length || 0 : 0,
+    downloaded: (() => {
+      if (!scriptCardsData?.success || !localScriptsData?.scripts) return 0;
+      
+      // Count scripts that are both in GitHub data and have local versions
+      const githubScripts = scriptCardsData.cards || [];
+      const localScripts = localScriptsData.scripts || [];
+      
+      return githubScripts.filter(script => {
+        if (!script?.name) return false;
+        return localScripts.some(local => {
+          if (!local?.name) return false;
+          const localName = local.name.replace(/\.sh$/, '');
+          return localName.toLowerCase() === script.name.toLowerCase() || 
+                 localName.toLowerCase() === (script.slug ?? '').toLowerCase();
+        });
+      }).length;
+    })(),
+    installed: installedScriptsData?.scripts?.length || 0
+  };
 
   const scrollToTerminal = () => {
     if (terminalRef.current) {
@@ -83,6 +112,9 @@ export default function Home() {
                 <Package className="h-4 w-4" />
                 <span className="hidden sm:inline">Available Scripts</span>
                 <span className="sm:hidden">Available</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.available}
+                </span>
               </Button>
               <Button
                 variant="ghost"
@@ -96,6 +128,9 @@ export default function Home() {
                 <HardDrive className="h-4 w-4" />
                 <span className="hidden sm:inline">Downloaded Scripts</span>
                 <span className="sm:hidden">Downloaded</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.downloaded}
+                </span>
               </Button>
               <Button
                 variant="ghost"
@@ -109,6 +144,9 @@ export default function Home() {
                 <FolderOpen className="h-4 w-4" />
                 <span className="hidden sm:inline">Installed Scripts</span>
                 <span className="sm:hidden">Installed</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.installed}
+                </span>
               </Button>
             </nav>
           </div>
