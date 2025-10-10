@@ -21,6 +21,7 @@ class DatabaseService {
         ssh_key TEXT,
         ssh_key_passphrase TEXT,
         ssh_port INTEGER DEFAULT 22,
+        color TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -54,6 +55,14 @@ class DatabaseService {
     try {
       this.db.exec(`
         ALTER TABLE servers ADD COLUMN ssh_port INTEGER DEFAULT 22
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN color TEXT
       `);
     } catch (e) {
       // Column already exists, ignore error
@@ -100,12 +109,12 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   createServer(serverData) {
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color } = serverData;
     const stmt = this.db.prepare(`
-      INSERT INTO servers (name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO servers (name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22);
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, color);
   }
 
   getAllServers() {
@@ -126,13 +135,13 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   updateServer(id, serverData) {
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color } = serverData;
     const stmt = this.db.prepare(`
       UPDATE servers 
-      SET name = ?, ip = ?, user = ?, password = ?, auth_type = ?, ssh_key = ?, ssh_key_passphrase = ?, ssh_port = ?
+      SET name = ?, ip = ?, user = ?, password = ?, auth_type = ?, ssh_key = ?, ssh_key_passphrase = ?, ssh_port = ?, color = ?
       WHERE id = ?
     `);
-    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, id);
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, color, id);
   }
 
   /**
@@ -170,7 +179,8 @@ class DatabaseService {
         s.name as server_name,
         s.ip as server_ip,
         s.user as server_user,
-        s.password as server_password
+        s.password as server_password,
+        s.color as server_color
       FROM installed_scripts inst
       LEFT JOIN servers s ON inst.server_id = s.id
       ORDER BY inst.installation_date DESC

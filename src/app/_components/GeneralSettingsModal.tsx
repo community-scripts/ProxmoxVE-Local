@@ -15,6 +15,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<any>(null);
+  const [colorCodingEnabled, setColorCodingEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -35,6 +36,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       void loadSaveFilter();
       void loadSavedFilters();
       void loadAuthCredentials();
+      void loadColorCodingSetting();
     }
   }, [isOpen]);
 
@@ -145,6 +147,43 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       setMessage({ type: 'error', text: 'Failed to save token' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const loadColorCodingSetting = async () => {
+    try {
+      const response = await fetch('/api/settings/color-coding');
+      if (response.ok) {
+        const data = await response.json();
+        setColorCodingEnabled(data.enabled ?? false);
+      }
+    } catch (error) {
+      console.error('Error loading color coding setting:', error);
+    }
+  };
+
+  const saveColorCodingSetting = async (enabled: boolean) => {
+    try {
+      const response = await fetch('/api/settings/color-coding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (response.ok) {
+        setColorCodingEnabled(enabled);
+        setMessage({ type: 'success', text: 'Color coding setting saved successfully' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to save color coding setting' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving color coding setting:', error);
+      setMessage({ type: 'error', text: 'Failed to save color coding setting' });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -344,6 +383,16 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Server Color Coding</h4>
+                    <p className="text-sm text-muted-foreground mb-4">Enable color coding for servers to visually distinguish them throughout the application.</p>
+                    <Toggle
+                      checked={colorCodingEnabled}
+                      onCheckedChange={saveColorCodingSetting}
+                      label="Enable server color coding"
+                    />
                   </div>
               </div>
             </div>

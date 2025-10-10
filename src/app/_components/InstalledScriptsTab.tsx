@@ -6,6 +6,7 @@ import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
 import { Button } from './ui/button';
 import { ScriptInstallationCard } from './ScriptInstallationCard';
+import { getContrastColor } from '../../lib/colorUtils';
 
 interface InstalledScript {
   id: number;
@@ -17,6 +18,7 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
+  server_color: string | null;
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
@@ -773,7 +775,11 @@ export function InstalledScriptsTab() {
                 </thead>
                 <tbody className="bg-card divide-y divide-gray-200">
                   {filteredScripts.map((script) => (
-                    <tr key={script.id} className="hover:bg-accent">
+                    <tr 
+                      key={script.id} 
+                      className="hover:bg-accent"
+                      style={{ borderLeft: `4px solid ${script.server_color ?? 'transparent'}` }}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingScriptId === script.id ? (
                           <div className="space-y-2">
@@ -811,8 +817,14 @@ export function InstalledScriptsTab() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-muted-foreground">
-                          {script.server_name ?? 'Local'}
+                        <span 
+                          className="text-sm px-3 py-1 rounded"
+                          style={{
+                            backgroundColor: script.server_color ?? 'transparent',
+                            color: script.server_color ? getContrastColor(script.server_color) : 'inherit'
+                          }}
+                        >
+                          {script.server_name ?? '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

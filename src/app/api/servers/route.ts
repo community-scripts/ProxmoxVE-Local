@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port }: CreateServerData = body;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color }: CreateServerData = body;
 
     // Validate required fields
     if (!name || !ip || !user) {
@@ -78,7 +78,8 @@ export async function POST(request: NextRequest) {
       auth_type: authType,
       ssh_key,
       ssh_key_passphrase,
-      ssh_port: ssh_port ?? 22
+      ssh_port: ssh_port ?? 22,
+      color
     });
     
     return NextResponse.json(

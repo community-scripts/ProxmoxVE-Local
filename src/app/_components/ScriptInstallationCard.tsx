@@ -2,6 +2,7 @@
 
 import { Button } from './ui/button';
 import { StatusBadge } from './Badge';
+import { getContrastColor } from '../../lib/colorUtils';
 
 interface InstalledScript {
   id: number;
@@ -13,6 +14,7 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
+  server_color: string | null;
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
@@ -50,7 +52,10 @@ export function ScriptInstallationCard({
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div 
+      className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+      style={{ borderLeft: `4px solid ${script.server_color ?? 'transparent'}` }}
+    >
       {/* Header with Script Name and Status */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -102,9 +107,15 @@ export function ScriptInstallationCard({
         {/* Server */}
         <div>
           <div className="text-xs font-medium text-muted-foreground mb-1">Server</div>
-          <div className="text-sm text-muted-foreground">
-            {script.server_name ?? 'Local'}
-          </div>
+          <span 
+            className="text-sm px-3 py-1 rounded inline-block"
+            style={{
+              backgroundColor: script.server_color ?? 'transparent',
+              color: script.server_color ? getContrastColor(script.server_color) : 'inherit'
+            }}
+          >
+            {script.server_name ?? '-'}
+          </span>
         </div>
 
         {/* Installation Date */}
