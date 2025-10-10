@@ -12,6 +12,7 @@ export async function GET() {
       username: authConfig.username,
       enabled: authConfig.enabled,
       hasCredentials: authConfig.hasCredentials,
+      setupCompleted: authConfig.setupCompleted,
     });
   } catch (error) {
     console.error('Error reading auth credentials:', error);

@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { updateAuthCredentials, getAuthConfig } from '~/lib/auth';
+import { updateAuthCredentials, getAuthConfig, setSetupCompleted } from '~/lib/auth';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,6 +24,19 @@ export async function POST(request: NextRequest) {
       } else {
         envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_ENABLED=false\n';
       }
+
+      // Set setup completed flag
+      const setupCompletedRegex = /^AUTH_SETUP_COMPLETED=.*$/m;
+      if (setupCompletedRegex.test(envContent)) {
+        envContent = envContent.replace(setupCompletedRegex, 'AUTH_SETUP_COMPLETED=true');
+      } else {
+        envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_SETUP_COMPLETED=true\n';
+      }
+
+      // Clean up any empty AUTH_USERNAME or AUTH_PASSWORD_HASH lines
+      envContent = envContent.replace(/^AUTH_USERNAME=\s*$/m, '');
+      envContent = envContent.replace(/^AUTH_PASSWORD_HASH=\s*$/m, '');
+      envContent = envContent.replace(/\n\n+/g, '\n');
 
       fs.writeFileSync(envPath, envContent);
 
@@ -65,6 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     await updateAuthCredentials(username, password, enabled ?? true);
+    setSetupCompleted();
 
     return NextResponse.json({ 
       success: true, 

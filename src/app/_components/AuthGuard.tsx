@@ -13,6 +13,7 @@ interface AuthConfig {
   username: string | null;
   enabled: boolean;
   hasCredentials: boolean;
+  setupCompleted: boolean;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
@@ -57,8 +58,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Show setup modal if no credentials exist and auth is not enabled
-  if (authConfig && !authConfig.hasCredentials && !authConfig.enabled && !setupCompleted) {
+  // Show setup modal if setup has not been completed yet
+  if (authConfig && !authConfig.setupCompleted && !setupCompleted) {
     return <SetupModal isOpen={true} onComplete={handleSetupComplete} />;
   }
 

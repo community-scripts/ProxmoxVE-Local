@@ -80,6 +80,7 @@ export function getAuthConfig(): {
   passwordHash: string | null;
   enabled: boolean;
   hasCredentials: boolean;
+  setupCompleted: boolean;
 } {
   const envPath = path.join(process.cwd(), '.env');
   
@@ -89,6 +90,7 @@ export function getAuthConfig(): {
       passwordHash: null,
       enabled: false,
       hasCredentials: false,
+      setupCompleted: false,
     };
   }
 
@@ -109,6 +111,11 @@ export function getAuthConfig(): {
   const enabledMatch = enabledRegex.exec(envContent);
   const enabled = enabledMatch ? enabledMatch[1]?.trim().toLowerCase() === 'true' : false;
   
+  // Extract AUTH_SETUP_COMPLETED
+  const setupCompletedRegex = /^AUTH_SETUP_COMPLETED=(.*)$/m;
+  const setupCompletedMatch = setupCompletedRegex.exec(envContent);
+  const setupCompleted = setupCompletedMatch ? setupCompletedMatch[1]?.trim().toLowerCase() === 'true' : false;
+  
   const hasCredentials = !!(username && passwordHash);
   
   return {
@@ -116,6 +123,7 @@ export function getAuthConfig(): {
     passwordHash: passwordHash ?? null,
     enabled,
     hasCredentials,
+    setupCompleted,
   };
 }
 
@@ -164,6 +172,30 @@ export async function updateAuthCredentials(
     } else {
       envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_ENABLED=${enabled}\n`;
     }
+  }
+
+  // Write back to .env file
+  fs.writeFileSync(envPath, envContent);
+}
+
+/**
+ * Set AUTH_SETUP_COMPLETED flag in .env
+ */
+export function setSetupCompleted(): void {
+  const envPath = path.join(process.cwd(), '.env');
+  
+  // Read existing .env file
+  let envContent = '';
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+  }
+
+  // Update or add AUTH_SETUP_COMPLETED
+  const setupCompletedRegex = /^AUTH_SETUP_COMPLETED=.*$/m;
+  if (setupCompletedRegex.test(envContent)) {
+    envContent = envContent.replace(setupCompletedRegex, 'AUTH_SETUP_COMPLETED=true');
+  } else {
+    envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_SETUP_COMPLETED=true\n';
   }
 
   // Write back to .env file
