@@ -16,10 +16,57 @@ class DatabaseService {
         name TEXT NOT NULL UNIQUE,
         ip TEXT NOT NULL,
         user TEXT NOT NULL,
-        password TEXT NOT NULL,
+        password TEXT,
+        auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key', 'both')),
+        ssh_key TEXT,
+        ssh_key_passphrase TEXT,
+        ssh_port INTEGER DEFAULT 22,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Migration: Add new columns to existing servers table
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key', 'both'))
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN ssh_key TEXT
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN ssh_key_passphrase TEXT
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN ssh_port INTEGER DEFAULT 22
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    // Update existing servers to have auth_type='password' if not set
+    this.db.exec(`
+      UPDATE servers SET auth_type = 'password' WHERE auth_type IS NULL
+    `);
+
+    // Update existing servers to have ssh_port=22 if not set
+    this.db.exec(`
+      UPDATE servers SET ssh_port = 22 WHERE ssh_port IS NULL
     `);
 
     // Create installed_scripts table if it doesn't exist
@@ -53,12 +100,12 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   createServer(serverData) {
-    const { name, ip, user, password } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port } = serverData;
     const stmt = this.db.prepare(`
-      INSERT INTO servers (name, ip, user, password) 
-      VALUES (?, ?, ?, ?)
+      INSERT INTO servers (name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(name, ip, user, password);
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22);
   }
 
   getAllServers() {
@@ -79,13 +126,13 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   updateServer(id, serverData) {
-    const { name, ip, user, password } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port } = serverData;
     const stmt = this.db.prepare(`
       UPDATE servers 
-      SET name = ?, ip = ?, user = ?, password = ?
+      SET name = ?, ip = ?, user = ?, password = ?, auth_type = ?, ssh_key = ?, ssh_key_passphrase = ?, ssh_port = ?
       WHERE id = ?
     `);
-    return stmt.run(name, ip, user, password, id);
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, id);
   }
 
   /**

@@ -704,7 +704,7 @@ main() {
     if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
     else
-        # Try multiple common locations
+        # Try multiple common locations:
         for search_path in /opt /root /home /usr/local; do
             if [ -d "$search_path" ]; then
                 app_dir=$(find "$search_path" -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
