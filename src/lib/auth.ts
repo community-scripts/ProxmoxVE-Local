@@ -7,10 +7,18 @@ import path from 'path';
 const SALT_ROUNDS = 10;
 const JWT_EXPIRY = '7d'; // 7 days
 
+// Cache for JWT secret to avoid multiple file reads
+let jwtSecretCache: string | null = null;
+
 /**
  * Get or generate JWT secret
  */
 export function getJwtSecret(): string {
+  // Return cached secret if available
+  if (jwtSecretCache) {
+    return jwtSecretCache;
+  }
+
   const envPath = path.join(process.cwd(), '.env');
   
   // Read existing .env file
@@ -23,8 +31,9 @@ export function getJwtSecret(): string {
   const jwtSecretRegex = /^JWT_SECRET=(.*)$/m;
   const jwtSecretMatch = jwtSecretRegex.exec(envContent);
   
-  if (jwtSecretMatch?.[1]) {
-    return jwtSecretMatch[1];
+  if (jwtSecretMatch?.[1] && jwtSecretMatch[1].trim()) {
+    jwtSecretCache = jwtSecretMatch[1].trim();
+    return jwtSecretCache;
   }
 
   // Generate new secret
@@ -33,6 +42,9 @@ export function getJwtSecret(): string {
   // Add to .env file
   envContent += (envContent.endsWith('\n') ? '' : '\n') + `JWT_SECRET=${newSecret}\n`;
   fs.writeFileSync(envPath, envContent);
+  
+  // Cache the new secret
+  jwtSecretCache = newSecret;
   
   return newSecret;
 }
