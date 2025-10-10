@@ -109,7 +109,7 @@ export function getAuthConfig(): {
   const enabledMatch = enabledRegex.exec(envContent);
   const enabled = enabledMatch ? enabledMatch[1]?.trim().toLowerCase() === 'true' : false;
   
-  const hasCredentials = !!(username && (passwordHash || !enabled));
+  const hasCredentials = !!(username && passwordHash);
   
   return {
     username: username ?? null,

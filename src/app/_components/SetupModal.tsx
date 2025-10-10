@@ -38,7 +38,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          username, 
+          username: enableAuth ? username : undefined, 
           password: enableAuth ? password : undefined, 
           enabled: enableAuth 
         }),
@@ -84,17 +84,17 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="setup-username"
-                  type="text"
-                  placeholder="Choose a username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={isLoading}
-                  className="pl-10"
-                  required
-                  minLength={3}
-                />
+                        <Input
+                          id="setup-username"
+                          type="text"
+                          placeholder="Choose a username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          disabled={isLoading}
+                          className="pl-10"
+                          required={enableAuth}
+                          minLength={3}
+                        />
               </div>
             </div>
 
@@ -169,8 +169,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
               type="submit"
               disabled={
                 isLoading || 
-                !username.trim() || 
-                (enableAuth && (!password.trim() || !confirmPassword.trim()))
+                (enableAuth && (!username.trim() || !password.trim() || !confirmPassword.trim()))
               }
               className="w-full"
             >

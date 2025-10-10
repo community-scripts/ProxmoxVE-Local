@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getAuthConfig, updateAuthCredentials, updateAuthEnabled } from '~/lib/auth';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET() {
   try {
@@ -71,7 +73,34 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    updateAuthEnabled(enabled);
+    if (enabled) {
+      // When enabling, just update the flag
+      updateAuthEnabled(enabled);
+    } else {
+      // When disabling, clear all credentials and set flag to false
+      const envPath = path.join(process.cwd(), '.env');
+      let envContent = '';
+      if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, 'utf8');
+      }
+
+      // Remove AUTH_USERNAME and AUTH_PASSWORD_HASH
+      envContent = envContent.replace(/^AUTH_USERNAME=.*$/m, '');
+      envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, '');
+      
+      // Update or add AUTH_ENABLED
+      const enabledRegex = /^AUTH_ENABLED=.*$/m;
+      if (enabledRegex.test(envContent)) {
+        envContent = envContent.replace(enabledRegex, 'AUTH_ENABLED=false');
+      } else {
+        envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_ENABLED=false\n';
+      }
+
+      // Clean up empty lines
+      envContent = envContent.replace(/\n\n+/g, '\n');
+      
+      fs.writeFileSync(envPath, envContent);
+    }
 
     return NextResponse.json({ 
       success: true, 
