@@ -266,6 +266,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       return;
     }
 
+    console.log('Creating new WebSocket connection...');
+
     // Close any existing connection first
     if (wsRef.current) {
       wsRef.current.close();
@@ -343,7 +345,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, mode, server, isUpdate, containerId, isMobile, isRunning]);
+  }, [scriptPath, mode, server, isUpdate, containerId, isMobile]);
 
   const startScript = () => {
     console.log('startScript called, isRunning:', isRunning, 'wsReadyState:', wsRef.current?.readyState);
