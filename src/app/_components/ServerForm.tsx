@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { CreateServerData } from '../../types/server';
 import { Button } from './ui/button';
 import { SSHKeyInput } from './SSHKeyInput';
@@ -23,11 +23,28 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       ssh_key: '',
       ssh_key_passphrase: '',
       ssh_port: 22,
+      color: '#3b82f6',
     }
   );
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateServerData, string>>>({});
   const [sshKeyError, setSshKeyError] = useState<string>('');
+  const [colorCodingEnabled, setColorCodingEnabled] = useState(false);
+
+  useEffect(() => {
+    const loadColorCodingSetting = async () => {
+      try {
+        const response = await fetch('/api/settings/color-coding');
+        if (response.ok) {
+          const data = await response.json();
+          setColorCodingEnabled(Boolean(data.enabled));
+        }
+      } catch (error) {
+        console.error('Error loading color coding setting:', error);
+      }
+    };
+    void loadColorCodingSetting();
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateServerData, string>> = {};
@@ -95,7 +112,8 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           auth_type: 'password',
           ssh_key: '',
           ssh_key_passphrase: '',
-          ssh_port: 22
+          ssh_port: 22,
+          color: '#3b82f6'
         });
       }
     }
@@ -206,6 +224,26 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
             <option value="both">Both Password & SSH Key</option>
           </select>
         </div>
+
+        {colorCodingEnabled && (
+          <div>
+            <label htmlFor="color" className="block text-sm font-medium text-muted-foreground mb-1">
+              Server Color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                id="color"
+                value={formData.color ?? '#3b82f6'}
+                onChange={handleChange('color')}
+                className="w-20 h-10 rounded cursor-pointer border border-border"
+              />
+              <span className="text-sm text-muted-foreground">
+                Choose a color to identify this server
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Password Authentication */}

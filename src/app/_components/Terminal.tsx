@@ -27,14 +27,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [mobileInput, setMobileInput] = useState('');
   const [showMobileInput, setShowMobileInput] = useState(false);
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
-  const [inWhiptailSession, setInWhiptailSession] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const [executionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [executionId, setExecutionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const isConnectingRef = useRef<boolean>(false);
   const hasConnectedRef = useRef<boolean>(false);
 
@@ -53,22 +52,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
-        // Detect whiptail sessions and clear immediately
-        if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
-          setInWhiptailSession(true);
-          // Clear terminal immediately when whiptail starts
-          xtermRef.current.clear();
-          xtermRef.current.write('\x1b[2J\x1b[H');
-        }
-        
-        // Check for screen clearing sequences and handle them properly
-        if (message.data.includes('\x1b[2J') || message.data.includes('\x1b[H\x1b[2J')) {
-          // This is a clear screen sequence, ensure it's processed correctly
-          xtermRef.current.write(message.data);
-        } else {
-          // Let xterm handle all ANSI sequences naturally
-          xtermRef.current.write(message.data);
-        }
+        xtermRef.current.write(message.data);
         break;
       case 'error':
         // Check if this looks like ANSI terminal output (contains escape codes)
@@ -87,8 +71,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         }
         break;
       case 'end':
-        // Reset whiptail session
-        setInWhiptailSession(false);
+        setIsRunning(false);
         
         // Check if this is an LXC creation script
         const isLxcCreation = scriptPath.includes('ct/') || 
@@ -107,7 +90,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         } else {
           xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
         }
-        setIsRunning(false);
         break;
     }
   }, [scriptPath, containerId, scriptName]);
@@ -265,7 +247,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         fitAddonRef.current = null;
       }
     };
-  }, [executionId, isClient, inWhiptailSession, isMobile]);
+  }, [isClient, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
@@ -298,10 +280,14 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         
         // Only auto-start on initial connection, not on reconnections
         if (isInitialConnection && !isRunning) {
+          // Generate a new execution ID for the initial run
+          const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          setExecutionId(newExecutionId);
+          
           const message = {
             action: 'start',
             scriptPath,
-            executionId,
+            executionId: newExecutionId,
             mode,
             server,
             isUpdate,
@@ -345,15 +331,19 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, executionId, mode, server, isUpdate, containerId, handleMessage, isMobile, isRunning]);
+  }, [scriptPath, mode, server, isUpdate, containerId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
+      // Generate a new execution ID for each script run
+      const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setExecutionId(newExecutionId);
+      
       setIsStopped(false);
       wsRef.current.send(JSON.stringify({
         action: 'start',
         scriptPath,
-        executionId,
+        executionId: newExecutionId,
         mode,
         server,
         isUpdate,

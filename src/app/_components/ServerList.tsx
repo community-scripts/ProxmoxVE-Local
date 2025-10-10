@@ -85,7 +85,11 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
   return (
     <div className="space-y-4">
       {servers.map((server) => (
-        <div key={server.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+        <div 
+          key={server.id} 
+          className="bg-card border border-border rounded-lg p-4 shadow-sm"
+          style={{ borderLeft: `4px solid ${server.color ?? 'transparent'}` }}
+        >
           {editingId === server.id ? (
             <div>
               <h4 className="text-lg font-medium text-foreground mb-4">Edit Server</h4>
@@ -95,6 +99,11 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                   ip: server.ip,
                   user: server.user,
                   password: server.password,
+                  auth_type: server.auth_type,
+                  ssh_key: server.ssh_key,
+                  ssh_key_passphrase: server.ssh_key_passphrase,
+                  ssh_port: server.ssh_port,
+                  color: server.color,
                 }}
                 onSubmit={handleUpdate}
                 isEditing={true}
