@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import type { Server } from '../../types/server';
 import { Button } from './ui/button';
-
 import { ColorCodedDropdown } from './ColorCodedDropdown';
+import { SettingsModal } from './SettingsModal';
 
 
 interface ExecutionModeModalProps {
@@ -18,9 +18,6 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [selectedMode, setSelectedMode] = useState<'local' | 'ssh'>('ssh');
-
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [hasAutoExecuted, setHasAutoExecuted] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -78,13 +75,6 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
 
   const handleServerSelect = (server: Server | null) => {
     setSelectedServer(server);
-  };
-
-  const handleModeChange = (mode: 'local' | 'ssh') => {
-    setSelectedMode(mode);
-    if (mode === 'local') {
-      setSelectedServer(null);
-    }
   };
 
 

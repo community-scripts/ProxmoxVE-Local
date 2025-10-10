@@ -247,7 +247,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         fitAddonRef.current = null;
       }
     };
-  }, [isClient, isMobile]);
+  }, [isClient, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
@@ -331,7 +331,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, mode, server, isUpdate, containerId, isMobile]);
+  }, [scriptPath, mode, server, isUpdate, containerId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
