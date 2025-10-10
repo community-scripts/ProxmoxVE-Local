@@ -34,6 +34,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       void loadGithubToken();
       void loadSaveFilter();
       void loadSavedFilters();
+      void loadAuthCredentials();
     }
   }, [isOpen]);
 
