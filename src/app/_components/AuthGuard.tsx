@@ -22,29 +22,29 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [configLoading, setConfigLoading] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(false);
 
-  useEffect(() => {
-    const fetchAuthConfig = async () => {
-      try {
-        const response = await fetch('/api/settings/auth-credentials');
-        if (response.ok) {
-          const config = await response.json() as AuthConfig;
-          setAuthConfig(config);
-        }
-      } catch (error) {
-        console.error('Error fetching auth config:', error);
-      } finally {
-        setConfigLoading(false);
-      }
-    };
+  const handleSetupComplete = async () => {
+    setSetupCompleted(true);
+    // Refresh auth config without reloading the page
+    await fetchAuthConfig();
+  };
 
+  const fetchAuthConfig = async () => {
+    try {
+      const response = await fetch('/api/settings/auth-credentials');
+      if (response.ok) {
+        const config = await response.json() as AuthConfig;
+        setAuthConfig(config);
+      }
+    } catch (error) {
+      console.error('Error fetching auth config:', error);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  useEffect(() => {
     void fetchAuthConfig();
   }, []);
-
-  const handleSetupComplete = () => {
-    setSetupCompleted(true);
-    // Refresh auth config
-    window.location.reload();
-  };
 
   // Show loading while checking auth status
   if (isLoading || configLoading) {

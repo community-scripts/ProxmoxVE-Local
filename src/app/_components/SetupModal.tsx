@@ -45,7 +45,28 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
       });
 
       if (response.ok) {
-        onComplete();
+        // If authentication is enabled, automatically log in the user
+        if (enableAuth) {
+          const loginResponse = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+          });
+
+          if (loginResponse.ok) {
+            // Login successful, complete setup
+            onComplete();
+          } else {
+            // Setup succeeded but login failed, still complete setup
+            console.warn('Setup completed but auto-login failed');
+            onComplete();
+          }
+        } else {
+          // Authentication disabled, just complete setup
+          onComplete();
+        }
       } else {
         const errorData = await response.json() as { error: string };
         setError(errorData.error ?? 'Failed to setup authentication');
