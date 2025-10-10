@@ -300,7 +300,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data as string) as TerminalMessage;
-          console.log('WebSocket message received:', message);
           handleMessage(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);

@@ -268,7 +268,6 @@ export const installedScriptsRouter = createTRPCRouter({
             server as any,
             command,
             (data: string) => {
-              console.log('Command output chunk:', data);
               commandOutput += data;
             },
             (error: string) => {
@@ -276,7 +275,6 @@ export const installedScriptsRouter = createTRPCRouter({
             },
             (exitCode: number) => {
               console.log('Command exit code:', exitCode);
-              console.log('Full command output:', commandOutput);
               
               // Parse the complete output to get config file paths that contain community-script tag
               const configFiles = commandOutput.split('\n')
@@ -306,8 +304,6 @@ export const installedScriptsRouter = createTRPCRouter({
                       server as any,
                       readCommand,
                       (configData: string) => {
-                        console.log('Config data for', containerId, ':', configData.substring(0, 300) + '...');
-                        
                         // Parse config file for hostname
                         const lines = configData.split('\n');
                         let hostname = '';
@@ -316,7 +312,6 @@ export const installedScriptsRouter = createTRPCRouter({
                           const trimmedLine = line.trim();
                           if (trimmedLine.startsWith('hostname:')) {
                             hostname = trimmedLine.substring(9).trim();
-                            console.log('Found hostname for', containerId, ':', hostname);
                             break;
                           }
                         }
@@ -368,7 +363,6 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Get existing scripts to check for duplicates
         const existingScripts = db.getAllInstalledScripts();
-        console.log('Existing scripts in database:', existingScripts.length);
 
         // Create installed script records for detected containers (skip duplicates)
         const createdScripts = [];
@@ -504,7 +498,6 @@ export const installedScriptsRouter = createTRPCRouter({
                 server as any,
                 checkCommand,
                 (data: string) => {
-                  console.log(`Container check result for ${scriptData.script_name}:`, data.trim());
                   resolve(data.trim() === 'exists');
                 },
                 (error: string) => {
