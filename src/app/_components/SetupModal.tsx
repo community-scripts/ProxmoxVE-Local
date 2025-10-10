@@ -24,7 +24,8 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
     setIsLoading(true);
     setError(null);
 
-    if (password !== confirmPassword) {
+    // Only validate passwords if authentication is enabled
+    if (enableAuth && password !== confirmPassword) {
       setError('Passwords do not match');
       setIsLoading(false);
       return;
@@ -36,7 +37,11 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password, enabled: enableAuth }),
+        body: JSON.stringify({ 
+          username, 
+          password: enableAuth ? password : undefined, 
+          enabled: enableAuth 
+        }),
       });
 
       if (response.ok) {
@@ -99,17 +104,17 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="setup-password"
-                  type="password"
-                  placeholder="Choose a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className="pl-10"
-                  required
-                  minLength={6}
-                />
+                        <Input
+                          id="setup-password"
+                          type="password"
+                          placeholder="Choose a password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          disabled={isLoading}
+                          className="pl-10"
+                          required={enableAuth}
+                          minLength={6}
+                        />
               </div>
             </div>
 
@@ -119,17 +124,17 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isLoading}
-                  className="pl-10"
-                  required
-                  minLength={6}
-                />
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          placeholder="Confirm your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          disabled={isLoading}
+                          className="pl-10"
+                          required={enableAuth}
+                          minLength={6}
+                        />
               </div>
             </div>
 
@@ -162,7 +167,11 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
 
             <Button
               type="submit"
-              disabled={isLoading || !username.trim() || !password.trim() || !confirmPassword.trim()}
+              disabled={
+                isLoading || 
+                !username.trim() || 
+                (enableAuth && (!password.trim() || !confirmPassword.trim()))
+              }
               className="w-full"
             >
               {isLoading ? 'Setting Up...' : 'Complete Setup'}

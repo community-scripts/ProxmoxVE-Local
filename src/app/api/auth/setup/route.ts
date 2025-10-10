@@ -4,11 +4,11 @@ import { updateAuthCredentials, getAuthConfig } from '~/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password, enabled } = await request.json() as { username: string; password: string; enabled?: boolean };
+    const { username, password, enabled } = await request.json() as { username: string; password?: string; enabled?: boolean };
 
-    if (!username || !password) {
+    if (!username) {
       return NextResponse.json(
-        { error: 'Username and password are required' },
+        { error: 'Username is required' },
         { status: 400 }
       );
     }
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    // Only require password if authentication is enabled
+    if (enabled !== false && (!password || password.length < 6)) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long' },
         { status: 400 }

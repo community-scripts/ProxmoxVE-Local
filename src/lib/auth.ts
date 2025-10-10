@@ -109,7 +109,7 @@ export function getAuthConfig(): {
   const enabledMatch = enabledRegex.exec(envContent);
   const enabled = enabledMatch ? enabledMatch[1]?.trim().toLowerCase() === 'true' : false;
   
-  const hasCredentials = !!(username && passwordHash);
+  const hasCredentials = !!(username && (passwordHash || !enabled));
   
   return {
     username: username ?? null,
@@ -124,7 +124,7 @@ export function getAuthConfig(): {
  */
 export async function updateAuthCredentials(
   username: string,
-  password: string,
+  password?: string,
   enabled?: boolean
 ): Promise<void> {
   const envPath = path.join(process.cwd(), '.env');
@@ -135,8 +135,8 @@ export async function updateAuthCredentials(
     envContent = fs.readFileSync(envPath, 'utf8');
   }
 
-  // Hash the password
-  const passwordHash = await hashPassword(password);
+  // Hash the password if provided
+  const passwordHash = password ? await hashPassword(password) : null;
 
   // Update or add AUTH_USERNAME
   const usernameRegex = /^AUTH_USERNAME=.*$/m;
@@ -146,12 +146,14 @@ export async function updateAuthCredentials(
     envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_USERNAME=${username}\n`;
   }
 
-  // Update or add AUTH_PASSWORD_HASH
-  const passwordHashRegex = /^AUTH_PASSWORD_HASH=.*$/m;
-  if (passwordHashRegex.test(envContent)) {
-    envContent = envContent.replace(passwordHashRegex, `AUTH_PASSWORD_HASH=${passwordHash}`);
-  } else {
-    envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_PASSWORD_HASH=${passwordHash}\n`;
+  // Update or add AUTH_PASSWORD_HASH only if password is provided
+  if (passwordHash) {
+    const passwordHashRegex = /^AUTH_PASSWORD_HASH=.*$/m;
+    if (passwordHashRegex.test(envContent)) {
+      envContent = envContent.replace(passwordHashRegex, `AUTH_PASSWORD_HASH=${passwordHash}`);
+    } else {
+      envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_PASSWORD_HASH=${passwordHash}\n`;
+    }
   }
 
   // Update or add AUTH_ENABLED if provided
