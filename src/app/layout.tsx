@@ -1,6 +1,6 @@
 import "~/styles/globals.css";
 
-import { type Metadata } from "next";
+import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
@@ -8,12 +8,17 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
   title: "PVE Scripts local",
   description: "Manage and execute Proxmox helper scripts locally with live output streaming",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   icons: [
     { rel: "icon", url: "/favicon.png", type: "image/png" },
     { rel: "icon", url: "/favicon.ico", sizes: "any" },
     { rel: "apple-touch-icon", url: "/favicon.png" },
   ],
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 const geist = Geist({
