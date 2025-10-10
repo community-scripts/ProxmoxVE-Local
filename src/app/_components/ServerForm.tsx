@@ -26,11 +26,11 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     }
   );
 
-  const [errors, setErrors] = useState<Partial<CreateServerData>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof CreateServerData, string>>>({});
   const [sshKeyError, setSshKeyError] = useState<string>('');
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<CreateServerData> = {};
+    const newErrors: Partial<Record<keyof CreateServerData, string>> = {};
 
     if (!formData.name.trim()) {
       newErrors.name = 'Server name is required';
@@ -56,7 +56,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     }
 
     // Validate authentication based on auth_type
-    const authType = formData.auth_type || 'password';
+    const authType = formData.auth_type ?? 'password';
     
     if (authType === 'password' || authType === 'both') {
       if (!formData.password?.trim()) {
@@ -179,7 +179,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           <input
             type="number"
             id="ssh_port"
-            value={formData.ssh_port || 22}
+            value={formData.ssh_port ?? 22}
             onChange={handleChange('ssh_port')}
             className={`w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ${
               errors.ssh_port ? 'border-destructive' : 'border-border'
@@ -197,7 +197,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           </label>
           <select
             id="auth_type"
-            value={formData.auth_type || 'password'}
+            value={formData.auth_type ?? 'password'}
             onChange={handleChange('auth_type')}
             className="w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring border-border"
           >
@@ -217,7 +217,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           <input
             type="password"
             id="password"
-            value={formData.password || ''}
+            value={formData.password ?? ''}
             onChange={handleChange('password')}
             className={`w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ${
               errors.password ? 'border-destructive' : 'border-border'
@@ -236,7 +236,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
               SSH Private Key {formData.auth_type === 'both' ? '(Optional)' : '*'}
             </label>
             <SSHKeyInput
-              value={formData.ssh_key || ''}
+              value={formData.ssh_key ?? ''}
               onChange={handleSSHKeyChange}
               onError={setSshKeyError}
             />
@@ -251,7 +251,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
             <input
               type="password"
               id="ssh_key_passphrase"
-              value={formData.ssh_key_passphrase || ''}
+              value={formData.ssh_key_passphrase ?? ''}
               onChange={handleChange('ssh_key_passphrase')}
               className="w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring border-border"
               placeholder="Enter passphrase for encrypted key"

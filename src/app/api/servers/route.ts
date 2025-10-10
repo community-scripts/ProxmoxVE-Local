@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate authentication based on auth_type
-    const authType = auth_type || 'password';
+    const authType = auth_type ?? 'password';
     
     if (authType === 'password' || authType === 'both') {
       if (!password?.trim()) {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       auth_type: authType,
       ssh_key,
       ssh_key_passphrase,
-      ssh_port: ssh_port || 22
+      ssh_port: ssh_port ?? 22
     });
     
     return NextResponse.json(

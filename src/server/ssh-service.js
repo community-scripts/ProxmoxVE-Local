@@ -71,6 +71,10 @@ class SSHService {
   async testWithSshpass(server) {
     const { ip, user, password, ssh_port = 22 } = server;
     
+    if (!password) {
+      throw new Error('Password is required for password authentication');
+    }
+    
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;

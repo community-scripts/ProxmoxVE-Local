@@ -9,8 +9,12 @@ import { tmpdir } from 'os';
  * @typedef {Object} Server
  * @property {string} ip - Server IP address
  * @property {string} user - Username
- * @property {string} password - Password
+ * @property {string} [password] - Password (optional)
  * @property {string} name - Server name
+ * @property {string} [auth_type] - Authentication type ('password', 'key', 'both')
+ * @property {string} [ssh_key] - SSH private key content
+ * @property {string} [ssh_key_passphrase] - SSH key passphrase
+ * @property {number} [ssh_port] - SSH port (default: 22)
  */
 
 class SSHExecutionService {
@@ -37,8 +41,8 @@ class SSHExecutionService {
   /**
    * Build SSH command arguments based on authentication type
    * @param {Server} server - Server configuration
-   * @param {string} tempKeyPath - Path to temporary key file (if using key auth)
-   * @returns {Object} Command and arguments for SSH
+   * @param {string|null} [tempKeyPath=null] - Path to temporary key file (if using key auth)
+   * @returns {{command: string, args: string[]}} Command and arguments for SSH
    */
   buildSSHCommand(server, tempKeyPath = null) {
     const { ip, user, password, auth_type = 'password', ssh_key_passphrase, ssh_port = 22 } = server;
@@ -63,9 +67,11 @@ class SSHExecutionService {
 
     if (auth_type === 'key') {
       // SSH key authentication
-      baseArgs.push('-i', tempKeyPath);
-      baseArgs.push('-o', 'PasswordAuthentication=no');
-      baseArgs.push('-o', 'PubkeyAuthentication=yes');
+      if (tempKeyPath) {
+        baseArgs.push('-i', tempKeyPath);
+        baseArgs.push('-o', 'PasswordAuthentication=no');
+        baseArgs.push('-o', 'PubkeyAuthentication=yes');
+      }
       
       if (ssh_key_passphrase) {
         return {
@@ -98,17 +104,25 @@ class SSHExecutionService {
         }
       } else {
         // Fallback to password
+        if (password) {
+          return {
+            command: 'sshpass',
+            args: ['-p', password, 'ssh', ...baseArgs, '-o', 'PasswordAuthentication=yes', '-o', 'PubkeyAuthentication=no', `${user}@${ip}`]
+          };
+        } else {
+          throw new Error('Password is required for password authentication');
+        }
+      }
+    } else {
+      // Password authentication (default)
+      if (password) {
         return {
           command: 'sshpass',
           args: ['-p', password, 'ssh', ...baseArgs, '-o', 'PasswordAuthentication=yes', '-o', 'PubkeyAuthentication=no', `${user}@${ip}`]
         };
+      } else {
+        throw new Error('Password is required for password authentication');
       }
-    } else {
-      // Password authentication (default)
-      return {
-        command: 'sshpass',
-        args: ['-p', password, 'ssh', ...baseArgs, '-o', 'PasswordAuthentication=yes', '-o', 'PubkeyAuthentication=no', `${user}@${ip}`]
-      };
     }
   }
 
@@ -122,6 +136,7 @@ class SSHExecutionService {
    * @returns {Promise<Object>} Process information
    */
   async executeScript(server, scriptPath, onData, onError, onExit) {
+    /** @type {string|null} */
     let tempKeyPath = null;
     
     try {
@@ -219,6 +234,7 @@ class SSHExecutionService {
    */
   async transferScriptsFolder(server, onData, onError) {
     const { ip, user, password, auth_type = 'password', ssh_key, ssh_key_passphrase, ssh_port = 22 } = server;
+    /** @type {string|null} */
     let tempKeyPath = null;
     
     return new Promise((resolve, reject) => {
@@ -332,6 +348,7 @@ class SSHExecutionService {
    * @returns {Promise<Object>} Process information
    */
   async executeCommand(server, command, onData, onError, onExit) {
+    /** @type {string|null} */
     let tempKeyPath = null;
     
     return new Promise((resolve, reject) => {
