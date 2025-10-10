@@ -11,13 +11,21 @@ interface GeneralSettingsModalProps {
 }
 
 export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'github'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth'>('general');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Auth state
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
+  const [authEnabled, setAuthEnabled] = useState(false);
+  const [authHasCredentials, setAuthHasCredentials] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Load existing settings when modal opens
   useEffect(() => {
@@ -135,6 +143,91 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       setMessage({ type: 'error', text: 'Failed to save token' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const loadAuthCredentials = async () => {
+    setAuthLoading(true);
+    try {
+      const response = await fetch('/api/settings/auth-credentials');
+      if (response.ok) {
+        const data = await response.json() as { username: string; enabled: boolean; hasCredentials: boolean };
+        setAuthUsername(data.username ?? '');
+        setAuthEnabled(data.enabled ?? false);
+        setAuthHasCredentials(data.hasCredentials ?? false);
+      }
+    } catch (error) {
+      console.error('Error loading auth credentials:', error);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const saveAuthCredentials = async () => {
+    if (authPassword !== authConfirmPassword) {
+      setMessage({ type: 'error', text: 'Passwords do not match' });
+      return;
+    }
+
+    setAuthLoading(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch('/api/settings/auth-credentials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          username: authUsername, 
+          password: authPassword,
+          enabled: authEnabled 
+        }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Authentication credentials updated successfully!' });
+        setAuthPassword('');
+        setAuthConfirmPassword('');
+        void loadAuthCredentials();
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to save credentials' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save credentials' });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const toggleAuthEnabled = async (enabled: boolean) => {
+    setAuthLoading(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch('/api/settings/auth-credentials', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (response.ok) {
+        setAuthEnabled(enabled);
+        setMessage({ 
+          type: 'success', 
+          text: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully!` 
+        });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to update auth status' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to update auth status' });
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -293,6 +386,132 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                           variant="outline"
                         >
                           {isLoading ? 'Loading...' : 'Refresh'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'auth' && (
+            <div className="space-y-4 sm:space-y-6">
+              <div>
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Authentication Settings</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  Configure authentication to secure access to your application.
+                </p>
+                <div className="space-y-4">
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Authentication Status</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {authHasCredentials 
+                        ? `Authentication is ${authEnabled ? 'enabled' : 'disabled'}. Current username: ${authUsername}`
+                        : 'Authentication is not configured yet.'
+                      }
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Enable Authentication</p>
+                          <p className="text-xs text-muted-foreground">
+                            {authEnabled 
+                              ? 'Authentication is required on every page load'
+                              : 'Authentication is optional'
+                            }
+                          </p>
+                        </div>
+                        <Toggle
+                          checked={authEnabled}
+                          onCheckedChange={toggleAuthEnabled}
+                          disabled={authLoading || !authHasCredentials}
+                          label="Enable authentication"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Update Credentials</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Change your username and password for authentication.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="auth-username" className="block text-sm font-medium text-foreground mb-1">
+                          Username
+                        </label>
+                        <Input
+                          id="auth-username"
+                          type="text"
+                          placeholder="Enter username"
+                          value={authUsername}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthUsername(e.target.value)}
+                          disabled={authLoading}
+                          className="w-full"
+                          minLength={3}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="auth-password" className="block text-sm font-medium text-foreground mb-1">
+                          New Password
+                        </label>
+                        <Input
+                          id="auth-password"
+                          type="password"
+                          placeholder="Enter new password"
+                          value={authPassword}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthPassword(e.target.value)}
+                          disabled={authLoading}
+                          className="w-full"
+                          minLength={6}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="auth-confirm-password" className="block text-sm font-medium text-foreground mb-1">
+                          Confirm Password
+                        </label>
+                        <Input
+                          id="auth-confirm-password"
+                          type="password"
+                          placeholder="Confirm new password"
+                          value={authConfirmPassword}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthConfirmPassword(e.target.value)}
+                          disabled={authLoading}
+                          className="w-full"
+                          minLength={6}
+                        />
+                      </div>
+                      
+                      {message && (
+                        <div className={`p-3 rounded-md text-sm ${
+                          message.type === 'success' 
+                            ? 'bg-green-50 text-green-800 border border-green-200' 
+                            : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={saveAuthCredentials}
+                          disabled={authLoading || !authUsername.trim() || !authPassword.trim() || !authConfirmPassword.trim()}
+                          className="flex-1"
+                        >
+                          {authLoading ? 'Saving...' : 'Update Credentials'}
+                        </Button>
+                        <Button
+                          onClick={loadAuthCredentials}
+                          disabled={authLoading}
+                          variant="outline"
+                        >
+                          {authLoading ? 'Loading...' : 'Refresh'}
                         </Button>
                       </div>
                     </div>
