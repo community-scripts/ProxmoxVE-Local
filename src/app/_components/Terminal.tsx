@@ -34,7 +34,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const [executionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [executionId, setExecutionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const isConnectingRef = useRef<boolean>(false);
   const hasConnectedRef = useRef<boolean>(false);
 
@@ -350,11 +350,15 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
+      // Generate a new execution ID for each script run
+      const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setExecutionId(newExecutionId);
+      
       setIsStopped(false);
       wsRef.current.send(JSON.stringify({
         action: 'start',
         scriptPath,
-        executionId,
+        executionId: newExecutionId,
         mode,
         server,
         isUpdate,
