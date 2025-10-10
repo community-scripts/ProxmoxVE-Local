@@ -24,6 +24,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = async () => {
     try {
+      // First check if setup is completed
+      const setupResponse = await fetch('/api/settings/auth-credentials');
+      if (setupResponse.ok) {
+        const setupData = await setupResponse.json() as { setupCompleted: boolean; enabled: boolean };
+        
+        // If setup is not completed or auth is disabled, don't verify
+        if (!setupData.setupCompleted || !setupData.enabled) {
+          setIsAuthenticated(false);
+          setUsername(null);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Only verify authentication if setup is completed and auth is enabled
       const response = await fetch('/api/auth/verify');
       if (response.ok) {
         const data = await response.json() as { username: string };
