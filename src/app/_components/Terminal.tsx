@@ -250,7 +250,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           window.removeEventListener('resize', (terminalElement as any).resizeHandler as (this: Window, ev: UIEvent) => any);
         }
         if (terminalElement && (terminalElement as any).focusHandler) {
-          terminalElement.removeEventListener('click', (terminalElement as any).focusHandler);
+          terminalElement.removeEventListener('click', (terminalElement as any).focusHandler as (this: HTMLDivElement, ev: PointerEvent) => any);
         }
         if (xtermRef.current) {
           xtermRef.current.dispose();
@@ -259,7 +259,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           setIsTerminalReady(false);
         }
       };
-  }, [isClient, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isClient, isMobile]);
 
   // Handle terminal input with current executionId
   useEffect(() => {
