@@ -16,7 +16,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState<'local' | 'ssh'>('local');
+  const [selectedMode, setSelectedMode] = useState<'local' | 'ssh'>('ssh');
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
 
   useEffect(() => {

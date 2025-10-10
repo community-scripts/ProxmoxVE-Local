@@ -250,23 +250,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   }, [isClient, isMobile]);
 
   useEffect(() => {
-    console.log('WebSocket useEffect triggered with dependencies:', {
-      scriptPath,
-      mode,
-      server: server?.name,
-      isUpdate,
-      containerId,
-      isMobile,
-      isRunning
-    });
-    
     // Prevent multiple connections in React Strict Mode
     if (hasConnectedRef.current || isConnectingRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) {
-      console.log('Skipping WebSocket connection - already connected or connecting');
       return;
     }
-
-    console.log('Creating new WebSocket connection...');
 
     // Close any existing connection first
     if (wsRef.current) {
@@ -348,12 +335,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   }, [scriptPath, mode, server, isUpdate, containerId, isMobile]);
 
   const startScript = () => {
-    console.log('startScript called, isRunning:', isRunning, 'wsReadyState:', wsRef.current?.readyState);
-    
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
       // Generate a new execution ID for each script run
       const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      console.log('Starting script with new executionId:', newExecutionId);
       setExecutionId(newExecutionId);
       
       setIsStopped(false);
