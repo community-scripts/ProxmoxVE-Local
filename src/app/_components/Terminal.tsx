@@ -29,10 +29,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
+  const [isTerminalReady, setIsTerminalReady] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const inputHandlerRef = useRef<((data: string) => void) | null>(null);
   const [executionId, setExecutionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const isConnectingRef = useRef<boolean>(false);
   const hasConnectedRef = useRef<boolean>(false);
@@ -180,6 +182,20 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         terminal.refresh(0, terminal.rows - 1);
         // Ensure cursor is properly positioned
         terminal.focus();
+        
+        // Force focus on the terminal element
+        terminalElement.focus();
+        terminalElement.click();
+        
+        // Add click handler to ensure terminal stays focused
+        const focusHandler = () => {
+          terminal.focus();
+          terminalElement.focus();
+        };
+        terminalElement.addEventListener('click', focusHandler);
+        
+        // Store the handler for cleanup
+        (terminalElement as any).focusHandler = focusHandler;
       }, 100);
       
       // Fit after a small delay to ensure proper sizing
@@ -213,18 +229,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       // Store references
       xtermRef.current = terminal;
       fitAddonRef.current = fitAddon;
+      
+      // Mark terminal as ready
+      setIsTerminalReady(true);
 
-      // Handle terminal input
-      terminal.onData((data) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const message = {
-            action: 'input',
-            executionId,
-            input: data
-          };
-          wsRef.current.send(JSON.stringify(message));
-        }
-      });
 
       return () => {
         terminal.dispose();
@@ -236,18 +244,51 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       void initTerminal();
     }, 50);
 
-    return () => {
-      clearTimeout(timeoutId);
-      if (terminalElement && (terminalElement as any).resizeHandler) {
-        window.removeEventListener('resize', (terminalElement as any).resizeHandler as (this: Window, ev: UIEvent) => any);
-      }
-      if (xtermRef.current) {
-        xtermRef.current.dispose();
-        xtermRef.current = null;
-        fitAddonRef.current = null;
+      return () => {
+        clearTimeout(timeoutId);
+        if (terminalElement && (terminalElement as any).resizeHandler) {
+          window.removeEventListener('resize', (terminalElement as any).resizeHandler as (this: Window, ev: UIEvent) => any);
+        }
+        if (terminalElement && (terminalElement as any).focusHandler) {
+          terminalElement.removeEventListener('click', (terminalElement as any).focusHandler as (this: HTMLDivElement, ev: PointerEvent) => any);
+        }
+        if (xtermRef.current) {
+          xtermRef.current.dispose();
+          xtermRef.current = null;
+          fitAddonRef.current = null;
+          setIsTerminalReady(false);
+        }
+      };
+  }, [isClient, isMobile]);
+
+  // Handle terminal input with current executionId
+  useEffect(() => {
+    if (!isTerminalReady || !xtermRef.current) {
+      return;
+    }
+
+    const terminal = xtermRef.current;
+    
+    const handleData = (data: string) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const message = {
+          action: 'input',
+          executionId,
+          input: data
+        };
+        wsRef.current.send(JSON.stringify(message));
       }
     };
-  }, [isClient, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Store the handler reference
+    inputHandlerRef.current = handleData;
+    terminal.onData(handleData);
+
+    return () => {
+      // Clear the handler reference
+      inputHandlerRef.current = null;
+    };
+  }, [executionId, isTerminalReady]); // Depend on terminal ready state
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
