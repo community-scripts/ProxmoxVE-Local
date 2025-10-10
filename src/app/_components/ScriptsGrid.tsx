@@ -3,9 +3,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '~/trpc/react';
 import { ScriptCard } from './ScriptCard';
+import { ScriptCardList } from './ScriptCardList';
 import { ScriptDetailModal } from './ScriptDetailModal';
 import { CategorySidebar } from './CategorySidebar';
 import { FilterBar, type FilterState } from './FilterBar';
+import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
 
@@ -19,6 +21,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     showUpdatable: null,
@@ -37,7 +40,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     { enabled: !!selectedSlug }
   );
 
-  // Load SAVE_FILTER setting and saved filters on component mount
+  // Load SAVE_FILTER setting, saved filters, and view mode on component mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -58,6 +61,16 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             if (filtersData.filters) {
               setFilters(filtersData.filters as FilterState);
             }
+          }
+        }
+
+        // Load view mode
+        const viewModeResponse = await fetch('/api/settings/view-mode');
+        if (viewModeResponse.ok) {
+          const viewModeData = await viewModeResponse.json();
+          const viewMode = viewModeData.viewMode;
+          if (viewMode && typeof viewMode === 'string' && (viewMode === 'card' || viewMode === 'list')) {
+            setViewMode(viewMode);
           }
         }
       } catch (error) {
@@ -92,6 +105,29 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     const timeoutId = setTimeout(() => void saveFilters(), 500);
     return () => clearTimeout(timeoutId);
   }, [filters, saveFiltersEnabled, isLoadingFilters]);
+
+  // Save view mode when it changes
+  useEffect(() => {
+    if (isLoadingFilters) return;
+
+    const saveViewMode = async () => {
+      try {
+        await fetch('/api/settings/view-mode', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ viewMode }),
+        });
+      } catch (error) {
+        console.error('Error saving view mode:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(() => void saveViewMode(), 300);
+    return () => clearTimeout(timeoutId);
+  }, [viewMode, isLoadingFilters]);
 
   // Extract categories from metadata
   const categories = React.useMemo((): string[] => {
@@ -399,6 +435,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           isLoadingFilters={isLoadingFilters}
         />
 
+        {/* View Toggle */}
+        <ViewToggle
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
+
         {/* Legacy Search Bar (keeping for backward compatibility, but hidden) */}
         <div className="hidden mb-8">
           <div className="relative max-w-md mx-auto">
@@ -474,25 +516,47 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredScripts.map((script, index) => {
-            // Add validation to ensure script has required properties
-            if (!script || typeof script !== 'object') {
-              return null;
-            }
-            
-            // Create a unique key by combining slug, name, and index to handle duplicates
-            const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
-            
-            return (
-              <ScriptCard
-                key={uniqueKey}
-                script={script}
-                onClick={handleCardClick}
-              />
-            );
-          })}
-          </div>
+          viewMode === 'card' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredScripts.map((script, index) => {
+              // Add validation to ensure script has required properties
+              if (!script || typeof script !== 'object') {
+                return null;
+              }
+              
+              // Create a unique key by combining slug, name, and index to handle duplicates
+              const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+              
+              return (
+                <ScriptCard
+                  key={uniqueKey}
+                  script={script}
+                  onClick={handleCardClick}
+                />
+              );
+            })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredScripts.map((script, index) => {
+              // Add validation to ensure script has required properties
+              if (!script || typeof script !== 'object') {
+                return null;
+              }
+              
+              // Create a unique key by combining slug, name, and index to handle duplicates
+              const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+              
+              return (
+                <ScriptCardList
+                  key={uniqueKey}
+                  script={script}
+                  onClick={handleCardClick}
+                />
+              );
+            })}
+            </div>
+          )
         )}
 
         <ScriptDetailModal

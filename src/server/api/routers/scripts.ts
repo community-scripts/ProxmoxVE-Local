@@ -163,12 +163,22 @@ export const scriptsRouter = createTRPCRouter({
           const script = scripts.find(s => s.slug === card.slug);
           const categoryNames: string[] = script?.categories?.map(id => categoryMap[id]).filter((name): name is string => typeof name === 'string') ?? [];
           
+          // Extract OS and version from first install method
+          const firstInstallMethod = script?.install_methods?.[0];
+          const os = firstInstallMethod?.resources?.os;
+          const version = firstInstallMethod?.resources?.version;
+          
           return {
             ...card,
             categories: script?.categories ?? [],
             categoryNames: categoryNames,
             // Add date_created from script
             date_created: script?.date_created,
+            // Add OS and version from install methods
+            os: os,
+            version: version,
+            // Add interface port
+            interface_port: script?.interface_port,
           } as ScriptCard;
         });
 
