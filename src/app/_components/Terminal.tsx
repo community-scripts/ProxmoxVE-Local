@@ -42,15 +42,19 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const handleMessage = useCallback((message: TerminalMessage) => {
     if (!xtermRef.current) return;
 
+    console.log('Terminal received message:', message); // Debug log
+
     const timestamp = new Date(message.timestamp).toLocaleTimeString();
     const prefix = `[${timestamp}] `;
     
     switch (message.type) {
       case 'start':
+        console.log('START message:', message.data); // Debug log
         xtermRef.current.writeln(`${prefix}[START] ${message.data}`);
         setIsRunning(true);
         break;
       case 'output':
+        console.log('OUTPUT message:', message.data); // Debug log
         // Write directly to terminal - xterm.js handles ANSI codes natively
         xtermRef.current.write(message.data);
         break;
