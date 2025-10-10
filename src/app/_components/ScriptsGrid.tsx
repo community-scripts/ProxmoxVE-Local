@@ -68,8 +68,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         const viewModeResponse = await fetch('/api/settings/view-mode');
         if (viewModeResponse.ok) {
           const viewModeData = await viewModeResponse.json();
-          if (viewModeData.viewMode && ['card', 'list'].includes(viewModeData.viewMode)) {
-            setViewMode(viewModeData.viewMode);
+          const viewMode = viewModeData.viewMode;
+          if (viewMode && typeof viewMode === 'string' && (viewMode === 'card' || viewMode === 'list')) {
+            setViewMode(viewMode);
           }
         }
       } catch (error) {

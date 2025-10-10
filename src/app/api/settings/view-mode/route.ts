@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const { viewMode } = await request.json();
 
-    if (!viewMode || !['card', 'list'].includes(viewMode)) {
+    if (!viewMode || !['card', 'list'].includes(viewMode as string)) {
       return NextResponse.json(
         { error: 'View mode must be either "card" or "list"' },
         { status: 400 }
