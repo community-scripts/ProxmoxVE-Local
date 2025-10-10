@@ -27,7 +27,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const [mobileInput, setMobileInput] = useState('');
   const [showMobileInput, setShowMobileInput] = useState(false);
   const [lastInputSent, setLastInputSent] = useState<string | null>(null);
-  const [inWhiptailSession, setInWhiptailSession] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -53,20 +52,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         break;
       case 'output':
         // Write directly to terminal - xterm.js handles ANSI codes natively
-        // Detect whiptail sessions but don't interfere with the display
-        if (message.data.includes('whiptail') || message.data.includes('dialog') || message.data.includes('Choose an option')) {
-          setInWhiptailSession(true);
-          // Don't clear the terminal - let whiptail handle its own display
-          // Just write the data normally
-          xtermRef.current.write(message.data);
-        } else {
-          // Check if we're exiting a whiptail session
-          if (inWhiptailSession && (message.data.includes('exited') || message.data.includes('finished') || message.data.includes('completed'))) {
-            setInWhiptailSession(false);
-          }
-          // Let xterm handle all ANSI sequences naturally
-          xtermRef.current.write(message.data);
-        }
+        xtermRef.current.write(message.data);
         break;
       case 'error':
         // Check if this looks like ANSI terminal output (contains escape codes)
@@ -85,8 +71,6 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         }
         break;
       case 'end':
-        // Reset whiptail session
-        setInWhiptailSession(false);
         setIsRunning(false);
         
         // Check if this is an LXC creation script
