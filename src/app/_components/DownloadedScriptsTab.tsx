@@ -3,9 +3,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '~/trpc/react';
 import { ScriptCard } from './ScriptCard';
+import { ScriptCardList } from './ScriptCardList';
 import { ScriptDetailModal } from './ScriptDetailModal';
 import { CategorySidebar } from './CategorySidebar';
 import { FilterBar, type FilterState } from './FilterBar';
+import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
 
@@ -22,6 +24,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     showUpdatable: null,
@@ -40,7 +43,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
     { enabled: !!selectedSlug }
   );
 
-  // Load SAVE_FILTER setting and saved filters on component mount
+  // Load SAVE_FILTER setting, saved filters, and view mode on component mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -61,6 +64,15 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
             if (filtersData.filters) {
               setFilters(filtersData.filters as FilterState);
             }
+          }
+        }
+
+        // Load view mode
+        const viewModeResponse = await fetch('/api/settings/view-mode');
+        if (viewModeResponse.ok) {
+          const viewModeData = await viewModeResponse.json();
+          if (viewModeData.viewMode && ['card', 'list'].includes(viewModeData.viewMode)) {
+            setViewMode(viewModeData.viewMode);
           }
         }
       } catch (error) {
@@ -95,6 +107,29 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
     const timeoutId = setTimeout(() => void saveFilters(), 500);
     return () => clearTimeout(timeoutId);
   }, [filters, saveFiltersEnabled, isLoadingFilters]);
+
+  // Save view mode when it changes
+  useEffect(() => {
+    if (isLoadingFilters) return;
+
+    const saveViewMode = async () => {
+      try {
+        await fetch('/api/settings/view-mode', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ viewMode }),
+        });
+      } catch (error) {
+        console.error('Error saving view mode:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(() => void saveViewMode(), 300);
+    return () => clearTimeout(timeoutId);
+  }, [viewMode, isLoadingFilters]);
 
   // Extract categories from metadata
   const categories = React.useMemo((): string[] => {
@@ -367,25 +402,8 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats */}
-      <div className="bg-card rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-foreground mb-4">Downloaded Scripts</h2>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-blue-400">{downloadedScripts.length}</div>
-            <div className="text-sm text-blue-300">Total Downloaded</div>
-          </div>
-          <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-green-400">{filterCounts.updatableCount}</div>
-            <div className="text-sm text-green-300">Updatable</div>
-          </div>
-          <div className="bg-purple-500/10 border border-purple-500/20 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-purple-400">{filteredScripts.length}</div>
-            <div className="text-sm text-purple-300">Filtered Results</div>
-          </div>
-        </div>
-      </div>
+     
+     
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Category Sidebar */}
@@ -410,6 +428,12 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
             updatableCount={filterCounts.updatableCount}
             saveFiltersEnabled={saveFiltersEnabled}
             isLoadingFilters={isLoadingFilters}
+          />
+
+          {/* View Toggle */}
+          <ViewToggle
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
 
           {/* Scripts Grid */}
@@ -446,25 +470,47 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredScripts.map((script, index) => {
-              // Add validation to ensure script has required properties
-              if (!script || typeof script !== 'object') {
-                return null;
-              }
-              
-              // Create a unique key by combining slug, name, and index to handle duplicates
-              const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
-              
-              return (
-                <ScriptCard
-                  key={uniqueKey}
-                  script={script}
-                  onClick={handleCardClick}
-                />
-              );
-            })}
-            </div>
+            viewMode === 'card' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredScripts.map((script, index) => {
+                // Add validation to ensure script has required properties
+                if (!script || typeof script !== 'object') {
+                  return null;
+                }
+                
+                // Create a unique key by combining slug, name, and index to handle duplicates
+                const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+                
+                return (
+                  <ScriptCard
+                    key={uniqueKey}
+                    script={script}
+                    onClick={handleCardClick}
+                  />
+                );
+              })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredScripts.map((script, index) => {
+                // Add validation to ensure script has required properties
+                if (!script || typeof script !== 'object') {
+                  return null;
+                }
+                
+                // Create a unique key by combining slug, name, and index to handle duplicates
+                const uniqueKey = `${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+                
+                return (
+                  <ScriptCardList
+                    key={uniqueKey}
+                    script={script}
+                    onClick={handleCardClick}
+                  />
+                );
+              })}
+              </div>
+            )
           )}
 
           <ScriptDetailModal

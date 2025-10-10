@@ -57,6 +57,9 @@ export interface ScriptCard {
   categories?: number[];
   categoryNames?: string[];
   date_created?: string;
+  os?: string;
+  version?: string;
+  interface_port?: number | null;
 }
 
 export interface GitHubFile {
