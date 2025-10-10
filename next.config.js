@@ -42,7 +42,7 @@ const config = {
     'http://172.31.*',
     'http://192.168.*',
   ],
-  // Fix WebSocket HMR issues when accessing from different IPs
+
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
       config.watchOptions = {

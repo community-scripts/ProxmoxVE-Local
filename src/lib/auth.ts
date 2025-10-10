@@ -31,7 +31,7 @@ export function getJwtSecret(): string {
   const jwtSecretRegex = /^JWT_SECRET=(.*)$/m;
   const jwtSecretMatch = jwtSecretRegex.exec(envContent);
   
-  if (jwtSecretMatch?.[1] && jwtSecretMatch[1].trim()) {
+  if (jwtSecretMatch?.[1]?.trim()) {
     jwtSecretCache = jwtSecretMatch[1].trim();
     return jwtSecretCache;
   }
