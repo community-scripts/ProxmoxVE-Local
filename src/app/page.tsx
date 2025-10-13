@@ -107,7 +107,7 @@ export default function Home() {
                 className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
                   activeTab === 'scripts'
                     ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
                 }`}> 
                 <Package className="h-4 w-4" />
                 <span className="hidden sm:inline">Available Scripts</span>
@@ -123,7 +123,7 @@ export default function Home() {
                 className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
                   activeTab === 'downloaded'
                     ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
                 }`}>
                 <HardDrive className="h-4 w-4" />
                 <span className="hidden sm:inline">Downloaded Scripts</span>
@@ -139,7 +139,7 @@ export default function Home() {
                 className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
                   activeTab === 'installed'
                     ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
                 }`}>
                 <FolderOpen className="h-4 w-4" />
                 <span className="hidden sm:inline">Installed Scripts</span>
