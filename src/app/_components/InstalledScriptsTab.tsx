@@ -165,6 +165,7 @@ export function InstalledScriptsTab() {
 
   // Function to fetch container statuses
   const fetchContainerStatuses = () => {
+    console.log('Fetching container statuses...', { scriptsCount: scripts.length });
     const containersWithIds = scripts
       .filter(script => script.container_id)
       .map(script => ({
@@ -180,6 +181,7 @@ export function InstalledScriptsTab() {
         } : undefined
       }));
 
+    console.log('Containers to check:', containersWithIds.length);
     if (containersWithIds.length > 0) {
       containerStatusMutation.mutate({ containers: containersWithIds });
     }
@@ -202,6 +204,26 @@ export function InstalledScriptsTab() {
       return () => clearInterval(interval);
     }
   }, [scripts.length]);
+
+  // Trigger status check when component becomes visible (tab is active)
+  useEffect(() => {
+    if (scripts.length > 0) {
+      // Small delay to ensure component is fully rendered
+      const timeoutId = setTimeout(() => {
+        fetchContainerStatuses();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, []); // Empty dependency array means this runs on mount
+
+  // Also trigger status check when scripts data loads
+  useEffect(() => {
+    if (scripts.length > 0 && !isLoading) {
+      console.log('Scripts data loaded, triggering status check');
+      fetchContainerStatuses();
+    }
+  }, [scriptsData, isLoading]);
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
@@ -492,6 +514,14 @@ export function InstalledScriptsTab() {
             size="default"
           >
             {showAutoDetectForm ? 'Cancel Auto-Detect' : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
+          </Button>
+          <Button
+            onClick={fetchContainerStatuses}
+            disabled={containerStatusMutation.isPending || scripts.length === 0}
+            variant="outline"
+            size="default"
+          >
+            {containerStatusMutation.isPending ? '🔄 Checking...' : '🔄 Refresh Container Status'}
           </Button>
         </div>
 
