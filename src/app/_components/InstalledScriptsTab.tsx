@@ -221,28 +221,19 @@ export function InstalledScriptsTab() {
     scriptsRef.current = scripts;
   }, [scripts]);
 
-  // Function to fetch container statuses
+  // Function to fetch container statuses - simplified to just check all servers
   const fetchContainerStatuses = useCallback(() => {
     const currentScripts = scriptsRef.current;
     console.log('Fetching container statuses...', { scriptsCount: currentScripts.length });
-    const containersWithIds = currentScripts
-      .filter(script => script.container_id)
-      .map(script => ({
-        containerId: script.container_id!,
-        serverId: script.server_id ?? undefined,
-        server: script.server_id ? {
-          id: script.server_id,
-          name: script.server_name!,
-          ip: script.server_ip!,
-          user: script.server_user!,
-          password: script.server_password!,
-          auth_type: 'password' // Default to password auth
-        } : undefined
-      }));
+    
+    // Get unique server IDs from scripts
+    const serverIds = [...new Set(currentScripts
+      .filter(script => script.server_id)
+      .map(script => script.server_id!))];
 
-    console.log('Containers to check:', containersWithIds.length);
-    if (containersWithIds.length > 0) {
-      containerStatusMutation.mutate({ containers: containersWithIds });
+    console.log('Server IDs to check:', serverIds);
+    if (serverIds.length > 0) {
+      containerStatusMutation.mutate({ serverIds });
     }
   }, [containerStatusMutation]); // No dependencies to prevent infinite loops
 
@@ -255,24 +246,9 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
+
+
   // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
-
-  // Auto-refresh container statuses every 60 seconds
-  useEffect(() => {
-    if (scripts.length > 0) {
-      fetchContainerStatuses(); // Initial fetch
-      const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
-      return () => clearInterval(interval);
-    }
-  }, [scripts.length]); // Remove fetchContainerStatuses dependency to prevent loops
-
-  // Trigger status check when scripts data loads
-  useEffect(() => {
-    if (scripts.length > 0 && !isLoading) {
-      console.log('Scripts data loaded, triggering status check');
-      fetchContainerStatuses();
-    }
-  }, [scriptsData, isLoading, scripts.length]); // Remove fetchContainerStatuses dependency
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
