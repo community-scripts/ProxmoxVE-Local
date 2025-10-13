@@ -441,26 +441,26 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       setDownloadProgress(prev => prev ? {
         ...prev,
         current: i,
-        currentScript: slug || ''
+        currentScript: slug ?? ''
       } : null);
       
       try {
         // Download individual script
-        const result = await loadSingleScriptMutation.mutateAsync({ slug: slug || '' });
+        const result = await loadSingleScriptMutation.mutateAsync({ slug: slug ?? '' });
         
         if (result.success) {
-          successful.push({ slug: slug || '', files: result.files || [] });
+          successful.push({ slug: slug ?? '', files: result.files ?? [] });
         } else {
           const error = 'error' in result ? result.error : 'Failed to load script';
           console.log(`Script ${slug} failed with error:`, error, 'Full result:', result);
-          const userFriendlyError = getFriendlyErrorMessage(error, slug || '');
-          failed.push({ slug: slug || '', error: userFriendlyError });
+          const userFriendlyError = getFriendlyErrorMessage(error, slug ?? '');
+          failed.push({ slug: slug ?? '', error: userFriendlyError });
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load script';
-        const userFriendlyError = getFriendlyErrorMessage(errorMessage, slug || '');
+        const userFriendlyError = getFriendlyErrorMessage(errorMessage, slug ?? '');
         failed.push({ 
-          slug: slug || '', 
+          slug: slug ?? '', 
           error: userFriendlyError
         });
       }

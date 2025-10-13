@@ -259,12 +259,10 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slugs: z.array(z.string()) }))
     .mutation(async ({ input }) => {
       try {
-        const results = [];
         const successful = [];
         const failed = [];
 
-        for (let i = 0; i < input.slugs.length; i++) {
-          const slug = input.slugs[i];
+        for (const slug of input.slugs) {
           try {
             // Get the script details
             const script = await localScriptsService.getScriptBySlug(slug);
@@ -278,7 +276,7 @@ export const scriptsRouter = createTRPCRouter({
             if (result.success) {
               successful.push({ slug, files: result.files });
             } else {
-              failed.push({ slug, error: result.error || 'Failed to load script' });
+              failed.push({ slug, error: result.error ?? 'Failed to load script' });
             }
           } catch (error) {
             failed.push({ 
