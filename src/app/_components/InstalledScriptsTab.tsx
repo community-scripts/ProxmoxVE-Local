@@ -134,11 +134,31 @@ export function InstalledScriptsTab() {
   const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
     onSuccess: (data) => {
       if (data.success) {
+        console.log('Received status map from backend:', data.statusMap);
+        
+        // Map container IDs to script IDs
+        const currentScripts = scriptsRef.current;
         const statusMap = new Map<number, 'running' | 'stopped' | 'unknown'>();
-        Object.entries(data.statusMap).forEach(([id, status]) => {
-          statusMap.set(Number(id), status);
+        
+        // For each script, find its container status
+        currentScripts.forEach(script => {
+          if (script.container_id && data.statusMap) {
+            const containerStatus = (data.statusMap as Record<string, 'running' | 'stopped' | 'unknown'>)[script.container_id];
+            if (containerStatus) {
+              statusMap.set(script.id, containerStatus);
+              console.log(`Mapped script ${script.id} (container ${script.container_id}) to status: ${containerStatus}`);
+            } else {
+              statusMap.set(script.id, 'unknown');
+            }
+          } else {
+            statusMap.set(script.id, 'unknown');
+          }
         });
+        
         setContainerStatuses(statusMap);
+        console.log('Final container statuses map:', statusMap);
+      } else {
+        console.error('Container status fetch failed:', data.error);
       }
     },
     onError: (error) => {
