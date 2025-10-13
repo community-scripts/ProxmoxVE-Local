@@ -496,7 +496,7 @@ export function InstalledScriptsTab() {
     setConfirmationModal({
       isOpen: true,
       title: 'Confirm Script Update',
-      message: `Are you sure you want to update "${script.script_name}"?\n\n⚠️ WARNING: This will re-run the script installation process and may overwrite existing data. Consider backing up your data beforehand.`,
+      message: `Are you sure you want to update "${script.script_name}"?\n\n⚠️ WARNING: This will update the script and may affect the container. Consider backing up your data beforehand.`,
       variant: 'danger',
       confirmText: script.container_id,
       confirmButtonText: 'Update Script',
