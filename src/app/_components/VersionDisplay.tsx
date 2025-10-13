@@ -8,6 +8,10 @@ import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
+interface VersionDisplayProps {
+  onOpenReleaseNotes?: () => void;
+}
+
 // Loading overlay component with log streaming
 function LoadingOverlay({ 
   isNetworkError = false, 
@@ -73,7 +77,7 @@ function LoadingOverlay({
   );
 }
 
-export function VersionDisplay() {
+export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {}) {
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -231,7 +235,11 @@ export function VersionDisplay() {
       {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
       
       <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
-        <Badge variant={isUpToDate ? "default" : "secondary"} className="text-xs">
+        <Badge 
+          variant={isUpToDate ? "default" : "secondary"} 
+          className={`text-xs ${onOpenReleaseNotes ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          onClick={onOpenReleaseNotes}
+        >
           v{currentVersion}
         </Badge>
         

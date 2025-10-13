@@ -11,6 +11,7 @@ interface GitHubRelease {
   name: string;
   published_at: string;
   html_url: string;
+  body: string;
 }
 
 // Helper function to fetch from GitHub API with optional authentication
@@ -123,6 +124,43 @@ export const versionRouter = createTRPCRouter({
           isUpToDate: false,
           updateAvailable: false,
           releaseInfo: null
+        };
+      }
+    }),
+
+  // Get all releases for release notes
+  getAllReleases: publicProcedure
+    .query(async () => {
+      try {
+        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases');
+        
+        if (!response.ok) {
+          throw new Error(`GitHub API error: ${response.status}`);
+        }
+        
+        const releases: GitHubRelease[] = await response.json();
+        
+        // Sort by published date (newest first)
+        const sortedReleases = releases
+          .filter(release => !release.tag_name.includes('beta') && !release.tag_name.includes('alpha'))
+          .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+        
+        return {
+          success: true,
+          releases: sortedReleases.map(release => ({
+            tagName: release.tag_name,
+            name: release.name,
+            publishedAt: release.published_at,
+            htmlUrl: release.html_url,
+            body: release.body
+          }))
+        };
+      } catch (error) {
+        console.error('Error fetching all releases:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch releases',
+          releases: []
         };
       }
     }),
