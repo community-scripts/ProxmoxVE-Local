@@ -89,26 +89,9 @@ export function ScriptInstallationCard({
           )}
         </div>
         <div className="ml-2 flex-shrink-0">
-          <div className="space-y-1">
-            <StatusBadge status={script.status}>
-              {script.status.replace('_', ' ').toUpperCase()}
-            </StatusBadge>
-            {script.container_id && script.execution_mode === 'ssh' && (
-              <div className="text-xs">
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  script.container_status === 'running' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                    : script.container_status === 'stopped'
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                }`}>
-                  {script.container_status === 'running' ? '🟢 Running' : 
-                   script.container_status === 'stopped' ? '🔴 Stopped' : 
-                   '⚪ Unknown'}
-                </span>
-              </div>
-            )}
-          </div>
+          <StatusBadge status={script.status}>
+            {script.status.replace('_', ' ').toUpperCase()}
+          </StatusBadge>
         </div>
       </div>
 

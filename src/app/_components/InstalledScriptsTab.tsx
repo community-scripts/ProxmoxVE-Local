@@ -270,6 +270,14 @@ export function InstalledScriptsTab() {
 
   // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
 
+  // Trigger status check when tab becomes active (component mounts)
+  useEffect(() => {
+    if (scripts.length > 0) {
+      console.log('Tab became active, triggering status check');
+      fetchContainerStatuses();
+    }
+  }, []); // Empty dependency array means this runs once when component mounts
+
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
