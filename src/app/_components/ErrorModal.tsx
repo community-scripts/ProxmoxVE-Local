@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 interface ErrorModalProps {
@@ -35,24 +34,23 @@ export function ErrorModal({
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className={`flex items-center gap-2 ${
-            type === 'success' 
-              ? 'text-green-600 dark:text-green-400' 
-              : 'text-red-600 dark:text-red-400'
-          }`}>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-lg shadow-xl max-w-lg w-full border border-border">
+        {/* Header */}
+        <div className="flex items-center justify-center p-6 border-b border-border">
+          <div className="flex items-center gap-3">
             {type === 'success' ? (
-              <CheckCircle className="h-5 w-5" />
+              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
             ) : (
-              <AlertCircle className="h-5 w-5" />
+              <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
             )}
-            {title}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="py-4">
-          <p className="text-sm text-foreground mb-3">{message}</p>
+            <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-sm text-foreground mb-4">{message}</p>
           {details && (
             <div className={`rounded-lg p-3 ${
               type === 'success'
@@ -76,12 +74,14 @@ export function ErrorModal({
             </div>
           )}
         </div>
-        <DialogFooter>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 p-6 border-t border-border">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
