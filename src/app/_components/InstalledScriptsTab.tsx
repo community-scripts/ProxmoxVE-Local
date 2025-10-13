@@ -60,7 +60,6 @@ export function InstalledScriptsTab() {
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: statsData } = api.installedScripts.getInstallationStats.useQuery();
   const { data: serversData } = api.servers.getAllServers.useQuery();
-  const utils = api.useUtils();
 
   // Delete script mutation
   const deleteScriptMutation = api.installedScripts.deleteInstalledScript.useMutation({
@@ -187,12 +186,8 @@ export function InstalledScriptsTab() {
       // Refresh status after control action
       if (data.success) {
         void refetchScripts();
-        // Re-fetch status for all containers
-        scripts.forEach(script => {
-          if (script.container_id && script.execution_mode === 'ssh') {
-            void fetchContainerStatus(script.id);
-          }
-        });
+        // Re-fetch status for all containers using bulk method
+        fetchContainerStatuses();
       }
     },
     onError: (error) => {
@@ -253,31 +248,7 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
-  const fetchContainerStatus = useCallback(async (scriptId: number) => {
-    try {
-      // Use the tRPC utils to fetch data
-      const result = await utils.installedScripts.getContainerStatus.fetch({ id: scriptId });
-      if (result.success) {
-        setContainerStatuses(prev => new Map(prev.set(scriptId, result.status)));
-      } else {
-        setContainerStatuses(prev => new Map(prev.set(scriptId, 'unknown')));
-      }
-    } catch (error) {
-      console.error('Status check error:', error);
-      setContainerStatuses(prev => new Map(prev.set(scriptId, 'unknown')));
-    }
-  }, [utils.installedScripts.getContainerStatus]);
-
-  // Fetch container statuses for SSH scripts with container_id
-  useEffect(() => {
-    if (scripts.length > 0) {
-      scripts.forEach(script => {
-        if (script.container_id && script.execution_mode === 'ssh' && !containerStatuses.has(script.id)) {
-          void fetchContainerStatus(script.id);
-        }
-      });
-    }
-  }, [scripts.length, containerStatuses, fetchContainerStatus]);
+  // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
 
   // Auto-refresh container statuses every 60 seconds
   useEffect(() => {
