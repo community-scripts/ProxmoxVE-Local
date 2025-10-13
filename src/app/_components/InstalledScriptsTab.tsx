@@ -7,6 +7,7 @@ import { StatusBadge } from './Badge';
 import { Button } from './ui/button';
 import { ScriptInstallationCard } from './ScriptInstallationCard';
 import { ConfirmationModal } from './ConfirmationModal';
+import { ErrorModal } from './ErrorModal';
 import { getContrastColor } from '../../lib/colorUtils';
 
 interface InstalledScript {
@@ -56,6 +57,15 @@ export function InstalledScriptsTab() {
   } | null>(null);
   const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
   const scriptsRef = useRef<InstalledScript[]>([]);
+  
+  // Error modal state
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    details?: string;
+    type?: 'error' | 'success';
+  } | null>(null);
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -206,7 +216,12 @@ export function InstalledScriptsTab() {
       } else {
         // Show error message from backend
         const errorMessage = data.error || 'Unknown error occurred';
-        alert(`Container control failed:\n\n${errorMessage}`);
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Control Failed',
+          message: 'Failed to control the container. Please check the error details below.',
+          details: errorMessage
+        });
       }
     },
     onError: (error) => {
@@ -215,7 +230,12 @@ export function InstalledScriptsTab() {
       
       // Show detailed error message
       const errorMessage = error.message || 'Unknown error occurred';
-      alert(`Container control failed:\n\n${errorMessage}`);
+      setErrorModal({
+        isOpen: true,
+        title: 'Container Control Failed',
+        message: 'An unexpected error occurred while controlling the container.',
+        details: errorMessage
+      });
     }
   });
 
@@ -225,11 +245,22 @@ export function InstalledScriptsTab() {
       
       if (data.success) {
         void refetchScripts();
-        alert('Container destroyed successfully');
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Destroyed',
+          message: data.message || 'The container has been successfully destroyed and removed from the database.',
+          details: undefined,
+          type: 'success'
+        });
       } else {
         // Show error message from backend
         const errorMessage = data.error || 'Unknown error occurred';
-        alert(`Container destroy failed:\n\n${errorMessage}`);
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Destroy Failed',
+          message: 'Failed to destroy the container. Please check the error details below.',
+          details: errorMessage
+        });
       }
     },
     onError: (error) => {
@@ -238,7 +269,12 @@ export function InstalledScriptsTab() {
       
       // Show detailed error message
       const errorMessage = error.message || 'Unknown error occurred';
-      alert(`Container destroy failed:\n\n${errorMessage}`);
+      setErrorModal({
+        isOpen: true,
+        title: 'Container Destroy Failed',
+        message: 'An unexpected error occurred while destroying the container.',
+        details: errorMessage
+      });
     }
   });
 
@@ -1144,18 +1180,30 @@ export function InstalledScriptsTab() {
         )}
       </div>
 
-      {/* Confirmation Modal */}
-      {confirmationModal && (
-        <ConfirmationModal
-          isOpen={confirmationModal.isOpen}
-          onClose={() => setConfirmationModal(null)}
-          onConfirm={confirmationModal.onConfirm}
-          title={confirmationModal.title}
-          message={confirmationModal.message}
-          variant={confirmationModal.variant}
-          confirmText={confirmationModal.confirmText}
-        />
-      )}
+        {/* Confirmation Modal */}
+        {confirmationModal && (
+          <ConfirmationModal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal(null)}
+            onConfirm={confirmationModal.onConfirm}
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+            variant={confirmationModal.variant}
+            confirmText={confirmationModal.confirmText}
+          />
+        )}
+
+        {/* Error/Success Modal */}
+        {errorModal && (
+          <ErrorModal
+            isOpen={errorModal.isOpen}
+            onClose={() => setErrorModal(null)}
+            title={errorModal.title}
+            message={errorModal.message}
+            details={errorModal.details}
+            type={errorModal.type || 'error'}
+          />
+        )}
     </div>
   );
 }

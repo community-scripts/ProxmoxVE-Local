@@ -946,6 +946,62 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
+        // First check if container is running and stop it if necessary
+        const statusCommand = `pct status ${scriptData.container_id}`;
+        let statusOutput = '';
+        
+        try {
+          await new Promise<void>((resolve, reject) => {
+            void sshExecutionService.executeCommand(
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+              server as any,
+              statusCommand,
+              (data: string) => {
+                statusOutput += data;
+              },
+              (error: string) => {
+                reject(new Error(error));
+              },
+              (exitCode: number) => {
+                resolve();
+              }
+            );
+          });
+
+          // Check if container is running
+          if (statusOutput.includes('status: running')) {
+            // Stop the container first
+            const stopCommand = `pct stop ${scriptData.container_id}`;
+            let stopOutput = '';
+            let stopError = '';
+            
+            await new Promise<void>((resolve, reject) => {
+              void sshExecutionService.executeCommand(
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                server as any,
+                stopCommand,
+                (data: string) => {
+                  stopOutput += data;
+                },
+                (error: string) => {
+                  stopError += error;
+                },
+                (exitCode: number) => {
+                  if (exitCode !== 0) {
+                    const errorMessage = stopError || stopOutput || `Stop command failed with exit code ${exitCode}`;
+                    reject(new Error(`Failed to stop container: ${errorMessage}`));
+                  } else {
+                    resolve();
+                  }
+                }
+              );
+            });
+          }
+        } catch (error) {
+          // If status check fails, continue with destroy attempt
+          // The destroy command will handle the error appropriately
+        }
+
         // Execute destroy command
         const destroyCommand = `pct destroy ${scriptData.container_id}`;
         let commandOutput = '';
@@ -983,9 +1039,15 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
+        // Determine if container was stopped first
+        const wasStopped = statusOutput.includes('status: running');
+        const message = wasStopped 
+          ? `Container ${scriptData.container_id} stopped and destroyed successfully, database record deleted`
+          : `Container ${scriptData.container_id} destroyed successfully, database record deleted`;
+
         return {
           success: true,
-          message: `Container ${scriptData.container_id} destroyed and database record deleted successfully`
+          message
         };
       } catch (error) {
         console.error('Error in destroyContainer:', error);
