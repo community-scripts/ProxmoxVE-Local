@@ -816,9 +816,9 @@ export function InstalledScriptsTab() {
                           )
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-left">
                         <span 
-                          className="text-sm px-3 py-1 rounded"
+                          className="text-sm px-3 py-1 rounded inline-block"
                           style={{
                             backgroundColor: script.server_color ?? 'transparent',
                             color: script.server_color ? getContrastColor(script.server_color) : 'inherit'
