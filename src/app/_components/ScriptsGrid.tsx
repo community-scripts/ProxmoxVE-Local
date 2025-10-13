@@ -22,6 +22,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
+  const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number; currentScript: string; failed: Array<{ slug: string; error: string }> } | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     showUpdatable: null,
@@ -39,6 +41,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     { slug: selectedSlug ?? '' },
     { enabled: !!selectedSlug }
   );
+
+  // Individual script download mutation
+  const loadSingleScriptMutation = api.scripts.loadScript.useMutation();
 
   // Load SAVE_FILTER setting, saved filters, and view mode on component mount
   useEffect(() => {
@@ -328,6 +333,168 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     setSearchQuery(newFilters.searchQuery);
   };
 
+  // Selection management functions
+  const toggleScriptSelection = (slug: string) => {
+    setSelectedSlugs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(slug)) {
+        newSet.delete(slug);
+      } else {
+        newSet.add(slug);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllVisible = () => {
+    const visibleSlugs = new Set(filteredScripts.map(script => script.slug).filter(Boolean));
+    setSelectedSlugs(visibleSlugs);
+  };
+
+  const clearSelection = () => {
+    setSelectedSlugs(new Set());
+  };
+
+  const getFriendlyErrorMessage = (error: string, slug: string): string => {
+    const errorLower = error.toLowerCase();
+    
+    // Exact matches first (most specific)
+    if (error === 'Script not found') {
+      return `Script "${slug}" is not available for download. It may not exist in the repository or has been removed.`;
+    }
+    
+    if (error === 'Failed to load script') {
+      return `Unable to download script "${slug}". Please check your internet connection and try again.`;
+    }
+    
+    // Network/Connection errors
+    if (errorLower.includes('network') || errorLower.includes('connection') || errorLower.includes('timeout')) {
+      return 'Network connection failed. Please check your internet connection and try again.';
+    }
+    
+    // GitHub API errors
+    if (errorLower.includes('not found') || errorLower.includes('404')) {
+      return `Script "${slug}" not found in the repository. It may have been removed or renamed.`;
+    }
+    
+    if (errorLower.includes('rate limit') || errorLower.includes('403')) {
+      return 'GitHub API rate limit exceeded. Please wait a few minutes and try again.';
+    }
+    
+    if (errorLower.includes('unauthorized') || errorLower.includes('401')) {
+      return 'Access denied. The script may be private or require authentication.';
+    }
+    
+    // File system errors
+    if (errorLower.includes('permission') || errorLower.includes('eacces')) {
+      return 'Permission denied. Please check file system permissions.';
+    }
+    
+    if (errorLower.includes('no space') || errorLower.includes('enospc')) {
+      return 'Insufficient disk space. Please free up some space and try again.';
+    }
+    
+    if (errorLower.includes('read-only') || errorLower.includes('erofs')) {
+      return 'Cannot write to read-only file system. Please check your installation directory.';
+    }
+    
+    // Script-specific errors
+    if (errorLower.includes('script not found')) {
+      return `Script "${slug}" not found in the local scripts directory.`;
+    }
+    
+    if (errorLower.includes('invalid script') || errorLower.includes('malformed')) {
+      return `Script "${slug}" appears to be corrupted or invalid.`;
+    }
+    
+    if (errorLower.includes('already exists') || errorLower.includes('file exists')) {
+      return `Script "${slug}" already exists locally. Skipping download.`;
+    }
+    
+    // Generic fallbacks
+    if (errorLower.includes('timeout')) {
+      return 'Download timed out. The script may be too large or the connection is slow.';
+    }
+    
+    if (errorLower.includes('server error') || errorLower.includes('500')) {
+      return 'Server error occurred. Please try again later.';
+    }
+    
+    // If we can't categorize it, return a more helpful generic message
+    if (error.length > 100) {
+      return `Download failed: ${error.substring(0, 100)}...`;
+    }
+    
+    return `Download failed: ${error}`;
+  };
+
+  const downloadScriptsIndividually = async (slugsToDownload: string[]) => {
+    setDownloadProgress({ current: 0, total: slugsToDownload.length, currentScript: '', failed: [] });
+    
+    const successful: Array<{ slug: string; files: string[] }> = [];
+    const failed: Array<{ slug: string; error: string }> = [];
+    
+    for (let i = 0; i < slugsToDownload.length; i++) {
+      const slug = slugsToDownload[i];
+      
+      // Update progress with current script
+      setDownloadProgress(prev => prev ? {
+        ...prev,
+        current: i,
+        currentScript: slug ?? ''
+      } : null);
+      
+      try {
+        // Download individual script
+        const result = await loadSingleScriptMutation.mutateAsync({ slug: slug ?? '' });
+        
+        if (result.success) {
+          successful.push({ slug: slug ?? '', files: result.files ?? [] });
+        } else {
+          const error = 'error' in result ? result.error : 'Failed to load script';
+          console.log(`Script ${slug} failed with error:`, error, 'Full result:', result);
+          const userFriendlyError = getFriendlyErrorMessage(error, slug ?? '');
+          failed.push({ slug: slug ?? '', error: userFriendlyError });
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load script';
+        const userFriendlyError = getFriendlyErrorMessage(errorMessage, slug ?? '');
+        failed.push({ 
+          slug: slug ?? '', 
+          error: userFriendlyError
+        });
+      }
+    }
+    
+    // Final progress update
+    setDownloadProgress(prev => prev ? {
+      ...prev,
+      current: slugsToDownload.length,
+      failed
+    } : null);
+    
+    // Clear selection and refetch to update card download status
+    setSelectedSlugs(new Set());
+    void refetch();
+    
+    // Keep progress bar visible until user navigates away or manually dismisses
+    // Progress bar will stay visible to show final results
+  };
+
+  const handleBatchDownload = () => {
+    const slugsToDownload = Array.from(selectedSlugs);
+    if (slugsToDownload.length > 0) {
+      void downloadScriptsIndividually(slugsToDownload);
+    }
+  };
+
+  const handleDownloadAllFiltered = () => {
+    const slugsToDownload = filteredScripts.map(script => script.slug).filter(Boolean);
+    if (slugsToDownload.length > 0) {
+      void downloadScriptsIndividually(slugsToDownload);
+    }
+  };
+
   // Handle category selection with auto-scroll
   const handleCategorySelect = (category: string | null) => {
     setSelectedCategory(category);
@@ -347,6 +514,18 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       return () => clearTimeout(timeoutId);
     }
   }, [selectedCategory]);
+
+  // Clear selection when switching between card/list views
+  useEffect(() => {
+    setSelectedSlugs(new Set());
+  }, [viewMode]);
+
+  // Clear progress bar when component unmounts
+  useEffect(() => {
+    return () => {
+      setDownloadProgress(null);
+    };
+  }, []);
 
 
   const handleCardClick = (scriptCard: { slug: string }) => {
@@ -441,6 +620,154 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           onViewModeChange={setViewMode}
         />
 
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {selectedSlugs.size > 0 ? (
+            <Button
+              onClick={handleBatchDownload}
+              disabled={loadSingleScriptMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {loadSingleScriptMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Downloading...
+                </>
+              ) : (
+                `Download Selected (${selectedSlugs.size})`
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleDownloadAllFiltered}
+              disabled={filteredScripts.length === 0 || loadSingleScriptMutation.isPending}
+              variant="outline"
+            >
+              {loadSingleScriptMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Downloading...
+                </>
+              ) : (
+                `Download All Filtered (${filteredScripts.length})`
+              )}
+            </Button>
+          )}
+
+          {selectedSlugs.size > 0 && (
+            <Button
+              onClick={clearSelection}
+              variant="ghost"
+              size="sm"
+            >
+              Clear Selection
+            </Button>
+          )}
+
+          {filteredScripts.length > 0 && (
+            <Button
+              onClick={selectAllVisible}
+              variant="ghost"
+              size="sm"
+            >
+              Select All Visible
+            </Button>
+          )}
+        </div>
+
+        {/* Progress Bar */}
+        {downloadProgress && (
+          <div className="mb-4 p-4 bg-card border border-border rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-foreground">
+                  {downloadProgress.current >= downloadProgress.total ? 'Download completed' : 'Downloading scripts'}... {downloadProgress.current} of {downloadProgress.total}
+                </span>
+                {downloadProgress.currentScript && downloadProgress.current < downloadProgress.total && (
+                  <span className="text-xs text-muted-foreground">
+                    Currently downloading: {downloadProgress.currentScript}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {Math.round((downloadProgress.current / downloadProgress.total) * 100)}%
+                </span>
+                {downloadProgress.current >= downloadProgress.total && (
+                  <button
+                    onClick={() => setDownloadProgress(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Dismiss progress bar"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-muted rounded-full h-2 mb-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ease-out ${
+                  downloadProgress.failed.length > 0 ? 'bg-yellow-500' : 'bg-primary'
+                }`}
+                style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }}
+              />
+            </div>
+            
+            {/* Progress Visualization */}
+            <div className="flex items-center text-xs text-muted-foreground mb-2">
+              <span className="mr-2">Progress:</span>
+              <div className="flex flex-wrap gap-1">
+                {Array.from({ length: downloadProgress.total }, (_, i) => {
+                  const isCompleted = i < downloadProgress.current;
+                  const isCurrent = i === downloadProgress.current;
+                  const isFailed = downloadProgress.failed.some(f => f.slug === downloadProgress.currentScript);
+                  
+                  return (
+                    <span 
+                      key={i} 
+                      className={`px-1 py-0.5 rounded text-xs ${
+                        isCompleted 
+                          ? isFailed ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : isCurrent 
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 animate-pulse'
+                            : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {isCompleted ? (isFailed ? '✗' : '✓') : isCurrent ? '⟳' : '○'}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Failed Scripts Details */}
+            {downloadProgress.failed.length > 0 && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <svg className="w-4 h-4 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Failed Downloads ({downloadProgress.failed.length})
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {downloadProgress.failed.map((failed, index) => (
+                    <div key={index} className="text-xs text-red-700 dark:text-red-300">
+                      <span className="font-medium">{failed.slug}:</span> {failed.error}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Legacy Search Bar (keeping for backward compatibility, but hidden) */}
         <div className="hidden mb-8">
           <div className="relative max-w-md mx-auto">
@@ -532,6 +859,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                   key={uniqueKey}
                   script={script}
                   onClick={handleCardClick}
+                  isSelected={selectedSlugs.has(script.slug ?? '')}
+                  onToggleSelect={toggleScriptSelection}
                 />
               );
             })}
@@ -552,6 +881,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                   key={uniqueKey}
                   script={script}
                   onClick={handleCardClick}
+                  isSelected={selectedSlugs.has(script.slug ?? '')}
+                  onToggleSelect={toggleScriptSelection}
                 />
               );
             })}
