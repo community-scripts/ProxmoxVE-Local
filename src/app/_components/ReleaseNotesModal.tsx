@@ -57,7 +57,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
 
   if (!isOpen) return null;
 
-  const releases: Release[] = releasesData?.success ? releasesData.releases : [];
+  const releases: Release[] = releasesData?.success ? releasesData.releases ?? [] : [];
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
@@ -92,7 +92,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
               <div className="text-center">
                 <p className="text-destructive mb-2">Failed to load release notes</p>
                 <p className="text-sm text-muted-foreground">
-                  {releasesData?.error || 'Please try again later'}
+                  {releasesData?.error ?? 'Please try again later'}
                 </p>
               </div>
             </div>
