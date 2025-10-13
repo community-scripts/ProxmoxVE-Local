@@ -276,7 +276,8 @@ export const scriptsRouter = createTRPCRouter({
             if (result.success) {
               successful.push({ slug, files: result.files });
             } else {
-              failed.push({ slug, error: result.error ?? 'Failed to load script' });
+              const error = 'error' in result ? result.error : 'Failed to load script';
+              failed.push({ slug, error });
             }
           } catch (error) {
             failed.push({ 
