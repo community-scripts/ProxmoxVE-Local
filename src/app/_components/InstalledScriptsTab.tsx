@@ -53,6 +53,8 @@ export function InstalledScriptsTab() {
     title: string;
     message: string;
     confirmText?: string;
+    confirmButtonText?: string;
+    cancelButtonText?: string;
     onConfirm: () => void;
   } | null>(null);
   const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
@@ -227,7 +229,7 @@ export function InstalledScriptsTab() {
         setErrorModal({
           isOpen: true,
           title: `Container ${variables.action === 'start' ? 'Started' : 'Stopped'}`,
-          message: data.message || `Container has been ${variables.action === 'start' ? 'started' : 'stopped'} successfully.`,
+          message: data.message ?? `Container has been ${variables.action === 'start' ? 'started' : 'stopped'} successfully.`,
           details: undefined,
           type: 'success'
         });
@@ -236,7 +238,7 @@ export function InstalledScriptsTab() {
         fetchContainerStatuses();
       } else {
         // Show error message from backend
-        const errorMessage = data.error || 'Unknown error occurred';
+        const errorMessage = data.error ?? 'Unknown error occurred';
         setErrorModal({
           isOpen: true,
           title: 'Container Control Failed',
@@ -250,7 +252,7 @@ export function InstalledScriptsTab() {
       setControllingScriptId(null);
       
       // Show detailed error message
-      const errorMessage = error.message || 'Unknown error occurred';
+      const errorMessage = error.message ?? 'Unknown error occurred';
       setErrorModal({
         isOpen: true,
         title: 'Container Control Failed',
@@ -269,13 +271,13 @@ export function InstalledScriptsTab() {
         setErrorModal({
           isOpen: true,
           title: 'Container Destroyed',
-          message: data.message || 'The container has been successfully destroyed and removed from the database.',
+          message: data.message ?? 'The container has been successfully destroyed and removed from the database.',
           details: undefined,
           type: 'success'
         });
       } else {
         // Show error message from backend
-        const errorMessage = data.error || 'Unknown error occurred';
+        const errorMessage = data.error ?? 'Unknown error occurred';
         setErrorModal({
           isOpen: true,
           title: 'Container Destroy Failed',
@@ -289,7 +291,7 @@ export function InstalledScriptsTab() {
       setControllingScriptId(null);
       
       // Show detailed error message
-      const errorMessage = error.message || 'Unknown error occurred';
+      const errorMessage = error.message ?? 'Unknown error occurred';
       setErrorModal({
         isOpen: true,
         title: 'Container Destroy Failed',
@@ -339,7 +341,7 @@ export function InstalledScriptsTab() {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
-  }, []); // Empty dependency array means this runs once when component mounts
+  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
@@ -1242,7 +1244,7 @@ export function InstalledScriptsTab() {
             title={errorModal.title}
             message={errorModal.message}
             details={errorModal.details}
-            type={errorModal.type || 'error'}
+            type={errorModal.type ?? 'error'}
           />
         )}
     </div>

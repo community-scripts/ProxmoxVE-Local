@@ -1,100 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { getSSHExecutionService } from "~/server/ssh-execution-service";
-import type { Server } from "~/types/server";
+// Removed unused imports
 
-const execAsync = promisify(exec);
-
-// Helper function to check local container statuses
-async function getLocalContainerStatuses(containerIds: string[]): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
-  try {
-    const { stdout } = await execAsync('pct list');
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    
-    // Parse pct list output
-    const lines = stdout.trim().split('\n');
-    const dataLines = lines.slice(1); // Skip header
-    
-    for (const line of dataLines) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        const vmid = parts[0];
-        const status = parts[1];
-        
-        if (vmid && containerIds.includes(vmid)) {
-          statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
-        }
-      }
-    }
-    
-    // Set unknown for containers not found in pct list
-    for (const containerId of containerIds) {
-      if (!(containerId in statusMap)) {
-        statusMap[containerId] = 'unknown';
-      }
-    }
-    
-    return statusMap;
-  } catch (error) {
-    console.error('Error checking local container statuses:', error);
-    // Return unknown for all containers on error
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    for (const containerId of containerIds) {
-      statusMap[containerId] = 'unknown';
-    }
-    return statusMap;
-  }
-}
-
-// Helper function to check remote container statuses (multiple containers per server)
-async function getRemoteContainerStatuses(containerIds: string[], server: Server): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
-  return new Promise((resolve) => {
-    const sshService = getSSHExecutionService();
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    
-    // Initialize all containers as unknown
-    for (const containerId of containerIds) {
-      statusMap[containerId] = 'unknown';
-    }
-    
-    void sshService.executeCommand(
-      server,
-      'pct list',
-      (data: string) => {
-        // Parse the output to find all containers
-        const lines = data.trim().split('\n');
-        const dataLines = lines.slice(1); // Skip header
-        
-        for (const line of dataLines) {
-          const parts = line.trim().split(/\s+/);
-          if (parts.length >= 2) {
-            const vmid = parts[0];
-            const status = parts[1];
-            
-            // Check if this is one of the containers we're looking for
-            if (vmid && containerIds.includes(vmid)) {
-              statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
-            }
-          }
-        }
-        
-        resolve(statusMap);
-      },
-      (error: string) => {
-        console.error(`Error checking remote containers on server ${server.name}:`, error);
-        resolve(statusMap); // Return the map with unknown statuses
-      },
-      (exitCode: number) => {
-        if (exitCode !== 0) {
-          resolve(statusMap); // Return the map with unknown statuses
-        }
-      }
-    );
-  });
-}
 
 export const installedScriptsRouter = createTRPCRouter({
   // Get all installed scripts
@@ -357,7 +265,7 @@ export const installedScriptsRouter = createTRPCRouter({
             (error: string) => {
               console.error('Command error:', error);
             },
-            (exitCode: number) => {
+            (_exitCode: number) => {
               
               // Parse the complete output to get config file paths that contain community-script tag
               const configFiles = commandOutput.split('\n')
@@ -401,7 +309,7 @@ export const installedScriptsRouter = createTRPCRouter({
                             containerId,
                             hostname,
                             configPath,
-                            serverId: (server as any).id,
+                            serverId: Number((server as any).id),
                             serverName: (server as any).name
                           };
                           readResolve(container);
@@ -624,7 +532,7 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Determine which servers to check
         const serversToCheck = input.serverIds 
-          ? allServers.filter(s => input.serverIds!.includes((s as any).id))
+          ? allServers.filter((s: any) => input.serverIds!.includes(Number(s.id)))
           : allServers;
 
 
@@ -963,7 +871,7 @@ export const installedScriptsRouter = createTRPCRouter({
               (error: string) => {
                 reject(new Error(error));
               },
-              (exitCode: number) => {
+              (_exitCode: number) => {
                 resolve();
               }
             );
@@ -998,7 +906,7 @@ export const installedScriptsRouter = createTRPCRouter({
               );
             });
           }
-        } catch (error) {
+        } catch (_error) {
           // If status check fails, continue with destroy attempt
           // The destroy command will handle the error appropriately
         }
