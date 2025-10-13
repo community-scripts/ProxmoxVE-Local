@@ -21,7 +21,7 @@ export default function Home() {
 
   // Fetch data for script counts
   const { data: scriptCardsData } = api.scripts.getScriptCardsWithCategories.useQuery();
-  const { data: localScriptsData } = api.scripts.getCtScripts.useQuery();
+  const { data: localScriptsData } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: installedScriptsData } = api.installedScripts.getAllInstalledScripts.useQuery();
 
   // Calculate script counts
