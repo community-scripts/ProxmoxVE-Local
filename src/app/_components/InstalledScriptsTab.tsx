@@ -6,6 +6,7 @@ import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
 import { Button } from './ui/button';
 import { ScriptInstallationCard } from './ScriptInstallationCard';
+import { ConfirmationModal } from './ConfirmationModal';
 import { getContrastColor } from '../../lib/colorUtils';
 
 interface InstalledScript {
@@ -22,6 +23,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
 }
 
@@ -41,12 +43,24 @@ export function InstalledScriptsTab() {
   const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const cleanupRunRef = useRef(false);
-  const [containerStatuses, setContainerStatuses] = useState<Record<string, 'running' | 'stopped' | 'unknown'>>({});
+
+  // Container control state
+  const [containerStatuses, setContainerStatuses] = useState<Map<number, 'running' | 'stopped' | 'unknown'>>(new Map());
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    variant: 'simple' | 'danger';
+    title: string;
+    message: string;
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: statsData } = api.installedScripts.getInstallationStats.useQuery();
   const { data: serversData } = api.servers.getAllServers.useQuery();
+  const utils = api.useUtils();
 
   // Delete script mutation
   const deleteScriptMutation = api.installedScripts.deleteInstalledScript.useMutation({
@@ -120,7 +134,11 @@ export function InstalledScriptsTab() {
   const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
     onSuccess: (data) => {
       if (data.success) {
-        setContainerStatuses(data.statusMap);
+        const statusMap = new Map<number, 'running' | 'stopped' | 'unknown'>();
+        Object.entries(data.statusMap).forEach(([id, status]) => {
+          statusMap.set(Number(id), status);
+        });
+        setContainerStatuses(statusMap);
       }
     },
     onError: (error) => {
@@ -156,6 +174,45 @@ export function InstalledScriptsTab() {
       });
       // Clear status after 5 seconds
       setTimeout(() => setCleanupStatus({ type: null, message: '' }), 5000);
+    }
+  });
+
+  // Container control mutations
+  const getStatusMutation = api.installedScripts.getContainerStatus.useQuery;
+
+  const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
+    onSuccess: (data) => {
+      console.log('Container control success:', data);
+      setControllingScriptId(null);
+      // Refresh status after control action
+      if (data.success) {
+        void refetchScripts();
+        // Re-fetch status for all containers
+        scripts.forEach(script => {
+          if (script.container_id && script.execution_mode === 'ssh') {
+            void fetchContainerStatus(script.id);
+          }
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Container control error:', error);
+      setControllingScriptId(null);
+      alert(`Container control failed: ${error.message}`);
+    }
+  });
+
+  const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
+    onSuccess: (data) => {
+      console.log('Container destroy success:', data);
+      setControllingScriptId(null);
+      void refetchScripts();
+      alert('Container destroyed successfully');
+    },
+    onError: (error) => {
+      console.error('Container destroy error:', error);
+      setControllingScriptId(null);
+      alert(`Container destroy failed: ${error.message}`);
     }
   });
 
@@ -196,6 +253,17 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
+  // Fetch container statuses for SSH scripts with container_id
+  useEffect(() => {
+    if (scripts.length > 0) {
+      scripts.forEach(script => {
+        if (script.container_id && script.execution_mode === 'ssh' && !containerStatuses.has(script.id)) {
+          fetchContainerStatus(script.id);
+        }
+      });
+    }
+  }, [scripts.length]);
+
   // Auto-refresh container statuses every 60 seconds
   useEffect(() => {
     if (scripts.length > 0) {
@@ -228,7 +296,7 @@ export function InstalledScriptsTab() {
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
-    container_status: script.container_id ? containerStatuses[script.container_id] ?? 'unknown' : undefined
+    container_status: script.container_id ? containerStatuses.get(script.id) ?? 'unknown' : undefined
   }));
 
   // Filter and sort scripts
@@ -320,6 +388,61 @@ export function InstalledScriptsTab() {
   const handleDeleteScript = (id: number) => {
     if (confirm('Are you sure you want to delete this installation record?')) {
       void deleteScriptMutation.mutate({ id });
+    }
+  };
+
+  // Container control handlers
+  const handleStartStop = (script: InstalledScript, action: 'start' | 'stop') => {
+    if (!script.container_id) {
+      alert('No Container ID available for this script');
+      return;
+    }
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: 'simple',
+      title: `${action === 'start' ? 'Start' : 'Stop'} Container`,
+      message: `Are you sure you want to ${action} container ${script.container_id} (${script.script_name})?`,
+      onConfirm: () => {
+        setControllingScriptId(script.id);
+        void controlContainerMutation.mutate({ id: script.id, action });
+        setConfirmationModal(null);
+      }
+    });
+  };
+
+  const handleDestroy = (script: InstalledScript) => {
+    if (!script.container_id) {
+      alert('No Container ID available for this script');
+      return;
+    }
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: 'danger',
+      title: 'Destroy Container',
+      message: `This will permanently destroy the LXC container ${script.container_id} (${script.script_name}) and all its data. This action cannot be undone!`,
+      confirmText: script.container_id,
+      onConfirm: () => {
+        setControllingScriptId(script.id);
+        void destroyContainerMutation.mutate({ id: script.id });
+        setConfirmationModal(null);
+      }
+    });
+  };
+
+  const fetchContainerStatus = async (scriptId: number) => {
+    try {
+      // Use the tRPC utils to fetch data
+      const result = await utils.installedScripts.getContainerStatus.fetch({ id: scriptId });
+      if (result.success) {
+        setContainerStatuses(prev => new Map(prev.set(scriptId, result.status)));
+      } else {
+        setContainerStatuses(prev => new Map(prev.set(scriptId, 'unknown')));
+      }
+    } catch (error) {
+      console.error('Status check error:', error);
+      setContainerStatuses(prev => new Map(prev.set(scriptId, 'unknown')));
     }
   };
 
@@ -798,6 +921,10 @@ export function InstalledScriptsTab() {
                   onDelete={() => handleDeleteScript(Number(script.id))}
                   isUpdating={updateScriptMutation.isPending}
                   isDeleting={deleteScriptMutation.isPending}
+                  containerStatus={containerStatuses.get(script.id) ?? 'unknown'}
+                  onStartStop={(action) => handleStartStop(script, action)}
+                  onDestroy={() => handleDestroy(script)}
+                  isControlling={controllingScriptId === script.id}
                 />
               ))}
             </div>
@@ -997,14 +1124,38 @@ export function InstalledScriptsTab() {
                                   Update
                                 </Button>
                               )}
-                              <Button
-                                onClick={() => handleDeleteScript(Number(script.id))}
-                                variant="delete"
-                                size="sm"
-                                disabled={deleteScriptMutation.isPending}
-                              >
-                                {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                              </Button>
+                              {/* Container Control Buttons - only show for SSH scripts with container_id */}
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <>
+                                  <Button
+                                    onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
+                                    disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
+                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleDestroy(script)}
+                                    disabled={controllingScriptId === script.id}
+                                    variant="destructive"
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                  </Button>
+                                </>
+                              )}
+                              {/* Fallback to old Delete button for non-SSH scripts */}
+                              {(!script.container_id || script.execution_mode !== 'ssh') && (
+                                <Button
+                                  onClick={() => handleDeleteScript(Number(script.id))}
+                                  variant="delete"
+                                  size="sm"
+                                  disabled={deleteScriptMutation.isPending}
+                                >
+                                  {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1017,6 +1168,19 @@ export function InstalledScriptsTab() {
           </>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmationModal && (
+        <ConfirmationModal
+          isOpen={confirmationModal.isOpen}
+          onClose={() => setConfirmationModal(null)}
+          onConfirm={confirmationModal.onConfirm}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          variant={confirmationModal.variant}
+          confirmText={confirmationModal.confirmText}
+        />
+      )}
     </div>
   );
 }

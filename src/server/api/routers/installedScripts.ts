@@ -723,5 +723,295 @@ export const installedScriptsRouter = createTRPCRouter({
           statusMap: {}
         };
       }
+    }),
+
+  // Get container status (running/stopped)
+  getContainerStatus: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found',
+            status: 'unknown' as const
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only check status for SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID',
+            status: 'unknown' as const
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(scriptData.server_id);
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            status: 'unknown' as const
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            status: 'unknown' as const
+          };
+        }
+
+        // Check container status
+        const statusCommand = `pct status ${scriptData.container_id}`;
+        let statusOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            statusCommand,
+            (data: string) => {
+              statusOutput += data;
+            },
+            (error: string) => {
+              console.error('Status command error:', error);
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              resolve();
+            }
+          );
+        });
+
+        // Parse status from output
+        let status: 'running' | 'stopped' | 'unknown' = 'unknown';
+        if (statusOutput.includes('status: running')) {
+          status = 'running';
+        } else if (statusOutput.includes('status: stopped')) {
+          status = 'stopped';
+        }
+
+        return {
+          success: true,
+          status,
+          error: undefined
+        };
+      } catch (error) {
+        console.error('Error in getContainerStatus:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get container status',
+          status: 'unknown' as const
+        };
+      }
+    }),
+
+  // Control container (start/stop)
+  controlContainer: publicProcedure
+    .input(z.object({ 
+      id: z.number(), 
+      action: z.enum(['start', 'stop']) 
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only control SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID'
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(scriptData.server_id);
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // Execute control command
+        const controlCommand = `pct ${input.action} ${scriptData.container_id}`;
+        let commandOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            controlCommand,
+            (data: string) => {
+              commandOutput += data;
+            },
+            (error: string) => {
+              console.error('Control command error:', error);
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              if (exitCode !== 0) {
+                reject(new Error(`Command failed with exit code ${exitCode}`));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        return {
+          success: true,
+          message: `Container ${scriptData.container_id} ${input.action} command executed successfully`
+        };
+      } catch (error) {
+        console.error('Error in controlContainer:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to control container'
+        };
+      }
+    }),
+
+  // Destroy container and delete DB record
+  destroyContainer: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only destroy SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID'
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(scriptData.server_id);
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // Execute destroy command
+        const destroyCommand = `pct destroy ${scriptData.container_id}`;
+        let commandOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            destroyCommand,
+            (data: string) => {
+              commandOutput += data;
+            },
+            (error: string) => {
+              console.error('Destroy command error:', error);
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              if (exitCode !== 0) {
+                reject(new Error(`Destroy command failed with exit code ${exitCode}`));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        // If destroy was successful, delete the database record
+        const deleteResult = db.deleteInstalledScript(input.id);
+        
+        if (deleteResult.changes === 0) {
+          return {
+            success: false,
+            error: 'Container destroyed but failed to delete database record'
+          };
+        }
+
+        return {
+          success: true,
+          message: `Container ${scriptData.container_id} destroyed and database record deleted successfully`
+        };
+      } catch (error) {
+        console.error('Error in destroyContainer:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to destroy container'
+        };
+      }
     })
 });
