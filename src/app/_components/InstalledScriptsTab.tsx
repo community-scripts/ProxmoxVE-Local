@@ -55,6 +55,7 @@ export function InstalledScriptsTab() {
     onConfirm: () => void;
   } | null>(null);
   const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
+  const scriptsRef = useRef<InstalledScript[]>([]);
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -215,10 +216,16 @@ export function InstalledScriptsTab() {
   const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
 
+  // Update ref when scripts change
+  useEffect(() => {
+    scriptsRef.current = scripts;
+  }, [scripts]);
+
   // Function to fetch container statuses
   const fetchContainerStatuses = useCallback(() => {
-    console.log('Fetching container statuses...', { scriptsCount: scripts.length });
-    const containersWithIds = scripts
+    const currentScripts = scriptsRef.current;
+    console.log('Fetching container statuses...', { scriptsCount: currentScripts.length });
+    const containersWithIds = currentScripts
       .filter(script => script.container_id)
       .map(script => ({
         containerId: script.container_id!,
@@ -237,7 +244,7 @@ export function InstalledScriptsTab() {
     if (containersWithIds.length > 0) {
       containerStatusMutation.mutate({ containers: containersWithIds });
     }
-  }, [scripts, containerStatusMutation]);
+  }, [containerStatusMutation]); // No dependencies to prevent infinite loops
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -257,27 +264,15 @@ export function InstalledScriptsTab() {
       const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
       return () => clearInterval(interval);
     }
-  }, [scripts.length, fetchContainerStatuses]);
+  }, [scripts.length]); // Remove fetchContainerStatuses dependency to prevent loops
 
-  // Trigger status check when component becomes visible (tab is active)
-  useEffect(() => {
-    if (scripts.length > 0) {
-      // Small delay to ensure component is fully rendered
-      const timeoutId = setTimeout(() => {
-        fetchContainerStatuses();
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
-
-  // Also trigger status check when scripts data loads
+  // Trigger status check when scripts data loads
   useEffect(() => {
     if (scripts.length > 0 && !isLoading) {
       console.log('Scripts data loaded, triggering status check');
       fetchContainerStatuses();
     }
-  }, [scriptsData, isLoading, scripts.length, fetchContainerStatuses]);
+  }, [scriptsData, isLoading, scripts.length]); // Remove fetchContainerStatuses dependency
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
