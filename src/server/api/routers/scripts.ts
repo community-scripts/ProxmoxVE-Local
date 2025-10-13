@@ -27,6 +27,16 @@ export const scriptsRouter = createTRPCRouter({
       };
     }),
 
+  // Get all downloaded scripts from all directories
+  getAllDownloadedScripts: publicProcedure
+    .query(async () => {
+      const scripts = await scriptManager.getAllDownloadedScripts();
+      return {
+        scripts,
+        directoryInfo: scriptManager.getScriptsDirectoryInfo()
+      };
+    }),
+
  
   // Get script content for viewing
   getScriptContent: publicProcedure

@@ -142,6 +142,95 @@ export class ScriptManager {
   }
 
   /**
+   * Get all downloaded scripts from all directories (ct, tools, vm, vw)
+   */
+  async getAllDownloadedScripts(): Promise<ScriptInfo[]> {
+    this.initializeConfig();
+    const allScripts: ScriptInfo[] = [];
+    
+    // Define all script directories to scan
+    const scriptDirs = ['ct', 'tools', 'vm', 'vw'];
+    
+    for (const dirName of scriptDirs) {
+      try {
+        const dirPath = join(this.scriptsDir!, dirName);
+        
+        // Check if directory exists
+        try {
+          await stat(dirPath);
+        } catch {
+          // Directory doesn't exist, skip it
+          continue;
+        }
+        
+        const scripts = await this.getScriptsFromDirectory(dirPath, dirName);
+        allScripts.push(...scripts);
+      } catch (error) {
+        console.error(`Error reading ${dirName} scripts directory:`, error);
+        // Continue with other directories even if one fails
+      }
+    }
+
+    return allScripts.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Get scripts from a specific directory (recursively)
+   */
+  private async getScriptsFromDirectory(dirPath: string, dirName: string): Promise<ScriptInfo[]> {
+    const scripts: ScriptInfo[] = [];
+    
+    const scanDirectory = async (currentPath: string, relativePath: string = ''): Promise<void> => {
+      const files = await readdir(currentPath);
+
+      for (const file of files) {
+        const filePath = join(currentPath, file);
+        const stats = await stat(filePath);
+
+        if (stats.isFile()) {
+          const extension = extname(file);
+          
+          // Check if file extension is allowed
+          if (this.allowedExtensions!.includes(extension)) {
+            // Check if file is executable
+            const executable = await this.isExecutable(filePath);
+            
+            // Extract slug from filename (remove .sh extension)
+            const slug = file.replace(/\.sh$/, '');
+            
+            // Try to get logo from JSON data
+            let logo: string | undefined;
+            try {
+              const scriptData = await localScriptsService.getScriptBySlug(slug);
+              logo = scriptData?.logo ?? undefined;
+            } catch {
+              // JSON file might not exist, that's okay
+            }
+            
+            scripts.push({
+              name: file,
+              path: filePath,
+              extension,
+              size: stats.size,
+              lastModified: stats.mtime,
+              executable,
+              logo,
+              slug
+            });
+          }
+        } else if (stats.isDirectory()) {
+          // Recursively scan subdirectories
+          const subRelativePath = relativePath ? join(relativePath, file) : file;
+          await scanDirectory(filePath, subRelativePath);
+        }
+      }
+    };
+
+    await scanDirectory(dirPath);
+    return scripts;
+  }
+
+  /**
    * Check if a file is executable
    */
   private async isExecutable(filePath: string): Promise<boolean> {

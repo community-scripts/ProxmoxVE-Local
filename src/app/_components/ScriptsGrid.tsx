@@ -34,7 +34,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
 
   const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCardsWithCategories.useQuery();
-  const { data: localScriptsData, isLoading: localLoading, error: localError } = api.scripts.getCtScripts.useQuery();
+  const { data: localScriptsData, isLoading: localLoading, error: localError } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: scriptData } = api.scripts.getScriptBySlug.useQuery(
     { slug: selectedSlug ?? '' },
     { enabled: !!selectedSlug }
