@@ -885,7 +885,8 @@ export const installedScriptsRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: `Container ${scriptData.container_id} ${input.action} command executed successfully`
+          message: `Container ${scriptData.container_id} ${input.action} command executed successfully`,
+          containerId: scriptData.container_id
         };
       } catch (error) {
         console.error('Error in controlContainer:', error);

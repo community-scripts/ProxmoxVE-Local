@@ -206,12 +206,33 @@ export function InstalledScriptsTab() {
   // Note: getStatusMutation removed - using direct API calls instead
 
   const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setControllingScriptId(null);
       
       if (data.success) {
-        void refetchScripts();
-        // Re-fetch status for all containers using bulk method
+        // Update container status immediately in UI for instant feedback
+        const newStatus = variables.action === 'start' ? 'running' : 'stopped';
+        setContainerStatuses(prev => {
+          const newMap = new Map(prev);
+          // Find the script ID for this container using the container ID from the response
+          const currentScripts = scriptsRef.current;
+          const script = currentScripts.find(s => s.container_id === data.containerId);
+          if (script) {
+            newMap.set(script.id, newStatus);
+          }
+          return newMap;
+        });
+
+        // Show success modal
+        setErrorModal({
+          isOpen: true,
+          title: `Container ${variables.action === 'start' ? 'Started' : 'Stopped'}`,
+          message: data.message || `Container has been ${variables.action === 'start' ? 'started' : 'stopped'} successfully.`,
+          details: undefined,
+          type: 'success'
+        });
+
+        // Re-fetch status for all containers using bulk method (in background)
         fetchContainerStatuses();
       } else {
         // Show error message from backend
