@@ -335,7 +335,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 </ul>
               </div>
 
-              <div className="p-4 border border-border rounded-lg bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+              <div className="p-4 border border-border rounded-lg bg-accent/50 dark:bg-accent/20">
                 <h4 className="font-medium text-foreground mb-2">Container Control (NEW)</h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Directly control LXC containers from the installed scripts page via SSH.
@@ -347,9 +347,9 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Confirmation Modals:</strong> Simple OK/Cancel for start/stop, type container ID to confirm destroy</li>
                   <li>• <strong>SSH Execution:</strong> All commands executed remotely via configured SSH connections</li>
                 </ul>
-                <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700">
-                  <p className="text-sm font-medium text-red-800 dark:text-red-200">⚠️ Safety Features:</p>
-                  <ul className="text-sm text-red-700 dark:text-red-300 mt-1 space-y-1">
+                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">⚠️ Safety Features:</p>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
                     <li>• Start/Stop actions require simple confirmation</li>
                     <li>• Destroy action requires typing the container ID to confirm</li>
                     <li>• All actions show loading states and error handling</li>
