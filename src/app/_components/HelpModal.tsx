@@ -347,9 +347,9 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Confirmation Modals:</strong> Simple OK/Cancel for start/stop, type container ID to confirm destroy</li>
                   <li>• <strong>SSH Execution:</strong> All commands executed remotely via configured SSH connections</li>
                 </ul>
-                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">⚠️ Safety Features:</p>
-                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
+                <div className="mt-3 p-3 bg-muted/30 dark:bg-muted/20 rounded-lg border border-border">
+                  <p className="text-sm font-medium text-foreground">⚠️ Safety Features:</p>
+                  <ul className="text-sm text-muted-foreground mt-1 space-y-1">
                     <li>• Start/Stop actions require simple confirmation</li>
                     <li>• Destroy action requires typing the container ID to confirm</li>
                     <li>• All actions show loading states and error handling</li>
