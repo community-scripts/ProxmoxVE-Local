@@ -18,6 +18,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  container_status?: 'running' | 'stopped' | 'unknown';
 }
 
 interface ScriptInstallationCardProps {
@@ -99,7 +100,29 @@ export function ScriptInstallationCard({
             />
           ) : (
             <div className="text-sm font-mono text-foreground break-all">
-              {script.container_id ?? '-'}
+              {script.container_id ? (
+                <div className="flex items-center space-x-2">
+                  <span>{script.container_id}</span>
+                  {script.container_status && (
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        script.container_status === 'running' ? 'bg-green-500' : 
+                        script.container_status === 'stopped' ? 'bg-red-500' : 
+                        'bg-gray-400'
+                      }`}></div>
+                      <span className={`text-xs font-medium ${
+                        script.container_status === 'running' ? 'text-green-700 dark:text-green-300' : 
+                        script.container_status === 'stopped' ? 'text-red-700 dark:text-red-300' : 
+                        'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {script.container_status === 'running' ? 'Running' : 
+                         script.container_status === 'stopped' ? 'Stopped' : 
+                         'Unknown'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : '-'}
             </div>
           )}
         </div>

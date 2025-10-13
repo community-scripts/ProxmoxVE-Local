@@ -22,6 +22,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  container_status?: 'running' | 'stopped' | 'unknown';
 }
 
 export function InstalledScriptsTab() {
@@ -40,6 +41,7 @@ export function InstalledScriptsTab() {
   const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const cleanupRunRef = useRef(false);
+  const [containerStatuses, setContainerStatuses] = useState<Record<string, 'running' | 'stopped' | 'unknown'>>({});
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -114,6 +116,18 @@ export function InstalledScriptsTab() {
     }
   });
 
+  // Get container statuses mutation
+  const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setContainerStatuses(data.statusMap);
+      }
+    },
+    onError: (error) => {
+      console.error('Error fetching container statuses:', error);
+    }
+  });
+
   // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
@@ -149,6 +163,28 @@ export function InstalledScriptsTab() {
   const scripts: InstalledScript[] = (scriptsData?.scripts as InstalledScript[]) ?? [];
   const stats = statsData?.stats;
 
+  // Function to fetch container statuses
+  const fetchContainerStatuses = () => {
+    const containersWithIds = scripts
+      .filter(script => script.container_id)
+      .map(script => ({
+        containerId: script.container_id!,
+        serverId: script.server_id ?? undefined,
+        server: script.server_id ? {
+          id: script.server_id,
+          name: script.server_name!,
+          ip: script.server_ip!,
+          user: script.server_user!,
+          password: script.server_password!,
+          auth_type: 'password' // Default to password auth
+        } : undefined
+      }));
+
+    if (containersWithIds.length > 0) {
+      containerStatusMutation.mutate({ containers: containersWithIds });
+    }
+  };
+
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
     if (scripts.length > 0 && serversData?.servers && !cleanupMutation.isPending && !cleanupRunRef.current) {
@@ -158,8 +194,23 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
+  // Auto-refresh container statuses every 60 seconds
+  useEffect(() => {
+    if (scripts.length > 0) {
+      fetchContainerStatuses(); // Initial fetch
+      const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
+      return () => clearInterval(interval);
+    }
+  }, [scripts.length]);
+
+  // Update scripts with container statuses
+  const scriptsWithStatus = scripts.map(script => ({
+    ...script,
+    container_status: script.container_id ? containerStatuses[script.container_id] || 'unknown' : undefined
+  }));
+
   // Filter and sort scripts
-  const filteredScripts = scripts
+  const filteredScripts = scriptsWithStatus
     .filter((script: InstalledScript) => {
       const matchesSearch = script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (script.container_id?.includes(searchTerm) ?? false) ||
@@ -810,7 +861,27 @@ export function InstalledScriptsTab() {
                           />
                         ) : (
                           script.container_id ? (
-                            <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
+                              {script.container_status && (
+                                <div className="flex items-center space-x-1">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    script.container_status === 'running' ? 'bg-green-500' : 
+                                    script.container_status === 'stopped' ? 'bg-red-500' : 
+                                    'bg-gray-400'
+                                  }`}></div>
+                                  <span className={`text-xs font-medium ${
+                                    script.container_status === 'running' ? 'text-green-700 dark:text-green-300' : 
+                                    script.container_status === 'stopped' ? 'text-red-700 dark:text-red-300' : 
+                                    'text-gray-500 dark:text-gray-400'
+                                  }`}>
+                                    {script.container_status === 'running' ? 'Running' : 
+                                     script.container_status === 'stopped' ? 'Stopped' : 
+                                     'Unknown'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-sm text-muted-foreground">-</span>
                           )
