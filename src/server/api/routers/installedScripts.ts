@@ -858,22 +858,24 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Execute control command
         const controlCommand = `pct ${input.action} ${scriptData.container_id}`;
+        let commandOutput = '';
+        let commandError = '';
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             server as any,
             controlCommand,
-            (_data: string) => {
-              // Command output not needed for control operations
+            (data: string) => {
+              commandOutput += data;
             },
             (error: string) => {
-              console.error('Control command error:', error);
-              reject(new Error(error));
+              commandError += error;
             },
             (exitCode: number) => {
               if (exitCode !== 0) {
-                reject(new Error(`Command failed with exit code ${exitCode}`));
+                const errorMessage = commandError || commandOutput || `Command failed with exit code ${exitCode}`;
+                reject(new Error(errorMessage));
               } else {
                 resolve();
               }
@@ -946,22 +948,24 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Execute destroy command
         const destroyCommand = `pct destroy ${scriptData.container_id}`;
+        let commandOutput = '';
+        let commandError = '';
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             server as any,
             destroyCommand,
-            (_data: string) => {
-              // Command output not needed for destroy operations
+            (data: string) => {
+              commandOutput += data;
             },
             (error: string) => {
-              console.error('Destroy command error:', error);
-              reject(new Error(error));
+              commandError += error;
             },
             (exitCode: number) => {
               if (exitCode !== 0) {
-                reject(new Error(`Destroy command failed with exit code ${exitCode}`));
+                const errorMessage = commandError || commandOutput || `Destroy command failed with exit code ${exitCode}`;
+                reject(new Error(errorMessage));
               } else {
                 resolve();
               }

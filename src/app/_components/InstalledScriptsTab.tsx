@@ -198,30 +198,47 @@ export function InstalledScriptsTab() {
   const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
     onSuccess: (data) => {
       setControllingScriptId(null);
-      // Refresh status after control action
+      
       if (data.success) {
         void refetchScripts();
         // Re-fetch status for all containers using bulk method
         fetchContainerStatuses();
+      } else {
+        // Show error message from backend
+        const errorMessage = data.error || 'Unknown error occurred';
+        alert(`Container control failed:\n\n${errorMessage}`);
       }
     },
     onError: (error) => {
       console.error('Container control error:', error);
       setControllingScriptId(null);
-      alert(`Container control failed: ${error.message}`);
+      
+      // Show detailed error message
+      const errorMessage = error.message || 'Unknown error occurred';
+      alert(`Container control failed:\n\n${errorMessage}`);
     }
   });
 
   const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
     onSuccess: (data) => {
       setControllingScriptId(null);
-      void refetchScripts();
-      alert('Container destroyed successfully');
+      
+      if (data.success) {
+        void refetchScripts();
+        alert('Container destroyed successfully');
+      } else {
+        // Show error message from backend
+        const errorMessage = data.error || 'Unknown error occurred';
+        alert(`Container destroy failed:\n\n${errorMessage}`);
+      }
     },
     onError: (error) => {
       console.error('Container destroy error:', error);
       setControllingScriptId(null);
-      alert(`Container destroy failed: ${error.message}`);
+      
+      // Show detailed error message
+      const errorMessage = error.message || 'Unknown error occurred';
+      alert(`Container destroy failed:\n\n${errorMessage}`);
     }
   });
 
