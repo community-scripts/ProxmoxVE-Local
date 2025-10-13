@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
@@ -22,13 +22,14 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  container_status?: 'running' | 'stopped' | 'unknown';
 }
 
 export function InstalledScriptsTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'in_progress'>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('script_name');
+  const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('server_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
@@ -40,6 +41,7 @@ export function InstalledScriptsTab() {
   const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const cleanupRunRef = useRef(false);
+  const [containerStatuses, setContainerStatuses] = useState<Record<string, 'running' | 'stopped' | 'unknown'>>({});
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -114,6 +116,18 @@ export function InstalledScriptsTab() {
     }
   });
 
+  // Get container statuses mutation
+  const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setContainerStatuses(data.statusMap);
+      }
+    },
+    onError: (error) => {
+      console.error('Error fetching container statuses:', error);
+    }
+  });
+
   // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
@@ -146,8 +160,32 @@ export function InstalledScriptsTab() {
   });
 
 
-  const scripts: InstalledScript[] = (scriptsData?.scripts as InstalledScript[]) ?? [];
+  const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
+
+  // Function to fetch container statuses
+  const fetchContainerStatuses = useCallback(() => {
+    console.log('Fetching container statuses...', { scriptsCount: scripts.length });
+    const containersWithIds = scripts
+      .filter(script => script.container_id)
+      .map(script => ({
+        containerId: script.container_id!,
+        serverId: script.server_id ?? undefined,
+        server: script.server_id ? {
+          id: script.server_id,
+          name: script.server_name!,
+          ip: script.server_ip!,
+          user: script.server_user!,
+          password: script.server_password!,
+          auth_type: 'password' // Default to password auth
+        } : undefined
+      }));
+
+    console.log('Containers to check:', containersWithIds.length);
+    if (containersWithIds.length > 0) {
+      containerStatusMutation.mutate({ containers: containersWithIds });
+    }
+  }, [scripts, containerStatusMutation]);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -158,8 +196,43 @@ export function InstalledScriptsTab() {
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
+  // Auto-refresh container statuses every 60 seconds
+  useEffect(() => {
+    if (scripts.length > 0) {
+      fetchContainerStatuses(); // Initial fetch
+      const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
+      return () => clearInterval(interval);
+    }
+  }, [scripts.length, fetchContainerStatuses]);
+
+  // Trigger status check when component becomes visible (tab is active)
+  useEffect(() => {
+    if (scripts.length > 0) {
+      // Small delay to ensure component is fully rendered
+      const timeoutId = setTimeout(() => {
+        fetchContainerStatuses();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
+
+  // Also trigger status check when scripts data loads
+  useEffect(() => {
+    if (scripts.length > 0 && !isLoading) {
+      console.log('Scripts data loaded, triggering status check');
+      fetchContainerStatuses();
+    }
+  }, [scriptsData, isLoading, scripts.length, fetchContainerStatuses]);
+
+  // Update scripts with container statuses
+  const scriptsWithStatus = scripts.map(script => ({
+    ...script,
+    container_status: script.container_id ? containerStatuses[script.container_id] ?? 'unknown' : undefined
+  }));
+
   // Filter and sort scripts
-  const filteredScripts = scripts
+  const filteredScripts = scriptsWithStatus
     .filter((script: InstalledScript) => {
       const matchesSearch = script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (script.container_id?.includes(searchTerm) ?? false) ||
@@ -174,6 +247,33 @@ export function InstalledScriptsTab() {
       return matchesSearch && matchesStatus && matchesServer;
     })
     .sort((a: InstalledScript, b: InstalledScript) => {
+      // Default sorting: group by server, then by container ID
+      if (sortField === 'server_name') {
+        const aServer = a.server_name ?? 'Local';
+        const bServer = b.server_name ?? 'Local';
+        
+        // First sort by server name
+        if (aServer !== bServer) {
+          return sortDirection === 'asc' ? 
+            aServer.localeCompare(bServer) : 
+            bServer.localeCompare(aServer);
+        }
+        
+        // If same server, sort by container ID
+        const aContainerId = a.container_id ?? '';
+        const bContainerId = b.container_id ?? '';
+        
+        if (aContainerId !== bContainerId) {
+          // Convert to numbers for proper numeric sorting
+          const aNum = parseInt(aContainerId) || 0;
+          const bNum = parseInt(bContainerId) || 0;
+          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        
+        return 0;
+      }
+
+      // For other sort fields, use the original logic
       let aValue: any;
       let bValue: any;
 
@@ -185,10 +285,6 @@ export function InstalledScriptsTab() {
         case 'container_id':
           aValue = a.container_id ?? '';
           bValue = b.container_id ?? '';
-          break;
-        case 'server_name':
-          aValue = a.server_name ?? 'Local';
-          bValue = b.server_name ?? 'Local';
           break;
         case 'status':
           aValue = a.status;
@@ -418,6 +514,14 @@ export function InstalledScriptsTab() {
             size="default"
           >
             {showAutoDetectForm ? 'Cancel Auto-Detect' : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
+          </Button>
+          <Button
+            onClick={fetchContainerStatuses}
+            disabled={containerStatusMutation.isPending || scripts.length === 0}
+            variant="outline"
+            size="default"
+          >
+            {containerStatusMutation.isPending ? '🔄 Checking...' : '🔄 Refresh Container Status'}
           </Button>
         </div>
 
@@ -810,7 +914,27 @@ export function InstalledScriptsTab() {
                           />
                         ) : (
                           script.container_id ? (
-                            <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-mono text-foreground">{String(script.container_id)}</span>
+                              {script.container_status && (
+                                <div className="flex items-center space-x-1">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    script.container_status === 'running' ? 'bg-green-500' : 
+                                    script.container_status === 'stopped' ? 'bg-red-500' : 
+                                    'bg-gray-400'
+                                  }`}></div>
+                                  <span className={`text-xs font-medium ${
+                                    script.container_status === 'running' ? 'text-green-700 dark:text-green-300' : 
+                                    script.container_status === 'stopped' ? 'text-red-700 dark:text-red-300' : 
+                                    'text-gray-500 dark:text-gray-400'
+                                  }`}>
+                                    {script.container_status === 'running' ? 'Running' : 
+                                     script.container_status === 'stopped' ? 'Stopped' : 
+                                     'Unknown'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-sm text-muted-foreground">-</span>
                           )

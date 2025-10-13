@@ -1,6 +1,100 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { getSSHExecutionService } from "~/server/ssh-execution-service";
+import type { Server } from "~/types/server";
+
+const execAsync = promisify(exec);
+
+// Helper function to check local container statuses
+async function getLocalContainerStatuses(containerIds: string[]): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
+  try {
+    const { stdout } = await execAsync('pct list');
+    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
+    
+    // Parse pct list output
+    const lines = stdout.trim().split('\n');
+    const dataLines = lines.slice(1); // Skip header
+    
+    for (const line of dataLines) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        const vmid = parts[0];
+        const status = parts[1];
+        
+        if (vmid && containerIds.includes(vmid)) {
+          statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
+        }
+      }
+    }
+    
+    // Set unknown for containers not found in pct list
+    for (const containerId of containerIds) {
+      if (!(containerId in statusMap)) {
+        statusMap[containerId] = 'unknown';
+      }
+    }
+    
+    return statusMap;
+  } catch (error) {
+    console.error('Error checking local container statuses:', error);
+    // Return unknown for all containers on error
+    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
+    for (const containerId of containerIds) {
+      statusMap[containerId] = 'unknown';
+    }
+    return statusMap;
+  }
+}
+
+// Helper function to check remote container statuses (multiple containers per server)
+async function getRemoteContainerStatuses(containerIds: string[], server: Server): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
+  return new Promise((resolve) => {
+    const sshService = getSSHExecutionService();
+    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
+    
+    // Initialize all containers as unknown
+    for (const containerId of containerIds) {
+      statusMap[containerId] = 'unknown';
+    }
+    
+    void sshService.executeCommand(
+      server,
+      'pct list',
+      (data: string) => {
+        // Parse the output to find all containers
+        const lines = data.trim().split('\n');
+        const dataLines = lines.slice(1); // Skip header
+        
+        for (const line of dataLines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            const vmid = parts[0];
+            const status = parts[1];
+            
+            // Check if this is one of the containers we're looking for
+            if (vmid && containerIds.includes(vmid)) {
+              statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
+            }
+          }
+        }
+        
+        resolve(statusMap);
+      },
+      (error: string) => {
+        console.error(`Error checking remote containers on server ${server.name}:`, error);
+        resolve(statusMap); // Return the map with unknown statuses
+      },
+      (exitCode: number) => {
+        if (exitCode !== 0) {
+          resolve(statusMap); // Return the map with unknown statuses
+        }
+      }
+    );
+  });
+}
 
 export const installedScriptsRouter = createTRPCRouter({
   // Get all installed scripts
@@ -538,6 +632,95 @@ export const installedScriptsRouter = createTRPCRouter({
           error: error instanceof Error ? error.message : 'Failed to cleanup orphaned scripts',
           deletedCount: 0,
           deletedScripts: []
+        };
+      }
+    }),
+
+  // Get container running statuses
+  getContainerStatuses: publicProcedure
+    .input(z.object({ 
+      containers: z.array(z.object({
+        containerId: z.string(),
+        serverId: z.number().optional(),
+        server: z.object({
+          id: z.number(),
+          name: z.string(),
+          ip: z.string(),
+          user: z.string(),
+          password: z.string(),
+          auth_type: z.string()
+        }).optional()
+      }))
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const { containers } = input;
+        const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
+        
+        // Group containers by server (local vs remote)
+        const localContainers: string[] = [];
+        const remoteContainers: Array<{containerId: string, server: any}> = [];
+        
+        for (const container of containers) {
+          if (!container.serverId || !container.server) {
+            localContainers.push(container.containerId);
+          } else {
+            remoteContainers.push({
+              containerId: container.containerId,
+              server: container.server
+            });
+          }
+        }
+        
+        // Check local containers
+        if (localContainers.length > 0) {
+          const localStatuses = await getLocalContainerStatuses(localContainers);
+          Object.assign(statusMap, localStatuses);
+        }
+        
+        // Check remote containers - group by server and make one call per server
+        const serverGroups: Record<string, Array<{containerId: string, server: any}>> = {};
+        
+        for (const { containerId, server } of remoteContainers) {
+          const serverKey = `${server.id}-${server.name}`;
+          serverGroups[serverKey] ??= [];
+          serverGroups[serverKey].push({ containerId, server });
+        }
+        
+        // Make one call per server
+        for (const [serverKey, containers] of Object.entries(serverGroups)) {
+          try {
+            if (containers.length === 0) continue;
+            
+            const server = containers[0]?.server;
+            if (!server) continue;
+            
+            const containerIds = containers.map(c => c.containerId).filter(Boolean);
+            const serverStatuses = await getRemoteContainerStatuses(containerIds, server as Server);
+            
+            // Merge the results
+            Object.assign(statusMap, serverStatuses);
+          } catch (error) {
+            console.error(`Error checking statuses for server ${serverKey}:`, error);
+            // Set all containers for this server to unknown
+            for (const container of containers) {
+              if (container.containerId) {
+                statusMap[container.containerId] = 'unknown';
+              }
+            }
+          }
+        }
+        
+        return {
+          success: true,
+          statusMap
+        };
+      } catch (error) {
+        console.error('Error in getContainerStatuses:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch container statuses',
+          statusMap: {}
         };
       }
     })
