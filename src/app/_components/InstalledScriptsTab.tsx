@@ -481,29 +481,44 @@ export function InstalledScriptsTab() {
 
   const handleUpdateScript = (script: InstalledScript) => {
     if (!script.container_id) {
-      alert('No Container ID available for this script');
+      setErrorModal({
+        isOpen: true,
+        title: 'Update Failed',
+        message: 'No Container ID available for this script',
+        details: 'This script does not have a valid container ID and cannot be updated.'
+      });
       return;
     }
     
-    if (confirm(`Are you sure you want to update ${script.script_name}?`)) {
-      // Get server info if it's SSH mode
-      let server = null;
-      if (script.server_id && script.server_user && script.server_password) {
-        server = {
-          id: script.server_id,
-          name: script.server_name,
-          ip: script.server_ip,
-          user: script.server_user,
-          password: script.server_password
-        };
+    // Show confirmation modal with type-to-confirm for update
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Confirm Script Update',
+      message: `Are you sure you want to update "${script.script_name}"?\n\n⚠️ WARNING: This will re-run the script installation process and may overwrite existing data. Consider backing up your data beforehand.`,
+      variant: 'danger',
+      confirmText: script.container_id,
+      confirmButtonText: 'Update Script',
+      onConfirm: () => {
+        // Get server info if it's SSH mode
+        let server = null;
+        if (script.server_id && script.server_user && script.server_password) {
+          server = {
+            id: script.server_id,
+            name: script.server_name,
+            ip: script.server_ip,
+            user: script.server_user,
+            password: script.server_password
+          };
+        }
+        
+        setUpdatingScript({
+          id: script.id,
+          containerId: script.container_id!,
+          server: server
+        });
+        setConfirmationModal(null);
       }
-      
-      setUpdatingScript({
-        id: script.id,
-        containerId: script.container_id,
-        server: server
-      });
-    }
+    });
   };
 
   const handleCloseUpdateTerminal = () => {
@@ -525,7 +540,12 @@ export function InstalledScriptsTab() {
 
   const handleSaveEdit = () => {
     if (!editFormData.script_name.trim()) {
-      alert('Script name is required');
+      setErrorModal({
+        isOpen: true,
+        title: 'Validation Error',
+        message: 'Script name is required',
+        details: 'Please enter a valid script name before saving.'
+      });
       return;
     }
 
