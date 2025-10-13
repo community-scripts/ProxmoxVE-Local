@@ -5,6 +5,7 @@ import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
 import { ServerList } from './ServerList';
 import { Button } from './ui/button';
+import { ContextualHelpIcon } from './ContextualHelpIcon';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -106,7 +107,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
-          <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Settings</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Settings</h2>
+            <ContextualHelpIcon section="server-settings" tooltip="Help with Server Settings" />
+          </div>
           <Button
             onClick={onClose}
             variant="ghost"

@@ -3,9 +3,14 @@
 import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { ContextualHelpIcon } from "./ContextualHelpIcon";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+
+interface VersionDisplayProps {
+  onOpenReleaseNotes?: () => void;
+}
 
 // Loading overlay component with log streaming
 function LoadingOverlay({ 
@@ -72,7 +77,7 @@ function LoadingOverlay({
   );
 }
 
-export function VersionDisplay() {
+export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {}) {
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -230,31 +235,16 @@ export function VersionDisplay() {
       {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
       
       <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
-        <Badge variant={isUpToDate ? "default" : "secondary"} className="text-xs">
+        <Badge 
+          variant={isUpToDate ? "default" : "secondary"} 
+          className={`text-xs ${onOpenReleaseNotes ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          onClick={onOpenReleaseNotes}
+        >
           v{currentVersion}
         </Badge>
         
         {updateAvailable && releaseInfo && (
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
-            <div className="relative group">
-              <Badge variant="destructive" className="animate-pulse cursor-help text-xs">
-                Update Available
-              </Badge>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 hidden sm:block">
-                <div className="text-center">
-                  <div className="font-semibold mb-1">How to update:</div>
-                  <div>Click the button to update, when installed via the helper script</div>
-                  <div>or update manually:</div>
-                  <div>cd $PVESCRIPTLOCAL_DIR</div>
-                  <div>git pull</div>
-                  <div>npm install</div>
-                  <div>npm run build</div>
-                  <div>npm start</div>
-                </div>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
-              </div>
-            </div>
-            
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleUpdate}
@@ -278,6 +268,11 @@ export function VersionDisplay() {
                 )}
               </Button>
               
+              <ContextualHelpIcon section="update-system" tooltip="Help with updates" />
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Release Notes:</span>
               <a
                 href={releaseInfo.htmlUrl}
                 target="_blank"
