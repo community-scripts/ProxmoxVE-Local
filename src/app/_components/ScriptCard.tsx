@@ -8,20 +8,49 @@ import { TypeBadge, UpdateableBadge } from './Badge';
 interface ScriptCardProps {
   script: ScriptCard;
   onClick: (script: ScriptCard) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (slug: string) => void;
 }
 
-export function ScriptCard({ script, onClick }: ScriptCardProps) {
+export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect }: ScriptCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => {
     setImageError(true);
   };
 
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleSelect && script.slug) {
+      onToggleSelect(script.slug);
+    }
+  };
+
   return (
     <div
-      className="bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer border border-border hover:border-primary h-full flex flex-col"
+      className="bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer border border-border hover:border-primary h-full flex flex-col relative"
       onClick={() => onClick(script)}
     >
+      {/* Checkbox in top-left corner */}
+      {onToggleSelect && (
+        <div className="absolute top-2 left-2 z-10">
+          <div 
+            className={`w-4 h-4 border-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center ${
+              isSelected 
+                ? 'bg-primary border-primary text-primary-foreground' 
+                : 'bg-card border-border hover:border-primary/60 hover:bg-accent'
+            }`}
+            onClick={handleCheckboxClick}
+          >
+            {isSelected && (
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+      
       <div className="p-6 flex-1 flex flex-col">
         {/* Header with logo and name */}
         <div className="flex items-start space-x-4 mb-4">

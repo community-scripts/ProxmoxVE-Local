@@ -254,6 +254,59 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
+  // Load multiple scripts from GitHub
+  loadMultipleScripts: publicProcedure
+    .input(z.object({ slugs: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      try {
+        const results = [];
+        const successful = [];
+        const failed = [];
+
+        for (let i = 0; i < input.slugs.length; i++) {
+          const slug = input.slugs[i];
+          try {
+            // Get the script details
+            const script = await localScriptsService.getScriptBySlug(slug);
+            if (!script) {
+              failed.push({ slug, error: 'Script not found' });
+              continue;
+            }
+
+            // Load the script files
+            const result = await scriptDownloaderService.loadScript(script);
+            if (result.success) {
+              successful.push({ slug, files: result.files });
+            } else {
+              failed.push({ slug, error: result.error || 'Failed to load script' });
+            }
+          } catch (error) {
+            failed.push({ 
+              slug, 
+              error: error instanceof Error ? error.message : 'Failed to load script' 
+            });
+          }
+        }
+
+        return {
+          success: true,
+          message: `Downloaded ${successful.length} scripts successfully, ${failed.length} failed`,
+          successful,
+          failed,
+          total: input.slugs.length
+        };
+      } catch (error) {
+        console.error('Error in loadMultipleScripts:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load multiple scripts',
+          successful: [],
+          failed: [],
+          total: 0
+        };
+      }
+    }),
+
   // Check if script files exist locally
   checkScriptFiles: publicProcedure
     .input(z.object({ slug: z.string() }))

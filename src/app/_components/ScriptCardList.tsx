@@ -8,13 +8,22 @@ import { TypeBadge, UpdateableBadge } from './Badge';
 interface ScriptCardListProps {
   script: ScriptCard;
   onClick: (script: ScriptCard) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (slug: string) => void;
 }
 
-export function ScriptCardList({ script, onClick }: ScriptCardListProps) {
+export function ScriptCardList({ script, onClick, isSelected = false, onToggleSelect }: ScriptCardListProps) {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => {
     setImageError(true);
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleSelect && script.slug) {
+      onToggleSelect(script.slug);
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -37,10 +46,30 @@ export function ScriptCardList({ script, onClick }: ScriptCardListProps) {
 
   return (
     <div
-      className="bg-card rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-border hover:border-primary"
+      className="bg-card rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-border hover:border-primary relative"
       onClick={() => onClick(script)}
     >
-      <div className="p-6">
+      {/* Checkbox */}
+      {onToggleSelect && (
+        <div className="absolute top-4 left-4 z-10">
+          <div 
+            className={`w-4 h-4 border-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center ${
+              isSelected 
+                ? 'bg-primary border-primary text-primary-foreground' 
+                : 'bg-card border-border hover:border-primary/60 hover:bg-accent'
+            }`}
+            onClick={handleCheckboxClick}
+          >
+            {isSelected && (
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+      
+      <div className={`p-6 ${onToggleSelect ? 'pl-12' : ''}`}>
         <div className="flex items-start space-x-4">
           {/* Logo */}
           <div className="flex-shrink-0">
