@@ -198,6 +198,7 @@ export function ScriptInstallationCard({
                 variant="update"
                 size="sm"
                 className="flex-1 min-w-0"
+                disabled={containerStatus === 'stopped'}
               >
                 Update
               </Button>

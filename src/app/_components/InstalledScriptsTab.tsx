@@ -1174,6 +1174,7 @@ export function InstalledScriptsTab() {
                                   onClick={() => handleUpdateScript(script)}
                                   variant="update"
                                   size="sm"
+                                  disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
                                   Update
                                 </Button>
