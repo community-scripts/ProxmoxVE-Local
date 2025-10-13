@@ -844,7 +844,7 @@ export function InstalledScriptsTab() {
                                 disabled={updateScriptMutation.isPending}
                                 variant="outline"
                                 size="sm"
-                                className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 hover:border-green-300 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                className="bg-green-900/20 hover:bg-green-900/30 border-green-700/50 text-green-300 hover:text-green-200 hover:border-green-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                               >
                                 {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
@@ -852,7 +852,7 @@ export function InstalledScriptsTab() {
                                 onClick={handleCancelEdit}
                                 variant="outline"
                                 size="sm"
-                                className="bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700 hover:text-gray-800 hover:border-gray-300 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                className="bg-gray-800/20 hover:bg-gray-800/30 border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                               >
                                 Cancel
                               </Button>
@@ -863,7 +863,7 @@ export function InstalledScriptsTab() {
                                 onClick={() => handleEditScript(script)}
                                 variant="outline"
                                 size="sm"
-                                className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 hover:text-blue-800 hover:border-blue-300 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                className="bg-blue-900/20 hover:bg-blue-900/30 border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                               >
                                 Edit
                               </Button>
@@ -872,7 +872,7 @@ export function InstalledScriptsTab() {
                                   onClick={() => handleUpdateScript(script)}
                                   variant="outline"
                                   size="sm"
-                                  className="bg-cyan-50 hover:bg-cyan-100 border-cyan-200 text-cyan-700 hover:text-cyan-800 hover:border-cyan-300 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                  className="bg-cyan-900/20 hover:bg-cyan-900/30 border-cyan-700/50 text-cyan-300 hover:text-cyan-200 hover:border-cyan-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                                 >
                                   Update
                                 </Button>
@@ -882,7 +882,7 @@ export function InstalledScriptsTab() {
                                 variant="outline"
                                 size="sm"
                                 disabled={deleteScriptMutation.isPending}
-                                className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 hover:border-red-300 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                className="bg-red-900/20 hover:bg-red-900/30 border-red-700/50 text-red-300 hover:text-red-200 hover:border-red-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                               >
                                 {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
                               </Button>
