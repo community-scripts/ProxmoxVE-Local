@@ -45,6 +45,7 @@ export function InstalledScriptsTab() {
   const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const cleanupRunRef = useRef(false);
 
+  // Container control state
   const [containerStatuses, setContainerStatuses] = useState<Map<number, 'running' | 'stopped' | 'unknown'>>(new Map());
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -58,6 +59,8 @@ export function InstalledScriptsTab() {
   } | null>(null);
   const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
   const scriptsRef = useRef<InstalledScript[]>([]);
+  
+  // Error modal state
   const [errorModal, setErrorModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -65,14 +68,20 @@ export function InstalledScriptsTab() {
     details?: string;
     type?: 'error' | 'success';
   } | null>(null);
+
+  // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: statsData } = api.installedScripts.getInstallationStats.useQuery();
   const { data: serversData } = api.servers.getAllServers.useQuery();
+
+  // Delete script mutation
   const deleteScriptMutation = api.installedScripts.deleteInstalledScript.useMutation({
     onSuccess: () => {
       void refetchScripts();
     }
   });
+
+  // Update script mutation
   const updateScriptMutation = api.installedScripts.updateInstalledScript.useMutation({
     onSuccess: () => {
       void refetchScripts();
@@ -83,6 +92,8 @@ export function InstalledScriptsTab() {
       alert(`Error updating script: ${error.message}`);
     }
   });
+
+  // Create script mutation
   const createScriptMutation = api.installedScripts.createInstalledScript.useMutation({
     onSuccess: () => {
       void refetchScripts();
@@ -93,22 +104,26 @@ export function InstalledScriptsTab() {
       alert(`Error creating script: ${error.message}`);
     }
   });
+
+  // Auto-detect LXC containers mutation
   const autoDetectMutation = api.installedScripts.autoDetectLXCContainers.useMutation({
     onSuccess: (data) => {
       void refetchScripts();
       setShowAutoDetectForm(false);
       setAutoDetectServerId('');
+      
+      // Show detailed message about what was added/skipped
       let statusMessage = data.message ?? 'Auto-detection completed successfully!';
       if (data.skippedContainers && data.skippedContainers.length > 0) {
         const skippedNames = data.skippedContainers.map((c: any) => String(c.hostname)).join(', ');
         statusMessage += ` Skipped duplicates: ${skippedNames}`;
       }
-
+      
       setAutoDetectStatus({ 
         type: 'success', 
         message: statusMessage
       });
-
+      // Clear status after 8 seconds (longer for detailed info)
       setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 8000);
     },
     onError: (error) => {
@@ -121,15 +136,21 @@ export function InstalledScriptsTab() {
         type: 'error', 
         message: error.message ?? 'Auto-detection failed. Please try again.' 
       });
-
+      // Clear status after 5 seconds
       setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     }
   });
+
+  // Get container statuses mutation
   const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
     onSuccess: (data) => {
       if (data.success) {
+        
+        // Map container IDs to script IDs
         const currentScripts = scriptsRef.current;
         const statusMap = new Map<number, 'running' | 'stopped' | 'unknown'>();
+        
+        // For each script, find its container status
         currentScripts.forEach(script => {
           if (script.container_id && data.statusMap) {
             const containerStatus = (data.statusMap as Record<string, 'running' | 'stopped' | 'unknown'>)[script.container_id];
@@ -142,7 +163,7 @@ export function InstalledScriptsTab() {
             statusMap.set(script.id, 'unknown');
           }
         });
-
+        
         setContainerStatuses(statusMap);
       } else {
         console.error('Container status fetch failed:', data.error);
@@ -152,10 +173,12 @@ export function InstalledScriptsTab() {
       console.error('Error fetching container statuses:', error);
     }
   });
+
+  // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
       void refetchScripts();
-
+      
       if (data.deletedCount > 0) {
         setCleanupStatus({ 
           type: 'success', 
@@ -167,7 +190,7 @@ export function InstalledScriptsTab() {
           message: 'Cleanup completed! No orphaned scripts found.' 
         });
       }
-
+      // Clear status after 8 seconds (longer for cleanup info)
       setTimeout(() => setCleanupStatus({ type: null, message: '' }), 8000);
     },
     onError: (error) => {
@@ -176,20 +199,24 @@ export function InstalledScriptsTab() {
         type: 'error', 
         message: error.message ?? 'Cleanup failed. Please try again.' 
       });
-
+      // Clear status after 5 seconds
       setTimeout(() => setCleanupStatus({ type: null, message: '' }), 5000);
     }
   });
+
+  // Container control mutations
+  // Note: getStatusMutation removed - using direct API calls instead
+
   const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
     onSuccess: (data, variables) => {
       setControllingScriptId(null);
-
+      
       if (data.success) {
-
+        // Update container status immediately in UI for instant feedback
         const newStatus = variables.action === 'start' ? 'running' : 'stopped';
         setContainerStatuses(prev => {
           const newMap = new Map(prev);
-
+          // Find the script ID for this container using the container ID from the response
           const currentScripts = scriptsRef.current;
           const script = currentScripts.find(s => s.container_id === data.containerId);
           if (script) {
@@ -197,6 +224,8 @@ export function InstalledScriptsTab() {
           }
           return newMap;
         });
+
+        // Show success modal
         setErrorModal({
           isOpen: true,
           title: `Container ${variables.action === 'start' ? 'Started' : 'Stopped'}`,
@@ -204,9 +233,11 @@ export function InstalledScriptsTab() {
           details: undefined,
           type: 'success'
         });
+
+        // Re-fetch status for all containers using bulk method (in background)
         fetchContainerStatuses();
       } else {
-
+        // Show error message from backend
         const errorMessage = data.error ?? 'Unknown error occurred';
         setErrorModal({
           isOpen: true,
@@ -219,6 +250,8 @@ export function InstalledScriptsTab() {
     onError: (error) => {
       console.error('Container control error:', error);
       setControllingScriptId(null);
+      
+      // Show detailed error message
       const errorMessage = error.message ?? 'Unknown error occurred';
       setErrorModal({
         isOpen: true,
@@ -232,7 +265,7 @@ export function InstalledScriptsTab() {
   const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
     onSuccess: (data) => {
       setControllingScriptId(null);
-
+      
       if (data.success) {
         void refetchScripts();
         setErrorModal({
@@ -243,7 +276,7 @@ export function InstalledScriptsTab() {
           type: 'success'
         });
       } else {
-
+        // Show error message from backend
         const errorMessage = data.error ?? 'Unknown error occurred';
         setErrorModal({
           isOpen: true,
@@ -256,6 +289,8 @@ export function InstalledScriptsTab() {
     onError: (error) => {
       console.error('Container destroy error:', error);
       setControllingScriptId(null);
+      
+      // Show detailed error message
       const errorMessage = error.message ?? 'Unknown error occurred';
       setErrorModal({
         isOpen: true,
@@ -265,13 +300,21 @@ export function InstalledScriptsTab() {
       });
     }
   });
+
+
   const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
+
+  // Update ref when scripts change
   useEffect(() => {
     scriptsRef.current = scripts;
   }, [scripts]);
+
+  // Function to fetch container statuses - simplified to just check all servers
   const fetchContainerStatuses = useCallback(() => {
     const currentScripts = scriptsRef.current;
+    
+    // Get unique server IDs from scripts
     const serverIds = [...new Set(currentScripts
       .filter(script => script.server_id)
       .map(script => script.server_id!))];
@@ -279,58 +322,76 @@ export function InstalledScriptsTab() {
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
-  }, []); 
+  }, []); // Empty dependency array to prevent infinite loops
+
+  // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
     if (scripts.length > 0 && serversData?.servers && !cleanupMutation.isPending && !cleanupRunRef.current) {
       cleanupRunRef.current = true;
       void cleanupMutation.mutate();
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
+
+
+
+  // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
+
+  // Trigger status check when tab becomes active (component mounts)
   useEffect(() => {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
-  }, [scripts.length]); 
+  }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
+
+  // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
     container_status: script.container_id ? containerStatuses.get(script.id) ?? 'unknown' : undefined
   }));
+
+  // Filter and sort scripts
   const filteredScripts = scriptsWithStatus
     .filter((script: InstalledScript) => {
       const matchesSearch = script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (script.container_id?.includes(searchTerm) ?? false) ||
                            (script.server_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-
+      
       const matchesStatus = statusFilter === 'all' || script.status === statusFilter;
-
+      
       const matchesServer = serverFilter === 'all' || 
                            (serverFilter === 'local' && !script.server_name) ||
                            (script.server_name === serverFilter);
-
+      
       return matchesSearch && matchesStatus && matchesServer;
     })
     .sort((a: InstalledScript, b: InstalledScript) => {
-
+      // Default sorting: group by server, then by container ID
       if (sortField === 'server_name') {
         const aServer = a.server_name ?? 'Local';
         const bServer = b.server_name ?? 'Local';
+        
+        // First sort by server name
         if (aServer !== bServer) {
           return sortDirection === 'asc' ? 
             aServer.localeCompare(bServer) : 
             bServer.localeCompare(aServer);
         }
+        
+        // If same server, sort by container ID
         const aContainerId = a.container_id ?? '';
         const bContainerId = b.container_id ?? '';
-
+        
         if (aContainerId !== bContainerId) {
-
+          // Convert to numbers for proper numeric sorting
           const aNum = parseInt(aContainerId) || 0;
           const bNum = parseInt(bContainerId) || 0;
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
         }
-
+        
         return 0;
       }
+
+      // For other sort fields, use the original logic
       let aValue: any;
       let bValue: any;
 
@@ -363,6 +424,8 @@ export function InstalledScriptsTab() {
       }
       return 0;
     });
+
+  // Get unique servers for filter
   const uniqueServers: string[] = [];
   const seen = new Set<string>();
   for (const script of scripts) {
@@ -377,6 +440,8 @@ export function InstalledScriptsTab() {
       void deleteScriptMutation.mutate({ id });
     }
   };
+
+  // Container control handlers
   const handleStartStop = (script: InstalledScript, action: 'start' | 'stop') => {
     if (!script.container_id) {
       alert('No Container ID available for this script');
@@ -426,6 +491,8 @@ export function InstalledScriptsTab() {
       });
       return;
     }
+    
+    // Show confirmation modal with type-to-confirm for update
     setConfirmationModal({
       isOpen: true,
       title: 'Confirm Script Update',
@@ -434,7 +501,7 @@ export function InstalledScriptsTab() {
       confirmText: script.container_id,
       confirmButtonText: 'Update Script',
       onConfirm: () => {
-
+        // Get server info if it's SSH mode
         let server = null;
         if (script.server_id && script.server_user && script.server_password) {
           server = {
@@ -445,7 +512,7 @@ export function InstalledScriptsTab() {
             password: script.server_password
           };
         }
-
+        
         setUpdatingScript({
           id: script.id,
           containerId: script.container_id!,
@@ -554,6 +621,8 @@ export function InstalledScriptsTab() {
       setSortDirection('asc');
     }
   };
+
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -568,9 +637,24 @@ export function InstalledScriptsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Update Terminal */}
+      {updatingScript && (
+        <div className="mb-8">
+          <Terminal
+            scriptPath={`update-${updatingScript.containerId}`}
+            onClose={handleCloseUpdateTerminal}
+            mode={updatingScript.server ? 'ssh' : 'local'}
+            server={updatingScript.server}
+            isUpdate={true}
+            containerId={updatingScript.containerId}
+          />
+        </div>
+      )}
+
+      {/* Header with Stats */}
       <div className="bg-card rounded-lg shadow p-6">
         <h2 className="text-2xl font-bold text-foreground mb-4">Installed Scripts</h2>
-
+        
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
@@ -592,6 +676,33 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
+        {/* Add Script and Auto-Detect Buttons */}
+        <div className="mb-4 flex flex-col sm:flex-row gap-3">
+          <Button
+            onClick={() => setShowAddForm(!showAddForm)}
+            variant={showAddForm ? "outline" : "default"}
+            size="default"
+          >
+            {showAddForm ? 'Cancel Add Script' : '+ Add Manual Script Entry'}
+          </Button>
+          <Button
+            onClick={() => setShowAutoDetectForm(!showAutoDetectForm)}
+            variant={showAutoDetectForm ? "outline" : "secondary"}
+            size="default"
+          >
+            {showAutoDetectForm ? 'Cancel Auto-Detect' : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
+          </Button>
+          <Button
+            onClick={fetchContainerStatuses}
+            disabled={containerStatusMutation.isPending || scripts.length === 0}
+            variant="outline"
+            size="default"
+          >
+            {containerStatusMutation.isPending ? '🔄 Checking...' : '🔄 Refresh Container Status'}
+          </Button>
+        </div>
+
+        {/* Add Script Form */}
         {showAddForm && (
           <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
             <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Add Manual Script Entry</h3>
@@ -660,6 +771,10 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
+        {/* Status Messages */}
+        {(autoDetectStatus.type ?? cleanupStatus.type) && (
+          <div className="mb-4 space-y-2">
+            {/* Auto-Detect Status Message */}
             {autoDetectStatus.type && (
               <div className={`p-4 rounded-lg border ${
                 autoDetectStatus.type === 'success' 
@@ -691,6 +806,41 @@ export function InstalledScriptsTab() {
               </div>
             )}
 
+            {/* Cleanup Status Message */}
+            {cleanupStatus.type && (
+              <div className={`p-4 rounded-lg border ${
+                cleanupStatus.type === 'success' 
+                  ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700' 
+                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    {cleanupStatus.type === 'success' ? (
+                      <svg className="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <p className={`text-sm font-medium ${
+                      cleanupStatus.type === 'success' 
+                        ? 'text-slate-700 dark:text-slate-300' 
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {cleanupStatus.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Auto-Detect LXC Containers Form */}
         {showAutoDetectForm && (
           <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
             <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Auto-Detect LXC Containers (Must contain a tag with &quot;community-script&quot;)</h3>
@@ -719,7 +869,7 @@ export function InstalledScriptsTab() {
                   </div>
                 </div>
               </div>
-
+              
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground">
                   Select Server *
@@ -760,6 +910,9 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
+        {/* Filters */}
+        <div className="space-y-4">
+          {/* Search Input - Full Width on Mobile */}
           <div className="w-full">
             <input
               type="text"
@@ -769,7 +922,36 @@ export function InstalledScriptsTab() {
               className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+          
+          {/* Filter Dropdowns - Responsive Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'success' | 'failed' | 'in_progress')}
+              className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">All Status</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+              <option value="in_progress">In Progress</option>
+            </select>
 
+            <select
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">All Servers</option>
+              <option value="local">Local</option>
+              {uniqueServers.map(server => (
+                <option key={server} value={server}>{server}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Scripts Display - Mobile Cards / Desktop Table */}
       <div className="bg-card rounded-lg shadow overflow-hidden">
         {filteredScripts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -777,6 +959,31 @@ export function InstalledScriptsTab() {
           </div>
         ) : (
           <>
+            {/* Mobile Card Layout */}
+            <div className="block md:hidden p-4 space-y-4">
+              {filteredScripts.map((script) => (
+                <ScriptInstallationCard
+                  key={script.id}
+                  script={script}
+                  isEditing={editingScriptId === script.id}
+                  editFormData={editFormData}
+                  onInputChange={handleInputChange}
+                  onEdit={() => handleEditScript(script)}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                  onUpdate={() => handleUpdateScript(script)}
+                  onDelete={() => handleDeleteScript(Number(script.id))}
+                  isUpdating={updateScriptMutation.isPending}
+                  isDeleting={deleteScriptMutation.isPending}
+                  containerStatus={containerStatuses.get(script.id) ?? 'unknown'}
+                  onStartStop={(action) => handleStartStop(script, action)}
+                  onDestroy={() => handleDestroy(script)}
+                  isControlling={controllingScriptId === script.id}
+                />
+              ))}
+            </div>
+
+            {/* Desktop Table Layout */}
             <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-muted">
@@ -972,6 +1179,28 @@ export function InstalledScriptsTab() {
                                   Update
                                 </Button>
                               )}
+                              {/* Container Control Buttons - only show for SSH scripts with container_id */}
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <>
+                                  <Button
+                                    onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
+                                    disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
+                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleDestroy(script)}
+                                    disabled={controllingScriptId === script.id}
+                                    variant="destructive"
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                  </Button>
+                                </>
+                              )}
+                              {/* Fallback to old Delete button for non-SSH scripts */}
                               {(!script.container_id || script.execution_mode !== 'ssh') && (
                                 <Button
                                   onClick={() => handleDeleteScript(Number(script.id))}
@@ -995,6 +1224,20 @@ export function InstalledScriptsTab() {
         )}
       </div>
 
+        {/* Confirmation Modal */}
+        {confirmationModal && (
+          <ConfirmationModal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal(null)}
+            onConfirm={confirmationModal.onConfirm}
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+            variant={confirmationModal.variant}
+            confirmText={confirmationModal.confirmText}
+          />
+        )}
+
+        {/* Error/Success Modal */}
         {errorModal && (
           <ErrorModal
             isOpen={errorModal.isOpen}
