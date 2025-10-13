@@ -322,7 +322,7 @@ export function InstalledScriptsTab() {
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
-  }, [containerStatusMutation]); // No dependencies to prevent infinite loops
+  }, []); // Empty dependency array to prevent infinite loops
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -341,7 +341,7 @@ export function InstalledScriptsTab() {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
-  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
+  }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
