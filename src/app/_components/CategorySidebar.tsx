@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ContextualHelpIcon } from './ContextualHelpIcon';
 
 interface CategorySidebarProps {
   categories: string[];
@@ -201,9 +202,12 @@ export function CategorySidebar({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {!isCollapsed && (
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">Categories</h3>
-            <p className="text-sm text-muted-foreground">{totalScripts} Total scripts</p>
+          <div className="flex items-center justify-between w-full">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Categories</h3>
+              <p className="text-sm text-muted-foreground">{totalScripts} Total scripts</p>
+            </div>
+            <ContextualHelpIcon section="available-scripts" tooltip="Help with categories" />
           </div>
         )}
         <button

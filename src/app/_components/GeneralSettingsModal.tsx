@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
+import { ContextualHelpIcon } from './ContextualHelpIcon';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -280,7 +281,10 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
-          <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Settings</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Settings</h2>
+            <ContextualHelpIcon section="general-settings" tooltip="Help with General Settings" />
+          </div>
           <Button
             onClick={onClose}
             variant="ghost"

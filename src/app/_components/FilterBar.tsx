@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "./ui/button";
+import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter } from "lucide-react";
 
 export interface FilterState {
@@ -101,6 +102,14 @@ export function FilterBar({
             </svg>
             <span>Filters are being saved automatically</span>
           </div>
+        </div>
+      )}
+
+      {/* Filter Header */}
+      {!isLoadingFilters && (
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-medium text-foreground">Filter Scripts</h3>
+          <ContextualHelpIcon section="available-scripts" tooltip="Help with filtering and searching" />
         </div>
       )}
 

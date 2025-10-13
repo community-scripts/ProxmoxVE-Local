@@ -9,8 +9,10 @@ import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
 import { ServerSettingsButton } from './_components/ServerSettingsButton';
 import { SettingsButton } from './_components/SettingsButton';
+import { HelpButton } from './_components/HelpButton';
 import { VersionDisplay } from './_components/VersionDisplay';
 import { Button } from './_components/ui/button';
+import { ContextualHelpIcon } from './_components/ContextualHelpIcon';
 import { Rocket, Package, HardDrive, FolderOpen } from 'lucide-react';
 import { api } from '~/trpc/react';
 
@@ -93,6 +95,7 @@ export default function Home() {
             <ServerSettingsButton />
             <SettingsButton />
             <ResyncButton />
+            <HelpButton />
           </div>
         </div>
 
@@ -100,54 +103,63 @@ export default function Home() {
         <div className="mb-6 sm:mb-8">
           <div className="border-b border-border">
             <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 lg:space-x-8">
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab('scripts')}
-                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                  activeTab === 'scripts'
-                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                }`}> 
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">Available Scripts</span>
-                <span className="sm:hidden">Available</span>
-                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                  {scriptCounts.available}
-                </span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab('downloaded')}
-                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                  activeTab === 'downloaded'
-                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                }`}>
-                <HardDrive className="h-4 w-4" />
-                <span className="hidden sm:inline">Downloaded Scripts</span>
-                <span className="sm:hidden">Downloaded</span>
-                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                  {scriptCounts.downloaded}
-                </span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab('installed')}
-                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                  activeTab === 'installed'
-                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                }`}>
-                <FolderOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Installed Scripts</span>
-                <span className="sm:hidden">Installed</span>
-                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                  {scriptCounts.installed}
-                </span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="null"
+                  onClick={() => setActiveTab('scripts')}
+                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                    activeTab === 'scripts'
+                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                  }`}>
+                  <Package className="h-4 w-4" />
+                  <span className="hidden sm:inline">Available Scripts</span>
+                  <span className="sm:hidden">Available</span>
+                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                    {scriptCounts.available}
+                  </span>
+                </Button>
+                <ContextualHelpIcon section="available-scripts" tooltip="Help with Available Scripts" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="null"
+                  onClick={() => setActiveTab('downloaded')}
+                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                    activeTab === 'downloaded'
+                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                  }`}>
+                  <HardDrive className="h-4 w-4" />
+                  <span className="hidden sm:inline">Downloaded Scripts</span>
+                  <span className="sm:hidden">Downloaded</span>
+                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                    {scriptCounts.downloaded}
+                  </span>
+                </Button>
+                <ContextualHelpIcon section="downloaded-scripts" tooltip="Help with Downloaded Scripts" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="null"
+                  onClick={() => setActiveTab('installed')}
+                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                    activeTab === 'installed'
+                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                  }`}>
+                  <FolderOpen className="h-4 w-4" />
+                  <span className="hidden sm:inline">Installed Scripts</span>
+                  <span className="sm:hidden">Installed</span>
+                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                    {scriptCounts.installed}
+                  </span>
+                </Button>
+                <ContextualHelpIcon section="installed-scripts" tooltip="Help with Installed Scripts" />
+              </div>
             </nav>
           </div>
         </div>
