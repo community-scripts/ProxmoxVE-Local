@@ -170,7 +170,7 @@ get_latest_release() {
     echo "$tag_name|$download_url"
 }
 
-# Backup data directory and .env file
+# Backup data directory, .env file, and scripts directories
 backup_data() {
     log "Creating backup directory at $BACKUP_DIR..."
     
@@ -205,6 +205,23 @@ backup_data() {
     else
         log_warning ".env file not found, skipping backup"
     fi
+    
+    # Backup scripts directories
+    local scripts_dirs=("scripts/ct" "scripts/install" "scripts/tools" "scripts/vm")
+    for scripts_dir in "${scripts_dirs[@]}"; do
+        if [ -d "$scripts_dir" ]; then
+            log "Backing up $scripts_dir directory..."
+            local backup_name=$(basename "$scripts_dir")
+            if ! cp -r "$scripts_dir" "$BACKUP_DIR/$backup_name"; then
+                log_error "Failed to backup $scripts_dir directory"
+                exit 1
+            else
+                log_success "$scripts_dir directory backed up successfully"
+            fi
+        else
+            log_warning "$scripts_dir directory not found, skipping backup"
+        fi
+    done
 }
 
 # Download and extract latest release
@@ -287,6 +304,7 @@ clear_original_directory() {
         "*.backup"
         "*.bak"
         ".git"
+        "scripts"
     )
     
     # Remove all files except preserved ones
@@ -328,7 +346,7 @@ clear_original_directory() {
 
 # Restore backup files before building
 restore_backup_files() {
-    log "Restoring .env and data directory from backup..."
+    log "Restoring .env, data directory, and scripts directories from backup..."
     
     if [ -d "$BACKUP_DIR" ]; then
         # Restore .env file
@@ -360,6 +378,34 @@ restore_backup_files() {
         else
             log_warning "No data directory backup found"
         fi
+        
+        # Restore scripts directories
+        local scripts_dirs=("ct" "install" "tools" "vm")
+        for backup_name in "${scripts_dirs[@]}"; do
+            if [ -d "$BACKUP_DIR/$backup_name" ]; then
+                local target_dir="scripts/$backup_name"
+                log "Restoring $target_dir directory from backup..."
+                
+                # Ensure scripts directory exists
+                if [ ! -d "scripts" ]; then
+                    mkdir -p "scripts"
+                fi
+                
+                # Remove existing directory if it exists
+                if [ -d "$target_dir" ]; then
+                    rm -rf "$target_dir"
+                fi
+                
+                if mv "$BACKUP_DIR/$backup_name" "$target_dir"; then
+                    log_success "$target_dir directory restored from backup"
+                else
+                    log_error "Failed to restore $target_dir directory"
+                    return 1
+                fi
+            else
+                log_warning "No $backup_name directory backup found"
+            fi
+        done
     else
         log_error "No backup directory found for restoration"
         return 1
@@ -448,6 +494,7 @@ update_files() {
         "update.log"
         "*.backup"
         "*.bak"
+        "scripts"
     )
     
     # Find the actual source directory (strip the top-level directory)
@@ -665,6 +712,33 @@ rollback() {
         else
             log_warning "No .env file backup found"
         fi
+        
+        # Restore scripts directories
+        local scripts_dirs=("ct" "install" "tools" "vm")
+        for backup_name in "${scripts_dirs[@]}"; do
+            if [ -d "$BACKUP_DIR/$backup_name" ]; then
+                local target_dir="scripts/$backup_name"
+                log "Restoring $target_dir directory from backup..."
+                
+                # Ensure scripts directory exists
+                if [ ! -d "scripts" ]; then
+                    mkdir -p "scripts"
+                fi
+                
+                # Remove existing directory if it exists
+                if [ -d "$target_dir" ]; then
+                    rm -rf "$target_dir"
+                fi
+                
+                if mv "$BACKUP_DIR/$backup_name" "$target_dir"; then
+                    log_success "$target_dir directory restored from backup"
+                else
+                    log_error "Failed to restore $target_dir directory"
+                fi
+            else
+                log_warning "No $backup_name directory backup found"
+            fi
+        done
         
         # Clean up backup directory
         log "Cleaning up backup directory..."
