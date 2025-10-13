@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
@@ -160,11 +160,11 @@ export function InstalledScriptsTab() {
   });
 
 
-  const scripts: InstalledScript[] = (scriptsData?.scripts as InstalledScript[]) ?? [];
+  const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
 
   // Function to fetch container statuses
-  const fetchContainerStatuses = () => {
+  const fetchContainerStatuses = useCallback(() => {
     console.log('Fetching container statuses...', { scriptsCount: scripts.length });
     const containersWithIds = scripts
       .filter(script => script.container_id)
@@ -185,7 +185,7 @@ export function InstalledScriptsTab() {
     if (containersWithIds.length > 0) {
       containerStatusMutation.mutate({ containers: containersWithIds });
     }
-  };
+  }, [scripts, containerStatusMutation]);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -203,7 +203,7 @@ export function InstalledScriptsTab() {
       const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
       return () => clearInterval(interval);
     }
-  }, [scripts.length]);
+  }, [scripts.length, fetchContainerStatuses]);
 
   // Trigger status check when component becomes visible (tab is active)
   useEffect(() => {
@@ -215,7 +215,7 @@ export function InstalledScriptsTab() {
       
       return () => clearTimeout(timeoutId);
     }
-  }, []); // Empty dependency array means this runs on mount
+  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
 
   // Also trigger status check when scripts data loads
   useEffect(() => {
@@ -223,12 +223,12 @@ export function InstalledScriptsTab() {
       console.log('Scripts data loaded, triggering status check');
       fetchContainerStatuses();
     }
-  }, [scriptsData, isLoading]);
+  }, [scriptsData, isLoading, scripts.length, fetchContainerStatuses]);
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
-    container_status: script.container_id ? containerStatuses[script.container_id] || 'unknown' : undefined
+    container_status: script.container_id ? containerStatuses[script.container_id] ?? 'unknown' : undefined
   }));
 
   // Filter and sort scripts

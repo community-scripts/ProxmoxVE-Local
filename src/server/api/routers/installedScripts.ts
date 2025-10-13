@@ -4,6 +4,7 @@ import { getDatabase } from "~/server/database";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { getSSHExecutionService } from "~/server/ssh-execution-service";
+import type { Server } from "~/types/server";
 
 const execAsync = promisify(exec);
 
@@ -49,7 +50,7 @@ async function getLocalContainerStatuses(containerIds: string[]): Promise<Record
 }
 
 // Helper function to check remote container statuses (multiple containers per server)
-async function getRemoteContainerStatuses(containerIds: string[], server: any): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
+async function getRemoteContainerStatuses(containerIds: string[], server: Server): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
   return new Promise((resolve) => {
     const sshService = getSSHExecutionService();
     const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
@@ -59,7 +60,7 @@ async function getRemoteContainerStatuses(containerIds: string[], server: any): 
       statusMap[containerId] = 'unknown';
     }
     
-    sshService.executeCommand(
+    void sshService.executeCommand(
       server,
       'pct list',
       (data: string) => {
@@ -682,9 +683,7 @@ export const installedScriptsRouter = createTRPCRouter({
         
         for (const { containerId, server } of remoteContainers) {
           const serverKey = `${server.id}-${server.name}`;
-          if (!serverGroups[serverKey]) {
-            serverGroups[serverKey] = [];
-          }
+          serverGroups[serverKey] ??= [];
           serverGroups[serverKey].push({ containerId, server });
         }
         
@@ -697,7 +696,7 @@ export const installedScriptsRouter = createTRPCRouter({
             if (!server) continue;
             
             const containerIds = containers.map(c => c.containerId).filter(Boolean);
-            const serverStatuses = await getRemoteContainerStatuses(containerIds, server);
+            const serverStatuses = await getRemoteContainerStatuses(containerIds, server as Server);
             
             // Merge the results
             Object.assign(statusMap, serverStatuses);
