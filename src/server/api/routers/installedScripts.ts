@@ -753,7 +753,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(scriptData.server_id);
+        const server = db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -795,7 +795,7 @@ export const installedScriptsRouter = createTRPCRouter({
               console.error('Status command error:', error);
               reject(new Error(error));
             },
-            (exitCode: number) => {
+            (_exitCode: number) => {
               resolve();
             }
           );
@@ -853,7 +853,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(scriptData.server_id);
+        const server = db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -879,15 +879,14 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Execute control command
         const controlCommand = `pct ${input.action} ${scriptData.container_id}`;
-        let commandOutput = '';
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             server as any,
             controlCommand,
-            (data: string) => {
-              commandOutput += data;
+            (_data: string) => {
+              // Command output not needed for control operations
             },
             (error: string) => {
               console.error('Control command error:', error);
@@ -942,7 +941,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(scriptData.server_id);
+        const server = db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -968,15 +967,14 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Execute destroy command
         const destroyCommand = `pct destroy ${scriptData.container_id}`;
-        let commandOutput = '';
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             server as any,
             destroyCommand,
-            (data: string) => {
-              commandOutput += data;
+            (_data: string) => {
+              // Command output not needed for destroy operations
             },
             (error: string) => {
               console.error('Destroy command error:', error);
