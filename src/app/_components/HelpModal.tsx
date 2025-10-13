@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { HelpCircle, Server, Settings, RefreshCw, Package, HardDrive, FolderOpen, Search, Filter, Download } from 'lucide-react';
+import { HelpCircle, Server, Settings, RefreshCw, Package, HardDrive, FolderOpen, Search, Download } from 'lucide-react';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -63,7 +63,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 <h4 className="font-medium text-foreground mb-2">Server Color Coding</h4>
                 <p className="text-sm text-muted-foreground">
                   Assign colors to servers for visual distinction throughout the application. 
-                  This helps identify which server you're working with when managing scripts.
+                  This helps identify which server you&apos;re working with when managing scripts.
                   This needs to be enabled in the General Settings.
                 </p>
               </div>
@@ -100,7 +100,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 <h4 className="font-medium text-foreground mb-2">Server Color Coding</h4>
                 <p className="text-sm text-muted-foreground">
                   Enable visual color coding for servers throughout the application. 
-                  This makes it easier to identify which server you're working with.
+                  This makes it easier to identify which server you&apos;re working with.
                 </p>
               </div>
 
@@ -110,7 +110,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   Add a GitHub Personal Access Token to increase API rate limits and improve performance.
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Bypasses GitHub's rate limiting for unauthenticated requests</li>
+                  <li>• Bypasses GitHub&apos;s rate limiting for unauthenticated requests</li>
                   <li>• Improves script loading and syncing performance</li>
                   <li>• Token is stored securely and only used for API calls</li>
                 </ul>
@@ -233,7 +233,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
               <div className="p-4 border border-border rounded-lg">
                 <h4 className="font-medium text-foreground mb-2">What Are Downloaded Scripts?</h4>
                 <p className="text-sm text-muted-foreground mb-2">
-                  These are scripts that you've downloaded from the repository and are stored locally on your system.
+                  These are scripts that you&apos;ve downloaded from the repository and are stored locally on your system.
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Script files are stored in your local scripts directory</li>
@@ -366,9 +366,9 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <div>
                     <h5 className="font-medium text-foreground mb-2">Automatic Update (Recommended)</h5>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Click the "Update Now" button when an update is available</li>
+                      <li>• Click the &quot;Update Now&quot; button when an update is available</li>
                       <li>• The system will handle everything automatically</li>
-                      <li>• You'll see a progress overlay with update logs</li>
+                      <li>• You&apos;ll see a progress overlay with update logs</li>
                       <li>• The page will reload automatically when complete</li>
                     </ul>
                   </div>
@@ -411,7 +411,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   Click the external link icon next to the update button to view detailed release notes on GitHub.
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• See what's new in each version</li>
+                  <li>• See what&apos;s new in each version</li>
                   <li>• Read about bug fixes and improvements</li>
                   <li>• Check for any breaking changes</li>
                   <li>• View installation requirements</li>
