@@ -142,7 +142,6 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
       
       if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
-        console.log('Fallback: Assuming server restart due to long silence');
         setIsNetworkError(true);
         setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
         

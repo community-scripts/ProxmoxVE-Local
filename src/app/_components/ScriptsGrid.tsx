@@ -452,7 +452,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           successful.push({ slug: slug ?? '', files: result.files ?? [] });
         } else {
           const error = 'error' in result ? result.error : 'Failed to load script';
-          console.log(`Script ${slug} failed with error:`, error, 'Full result:', result);
           const userFriendlyError = getFriendlyErrorMessage(error, slug ?? '');
           failed.push({ slug: slug ?? '', error: userFriendlyError });
         }

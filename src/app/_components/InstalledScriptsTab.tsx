@@ -6,6 +6,8 @@ import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
 import { Button } from './ui/button';
 import { ScriptInstallationCard } from './ScriptInstallationCard';
+import { ConfirmationModal } from './ConfirmationModal';
+import { ErrorModal } from './ErrorModal';
 import { getContrastColor } from '../../lib/colorUtils';
 
 interface InstalledScript {
@@ -22,6 +24,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
 }
 
@@ -41,7 +44,30 @@ export function InstalledScriptsTab() {
   const [autoDetectStatus, setAutoDetectStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [cleanupStatus, setCleanupStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const cleanupRunRef = useRef(false);
-  const [containerStatuses, setContainerStatuses] = useState<Record<string, 'running' | 'stopped' | 'unknown'>>({});
+
+  // Container control state
+  const [containerStatuses, setContainerStatuses] = useState<Map<number, 'running' | 'stopped' | 'unknown'>>(new Map());
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    variant: 'simple' | 'danger';
+    title: string;
+    message: string;
+    confirmText?: string;
+    confirmButtonText?: string;
+    cancelButtonText?: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
+  const scriptsRef = useRef<InstalledScript[]>([]);
+  
+  // Error modal state
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    details?: string;
+    type?: 'error' | 'success';
+  } | null>(null);
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -82,7 +108,6 @@ export function InstalledScriptsTab() {
   // Auto-detect LXC containers mutation
   const autoDetectMutation = api.installedScripts.autoDetectLXCContainers.useMutation({
     onSuccess: (data) => {
-      console.log('Auto-detect success:', data);
       void refetchScripts();
       setShowAutoDetectForm(false);
       setAutoDetectServerId('');
@@ -120,7 +145,28 @@ export function InstalledScriptsTab() {
   const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
     onSuccess: (data) => {
       if (data.success) {
-        setContainerStatuses(data.statusMap);
+        
+        // Map container IDs to script IDs
+        const currentScripts = scriptsRef.current;
+        const statusMap = new Map<number, 'running' | 'stopped' | 'unknown'>();
+        
+        // For each script, find its container status
+        currentScripts.forEach(script => {
+          if (script.container_id && data.statusMap) {
+            const containerStatus = (data.statusMap as Record<string, 'running' | 'stopped' | 'unknown'>)[script.container_id];
+            if (containerStatus) {
+              statusMap.set(script.id, containerStatus);
+            } else {
+              statusMap.set(script.id, 'unknown');
+            }
+          } else {
+            statusMap.set(script.id, 'unknown');
+          }
+        });
+        
+        setContainerStatuses(statusMap);
+      } else {
+        console.error('Container status fetch failed:', data.error);
       }
     },
     onError: (error) => {
@@ -131,7 +177,6 @@ export function InstalledScriptsTab() {
   // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
-      console.log('Cleanup success:', data);
       void refetchScripts();
       
       if (data.deletedCount > 0) {
@@ -159,76 +204,149 @@ export function InstalledScriptsTab() {
     }
   });
 
+  // Container control mutations
+  // Note: getStatusMutation removed - using direct API calls instead
+
+  const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
+    onSuccess: (data, variables) => {
+      setControllingScriptId(null);
+      
+      if (data.success) {
+        // Update container status immediately in UI for instant feedback
+        const newStatus = variables.action === 'start' ? 'running' : 'stopped';
+        setContainerStatuses(prev => {
+          const newMap = new Map(prev);
+          // Find the script ID for this container using the container ID from the response
+          const currentScripts = scriptsRef.current;
+          const script = currentScripts.find(s => s.container_id === data.containerId);
+          if (script) {
+            newMap.set(script.id, newStatus);
+          }
+          return newMap;
+        });
+
+        // Show success modal
+        setErrorModal({
+          isOpen: true,
+          title: `Container ${variables.action === 'start' ? 'Started' : 'Stopped'}`,
+          message: data.message ?? `Container has been ${variables.action === 'start' ? 'started' : 'stopped'} successfully.`,
+          details: undefined,
+          type: 'success'
+        });
+
+        // Re-fetch status for all containers using bulk method (in background)
+        fetchContainerStatuses();
+      } else {
+        // Show error message from backend
+        const errorMessage = data.error ?? 'Unknown error occurred';
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Control Failed',
+          message: 'Failed to control the container. Please check the error details below.',
+          details: errorMessage
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Container control error:', error);
+      setControllingScriptId(null);
+      
+      // Show detailed error message
+      const errorMessage = error.message ?? 'Unknown error occurred';
+      setErrorModal({
+        isOpen: true,
+        title: 'Container Control Failed',
+        message: 'An unexpected error occurred while controlling the container.',
+        details: errorMessage
+      });
+    }
+  });
+
+  const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
+    onSuccess: (data) => {
+      setControllingScriptId(null);
+      
+      if (data.success) {
+        void refetchScripts();
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Destroyed',
+          message: data.message ?? 'The container has been successfully destroyed and removed from the database.',
+          details: undefined,
+          type: 'success'
+        });
+      } else {
+        // Show error message from backend
+        const errorMessage = data.error ?? 'Unknown error occurred';
+        setErrorModal({
+          isOpen: true,
+          title: 'Container Destroy Failed',
+          message: 'Failed to destroy the container. Please check the error details below.',
+          details: errorMessage
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Container destroy error:', error);
+      setControllingScriptId(null);
+      
+      // Show detailed error message
+      const errorMessage = error.message ?? 'Unknown error occurred';
+      setErrorModal({
+        isOpen: true,
+        title: 'Container Destroy Failed',
+        message: 'An unexpected error occurred while destroying the container.',
+        details: errorMessage
+      });
+    }
+  });
+
 
   const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
 
-  // Function to fetch container statuses
-  const fetchContainerStatuses = useCallback(() => {
-    console.log('Fetching container statuses...', { scriptsCount: scripts.length });
-    const containersWithIds = scripts
-      .filter(script => script.container_id)
-      .map(script => ({
-        containerId: script.container_id!,
-        serverId: script.server_id ?? undefined,
-        server: script.server_id ? {
-          id: script.server_id,
-          name: script.server_name!,
-          ip: script.server_ip!,
-          user: script.server_user!,
-          password: script.server_password!,
-          auth_type: 'password' // Default to password auth
-        } : undefined
-      }));
+  // Update ref when scripts change
+  useEffect(() => {
+    scriptsRef.current = scripts;
+  }, [scripts]);
 
-    console.log('Containers to check:', containersWithIds.length);
-    if (containersWithIds.length > 0) {
-      containerStatusMutation.mutate({ containers: containersWithIds });
+  // Function to fetch container statuses - simplified to just check all servers
+  const fetchContainerStatuses = useCallback(() => {
+    const currentScripts = scriptsRef.current;
+    
+    // Get unique server IDs from scripts
+    const serverIds = [...new Set(currentScripts
+      .filter(script => script.server_id)
+      .map(script => script.server_id!))];
+
+    if (serverIds.length > 0) {
+      containerStatusMutation.mutate({ serverIds });
     }
-  }, [scripts, containerStatusMutation]);
+  }, []); // Empty dependency array to prevent infinite loops
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
     if (scripts.length > 0 && serversData?.servers && !cleanupMutation.isPending && !cleanupRunRef.current) {
-      console.log('Running automatic cleanup check...');
       cleanupRunRef.current = true;
       void cleanupMutation.mutate();
     }
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
-  // Auto-refresh container statuses every 60 seconds
+
+
+  // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
+
+  // Trigger status check when tab becomes active (component mounts)
   useEffect(() => {
     if (scripts.length > 0) {
-      fetchContainerStatuses(); // Initial fetch
-      const interval = setInterval(fetchContainerStatuses, 60000); // Every 60 seconds
-      return () => clearInterval(interval);
-    }
-  }, [scripts.length, fetchContainerStatuses]);
-
-  // Trigger status check when component becomes visible (tab is active)
-  useEffect(() => {
-    if (scripts.length > 0) {
-      // Small delay to ensure component is fully rendered
-      const timeoutId = setTimeout(() => {
-        fetchContainerStatuses();
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [scripts.length, fetchContainerStatuses]); // Include dependencies
-
-  // Also trigger status check when scripts data loads
-  useEffect(() => {
-    if (scripts.length > 0 && !isLoading) {
-      console.log('Scripts data loaded, triggering status check');
       fetchContainerStatuses();
     }
-  }, [scriptsData, isLoading, scripts.length, fetchContainerStatuses]);
+  }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
 
   // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
-    container_status: script.container_id ? containerStatuses[script.container_id] ?? 'unknown' : undefined
+    container_status: script.container_id ? containerStatuses.get(script.id) ?? 'unknown' : undefined
   }));
 
   // Filter and sort scripts
@@ -323,31 +441,86 @@ export function InstalledScriptsTab() {
     }
   };
 
-  const handleUpdateScript = (script: InstalledScript) => {
+  // Container control handlers
+  const handleStartStop = (script: InstalledScript, action: 'start' | 'stop') => {
     if (!script.container_id) {
       alert('No Container ID available for this script');
       return;
     }
-    
-    if (confirm(`Are you sure you want to update ${script.script_name}?`)) {
-      // Get server info if it's SSH mode
-      let server = null;
-      if (script.server_id && script.server_user && script.server_password) {
-        server = {
-          id: script.server_id,
-          name: script.server_name,
-          ip: script.server_ip,
-          user: script.server_user,
-          password: script.server_password
-        };
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: 'simple',
+      title: `${action === 'start' ? 'Start' : 'Stop'} Container`,
+      message: `Are you sure you want to ${action} container ${script.container_id} (${script.script_name})?`,
+      onConfirm: () => {
+        setControllingScriptId(script.id);
+        void controlContainerMutation.mutate({ id: script.id, action });
+        setConfirmationModal(null);
       }
-      
-      setUpdatingScript({
-        id: script.id,
-        containerId: script.container_id,
-        server: server
-      });
+    });
+  };
+
+  const handleDestroy = (script: InstalledScript) => {
+    if (!script.container_id) {
+      alert('No Container ID available for this script');
+      return;
     }
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: 'danger',
+      title: 'Destroy Container',
+      message: `This will permanently destroy the LXC container ${script.container_id} (${script.script_name}) and all its data. This action cannot be undone!`,
+      confirmText: script.container_id,
+      onConfirm: () => {
+        setControllingScriptId(script.id);
+        void destroyContainerMutation.mutate({ id: script.id });
+        setConfirmationModal(null);
+      }
+    });
+  };
+
+  const handleUpdateScript = (script: InstalledScript) => {
+    if (!script.container_id) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Update Failed',
+        message: 'No Container ID available for this script',
+        details: 'This script does not have a valid container ID and cannot be updated.'
+      });
+      return;
+    }
+    
+    // Show confirmation modal with type-to-confirm for update
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Confirm Script Update',
+      message: `Are you sure you want to update "${script.script_name}"?\n\n⚠️ WARNING: This will update the script and may affect the container. Consider backing up your data beforehand.`,
+      variant: 'danger',
+      confirmText: script.container_id,
+      confirmButtonText: 'Update Script',
+      onConfirm: () => {
+        // Get server info if it's SSH mode
+        let server = null;
+        if (script.server_id && script.server_user && script.server_password) {
+          server = {
+            id: script.server_id,
+            name: script.server_name,
+            ip: script.server_ip,
+            user: script.server_user,
+            password: script.server_password
+          };
+        }
+        
+        setUpdatingScript({
+          id: script.id,
+          containerId: script.container_id!,
+          server: server
+        });
+        setConfirmationModal(null);
+      }
+    });
   };
 
   const handleCloseUpdateTerminal = () => {
@@ -369,7 +542,12 @@ export function InstalledScriptsTab() {
 
   const handleSaveEdit = () => {
     if (!editFormData.script_name.trim()) {
-      alert('Script name is required');
+      setErrorModal({
+        isOpen: true,
+        title: 'Validation Error',
+        message: 'Script name is required',
+        details: 'Please enter a valid script name before saving.'
+      });
       return;
     }
 
@@ -427,7 +605,6 @@ export function InstalledScriptsTab() {
     }
 
     setAutoDetectStatus({ type: null, message: '' });
-    console.log('Starting auto-detect for server ID:', autoDetectServerId);
     autoDetectMutation.mutate({ serverId: Number(autoDetectServerId) });
   };
 
@@ -798,6 +975,10 @@ export function InstalledScriptsTab() {
                   onDelete={() => handleDeleteScript(Number(script.id))}
                   isUpdating={updateScriptMutation.isPending}
                   isDeleting={deleteScriptMutation.isPending}
+                  containerStatus={containerStatuses.get(script.id) ?? 'unknown'}
+                  onStartStop={(action) => handleStartStop(script, action)}
+                  onDestroy={() => handleDestroy(script)}
+                  isControlling={controllingScriptId === script.id}
                 />
               ))}
             </div>
@@ -993,18 +1174,43 @@ export function InstalledScriptsTab() {
                                   onClick={() => handleUpdateScript(script)}
                                   variant="update"
                                   size="sm"
+                                  disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
                                   Update
                                 </Button>
                               )}
-                              <Button
-                                onClick={() => handleDeleteScript(Number(script.id))}
-                                variant="delete"
-                                size="sm"
-                                disabled={deleteScriptMutation.isPending}
-                              >
-                                {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                              </Button>
+                              {/* Container Control Buttons - only show for SSH scripts with container_id */}
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <>
+                                  <Button
+                                    onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
+                                    disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
+                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleDestroy(script)}
+                                    disabled={controllingScriptId === script.id}
+                                    variant="destructive"
+                                    size="sm"
+                                  >
+                                    {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                  </Button>
+                                </>
+                              )}
+                              {/* Fallback to old Delete button for non-SSH scripts */}
+                              {(!script.container_id || script.execution_mode !== 'ssh') && (
+                                <Button
+                                  onClick={() => handleDeleteScript(Number(script.id))}
+                                  variant="delete"
+                                  size="sm"
+                                  disabled={deleteScriptMutation.isPending}
+                                >
+                                  {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1017,6 +1223,31 @@ export function InstalledScriptsTab() {
           </>
         )}
       </div>
+
+        {/* Confirmation Modal */}
+        {confirmationModal && (
+          <ConfirmationModal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal(null)}
+            onConfirm={confirmationModal.onConfirm}
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+            variant={confirmationModal.variant}
+            confirmText={confirmationModal.confirmText}
+          />
+        )}
+
+        {/* Error/Success Modal */}
+        {errorModal && (
+          <ErrorModal
+            isOpen={errorModal.isOpen}
+            onClose={() => setErrorModal(null)}
+            title={errorModal.title}
+            message={errorModal.message}
+            details={errorModal.details}
+            type={errorModal.type ?? 'error'}
+          />
+        )}
     </div>
   );
 }

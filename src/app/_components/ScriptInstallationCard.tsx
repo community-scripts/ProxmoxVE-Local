@@ -18,6 +18,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
 }
 
@@ -33,6 +34,11 @@ interface ScriptInstallationCardProps {
   onDelete: () => void;
   isUpdating: boolean;
   isDeleting: boolean;
+  // New container control props
+  containerStatus?: 'running' | 'stopped' | 'unknown';
+  onStartStop: (action: 'start' | 'stop') => void;
+  onDestroy: () => void;
+  isControlling: boolean;
 }
 
 export function ScriptInstallationCard({
@@ -46,7 +52,11 @@ export function ScriptInstallationCard({
   onUpdate,
   onDelete,
   isUpdating,
-  isDeleting
+  isDeleting,
+  containerStatus,
+  onStartStop,
+  onDestroy,
+  isControlling
 }: ScriptInstallationCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -188,19 +198,46 @@ export function ScriptInstallationCard({
                 variant="update"
                 size="sm"
                 className="flex-1 min-w-0"
+                disabled={containerStatus === 'stopped'}
               >
                 Update
               </Button>
             )}
-            <Button
-              onClick={onDelete}
-              variant="delete"
-              size="sm"
-              disabled={isDeleting}
-              className="flex-1 min-w-0"
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
+            {/* Container Control Buttons - only show for SSH scripts with container_id */}
+            {script.container_id && script.execution_mode === 'ssh' && (
+              <>
+                <Button
+                  onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
+                  disabled={isControlling || containerStatus === 'unknown'}
+                  variant={containerStatus === 'running' ? 'destructive' : 'default'}
+                  size="sm"
+                  className="flex-1 min-w-0"
+                >
+                  {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
+                </Button>
+                <Button
+                  onClick={onDestroy}
+                  disabled={isControlling}
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1 min-w-0"
+                >
+                  {isControlling ? 'Working...' : 'Destroy'}
+                </Button>
+              </>
+            )}
+            {/* Fallback to old Delete button for non-SSH scripts */}
+            {(!script.container_id || script.execution_mode !== 'ssh') && (
+              <Button
+                onClick={onDelete}
+                variant="delete"
+                size="sm"
+                disabled={isDeleting}
+                className="flex-1 min-w-0"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            )}
           </>
         )}
       </div>

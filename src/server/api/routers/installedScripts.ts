@@ -1,100 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { getSSHExecutionService } from "~/server/ssh-execution-service";
-import type { Server } from "~/types/server";
+// Removed unused imports
 
-const execAsync = promisify(exec);
-
-// Helper function to check local container statuses
-async function getLocalContainerStatuses(containerIds: string[]): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
-  try {
-    const { stdout } = await execAsync('pct list');
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    
-    // Parse pct list output
-    const lines = stdout.trim().split('\n');
-    const dataLines = lines.slice(1); // Skip header
-    
-    for (const line of dataLines) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        const vmid = parts[0];
-        const status = parts[1];
-        
-        if (vmid && containerIds.includes(vmid)) {
-          statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
-        }
-      }
-    }
-    
-    // Set unknown for containers not found in pct list
-    for (const containerId of containerIds) {
-      if (!(containerId in statusMap)) {
-        statusMap[containerId] = 'unknown';
-      }
-    }
-    
-    return statusMap;
-  } catch (error) {
-    console.error('Error checking local container statuses:', error);
-    // Return unknown for all containers on error
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    for (const containerId of containerIds) {
-      statusMap[containerId] = 'unknown';
-    }
-    return statusMap;
-  }
-}
-
-// Helper function to check remote container statuses (multiple containers per server)
-async function getRemoteContainerStatuses(containerIds: string[], server: Server): Promise<Record<string, 'running' | 'stopped' | 'unknown'>> {
-  return new Promise((resolve) => {
-    const sshService = getSSHExecutionService();
-    const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-    
-    // Initialize all containers as unknown
-    for (const containerId of containerIds) {
-      statusMap[containerId] = 'unknown';
-    }
-    
-    void sshService.executeCommand(
-      server,
-      'pct list',
-      (data: string) => {
-        // Parse the output to find all containers
-        const lines = data.trim().split('\n');
-        const dataLines = lines.slice(1); // Skip header
-        
-        for (const line of dataLines) {
-          const parts = line.trim().split(/\s+/);
-          if (parts.length >= 2) {
-            const vmid = parts[0];
-            const status = parts[1];
-            
-            // Check if this is one of the containers we're looking for
-            if (vmid && containerIds.includes(vmid)) {
-              statusMap[vmid] = status === 'running' ? 'running' : 'stopped';
-            }
-          }
-        }
-        
-        resolve(statusMap);
-      },
-      (error: string) => {
-        console.error(`Error checking remote containers on server ${server.name}:`, error);
-        resolve(statusMap); // Return the map with unknown statuses
-      },
-      (exitCode: number) => {
-        if (exitCode !== 0) {
-          resolve(statusMap); // Return the map with unknown statuses
-        }
-      }
-    );
-  });
-}
 
 export const installedScriptsRouter = createTRPCRouter({
   // Get all installed scripts
@@ -303,12 +211,8 @@ export const installedScriptsRouter = createTRPCRouter({
   autoDetectLXCContainers: publicProcedure
     .input(z.object({ serverId: z.number() }))
     .mutation(async ({ input }) => {
-      console.log('=== AUTO-DETECT API ENDPOINT CALLED ===');
-      console.log('Input received:', input);
-      console.log('Timestamp:', new Date().toISOString());
       
       try {
-        console.log('Starting auto-detect LXC containers for server ID:', input.serverId);
         
         const db = getDatabase();
         const server = db.getServerById(input.serverId);
@@ -322,7 +226,6 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        console.log('Found server:', (server as any).name, 'at', (server as any).ip);
 
         // Import SSH services
         const { default: SSHService } = await import('~/server/ssh-service');
@@ -331,10 +234,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
         
               // Test SSH connection first
-              console.log('Testing SSH connection...');
               // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               const connectionTest = await sshService.testSSHConnection(server as any);
-              console.log('SSH connection test result:', connectionTest);
               
               if (!(connectionTest as any).success) {
                 return {
@@ -344,14 +245,11 @@ export const installedScriptsRouter = createTRPCRouter({
                 };
               }
 
-        console.log('SSH connection successful, scanning for LXC containers...');
 
         // Use the working approach - manual loop through all config files
         const command = `for file in /etc/pve/lxc/*.conf; do if [ -f "$file" ]; then if grep -q "community-script" "$file"; then echo "$file"; fi; fi; done`;
         let detectedContainers: any[] = [];
 
-        console.log('Executing manual loop command...');
-        console.log('Command:', command);
 
         let commandOutput = '';
         
@@ -367,8 +265,7 @@ export const installedScriptsRouter = createTRPCRouter({
             (error: string) => {
               console.error('Command error:', error);
             },
-            (exitCode: number) => {
-              console.log('Command exit code:', exitCode);
+            (_exitCode: number) => {
               
               // Parse the complete output to get config file paths that contain community-script tag
               const configFiles = commandOutput.split('\n')
@@ -376,8 +273,6 @@ export const installedScriptsRouter = createTRPCRouter({
                 .map((line: string) => line.trim())
                 .filter((line: string) => line.endsWith('.conf'));
               
-              console.log('Found config files with community-script tag:', configFiles.length);
-              console.log('Config files:', configFiles);
 
               // Process each config file to extract hostname
               const processPromises = configFiles.map(async (configPath: string) => {
@@ -385,7 +280,6 @@ export const installedScriptsRouter = createTRPCRouter({
                   const containerId = configPath.split('/').pop()?.replace('.conf', '');
                   if (!containerId) return null;
 
-                  console.log('Processing container:', containerId, 'from', configPath);
 
                   // Read the config file content
                   const readCommand = `cat "${configPath}" 2>/dev/null`;
@@ -415,13 +309,11 @@ export const installedScriptsRouter = createTRPCRouter({
                             containerId,
                             hostname,
                             configPath,
-                            serverId: (server as any).id,
+                            serverId: Number((server as any).id),
                             serverName: (server as any).name
                           };
-                          console.log('Adding container to detected list:', container);
                           readResolve(container);
                         } else {
-                          console.log('No hostname found for', containerId);
                           readResolve(null);
                         }
                       },
@@ -443,7 +335,6 @@ export const installedScriptsRouter = createTRPCRouter({
               // Wait for all config files to be processed
               void Promise.all(processPromises).then((results) => {
                 detectedContainers = results.filter(result => result !== null);
-                console.log('Final detected containers:', detectedContainers.length);
                 resolve();
               }).catch((error) => {
                 console.error('Error processing config files:', error);
@@ -453,7 +344,6 @@ export const installedScriptsRouter = createTRPCRouter({
           );
         });
 
-        console.log('Detected containers:', detectedContainers.length);
 
         // Get existing scripts to check for duplicates
         const existingScripts = db.getAllInstalledScripts();
@@ -471,7 +361,6 @@ export const installedScriptsRouter = createTRPCRouter({
             );
 
             if (duplicate) {
-              console.log(`Skipping duplicate: ${container.hostname} (${container.containerId}) already exists`);
               skippedScripts.push({
                 containerId: container.containerId,
                 hostname: container.hostname,
@@ -480,7 +369,6 @@ export const installedScriptsRouter = createTRPCRouter({
               continue;
             }
 
-            console.log('Creating script record for:', container.hostname, container.containerId);
             const result = db.createInstalledScript({
               script_name: container.hostname,
               script_path: `detected/${container.hostname}`,
@@ -497,7 +385,6 @@ export const installedScriptsRouter = createTRPCRouter({
               hostname: container.hostname,
               serverName: container.serverName
             });
-            console.log('Created script record with ID:', result.lastInsertRowid);
           } catch (error) {
             console.error(`Error creating script record for ${container.hostname}:`, error);
           }
@@ -527,15 +414,11 @@ export const installedScriptsRouter = createTRPCRouter({
   cleanupOrphanedScripts: publicProcedure
     .mutation(async () => {
       try {
-        console.log('=== CLEANUP ORPHANED SCRIPTS API ENDPOINT CALLED ===');
-        console.log('Timestamp:', new Date().toISOString());
         
         const db = getDatabase();
         const allScripts = db.getAllInstalledScripts();
         const allServers = db.getAllServers();
         
-        console.log('Found scripts:', allScripts.length);
-        console.log('Found servers:', allServers.length);
         
         if (allScripts.length === 0) {
           return {
@@ -559,26 +442,22 @@ export const installedScriptsRouter = createTRPCRouter({
           script.container_id
         );
 
-        console.log('Scripts to check for cleanup:', scriptsToCheck.length);
 
         for (const script of scriptsToCheck) {
           try {
             const scriptData = script as any;
             const server = allServers.find((s: any) => s.id === scriptData.server_id);
             if (!server) {
-              console.log(`Server not found for script ${scriptData.script_name}, marking for deletion`);
               db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
               continue;
             }
 
-            console.log(`Checking script ${scriptData.script_name} on server ${(server as any).name}`);
 
             // Test SSH connection
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             const connectionTest = await sshService.testSSHConnection(server as any);
             if (!(connectionTest as any).success) {
-              console.log(`SSH connection failed for server ${(server as any).name}, skipping script ${scriptData.script_name}`);
               continue;
             }
 
@@ -605,11 +484,9 @@ export const installedScriptsRouter = createTRPCRouter({
             });
 
             if (!containerExists) {
-              console.log(`Container ${scriptData.container_id} not found on server ${(server as any).name}, deleting script ${scriptData.script_name}`);
               db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
             } else {
-              console.log(`Container ${scriptData.container_id} still exists on server ${(server as any).name}, keeping script ${scriptData.script_name}`);
             }
 
           } catch (error) {
@@ -617,7 +494,6 @@ export const installedScriptsRouter = createTRPCRouter({
           }
         }
 
-        console.log('Cleanup completed. Deleted scripts:', deletedScripts);
 
         return {
           success: true,
@@ -639,78 +515,89 @@ export const installedScriptsRouter = createTRPCRouter({
   // Get container running statuses
   getContainerStatuses: publicProcedure
     .input(z.object({ 
-      containers: z.array(z.object({
-        containerId: z.string(),
-        serverId: z.number().optional(),
-        server: z.object({
-          id: z.number(),
-          name: z.string(),
-          ip: z.string(),
-          user: z.string(),
-          password: z.string(),
-          auth_type: z.string()
-        }).optional()
-      }))
+      serverIds: z.array(z.number()).optional() // Optional: check specific servers, or all if empty
     }))
     .mutation(async ({ input }) => {
       try {
-        const { containers } = input;
+        
+        const db = getDatabase();
+        const allServers = db.getAllServers();
         const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
-        
-        // Group containers by server (local vs remote)
-        const localContainers: string[] = [];
-        const remoteContainers: Array<{containerId: string, server: any}> = [];
-        
-        for (const container of containers) {
-          if (!container.serverId || !container.server) {
-            localContainers.push(container.containerId);
-          } else {
-            remoteContainers.push({
-              containerId: container.containerId,
-              server: container.server
-            });
-          }
-        }
-        
-        // Check local containers
-        if (localContainers.length > 0) {
-          const localStatuses = await getLocalContainerStatuses(localContainers);
-          Object.assign(statusMap, localStatuses);
-        }
-        
-        // Check remote containers - group by server and make one call per server
-        const serverGroups: Record<string, Array<{containerId: string, server: any}>> = {};
-        
-        for (const { containerId, server } of remoteContainers) {
-          const serverKey = `${server.id}-${server.name}`;
-          serverGroups[serverKey] ??= [];
-          serverGroups[serverKey].push({ containerId, server });
-        }
-        
-        // Make one call per server
-        for (const [serverKey, containers] of Object.entries(serverGroups)) {
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Determine which servers to check
+        const serversToCheck = input.serverIds 
+          ? allServers.filter((s: any) => input.serverIds!.includes(Number(s.id)))
+          : allServers;
+
+
+        // Check status for each server
+        for (const server of serversToCheck) {
           try {
-            if (containers.length === 0) continue;
+
+            // Test SSH connection
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            const connectionTest = await sshService.testSSHConnection(server as any);
+            if (!(connectionTest as any).success) {
+              continue;
+            }
+
+            // Run pct list to get all container statuses at once
+            const listCommand = 'pct list';
+            let listOutput = '';
             
-            const server = containers[0]?.server;
-            if (!server) continue;
-            
-            const containerIds = containers.map(c => c.containerId).filter(Boolean);
-            const serverStatuses = await getRemoteContainerStatuses(containerIds, server as Server);
-            
-            // Merge the results
-            Object.assign(statusMap, serverStatuses);
-          } catch (error) {
-            console.error(`Error checking statuses for server ${serverKey}:`, error);
-            // Set all containers for this server to unknown
-            for (const container of containers) {
-              if (container.containerId) {
-                statusMap[container.containerId] = 'unknown';
+            await new Promise<void>((resolve, reject) => {
+              void sshExecutionService.executeCommand(
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                server as any,
+                listCommand,
+                (data: string) => {
+                  listOutput += data;
+                },
+                (error: string) => {
+                  console.error(`pct list error on server ${(server as any).name}:`, error);
+                  reject(new Error(error));
+                },
+                (_exitCode: number) => {
+                  resolve();
+                }
+              );
+            });
+
+            // Parse pct list output
+            const lines = listOutput.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+              // pct list format: CTID     Status       Name
+              // Example: "100     running     my-container"
+              const parts = line.trim().split(/\s+/);
+              if (parts.length >= 3) {
+                const containerId = parts[0];
+                const status = parts[1];
+                
+                if (containerId && status) {
+                  // Map pct list status to our status
+                  let mappedStatus: 'running' | 'stopped' | 'unknown' = 'unknown';
+                  if (status === 'running') {
+                    mappedStatus = 'running';
+                  } else if (status === 'stopped') {
+                    mappedStatus = 'stopped';
+                  }
+                  
+                  statusMap[containerId] = mappedStatus;
+                }
               }
             }
+          } catch (error) {
+            console.error(`Error processing server ${(server as any).name}:`, error);
           }
         }
-        
+
+
         return {
           success: true,
           statusMap
@@ -721,6 +608,361 @@ export const installedScriptsRouter = createTRPCRouter({
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch container statuses',
           statusMap: {}
+        };
+      }
+    }),
+
+  // Get container status (running/stopped)
+  getContainerStatus: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found',
+            status: 'unknown' as const
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only check status for SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID',
+            status: 'unknown' as const
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(Number(scriptData.server_id));
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            status: 'unknown' as const
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            status: 'unknown' as const
+          };
+        }
+
+        // Check container status
+        const statusCommand = `pct status ${scriptData.container_id}`;
+        let statusOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            statusCommand,
+            (data: string) => {
+              statusOutput += data;
+            },
+            (error: string) => {
+              console.error('Status command error:', error);
+              reject(new Error(error));
+            },
+            (_exitCode: number) => {
+              resolve();
+            }
+          );
+        });
+
+        // Parse status from output
+        let status: 'running' | 'stopped' | 'unknown' = 'unknown';
+        if (statusOutput.includes('status: running')) {
+          status = 'running';
+        } else if (statusOutput.includes('status: stopped')) {
+          status = 'stopped';
+        }
+
+        return {
+          success: true,
+          status,
+          error: undefined
+        };
+      } catch (error) {
+        console.error('Error in getContainerStatus:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get container status',
+          status: 'unknown' as const
+        };
+      }
+    }),
+
+  // Control container (start/stop)
+  controlContainer: publicProcedure
+    .input(z.object({ 
+      id: z.number(), 
+      action: z.enum(['start', 'stop']) 
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only control SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID'
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(Number(scriptData.server_id));
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // Execute control command
+        const controlCommand = `pct ${input.action} ${scriptData.container_id}`;
+        let commandOutput = '';
+        let commandError = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            controlCommand,
+            (data: string) => {
+              commandOutput += data;
+            },
+            (error: string) => {
+              commandError += error;
+            },
+            (exitCode: number) => {
+              if (exitCode !== 0) {
+                const errorMessage = commandError || commandOutput || `Command failed with exit code ${exitCode}`;
+                reject(new Error(errorMessage));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        return {
+          success: true,
+          message: `Container ${scriptData.container_id} ${input.action} command executed successfully`,
+          containerId: scriptData.container_id
+        };
+      } catch (error) {
+        console.error('Error in controlContainer:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to control container'
+        };
+      }
+    }),
+
+  // Destroy container and delete DB record
+  destroyContainer: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        const scriptData = script as any;
+        
+        // Only destroy SSH scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          return {
+            success: false,
+            error: 'Script is not an SSH script with container ID'
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(Number(scriptData.server_id));
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // First check if container is running and stop it if necessary
+        const statusCommand = `pct status ${scriptData.container_id}`;
+        let statusOutput = '';
+        
+        try {
+          await new Promise<void>((resolve, reject) => {
+            void sshExecutionService.executeCommand(
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+              server as any,
+              statusCommand,
+              (data: string) => {
+                statusOutput += data;
+              },
+              (error: string) => {
+                reject(new Error(error));
+              },
+              (_exitCode: number) => {
+                resolve();
+              }
+            );
+          });
+
+          // Check if container is running
+          if (statusOutput.includes('status: running')) {
+            // Stop the container first
+            const stopCommand = `pct stop ${scriptData.container_id}`;
+            let stopOutput = '';
+            let stopError = '';
+            
+            await new Promise<void>((resolve, reject) => {
+              void sshExecutionService.executeCommand(
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                server as any,
+                stopCommand,
+                (data: string) => {
+                  stopOutput += data;
+                },
+                (error: string) => {
+                  stopError += error;
+                },
+                (exitCode: number) => {
+                  if (exitCode !== 0) {
+                    const errorMessage = stopError || stopOutput || `Stop command failed with exit code ${exitCode}`;
+                    reject(new Error(`Failed to stop container: ${errorMessage}`));
+                  } else {
+                    resolve();
+                  }
+                }
+              );
+            });
+          }
+        } catch (_error) {
+          // If status check fails, continue with destroy attempt
+          // The destroy command will handle the error appropriately
+        }
+
+        // Execute destroy command
+        const destroyCommand = `pct destroy ${scriptData.container_id}`;
+        let commandOutput = '';
+        let commandError = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            destroyCommand,
+            (data: string) => {
+              commandOutput += data;
+            },
+            (error: string) => {
+              commandError += error;
+            },
+            (exitCode: number) => {
+              if (exitCode !== 0) {
+                const errorMessage = commandError || commandOutput || `Destroy command failed with exit code ${exitCode}`;
+                reject(new Error(errorMessage));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        // If destroy was successful, delete the database record
+        const deleteResult = db.deleteInstalledScript(input.id);
+        
+        if (deleteResult.changes === 0) {
+          return {
+            success: false,
+            error: 'Container destroyed but failed to delete database record'
+          };
+        }
+
+        // Determine if container was stopped first
+        const wasStopped = statusOutput.includes('status: running');
+        const message = wasStopped 
+          ? `Container ${scriptData.container_id} stopped and destroyed successfully, database record deleted`
+          : `Container ${scriptData.container_id} destroyed successfully, database record deleted`;
+
+        return {
+          success: true,
+          message
+        };
+      } catch (error) {
+        console.error('Error in destroyContainer:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to destroy container'
         };
       }
     })

@@ -334,6 +334,29 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Update Scripts:</strong> Re-run or update existing script installations</li>
                 </ul>
               </div>
+
+              <div className="p-4 border border-border rounded-lg bg-accent/50 dark:bg-accent/20">
+                <h4 className="font-medium text-foreground mb-2">Container Control (NEW)</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Directly control LXC containers from the installed scripts page via SSH.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Start/Stop Button:</strong> Control container state with <code>pct start/stop &lt;ID&gt;</code></li>
+                  <li>• <strong>Container Status:</strong> Real-time status indicator (running/stopped/unknown)</li>
+                  <li>• <strong>Destroy Button:</strong> Permanently remove LXC container with <code>pct destroy &lt;ID&gt;</code></li>
+                  <li>• <strong>Confirmation Modals:</strong> Simple OK/Cancel for start/stop, type container ID to confirm destroy</li>
+                  <li>• <strong>SSH Execution:</strong> All commands executed remotely via configured SSH connections</li>
+                </ul>
+                <div className="mt-3 p-3 bg-muted/30 dark:bg-muted/20 rounded-lg border border-border">
+                  <p className="text-sm font-medium text-foreground">⚠️ Safety Features:</p>
+                  <ul className="text-sm text-muted-foreground mt-1 space-y-1">
+                    <li>• Start/Stop actions require simple confirmation</li>
+                    <li>• Destroy action requires typing the container ID to confirm</li>
+                    <li>• All actions show loading states and error handling</li>
+                    <li>• Only works with SSH scripts that have valid container IDs</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         );
