@@ -163,7 +163,7 @@ export class ScriptManager {
           continue;
         }
         
-        const scripts = await this.getScriptsFromDirectory(dirPath, dirName);
+        const scripts = await this.getScriptsFromDirectory(dirPath);
         allScripts.push(...scripts);
       } catch (error) {
         console.error(`Error reading ${dirName} scripts directory:`, error);
@@ -177,10 +177,10 @@ export class ScriptManager {
   /**
    * Get scripts from a specific directory (recursively)
    */
-  private async getScriptsFromDirectory(dirPath: string, dirName: string): Promise<ScriptInfo[]> {
+  private async getScriptsFromDirectory(dirPath: string): Promise<ScriptInfo[]> {
     const scripts: ScriptInfo[] = [];
     
-    const scanDirectory = async (currentPath: string, relativePath: string = ''): Promise<void> => {
+    const scanDirectory = async (currentPath: string, relativePath = ''): Promise<void> => {
       const files = await readdir(currentPath);
 
       for (const file of files) {
