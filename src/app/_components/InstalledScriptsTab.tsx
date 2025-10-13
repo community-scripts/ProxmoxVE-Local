@@ -816,9 +816,9 @@ export function InstalledScriptsTab() {
                           )
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-left">
                         <span 
-                          className="text-sm px-3 py-1 rounded"
+                          className="text-sm px-3 py-1 rounded inline-block"
                           style={{
                             backgroundColor: script.server_color ?? 'transparent',
                             color: script.server_color ? getContrastColor(script.server_color) : 'inherit'
@@ -842,14 +842,14 @@ export function InstalledScriptsTab() {
                               <Button
                                 onClick={handleSaveEdit}
                                 disabled={updateScriptMutation.isPending}
-                                variant="default"
+                                variant="save"
                                 size="sm"
                               >
                                 {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
                               <Button
                                 onClick={handleCancelEdit}
-                                variant="outline"
+                                variant="cancel"
                                 size="sm"
                               >
                                 Cancel
@@ -859,7 +859,7 @@ export function InstalledScriptsTab() {
                             <>
                               <Button
                                 onClick={() => handleEditScript(script)}
-                                variant="default"
+                                variant="edit"
                                 size="sm"
                               >
                                 Edit
@@ -867,7 +867,7 @@ export function InstalledScriptsTab() {
                               {script.container_id && (
                                 <Button
                                   onClick={() => handleUpdateScript(script)}
-                                  variant="link"
+                                  variant="update"
                                   size="sm"
                                 >
                                   Update
@@ -875,7 +875,7 @@ export function InstalledScriptsTab() {
                               )}
                               <Button
                                 onClick={() => handleDeleteScript(Number(script.id))}
-                                variant="destructive"
+                                variant="delete"
                                 size="sm"
                                 disabled={deleteScriptMutation.isPending}
                               >

@@ -49,7 +49,7 @@ export function ScriptCard({ script, onClick }: ScriptCardProps) {
             </h3>
             <div className="mt-2 space-y-2">
               {/* Type and Updateable status on first row */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-1">
                 <TypeBadge type={script.type ?? 'unknown'} />
                 {script.updateable && <UpdateableBadge />}
               </div>

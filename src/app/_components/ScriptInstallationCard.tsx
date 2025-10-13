@@ -134,7 +134,7 @@ export function ScriptInstallationCard({
             <Button
               onClick={onSave}
               disabled={isUpdating}
-              variant="default"
+              variant="save"
               size="sm"
               className="flex-1 min-w-0"
             >
@@ -142,7 +142,7 @@ export function ScriptInstallationCard({
             </Button>
             <Button
               onClick={onCancel}
-              variant="outline"
+              variant="cancel"
               size="sm"
               className="flex-1 min-w-0"
             >
@@ -153,7 +153,7 @@ export function ScriptInstallationCard({
           <>
             <Button
               onClick={onEdit}
-              variant="default"
+              variant="edit"
               size="sm"
               className="flex-1 min-w-0"
             >
@@ -162,7 +162,7 @@ export function ScriptInstallationCard({
             {script.container_id && (
               <Button
                 onClick={onUpdate}
-                variant="link"
+                variant="update"
                 size="sm"
                 className="flex-1 min-w-0"
               >
@@ -171,7 +171,7 @@ export function ScriptInstallationCard({
             )}
             <Button
               onClick={onDelete}
-              variant="destructive"
+              variant="delete"
               size="sm"
               disabled={isDeleting}
               className="flex-1 min-w-0"
