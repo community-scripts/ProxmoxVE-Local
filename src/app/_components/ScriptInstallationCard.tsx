@@ -134,17 +134,17 @@ export function ScriptInstallationCard({
             <Button
               onClick={onSave}
               disabled={isUpdating}
-              variant="outline"
+              variant="save"
               size="sm"
-              className="flex-1 min-w-0 bg-green-900/20 hover:bg-green-900/30 border-green-700/50 text-green-300 hover:text-green-200 hover:border-green-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="flex-1 min-w-0"
             >
               {isUpdating ? 'Saving...' : 'Save'}
             </Button>
             <Button
               onClick={onCancel}
-              variant="outline"
+              variant="cancel"
               size="sm"
-              className="flex-1 min-w-0 bg-gray-800/20 hover:bg-gray-800/30 border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="flex-1 min-w-0"
             >
               Cancel
             </Button>
@@ -153,28 +153,28 @@ export function ScriptInstallationCard({
           <>
             <Button
               onClick={onEdit}
-              variant="outline"
+              variant="edit"
               size="sm"
-              className="flex-1 min-w-0 bg-blue-900/20 hover:bg-blue-900/30 border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="flex-1 min-w-0"
             >
               Edit
             </Button>
             {script.container_id && (
               <Button
                 onClick={onUpdate}
-                variant="outline"
+                variant="update"
                 size="sm"
-                className="flex-1 min-w-0 bg-cyan-900/20 hover:bg-cyan-900/30 border-cyan-700/50 text-cyan-300 hover:text-cyan-200 hover:border-cyan-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="flex-1 min-w-0"
               >
                 Update
               </Button>
             )}
             <Button
               onClick={onDelete}
-              variant="outline"
+              variant="delete"
               size="sm"
               disabled={isDeleting}
-              className="flex-1 min-w-0 bg-red-900/20 hover:bg-red-900/30 border-red-700/50 text-red-300 hover:text-red-200 hover:border-red-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="flex-1 min-w-0"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>

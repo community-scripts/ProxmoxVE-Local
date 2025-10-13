@@ -842,17 +842,15 @@ export function InstalledScriptsTab() {
                               <Button
                                 onClick={handleSaveEdit}
                                 disabled={updateScriptMutation.isPending}
-                                variant="outline"
+                                variant="save"
                                 size="sm"
-                                className="bg-green-900/20 hover:bg-green-900/30 border-green-700/50 text-green-300 hover:text-green-200 hover:border-green-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                               >
                                 {updateScriptMutation.isPending ? 'Saving...' : 'Save'}
                               </Button>
                               <Button
                                 onClick={handleCancelEdit}
-                                variant="outline"
+                                variant="cancel"
                                 size="sm"
-                                className="bg-gray-800/20 hover:bg-gray-800/30 border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                               >
                                 Cancel
                               </Button>
@@ -861,28 +859,25 @@ export function InstalledScriptsTab() {
                             <>
                               <Button
                                 onClick={() => handleEditScript(script)}
-                                variant="outline"
+                                variant="edit"
                                 size="sm"
-                                className="bg-blue-900/20 hover:bg-blue-900/30 border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                               >
                                 Edit
                               </Button>
                               {script.container_id && (
                                 <Button
                                   onClick={() => handleUpdateScript(script)}
-                                  variant="outline"
+                                  variant="update"
                                   size="sm"
-                                  className="bg-cyan-900/20 hover:bg-cyan-900/30 border-cyan-700/50 text-cyan-300 hover:text-cyan-200 hover:border-cyan-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
                                 >
                                   Update
                                 </Button>
                               )}
                               <Button
                                 onClick={() => handleDeleteScript(Number(script.id))}
-                                variant="outline"
+                                variant="delete"
                                 size="sm"
                                 disabled={deleteScriptMutation.isPending}
-                                className="bg-red-900/20 hover:bg-red-900/30 border-red-700/50 text-red-300 hover:text-red-200 hover:border-red-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                               >
                                 {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
                               </Button>
