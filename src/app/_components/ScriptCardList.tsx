@@ -70,7 +70,7 @@ export function ScriptCardList({ script, onClick }: ScriptCardListProps) {
                 <h3 className="text-xl font-semibold text-foreground truncate mb-2">
                   {script.name || 'Unnamed Script'}
                 </h3>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-wrap gap-2">
                   <TypeBadge type={script.type ?? 'unknown'} />
                   {script.updateable && <UpdateableBadge />}
                   <div className="flex items-center space-x-1">
