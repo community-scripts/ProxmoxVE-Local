@@ -29,7 +29,7 @@ export function InstalledScriptsTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'in_progress'>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('script_name');
+  const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('server_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
@@ -225,6 +225,33 @@ export function InstalledScriptsTab() {
       return matchesSearch && matchesStatus && matchesServer;
     })
     .sort((a: InstalledScript, b: InstalledScript) => {
+      // Default sorting: group by server, then by container ID
+      if (sortField === 'server_name') {
+        const aServer = a.server_name ?? 'Local';
+        const bServer = b.server_name ?? 'Local';
+        
+        // First sort by server name
+        if (aServer !== bServer) {
+          return sortDirection === 'asc' ? 
+            aServer.localeCompare(bServer) : 
+            bServer.localeCompare(aServer);
+        }
+        
+        // If same server, sort by container ID
+        const aContainerId = a.container_id ?? '';
+        const bContainerId = b.container_id ?? '';
+        
+        if (aContainerId !== bContainerId) {
+          // Convert to numbers for proper numeric sorting
+          const aNum = parseInt(aContainerId) || 0;
+          const bNum = parseInt(bContainerId) || 0;
+          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        
+        return 0;
+      }
+
+      // For other sort fields, use the original logic
       let aValue: any;
       let bValue: any;
 
@@ -236,10 +263,6 @@ export function InstalledScriptsTab() {
         case 'container_id':
           aValue = a.container_id ?? '';
           bValue = b.container_id ?? '';
-          break;
-        case 'server_name':
-          aValue = a.server_name ?? 'Local';
-          bValue = b.server_name ?? 'Local';
           break;
         case 'status':
           aValue = a.status;
