@@ -18,6 +18,7 @@ interface InstalledScript {
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
   output_log: string | null;
+  execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
 }
 
