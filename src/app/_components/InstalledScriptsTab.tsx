@@ -96,7 +96,6 @@ export function InstalledScriptsTab() {
   // Auto-detect LXC containers mutation
   const autoDetectMutation = api.installedScripts.autoDetectLXCContainers.useMutation({
     onSuccess: (data) => {
-      console.log('Auto-detect success:', data);
       void refetchScripts();
       setShowAutoDetectForm(false);
       setAutoDetectServerId('');
@@ -134,7 +133,6 @@ export function InstalledScriptsTab() {
   const containerStatusMutation = api.installedScripts.getContainerStatuses.useMutation({
     onSuccess: (data) => {
       if (data.success) {
-        console.log('Received status map from backend:', data.statusMap);
         
         // Map container IDs to script IDs
         const currentScripts = scriptsRef.current;
@@ -146,7 +144,6 @@ export function InstalledScriptsTab() {
             const containerStatus = (data.statusMap as Record<string, 'running' | 'stopped' | 'unknown'>)[script.container_id];
             if (containerStatus) {
               statusMap.set(script.id, containerStatus);
-              console.log(`Mapped script ${script.id} (container ${script.container_id}) to status: ${containerStatus}`);
             } else {
               statusMap.set(script.id, 'unknown');
             }
@@ -156,7 +153,6 @@ export function InstalledScriptsTab() {
         });
         
         setContainerStatuses(statusMap);
-        console.log('Final container statuses map:', statusMap);
       } else {
         console.error('Container status fetch failed:', data.error);
       }
@@ -169,7 +165,6 @@ export function InstalledScriptsTab() {
   // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
-      console.log('Cleanup success:', data);
       void refetchScripts();
       
       if (data.deletedCount > 0) {
@@ -202,7 +197,6 @@ export function InstalledScriptsTab() {
 
   const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
     onSuccess: (data) => {
-      console.log('Container control success:', data);
       setControllingScriptId(null);
       // Refresh status after control action
       if (data.success) {
@@ -220,7 +214,6 @@ export function InstalledScriptsTab() {
 
   const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
     onSuccess: (data) => {
-      console.log('Container destroy success:', data);
       setControllingScriptId(null);
       void refetchScripts();
       alert('Container destroyed successfully');
@@ -244,14 +237,12 @@ export function InstalledScriptsTab() {
   // Function to fetch container statuses - simplified to just check all servers
   const fetchContainerStatuses = useCallback(() => {
     const currentScripts = scriptsRef.current;
-    console.log('Fetching container statuses...', { scriptsCount: currentScripts.length });
     
     // Get unique server IDs from scripts
     const serverIds = [...new Set(currentScripts
       .filter(script => script.server_id)
       .map(script => script.server_id!))];
 
-    console.log('Server IDs to check:', serverIds);
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
@@ -260,7 +251,6 @@ export function InstalledScriptsTab() {
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
     if (scripts.length > 0 && serversData?.servers && !cleanupMutation.isPending && !cleanupRunRef.current) {
-      console.log('Running automatic cleanup check...');
       cleanupRunRef.current = true;
       void cleanupMutation.mutate();
     }
@@ -273,7 +263,6 @@ export function InstalledScriptsTab() {
   // Trigger status check when tab becomes active (component mounts)
   useEffect(() => {
     if (scripts.length > 0) {
-      console.log('Tab became active, triggering status check');
       fetchContainerStatuses();
     }
   }, []); // Empty dependency array means this runs once when component mounts
@@ -520,7 +509,6 @@ export function InstalledScriptsTab() {
     }
 
     setAutoDetectStatus({ type: null, message: '' });
-    console.log('Starting auto-detect for server ID:', autoDetectServerId);
     autoDetectMutation.mutate({ serverId: Number(autoDetectServerId) });
   };
 

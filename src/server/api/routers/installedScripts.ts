@@ -303,12 +303,8 @@ export const installedScriptsRouter = createTRPCRouter({
   autoDetectLXCContainers: publicProcedure
     .input(z.object({ serverId: z.number() }))
     .mutation(async ({ input }) => {
-      console.log('=== AUTO-DETECT API ENDPOINT CALLED ===');
-      console.log('Input received:', input);
-      console.log('Timestamp:', new Date().toISOString());
       
       try {
-        console.log('Starting auto-detect LXC containers for server ID:', input.serverId);
         
         const db = getDatabase();
         const server = db.getServerById(input.serverId);
@@ -322,7 +318,6 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        console.log('Found server:', (server as any).name, 'at', (server as any).ip);
 
         // Import SSH services
         const { default: SSHService } = await import('~/server/ssh-service');
@@ -331,10 +326,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
         
               // Test SSH connection first
-              console.log('Testing SSH connection...');
               // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               const connectionTest = await sshService.testSSHConnection(server as any);
-              console.log('SSH connection test result:', connectionTest);
               
               if (!(connectionTest as any).success) {
                 return {
@@ -344,14 +337,11 @@ export const installedScriptsRouter = createTRPCRouter({
                 };
               }
 
-        console.log('SSH connection successful, scanning for LXC containers...');
 
         // Use the working approach - manual loop through all config files
         const command = `for file in /etc/pve/lxc/*.conf; do if [ -f "$file" ]; then if grep -q "community-script" "$file"; then echo "$file"; fi; fi; done`;
         let detectedContainers: any[] = [];
 
-        console.log('Executing manual loop command...');
-        console.log('Command:', command);
 
         let commandOutput = '';
         
@@ -368,7 +358,6 @@ export const installedScriptsRouter = createTRPCRouter({
               console.error('Command error:', error);
             },
             (exitCode: number) => {
-              console.log('Command exit code:', exitCode);
               
               // Parse the complete output to get config file paths that contain community-script tag
               const configFiles = commandOutput.split('\n')
@@ -376,8 +365,6 @@ export const installedScriptsRouter = createTRPCRouter({
                 .map((line: string) => line.trim())
                 .filter((line: string) => line.endsWith('.conf'));
               
-              console.log('Found config files with community-script tag:', configFiles.length);
-              console.log('Config files:', configFiles);
 
               // Process each config file to extract hostname
               const processPromises = configFiles.map(async (configPath: string) => {
@@ -385,7 +372,6 @@ export const installedScriptsRouter = createTRPCRouter({
                   const containerId = configPath.split('/').pop()?.replace('.conf', '');
                   if (!containerId) return null;
 
-                  console.log('Processing container:', containerId, 'from', configPath);
 
                   // Read the config file content
                   const readCommand = `cat "${configPath}" 2>/dev/null`;
@@ -418,10 +404,8 @@ export const installedScriptsRouter = createTRPCRouter({
                             serverId: (server as any).id,
                             serverName: (server as any).name
                           };
-                          console.log('Adding container to detected list:', container);
                           readResolve(container);
                         } else {
-                          console.log('No hostname found for', containerId);
                           readResolve(null);
                         }
                       },
@@ -443,7 +427,6 @@ export const installedScriptsRouter = createTRPCRouter({
               // Wait for all config files to be processed
               void Promise.all(processPromises).then((results) => {
                 detectedContainers = results.filter(result => result !== null);
-                console.log('Final detected containers:', detectedContainers.length);
                 resolve();
               }).catch((error) => {
                 console.error('Error processing config files:', error);
@@ -453,7 +436,6 @@ export const installedScriptsRouter = createTRPCRouter({
           );
         });
 
-        console.log('Detected containers:', detectedContainers.length);
 
         // Get existing scripts to check for duplicates
         const existingScripts = db.getAllInstalledScripts();
@@ -471,7 +453,6 @@ export const installedScriptsRouter = createTRPCRouter({
             );
 
             if (duplicate) {
-              console.log(`Skipping duplicate: ${container.hostname} (${container.containerId}) already exists`);
               skippedScripts.push({
                 containerId: container.containerId,
                 hostname: container.hostname,
@@ -480,7 +461,6 @@ export const installedScriptsRouter = createTRPCRouter({
               continue;
             }
 
-            console.log('Creating script record for:', container.hostname, container.containerId);
             const result = db.createInstalledScript({
               script_name: container.hostname,
               script_path: `detected/${container.hostname}`,
@@ -497,7 +477,6 @@ export const installedScriptsRouter = createTRPCRouter({
               hostname: container.hostname,
               serverName: container.serverName
             });
-            console.log('Created script record with ID:', result.lastInsertRowid);
           } catch (error) {
             console.error(`Error creating script record for ${container.hostname}:`, error);
           }
@@ -527,15 +506,11 @@ export const installedScriptsRouter = createTRPCRouter({
   cleanupOrphanedScripts: publicProcedure
     .mutation(async () => {
       try {
-        console.log('=== CLEANUP ORPHANED SCRIPTS API ENDPOINT CALLED ===');
-        console.log('Timestamp:', new Date().toISOString());
         
         const db = getDatabase();
         const allScripts = db.getAllInstalledScripts();
         const allServers = db.getAllServers();
         
-        console.log('Found scripts:', allScripts.length);
-        console.log('Found servers:', allServers.length);
         
         if (allScripts.length === 0) {
           return {
@@ -559,26 +534,22 @@ export const installedScriptsRouter = createTRPCRouter({
           script.container_id
         );
 
-        console.log('Scripts to check for cleanup:', scriptsToCheck.length);
 
         for (const script of scriptsToCheck) {
           try {
             const scriptData = script as any;
             const server = allServers.find((s: any) => s.id === scriptData.server_id);
             if (!server) {
-              console.log(`Server not found for script ${scriptData.script_name}, marking for deletion`);
               db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
               continue;
             }
 
-            console.log(`Checking script ${scriptData.script_name} on server ${(server as any).name}`);
 
             // Test SSH connection
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             const connectionTest = await sshService.testSSHConnection(server as any);
             if (!(connectionTest as any).success) {
-              console.log(`SSH connection failed for server ${(server as any).name}, skipping script ${scriptData.script_name}`);
               continue;
             }
 
@@ -605,11 +576,9 @@ export const installedScriptsRouter = createTRPCRouter({
             });
 
             if (!containerExists) {
-              console.log(`Container ${scriptData.container_id} not found on server ${(server as any).name}, deleting script ${scriptData.script_name}`);
               db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
             } else {
-              console.log(`Container ${scriptData.container_id} still exists on server ${(server as any).name}, keeping script ${scriptData.script_name}`);
             }
 
           } catch (error) {
@@ -617,7 +586,6 @@ export const installedScriptsRouter = createTRPCRouter({
           }
         }
 
-        console.log('Cleanup completed. Deleted scripts:', deletedScripts);
 
         return {
           success: true,
@@ -643,9 +611,6 @@ export const installedScriptsRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       try {
-        console.log('=== GET CONTAINER STATUSES API ENDPOINT CALLED ===');
-        console.log('Input received:', input);
-        console.log('Timestamp:', new Date().toISOString());
         
         const db = getDatabase();
         const allServers = db.getAllServers();
@@ -662,18 +627,15 @@ export const installedScriptsRouter = createTRPCRouter({
           ? allServers.filter(s => input.serverIds!.includes((s as any).id))
           : allServers;
 
-        console.log('Servers to check:', serversToCheck.length);
 
         // Check status for each server
         for (const server of serversToCheck) {
           try {
-            console.log(`Checking containers on server ${(server as any)?.name || 'unknown'}`);
 
             // Test SSH connection
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             const connectionTest = await sshService.testSSHConnection(server as any);
             if (!(connectionTest as any).success) {
-              console.log(`SSH connection failed for server ${(server as any).name}`);
               continue;
             }
 
@@ -719,7 +681,6 @@ export const installedScriptsRouter = createTRPCRouter({
                   }
                   
                   statusMap[containerId] = mappedStatus;
-                  console.log(`Container ${containerId} status: ${mappedStatus}`);
                 }
               }
             }
@@ -728,7 +689,6 @@ export const installedScriptsRouter = createTRPCRouter({
           }
         }
 
-        console.log('Final status map:', statusMap);
 
         return {
           success: true,
