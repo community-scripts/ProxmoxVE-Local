@@ -20,7 +20,13 @@ import { api } from '~/trpc/react';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>('scripts');
+  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('activeTab') as 'scripts' | 'downloaded' | 'installed';
+      return savedTab || 'scripts';
+    }
+    return 'scripts';
+  });
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [highlightVersion, setHighlightVersion] = useState<string | undefined>(undefined);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -30,6 +36,13 @@ export default function Home() {
   const { data: localScriptsData } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: installedScriptsData } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: versionData } = api.version.getCurrentVersion.useQuery();
+
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeTab', activeTab);
+    }
+  }, [activeTab]);
 
   // Auto-show release notes modal after update
   useEffect(() => {
