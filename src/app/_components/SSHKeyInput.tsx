@@ -93,9 +93,25 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
     );
     
     if (keyLine) {
-      const keyType = keyLine.includes('RSA') ? 'RSA' : 
-                     keyLine.includes('ED25519') ? 'ED25519' : 
-                     keyLine.includes('ECDSA') ? 'ECDSA' : 'Unknown';
+      let keyType = 'Unknown';
+      
+      // Check for traditional PEM format keys
+      if (keyLine.includes('RSA')) {
+        keyType = 'RSA';
+      } else if (keyLine.includes('ED25519')) {
+        keyType = 'ED25519';
+      } else if (keyLine.includes('ECDSA')) {
+        keyType = 'ECDSA';
+      } else if (keyLine.includes('OPENSSH PRIVATE KEY')) {
+        // For OpenSSH format keys, try to detect type from the key content
+        // Look for common patterns in the base64 content
+        const base64Content = keyContent.replace(/-----BEGIN.*?-----/, '').replace(/-----END.*?-----/, '').replace(/\s/g, '');
+        
+        // This is a heuristic - OpenSSH ED25519 keys typically start with specific patterns
+        // We'll default to "OpenSSH" for now since we can't reliably detect the type
+        keyType = 'OpenSSH';
+      }
+      
       return `${keyType} key (${keyContent.length} characters)`;
     }
     
@@ -142,7 +158,7 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pem,.key,.id_rsa,.id_ed25519,.id_ecdsa"
+            accept=".pem,.key,.id_rsa,.id_ed25519,.id_ecdsa,ed25519,id_rsa,id_ed25519,id_ecdsa,*"
             onChange={handleFileSelect}
             className="hidden"
             disabled={disabled}
@@ -153,7 +169,7 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
               Drag and drop your SSH private key here, or click to browse
             </p>
             <p className="text-xs text-muted-foreground">
-              Supported formats: RSA, ED25519, ECDSA (.pem, .key, .id_rsa, etc.)
+              Supported formats: RSA, ED25519, ECDSA (.pem, .key, .id_rsa, ed25519, etc.)
             </p>
           </div>
         </div>
