@@ -83,7 +83,9 @@ export const installedScriptsRouter = createTRPCRouter({
       server_id: z.number().optional(),
       execution_mode: z.enum(['local', 'ssh']),
       status: z.enum(['in_progress', 'success', 'failed']),
-      output_log: z.string().optional()
+      output_log: z.string().optional(),
+      web_ui_ip: z.string().optional(),
+      web_ui_port: z.number().optional()
     }))
     .mutation(async ({ input }) => {
       try {
@@ -110,7 +112,9 @@ export const installedScriptsRouter = createTRPCRouter({
       script_name: z.string().optional(),
       container_id: z.string().optional(),
       status: z.enum(['in_progress', 'success', 'failed']).optional(),
-      output_log: z.string().optional()
+      output_log: z.string().optional(),
+      web_ui_ip: z.string().optional(),
+      web_ui_port: z.number().optional()
     }))
     .mutation(async ({ input }) => {
       try {
@@ -970,6 +974,178 @@ export const installedScriptsRouter = createTRPCRouter({
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to destroy container'
+        };
+      }
+    }),
+
+  // Auto-detect Web UI IP and port
+  autoDetectWebUI: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      try {
+        console.log('🔍 Auto-detect WebUI called with id:', input.id);
+        const db = getDatabase();
+        const script = db.getInstalledScriptById(input.id);
+        
+        if (!script) {
+          console.log('❌ Script not found for id:', input.id);
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        const scriptData = script as any;
+        console.log('📋 Script data:', {
+          id: scriptData.id,
+          execution_mode: scriptData.execution_mode,
+          server_id: scriptData.server_id,
+          container_id: scriptData.container_id
+        });
+        
+        // Only works for SSH mode scripts with container_id
+        if (scriptData.execution_mode !== 'ssh' || !scriptData.server_id || !scriptData.container_id) {
+          console.log('❌ Validation failed - not SSH mode or missing server/container ID');
+          return {
+            success: false,
+            error: 'Auto-detect only works for SSH mode scripts with container ID'
+          };
+        }
+
+        // Get server info
+        const server = db.getServerById(Number(scriptData.server_id));
+        if (!server) {
+          console.log('❌ Server not found for id:', scriptData.server_id);
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        console.log('🖥️ Server found:', { id: (server as any).id, name: (server as any).name, ip: (server as any).ip });
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+
+        // Test SSH connection first
+        console.log('🔌 Testing SSH connection...');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          console.log('❌ SSH connection failed:', (connectionTest as any).error);
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        console.log('✅ SSH connection successful');
+
+        // Run hostname -I inside the container
+        // Use pct exec instead of pct enter -c (which doesn't exist)
+        const hostnameCommand = `pct exec ${scriptData.container_id} -- hostname -I`;
+        console.log('🚀 Running command:', hostnameCommand);
+        let commandOutput = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            server as any,
+            hostnameCommand,
+            (data: string) => {
+              console.log('📤 Command output chunk:', data);
+              commandOutput += data;
+            },
+            (error: string) => {
+              console.log('❌ Command error:', error);
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              console.log('🏁 Command finished with exit code:', exitCode);
+              if (exitCode !== 0) {
+                reject(new Error(`Command failed with exit code ${exitCode}`));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        // Parse output to get first IP address
+        console.log('📝 Full command output:', commandOutput);
+        const ips = commandOutput.trim().split(/\s+/);
+        const detectedIp = ips[0];
+        console.log('🔍 Parsed IPs:', ips);
+        console.log('🎯 Detected IP:', detectedIp);
+        
+        if (!detectedIp || !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.exec(detectedIp)) {
+          console.log('❌ Invalid IP address detected:', detectedIp);
+          return {
+            success: false,
+            error: 'Could not detect valid IP address from container'
+          };
+        }
+
+        // Get the script's interface_port from metadata (prioritize metadata over existing database values)
+        let detectedPort = 80; // Default fallback
+        
+        try {
+          // Import localScriptsService to get script metadata
+          const { localScriptsService } = await import('~/server/services/localScripts');
+          
+          // Get all scripts and find the one matching our script name
+          const allScripts = await localScriptsService.getAllScripts();
+          
+          // Extract script slug from script_name (remove .sh extension)
+          const scriptSlug = scriptData.script_name.replace(/\.sh$/, '');
+          console.log('🔍 Looking for script with slug:', scriptSlug);
+          
+          const scriptMetadata = allScripts.find(script => script.slug === scriptSlug);
+          
+          if (scriptMetadata?.interface_port) {
+            detectedPort = scriptMetadata.interface_port;
+            console.log('📋 Found interface_port in metadata:', detectedPort);
+          } else {
+            console.log('📋 No interface_port found in metadata, using default port 80');
+            detectedPort = 80; // Default to port 80 if no metadata port found
+          }
+        } catch (error) {
+          console.log('⚠️ Error getting script metadata, using default port 80:', error);
+          detectedPort = 80; // Default to port 80 if metadata lookup fails
+        }
+        
+        console.log('🎯 Final detected port:', detectedPort);
+        
+        // Update the database with detected IP and port
+        console.log('💾 Updating database with IP:', detectedIp, 'Port:', detectedPort);
+        const updateResult = db.updateInstalledScript(input.id, {
+          web_ui_ip: detectedIp,
+          web_ui_port: detectedPort
+        });
+
+        if (updateResult.changes === 0) {
+          console.log('❌ Database update failed - no changes made');
+          return {
+            success: false,
+            error: 'Failed to update database with detected IP'
+          };
+        }
+
+        console.log('✅ Successfully updated database');
+        return {
+          success: true,
+          message: `Successfully detected IP: ${detectedIp}:${detectedPort}`,
+          detectedIp,
+          detectedPort: detectedPort
+        };
+      } catch (error) {
+        console.error('Error in autoDetectWebUI:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to auto-detect Web UI IP'
         };
       }
     })

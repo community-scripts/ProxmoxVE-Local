@@ -78,6 +78,24 @@ class DatabaseService {
       UPDATE servers SET ssh_port = 22 WHERE ssh_port IS NULL
     `);
 
+    // Migration: Add web_ui_ip column to existing installed_scripts table
+    try {
+      this.db.exec(`
+        ALTER TABLE installed_scripts ADD COLUMN web_ui_ip TEXT
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    // Migration: Add web_ui_port column to existing installed_scripts table
+    try {
+      this.db.exec(`
+        ALTER TABLE installed_scripts ADD COLUMN web_ui_port INTEGER
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
     // Create installed_scripts table if it doesn't exist
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS installed_scripts (
@@ -90,7 +108,9 @@ class DatabaseService {
         installation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         status TEXT NOT NULL CHECK(status IN ('in_progress', 'success', 'failed')),
         output_log TEXT,
-        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+        web_ui_ip TEXT,
+        web_ui_port INTEGER,
+        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE SET NULL
       )
     `);
 
@@ -162,14 +182,16 @@ class DatabaseService {
    * @param {string} scriptData.execution_mode
    * @param {string} scriptData.status
    * @param {string} [scriptData.output_log]
+   * @param {string} [scriptData.web_ui_ip]
+   * @param {number} [scriptData.web_ui_port]
    */
   createInstalledScript(scriptData) {
-    const { script_name, script_path, container_id, server_id, execution_mode, status, output_log } = scriptData;
+    const { script_name, script_path, container_id, server_id, execution_mode, status, output_log, web_ui_ip, web_ui_port } = scriptData;
     const stmt = this.db.prepare(`
-      INSERT INTO installed_scripts (script_name, script_path, container_id, server_id, execution_mode, status, output_log) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO installed_scripts (script_name, script_path, container_id, server_id, execution_mode, status, output_log, web_ui_ip, web_ui_port) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(script_name, script_path, container_id || null, server_id || null, execution_mode, status, output_log || null);
+    return stmt.run(script_name, script_path, container_id || null, server_id || null, execution_mode, status, output_log || null, web_ui_ip || null, web_ui_port || null);
   }
 
   getAllInstalledScripts() {
@@ -232,9 +254,11 @@ class DatabaseService {
    * @param {string} [updateData.container_id]
    * @param {string} [updateData.status]
    * @param {string} [updateData.output_log]
+   * @param {string} [updateData.web_ui_ip]
+   * @param {number} [updateData.web_ui_port]
    */
   updateInstalledScript(id, updateData) {
-    const { script_name, container_id, status, output_log } = updateData;
+    const { script_name, container_id, status, output_log, web_ui_ip, web_ui_port } = updateData;
     const updates = [];
     const values = [];
 
@@ -253,6 +277,14 @@ class DatabaseService {
     if (output_log !== undefined) {
       updates.push('output_log = ?');
       values.push(output_log);
+    }
+    if (web_ui_ip !== undefined) {
+      updates.push('web_ui_ip = ?');
+      values.push(web_ui_ip);
+    }
+    if (web_ui_port !== undefined) {
+      updates.push('web_ui_port = ?');
+      values.push(web_ui_port);
     }
 
     if (updates.length === 0) {

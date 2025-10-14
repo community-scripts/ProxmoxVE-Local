@@ -9,6 +9,13 @@ import { ScriptInstallationCard } from './ScriptInstallationCard';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorModal } from './ErrorModal';
 import { getContrastColor } from '../../lib/colorUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu';
 
 interface InstalledScript {
   id: number;
@@ -30,6 +37,8 @@ interface InstalledScript {
   output_log: string | null;
   execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
+  web_ui_ip: string | null;
+  web_ui_port: number | null;
 }
 
 export function InstalledScriptsTab() {
@@ -41,7 +50,7 @@ export function InstalledScriptsTab() {
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
-  const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
+  const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
   const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
@@ -92,7 +101,7 @@ export function InstalledScriptsTab() {
     onSuccess: () => {
       void refetchScripts();
       setEditingScriptId(null);
-      setEditFormData({ script_name: '', container_id: '' });
+      setEditFormData({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
     },
     onError: (error) => {
       alert(`Error updating script: ${error.message}`);
@@ -206,7 +215,30 @@ export function InstalledScriptsTab() {
         message: error.message ?? 'Cleanup failed. Please try again.' 
       });
       // Clear status after 5 seconds
-      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 5000);
+      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 8000);
+    }
+  });
+
+  // Auto-detect Web UI mutation
+  const autoDetectWebUIMutation = api.installedScripts.autoDetectWebUI.useMutation({
+    onSuccess: (data) => {
+      console.log('✅ Auto-detect WebUI success:', data);
+      void refetchScripts();
+      setAutoDetectStatus({ 
+        type: 'success', 
+        message: data.message ?? 'Web UI IP detected successfully!' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
+    },
+    onError: (error) => {
+      console.error('❌ Auto-detect Web UI error:', error);
+      setAutoDetectStatus({ 
+        type: 'error', 
+        message: error.message ?? 'Auto-detect failed. Please try again.' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     }
   });
 
@@ -648,13 +680,15 @@ export function InstalledScriptsTab() {
     setEditingScriptId(script.id);
     setEditFormData({
       script_name: script.script_name,
-      container_id: script.container_id ?? ''
+      container_id: script.container_id ?? '',
+      web_ui_ip: script.web_ui_ip ?? '',
+      web_ui_port: script.web_ui_port?.toString() ?? ''
     });
   };
 
   const handleCancelEdit = () => {
     setEditingScriptId(null);
-    setEditFormData({ script_name: '', container_id: '' });
+    setEditFormData({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   };
 
   const handleSaveEdit = () => {
@@ -673,11 +707,13 @@ export function InstalledScriptsTab() {
         id: editingScriptId,
         script_name: editFormData.script_name.trim(),
         container_id: editFormData.container_id.trim() || undefined,
+        web_ui_ip: editFormData.web_ui_ip.trim() || undefined,
+        web_ui_port: editFormData.web_ui_port.trim() ? parseInt(editFormData.web_ui_port, 10) : undefined,
       });
     }
   };
 
-  const handleInputChange = (field: 'script_name' | 'container_id', value: string) => {
+  const handleInputChange = (field: 'script_name' | 'container_id' | 'web_ui_ip' | 'web_ui_port', value: string) => {
     setEditFormData(prev => ({
       ...prev,
       [field]: value
@@ -737,6 +773,54 @@ export function InstalledScriptsTab() {
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  const handleAutoDetectWebUI = (script: InstalledScript) => {
+    console.log('🔍 Auto-detect WebUI clicked for script:', script);
+    console.log('Script validation:', {
+      hasContainerId: !!script.container_id,
+      isSSHMode: script.execution_mode === 'ssh',
+      containerId: script.container_id,
+      executionMode: script.execution_mode
+    });
+    
+    if (!script.container_id || script.execution_mode !== 'ssh') {
+      console.log('❌ Auto-detect validation failed');
+      setErrorModal({
+        isOpen: true,
+        title: 'Auto-Detect Failed',
+        message: 'Auto-detect only works for SSH mode scripts with container ID',
+        details: 'This script does not have a valid container ID or is not in SSH mode.'
+      });
+      return;
+    }
+
+    console.log('✅ Calling autoDetectWebUIMutation.mutate with id:', script.id);
+    autoDetectWebUIMutation.mutate({ id: script.id });
+  };
+
+  const handleOpenWebUI = (script: InstalledScript) => {
+    if (!script.web_ui_ip) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Web UI Access Failed',
+        message: 'No IP address configured for this script',
+        details: 'Please set the Web UI IP address before opening the interface.'
+      });
+      return;
+    }
+
+    const port = script.web_ui_port ?? 80;
+    const url = `http://${script.web_ui_ip}:${port}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Helper function to check if a script has any actions available
+  const hasActions = (script: InstalledScript) => {
+    if (script.container_id && script.execution_mode === 'ssh') return true;
+    if (script.web_ui_ip != null) return true;
+    if (!script.container_id || script.execution_mode !== 'ssh') return true;
+    return false;
   };
 
 
@@ -1111,6 +1195,9 @@ export function InstalledScriptsTab() {
                   onStartStop={(action) => handleStartStop(script, action)}
                   onDestroy={() => handleDestroy(script)}
                   isControlling={controllingScriptId === script.id}
+                  onOpenWebUI={() => handleOpenWebUI(script)}
+                  onAutoDetectWebUI={() => handleAutoDetectWebUI(script)}
+                  isAutoDetecting={autoDetectWebUIMutation.isPending}
                 />
               ))}
             </div>
@@ -1145,6 +1232,9 @@ export function InstalledScriptsTab() {
                           </span>
                         )}
                       </div>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Web UI
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
@@ -1254,6 +1344,62 @@ export function InstalledScriptsTab() {
                           )
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingScriptId === script.id ? (
+                          <div className="flex items-center space-x-2 min-h-[2.5rem]">
+                            <input
+                              type="text"
+                              value={editFormData.web_ui_ip}
+                              onChange={(e) => handleInputChange('web_ui_ip', e.target.value)}
+                              className="w-32 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="IP"
+                            />
+                            <span className="text-muted-foreground">:</span>
+                            <input
+                              type="number"
+                              value={editFormData.web_ui_port}
+                              onChange={(e) => handleInputChange('web_ui_port', e.target.value)}
+                              className="w-20 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="Port"
+                            />
+                          </div>
+                        ) : (
+                          script.web_ui_ip ? (
+                            <div className="flex items-center justify-between w-full">
+                              <button
+                                onClick={() => handleOpenWebUI(script)}
+                                className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0"
+                              >
+                                {script.web_ui_ip}:{script.web_ui_port ?? 80}
+                              </button>
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <button
+                                  onClick={() => handleAutoDetectWebUI(script)}
+                                  disabled={autoDetectWebUIMutation.isPending}
+                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
+                                  title="Re-detect IP and port"
+                                >
+                                  {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm text-muted-foreground">-</span>
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <button
+                                  onClick={() => handleAutoDetectWebUI(script)}
+                                  disabled={autoDetectWebUIMutation.isPending}
+                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
+                                  title="Re-detect IP and port"
+                                >
+                                  {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-left">
                         <span 
                           className="text-sm px-3 py-1 rounded inline-block"
@@ -1302,63 +1448,81 @@ export function InstalledScriptsTab() {
                               >
                                 Edit
                               </Button>
-                              {script.container_id && (
-                                <Button
-                                  onClick={() => handleUpdateScript(script)}
-                                  variant="update"
-                                  size="sm"
-                                  disabled={containerStatuses.get(script.id) === 'stopped'}
-                                >
-                                  Update
-                                </Button>
-                              )}
-                              {/* Shell button - only show for SSH scripts with container_id */}
-                              {script.container_id && script.execution_mode === 'ssh' && (
-                                <Button
-                                  onClick={() => handleOpenShell(script)}
-                                  variant="secondary"
-                                  size="sm"
-                                  disabled={containerStatuses.get(script.id) === 'stopped'}
-                                >
-                                  Shell
-                                </Button>
-                              )}
-                              {/* Container Control Buttons - only show for SSH scripts with container_id */}
-                              {script.container_id && script.execution_mode === 'ssh' && (
-                                <>
-                                  <Button
-                                    onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
-                                    disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
-                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
-                                    size="sm"
-                                    className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
-                                      ? "bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-400 hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 transition-all duration-200 disabled:hover:scale-100" 
-                                      : "bg-green-600 hover:bg-green-700 text-white border border-green-500 hover:border-green-400 hover:scale-105 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200 disabled:hover:scale-100"
-                                    }
-                                  >
-                                    {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleDestroy(script)}
-                                    disabled={controllingScriptId === script.id}
-                                    variant="destructive"
-                                    size="sm"
-                                    className="bg-red-800 hover:bg-red-900 text-white border border-red-600 hover:border-red-500 hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 transition-all duration-200 disabled:hover:scale-100"
-                                  >
-                                    {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
-                                  </Button>
-                                </>
-                              )}
-                              {/* Fallback to old Delete button for non-SSH scripts */}
-                              {(!script.container_id || script.execution_mode !== 'ssh') && (
-                                <Button
-                                  onClick={() => handleDeleteScript(Number(script.id))}
-                                  variant="delete"
-                                  size="sm"
-                                  disabled={deleteScriptMutation.isPending}
-                                >
-                                  {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                                </Button>
+                              {hasActions(script) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                    >
+                                      Actions
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent className="w-48 bg-gray-900 border-gray-700">
+                                    {script.container_id && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUpdateScript(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/20 focus:bg-cyan-900/20"
+                                      >
+                                        Update
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenShell(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-gray-300 hover:text-gray-200 hover:bg-gray-800/20 focus:bg-gray-800/20"
+                                      >
+                                        Shell
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.web_ui_ip && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenWebUI(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                                      >
+                                        Open UI
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <>
+                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
+                                          disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
+                                          className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
+                                            ? "text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                            : "text-green-300 hover:text-green-200 hover:bg-green-900/20 focus:bg-green-900/20"
+                                          }
+                                        >
+                                          {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleDestroy(script)}
+                                          disabled={controllingScriptId === script.id}
+                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                        >
+                                          {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {(!script.container_id || script.execution_mode !== 'ssh') && (
+                                      <>
+                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteScript(Number(script.id))}
+                                          disabled={deleteScriptMutation.isPending}
+                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                        >
+                                          {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )}
                             </>
                           )}

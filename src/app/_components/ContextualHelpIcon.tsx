@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { HelpModal } from './HelpModal';
-import { Button } from './ui/button';
 import { HelpCircle } from 'lucide-react';
 
 interface ContextualHelpIconProps {
@@ -26,15 +25,13 @@ export function ContextualHelpIcon({
 
   return (
     <>
-      <Button
+      <div
         onClick={() => setIsOpen(true)}
-        variant="ghost"
-        size="icon"
-        className={`${sizeClasses} text-muted-foreground hover:text-foreground hover:bg-muted ${className}`}
+        className={`${sizeClasses} text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer inline-flex items-center justify-center rounded-md transition-colors ${className}`}
         title={tooltip}
       >
         <HelpCircle className="w-4 h-4" />
-      </Button>
+      </div>
 
       <HelpModal 
         isOpen={isOpen} 

@@ -319,6 +319,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Installation Status:</strong> Track success, failure, or in-progress installations</li>
                   <li>• <strong>Server Association:</strong> Know which server each script is installed on</li>
                   <li>• <strong>Container ID:</strong> Link scripts to specific LXC containers</li>
+                  <li>• <strong>Web UI Access:</strong> Track and access Web UI IP addresses and ports</li>
                   <li>• <strong>Execution Logs:</strong> View output and logs from script installations</li>
                   <li>• <strong>Filtering:</strong> Filter by server, status, or search terms</li>
                 </ul>
@@ -335,8 +336,47 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 </ul>
               </div>
 
+              <div className="p-4 border border-border rounded-lg bg-blue-900/20 border-blue-700/50">
+                <h4 className="font-medium text-foreground mb-2">Web UI Access </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Automatically detect and access Web UI interfaces for your installed scripts.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Auto-Detection:</strong> Automatically detects Web UI URLs from script installation output</li>
+                  <li>• <strong>IP & Port Tracking:</strong> Stores and displays Web UI IP addresses and ports</li>
+                  <li>• <strong>One-Click Access:</strong> Click IP:port to open Web UI in new tab</li>
+                  <li>• <strong>Manual Detection:</strong> Re-detect IP using <code>hostname -I</code> inside container</li>
+                  <li>• <strong>Port Detection:</strong> Uses script metadata to get correct port (e.g., actualbudget:5006)</li>
+                  <li>• <strong>Editable Fields:</strong> Manually edit IP and port values as needed</li>
+                </ul>
+                <div className="mt-3 p-3 bg-blue-900/30 rounded-lg border border-blue-700/30">
+                  <p className="text-sm font-medium text-blue-300">💡 How it works:</p>
+                  <ul className="text-sm text-muted-foreground mt-1 space-y-1">
+                    <li>• Scripts automatically detect URLs like <code>http://10.10.10.1:3000</code> during installation</li>
+                    <li>• Re-detect button runs <code>hostname -I</code> inside the container via SSH</li>
+                    <li>• Port defaults to 80, but uses script metadata when available</li>
+                    <li>• Web UI buttons are disabled when container is stopped</li>
+                  </ul>
+                </div>
+              </div>
+
               <div className="p-4 border border-border rounded-lg bg-accent/50 dark:bg-accent/20">
-                <h4 className="font-medium text-foreground mb-2">Container Control (NEW)</h4>
+                <h4 className="font-medium text-foreground mb-2">Actions Dropdown </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Clean interface with all actions organized in a dropdown menu.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Edit Button:</strong> Always visible for quick script editing</li>
+                  <li>• <strong>Actions Dropdown:</strong> Contains Update, Shell, Open UI, Start/Stop, Destroy, Delete</li>
+                  <li>• <strong>Smart Visibility:</strong> Dropdown only appears when actions are available</li>
+                  <li>• <strong>Color Coding:</strong> Start (green), Stop (red), Update (cyan), Shell (gray), Open UI (blue)</li>
+                  <li>• <strong>Auto-Close:</strong> Dropdown closes after clicking any action</li>
+                  <li>• <strong>Disabled States:</strong> Actions are disabled when container is stopped</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg bg-accent/50 dark:bg-accent/20">
+                <h4 className="font-medium text-foreground mb-2">Container Control</h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Directly control LXC containers from the installed scripts page via SSH.
                 </p>

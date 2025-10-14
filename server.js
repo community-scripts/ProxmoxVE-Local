@@ -132,6 +132,55 @@ class ScriptExecutionHandler {
   }
 
   /**
+   * Parse Web UI URL from terminal output
+   * @param {string} output - Terminal output to parse
+   * @returns {{ip: string, port: number}|null} - Object with ip and port if found, null otherwise
+   */
+  parseWebUIUrl(output) {
+    // First, strip ANSI color codes to make pattern matching more reliable
+    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
+    
+    // Look for URL patterns with any valid IP address (private or public)
+    const patterns = [
+      // HTTP/HTTPS URLs with IP and port
+      /https?:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)/gi,
+      // URLs without explicit port (assume default ports)
+      /https?:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\/|$|\s)/gi,
+      // URLs with trailing slash and port
+      /https?:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)\//gi,
+      // URLs with just IP and port (no protocol)
+      /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)(?:\s|$)/gi,
+      // URLs with just IP (no protocol, no port)
+      /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\s|$)/gi,
+    ];
+
+    // Try patterns on both original and cleaned output
+    const outputsToTry = [output, cleanOutput];
+    
+    for (const testOutput of outputsToTry) {
+      for (const pattern of patterns) {
+        const matches = [...testOutput.matchAll(pattern)];
+        for (const match of matches) {
+          if (match[1]) {
+            const ip = match[1];
+            const port = match[2] || (match[0].startsWith('https') ? '443' : '80');
+            
+            // Validate IP address format
+            if (ip.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+              return {
+                ip: ip,
+                port: parseInt(port, 10)
+              };
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /**
    * Create installation record
    * @param {string} scriptName - Name of the script
    * @param {string} scriptPath - Path to the script
@@ -364,6 +413,18 @@ class ScriptExecutionHandler {
           this.updateInstallationRecord(installationId, { container_id: containerId });
         }
         
+        // Parse for Web UI URL
+        const webUIUrl = this.parseWebUIUrl(output);
+        if (webUIUrl && installationId) {
+          const { ip, port } = webUIUrl;
+          if (ip && port) {
+            this.updateInstallationRecord(installationId, { 
+              web_ui_ip: ip, 
+              web_ui_port: port 
+            });
+          }
+        }
+        
         this.sendMessage(ws, {
           type: 'output',
           data: output,
@@ -445,6 +506,18 @@ class ScriptExecutionHandler {
           const containerId = this.parseContainerId(data);
           if (containerId && installationId) {
             this.updateInstallationRecord(installationId, { container_id: containerId });
+          }
+          
+          // Parse for Web UI URL
+          const webUIUrl = this.parseWebUIUrl(data);
+          if (webUIUrl && installationId) {
+            const { ip, port } = webUIUrl;
+            if (ip && port) {
+              this.updateInstallationRecord(installationId, { 
+                web_ui_ip: ip, 
+                web_ui_port: port 
+              });
+            }
           }
           
           // Handle data output
