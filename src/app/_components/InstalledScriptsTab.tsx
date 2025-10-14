@@ -1350,10 +1350,10 @@ export function InstalledScriptsTab() {
                           </div>
                         ) : (
                           script.web_ui_ip ? (
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-between w-full">
                               <button
                                 onClick={() => handleOpenWebUI(script)}
-                                className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                                className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0"
                               >
                                 {script.web_ui_ip}:{script.web_ui_port || 80}
                               </button>
@@ -1361,7 +1361,7 @@ export function InstalledScriptsTab() {
                                 <button
                                   onClick={() => handleAutoDetectWebUI(script)}
                                   disabled={autoDetectWebUIMutation.isPending}
-                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
+                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
                                   title="Re-detect IP and port"
                                 >
                                   {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}

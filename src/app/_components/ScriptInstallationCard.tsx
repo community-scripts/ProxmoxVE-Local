@@ -176,11 +176,11 @@ export function ScriptInstallationCard({
           ) : (
             <div className="text-sm font-mono text-foreground">
               {script.web_ui_ip ? (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between w-full">
                   <button
                     onClick={onOpenWebUI}
                     disabled={containerStatus === 'stopped'}
-                    className={`text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline ${
+                    className={`text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0 ${
                       containerStatus === 'stopped' ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -190,7 +190,7 @@ export function ScriptInstallationCard({
                     <button
                       onClick={onAutoDetectWebUI}
                       disabled={isAutoDetecting}
-                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
+                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
                       title="Re-detect IP and port"
                     >
                       {isAutoDetecting ? '...' : 'Re-detect'}
