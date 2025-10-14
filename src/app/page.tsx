@@ -147,7 +147,7 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-2 sm:gap-3">
-            <Rocket className="h-6 w-6 sm:h-8 w-8 lg:h-9 lg:w-9" />
+            
             <span className="break-words">PVE Scripts Management</span>
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground mb-4 px-2">
