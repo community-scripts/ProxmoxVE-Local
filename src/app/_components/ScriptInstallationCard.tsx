@@ -24,13 +24,15 @@ interface InstalledScript {
   output_log: string | null;
   execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
+  web_ui_ip: string | null;
+  web_ui_port: number | null;
 }
 
 interface ScriptInstallationCardProps {
   script: InstalledScript;
   isEditing: boolean;
-  editFormData: { script_name: string; container_id: string };
-  onInputChange: (field: 'script_name' | 'container_id', value: string) => void;
+  editFormData: { script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string };
+  onInputChange: (field: 'script_name' | 'container_id' | 'web_ui_ip' | 'web_ui_port', value: string) => void;
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
@@ -44,6 +46,10 @@ interface ScriptInstallationCardProps {
   onStartStop: (action: 'start' | 'stop') => void;
   onDestroy: () => void;
   isControlling: boolean;
+  // Web UI props
+  onOpenWebUI: () => void;
+  onAutoDetectWebUI: () => void;
+  isAutoDetecting: boolean;
 }
 
 export function ScriptInstallationCard({
@@ -62,7 +68,10 @@ export function ScriptInstallationCard({
   containerStatus,
   onStartStop,
   onDestroy,
-  isControlling
+  isControlling,
+  onOpenWebUI,
+  onAutoDetectWebUI,
+  isAutoDetecting
 }: ScriptInstallationCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -143,6 +152,67 @@ export function ScriptInstallationCard({
           )}
         </div>
 
+        {/* Web UI */}
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-1">Web UI</div>
+          {isEditing ? (
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={editFormData.web_ui_ip}
+                onChange={(e) => onInputChange('web_ui_ip', e.target.value)}
+                className="flex-1 px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="IP"
+              />
+              <span className="text-muted-foreground">:</span>
+              <input
+                type="number"
+                value={editFormData.web_ui_port}
+                onChange={(e) => onInputChange('web_ui_port', e.target.value)}
+                className="w-20 px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Port"
+              />
+            </div>
+          ) : (
+            <div className="text-sm font-mono text-foreground">
+              {script.web_ui_ip ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={onOpenWebUI}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                  >
+                    {script.web_ui_ip}:{script.web_ui_port || 80}
+                  </button>
+                  {script.container_id && script.execution_mode === 'ssh' && (
+                    <button
+                      onClick={onAutoDetectWebUI}
+                      disabled={isAutoDetecting}
+                      className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                      title="Re-detect IP and port"
+                    >
+                      {isAutoDetecting ? '...' : 'Re-detect'}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className="text-muted-foreground">-</span>
+                  {script.container_id && script.execution_mode === 'ssh' && (
+                    <button
+                      onClick={onAutoDetectWebUI}
+                      disabled={isAutoDetecting}
+                      className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                      title="Re-detect IP and port"
+                    >
+                      {isAutoDetecting ? '...' : 'Re-detect'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Server */}
         <div>
           <div className="text-xs font-medium text-muted-foreground mb-1">Server</div>
@@ -219,6 +289,17 @@ export function ScriptInstallationCard({
                 disabled={containerStatus === 'stopped'}
               >
                 Shell
+              </Button>
+            )}
+            {/* Open UI button - only show when web_ui_ip exists */}
+            {script.web_ui_ip && (
+              <Button
+                onClick={onOpenWebUI}
+                variant="outline"
+                size="sm"
+                className="flex-1 min-w-0 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                Open UI
               </Button>
             )}
             {/* Container Control Buttons - only show for SSH scripts with container_id */}

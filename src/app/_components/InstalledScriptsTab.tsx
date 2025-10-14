@@ -30,6 +30,8 @@ interface InstalledScript {
   output_log: string | null;
   execution_mode: 'local' | 'ssh';
   container_status?: 'running' | 'stopped' | 'unknown';
+  web_ui_ip: string | null;
+  web_ui_port: number | null;
 }
 
 export function InstalledScriptsTab() {
@@ -41,7 +43,7 @@ export function InstalledScriptsTab() {
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
-  const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
+  const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
   const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
@@ -92,7 +94,7 @@ export function InstalledScriptsTab() {
     onSuccess: () => {
       void refetchScripts();
       setEditingScriptId(null);
-      setEditFormData({ script_name: '', container_id: '' });
+      setEditFormData({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
     },
     onError: (error) => {
       alert(`Error updating script: ${error.message}`);
@@ -206,7 +208,30 @@ export function InstalledScriptsTab() {
         message: error.message ?? 'Cleanup failed. Please try again.' 
       });
       // Clear status after 5 seconds
-      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 5000);
+      setTimeout(() => setCleanupStatus({ type: null, message: '' }), 8000);
+    }
+  });
+
+  // Auto-detect Web UI mutation
+  const autoDetectWebUIMutation = api.installedScripts.autoDetectWebUI.useMutation({
+    onSuccess: (data) => {
+      console.log('✅ Auto-detect WebUI success:', data);
+      void refetchScripts();
+      setAutoDetectStatus({ 
+        type: 'success', 
+        message: data.message ?? 'Web UI IP detected successfully!' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
+    },
+    onError: (error) => {
+      console.error('❌ Auto-detect Web UI error:', error);
+      setAutoDetectStatus({ 
+        type: 'error', 
+        message: error.message ?? 'Auto-detect failed. Please try again.' 
+      });
+      // Clear status after 5 seconds
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     }
   });
 
@@ -361,7 +386,7 @@ export function InstalledScriptsTab() {
       console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length, fetchContainerStatuses]);
+  }, [scripts.length]); // Remove fetchContainerStatuses from dependencies to prevent infinite loop
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -648,13 +673,15 @@ export function InstalledScriptsTab() {
     setEditingScriptId(script.id);
     setEditFormData({
       script_name: script.script_name,
-      container_id: script.container_id ?? ''
+      container_id: script.container_id ?? '',
+      web_ui_ip: script.web_ui_ip ?? '',
+      web_ui_port: script.web_ui_port?.toString() ?? ''
     });
   };
 
   const handleCancelEdit = () => {
     setEditingScriptId(null);
-    setEditFormData({ script_name: '', container_id: '' });
+    setEditFormData({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   };
 
   const handleSaveEdit = () => {
@@ -673,11 +700,13 @@ export function InstalledScriptsTab() {
         id: editingScriptId,
         script_name: editFormData.script_name.trim(),
         container_id: editFormData.container_id.trim() || undefined,
+        web_ui_ip: editFormData.web_ui_ip.trim() || undefined,
+        web_ui_port: editFormData.web_ui_port.trim() ? parseInt(editFormData.web_ui_port, 10) : undefined,
       });
     }
   };
 
-  const handleInputChange = (field: 'script_name' | 'container_id', value: string) => {
+  const handleInputChange = (field: 'script_name' | 'container_id' | 'web_ui_ip' | 'web_ui_port', value: string) => {
     setEditFormData(prev => ({
       ...prev,
       [field]: value
@@ -737,6 +766,46 @@ export function InstalledScriptsTab() {
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  const handleAutoDetectWebUI = (script: InstalledScript) => {
+    console.log('🔍 Auto-detect WebUI clicked for script:', script);
+    console.log('Script validation:', {
+      hasContainerId: !!script.container_id,
+      isSSHMode: script.execution_mode === 'ssh',
+      containerId: script.container_id,
+      executionMode: script.execution_mode
+    });
+    
+    if (!script.container_id || script.execution_mode !== 'ssh') {
+      console.log('❌ Auto-detect validation failed');
+      setErrorModal({
+        isOpen: true,
+        title: 'Auto-Detect Failed',
+        message: 'Auto-detect only works for SSH mode scripts with container ID',
+        details: 'This script does not have a valid container ID or is not in SSH mode.'
+      });
+      return;
+    }
+
+    console.log('✅ Calling autoDetectWebUIMutation.mutate with id:', script.id);
+    autoDetectWebUIMutation.mutate({ id: script.id });
+  };
+
+  const handleOpenWebUI = (script: InstalledScript) => {
+    if (!script.web_ui_ip) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Web UI Access Failed',
+        message: 'No IP address configured for this script',
+        details: 'Please set the Web UI IP address before opening the interface.'
+      });
+      return;
+    }
+
+    const port = script.web_ui_port || 80;
+    const url = `http://${script.web_ui_ip}:${port}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
 
@@ -1111,6 +1180,9 @@ export function InstalledScriptsTab() {
                   onStartStop={(action) => handleStartStop(script, action)}
                   onDestroy={() => handleDestroy(script)}
                   isControlling={controllingScriptId === script.id}
+                  onOpenWebUI={() => handleOpenWebUI(script)}
+                  onAutoDetectWebUI={() => handleAutoDetectWebUI(script)}
+                  isAutoDetecting={autoDetectWebUIMutation.isPending}
                 />
               ))}
             </div>
@@ -1145,6 +1217,9 @@ export function InstalledScriptsTab() {
                           </span>
                         )}
                       </div>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Web UI
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 select-none"
@@ -1254,6 +1329,62 @@ export function InstalledScriptsTab() {
                           )
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingScriptId === script.id ? (
+                          <div className="flex items-center space-x-2 min-h-[2.5rem]">
+                            <input
+                              type="text"
+                              value={editFormData.web_ui_ip}
+                              onChange={(e) => handleInputChange('web_ui_ip', e.target.value)}
+                              className="w-32 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="IP"
+                            />
+                            <span className="text-muted-foreground">:</span>
+                            <input
+                              type="number"
+                              value={editFormData.web_ui_port}
+                              onChange={(e) => handleInputChange('web_ui_port', e.target.value)}
+                              className="w-20 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="Port"
+                            />
+                          </div>
+                        ) : (
+                          script.web_ui_ip ? (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleOpenWebUI(script)}
+                                className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                              >
+                                {script.web_ui_ip}:{script.web_ui_port || 80}
+                              </button>
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <button
+                                  onClick={() => handleAutoDetectWebUI(script)}
+                                  disabled={autoDetectWebUIMutation.isPending}
+                                  className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                                  title="Re-detect IP and port"
+                                >
+                                  {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm text-muted-foreground">-</span>
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <button
+                                  onClick={() => handleAutoDetectWebUI(script)}
+                                  disabled={autoDetectWebUIMutation.isPending}
+                                  className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                                  title="Re-detect IP and port"
+                                >
+                                  {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-left">
                         <span 
                           className="text-sm px-3 py-1 rounded inline-block"
@@ -1321,6 +1452,17 @@ export function InstalledScriptsTab() {
                                   disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
                                   Shell
+                                </Button>
+                              )}
+                              {/* Open UI button - only show when web_ui_ip exists */}
+                              {script.web_ui_ip && (
+                                <Button
+                                  onClick={() => handleOpenWebUI(script)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                  Open UI
                                 </Button>
                               )}
                               {/* Container Control Buttons - only show for SSH scripts with container_id */}
