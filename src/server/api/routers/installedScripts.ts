@@ -1137,9 +1137,11 @@ export const installedScriptsRouter = createTRPCRouter({
         console.log('✅ Successfully updated database');
         return {
           success: true,
-          message: `Successfully detected IP: ${detectedIp}:${detectedPort}`,
+          message: `Successfully detected IP: ${detectedIp}:${detectedPort} for LXC ${scriptData.container_id} on ${(server as any).name}`,
           detectedIp,
-          detectedPort: detectedPort
+          detectedPort: detectedPort,
+          containerId: scriptData.container_id,
+          serverName: (server as any).name
         };
       } catch (error) {
         console.error('Error in autoDetectWebUI:', error);
