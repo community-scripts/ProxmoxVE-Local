@@ -1067,15 +1067,14 @@ export function InstalledScriptsTab() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingScriptId === script.id ? (
-                          <div className="space-y-2">
+                          <div className="flex items-center min-h-[2.5rem]">
                             <input
                               type="text"
                               value={editFormData.script_name}
                               onChange={(e) => handleInputChange('script_name', e.target.value)}
-                              className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                              className="w-full px-3 py-2 text-sm font-medium border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                               placeholder="Script name"
                             />
-                            <div className="text-xs text-muted-foreground">{script.script_path}</div>
                           </div>
                         ) : (
                           <div>
@@ -1086,13 +1085,15 @@ export function InstalledScriptsTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingScriptId === script.id ? (
-                          <input
-                            type="text"
-                            value={editFormData.container_id}
-                            onChange={(e) => handleInputChange('container_id', e.target.value)}
-                            className="w-full px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Container ID"
-                          />
+                          <div className="flex items-center min-h-[2.5rem]">
+                            <input
+                              type="text"
+                              value={editFormData.container_id}
+                              onChange={(e) => handleInputChange('container_id', e.target.value)}
+                              className="w-full px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="Container ID"
+                            />
+                          </div>
                         ) : (
                           script.container_id ? (
                             <div className="flex items-center space-x-2">
