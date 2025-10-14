@@ -51,6 +51,7 @@ const handle = app.getRequestHandler();
  * @property {string} [mode]
  * @property {ServerInfo} [server]
  * @property {boolean} [isUpdate]
+ * @property {boolean} [isShell]
  * @property {string} [containerId]
  */
 
@@ -718,7 +719,7 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    * @param {string} mode
-   * @param {ServerInfo} server
+   * @param {ServerInfo|null} server
    */
   async startShellExecution(ws, containerId, executionId, mode = 'local', server = null) {
     try {

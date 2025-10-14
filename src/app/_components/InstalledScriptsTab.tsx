@@ -345,7 +345,7 @@ export function InstalledScriptsTab() {
         containerStatusMutation.mutate({ serverIds });
       }
     }, 500);
-  }, []); // Remove containerStatusMutation from dependencies to prevent loops
+  }, [containerStatusMutation]);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -361,7 +361,7 @@ export function InstalledScriptsTab() {
       console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length]); // Remove fetchContainerStatuses from dependencies
+  }, [scripts.length, fetchContainerStatuses]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -538,10 +538,10 @@ export function InstalledScriptsTab() {
             ip: script.server_ip,
             user: script.server_user,
             password: script.server_password,
-            auth_type: script.server_auth_type || 'password',
+            auth_type: script.server_auth_type ?? 'password',
             ssh_key: script.server_ssh_key,
             ssh_key_passphrase: script.server_ssh_key_passphrase,
-            ssh_port: script.server_ssh_port || 22
+            ssh_port: script.server_ssh_port ?? 22
           };
         }
         
@@ -579,16 +579,16 @@ export function InstalledScriptsTab() {
         ip: script.server_ip,
         user: script.server_user,
         password: script.server_password,
-        auth_type: script.server_auth_type || 'password',
+        auth_type: script.server_auth_type ?? 'password',
         ssh_key: script.server_ssh_key,
         ssh_key_passphrase: script.server_ssh_key_passphrase,
-        ssh_port: script.server_ssh_port || 22
+        ssh_port: script.server_ssh_port ?? 22
       };
     }
     
     setOpeningShell({
       id: script.id,
-      containerId: script.container_id!,
+      containerId: script.container_id,
       server: server
     });
   };
