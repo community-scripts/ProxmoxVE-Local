@@ -626,11 +626,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             <Button
               onClick={handleBatchDownload}
               disabled={loadSingleScriptMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              variant="outline"
+              size="sm"
+              className="bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-300 hover:text-blue-200 hover:border-blue-400/50"
             >
               {loadSingleScriptMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
                   Downloading...
                 </>
               ) : (
@@ -642,6 +644,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
               onClick={handleDownloadAllFiltered}
               disabled={filteredScripts.length === 0 || loadSingleScriptMutation.isPending}
               variant="outline"
+              size="sm"
             >
               {loadSingleScriptMutation.isPending ? (
                 <>
@@ -657,8 +660,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           {selectedSlugs.size > 0 && (
             <Button
               onClick={clearSelection}
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="default"
             >
               Clear Selection
             </Button>
@@ -667,8 +670,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           {filteredScripts.length > 0 && (
             <Button
               onClick={selectAllVisible}
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="default"
             >
               Select All Visible
             </Button>
