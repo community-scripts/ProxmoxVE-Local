@@ -1187,6 +1187,10 @@ export function InstalledScriptsTab() {
                                     disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
                                     variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
                                     size="sm"
+                                    className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
+                                      ? "bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-400 hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 transition-all duration-200 disabled:hover:scale-100" 
+                                      : "bg-green-600 hover:bg-green-700 text-white border border-green-500 hover:border-green-400 hover:scale-105 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200 disabled:hover:scale-100"
+                                    }
                                   >
                                     {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
                                   </Button>
@@ -1195,6 +1199,7 @@ export function InstalledScriptsTab() {
                                     disabled={controllingScriptId === script.id}
                                     variant="destructive"
                                     size="sm"
+                                    className="bg-red-800 hover:bg-red-900 text-white border border-red-600 hover:border-red-500 hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 transition-all duration-200 disabled:hover:scale-100"
                                   >
                                     {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
                                   </Button>
