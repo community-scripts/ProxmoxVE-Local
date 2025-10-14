@@ -1361,7 +1361,7 @@ export function InstalledScriptsTab() {
                                 <button
                                   onClick={() => handleAutoDetectWebUI(script)}
                                   disabled={autoDetectWebUIMutation.isPending}
-                                  className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
                                   title="Re-detect IP and port"
                                 >
                                   {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
@@ -1375,7 +1375,7 @@ export function InstalledScriptsTab() {
                                 <button
                                   onClick={() => handleAutoDetectWebUI(script)}
                                   disabled={autoDetectWebUIMutation.isPending}
-                                  className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
                                   title="Re-detect IP and port"
                                 >
                                   {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
@@ -1447,7 +1447,7 @@ export function InstalledScriptsTab() {
                               {script.container_id && script.execution_mode === 'ssh' && (
                                 <Button
                                   onClick={() => handleOpenShell(script)}
-                                  variant="secondary"
+                                  variant="shell"
                                   size="sm"
                                   disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
@@ -1458,9 +1458,9 @@ export function InstalledScriptsTab() {
                               {script.web_ui_ip && (
                                 <Button
                                   onClick={() => handleOpenWebUI(script)}
-                                  variant="outline"
+                                  variant="openui"
                                   size="sm"
-                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                  disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
                                   Open UI
                                 </Button>
@@ -1471,12 +1471,8 @@ export function InstalledScriptsTab() {
                                   <Button
                                     onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
                                     disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
-                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
+                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start'}
                                     size="sm"
-                                    className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
-                                      ? "bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-400 hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 transition-all duration-200 disabled:hover:scale-100" 
-                                      : "bg-green-600 hover:bg-green-700 text-white border border-green-500 hover:border-green-400 hover:scale-105 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200 disabled:hover:scale-100"
-                                    }
                                   >
                                     {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
                                   </Button>

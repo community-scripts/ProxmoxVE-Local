@@ -154,7 +154,7 @@ export function ScriptInstallationCard({
 
         {/* Web UI */}
         <div>
-          <div className="text-xs font-medium text-muted-foreground mb-1">Web UI</div>
+          <div className="text-xs font-medium text-muted-foreground mb-1">IP:PORT</div>
           {isEditing ? (
             <div className="flex items-center space-x-2">
               <input
@@ -179,7 +179,10 @@ export function ScriptInstallationCard({
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={onOpenWebUI}
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                    disabled={containerStatus === 'stopped'}
+                    className={`text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline ${
+                      containerStatus === 'stopped' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     {script.web_ui_ip}:{script.web_ui_port || 80}
                   </button>
@@ -187,7 +190,7 @@ export function ScriptInstallationCard({
                     <button
                       onClick={onAutoDetectWebUI}
                       disabled={isAutoDetecting}
-                      className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
                       title="Re-detect IP and port"
                     >
                       {isAutoDetecting ? '...' : 'Re-detect'}
@@ -201,7 +204,7 @@ export function ScriptInstallationCard({
                     <button
                       onClick={onAutoDetectWebUI}
                       disabled={isAutoDetecting}
-                      className="text-xs px-2 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded disabled:opacity-50 transition-colors"
+                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
                       title="Re-detect IP and port"
                     >
                       {isAutoDetecting ? '...' : 'Re-detect'}
@@ -295,9 +298,10 @@ export function ScriptInstallationCard({
             {script.web_ui_ip && (
               <Button
                 onClick={onOpenWebUI}
-                variant="outline"
+                variant="openui"
                 size="sm"
-                className="flex-1 min-w-0 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                disabled={containerStatus === 'stopped'}
+                className="flex-1 min-w-0"
               >
                 Open UI
               </Button>
@@ -308,7 +312,7 @@ export function ScriptInstallationCard({
                 <Button
                   onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
                   disabled={isControlling || containerStatus === 'unknown'}
-                  variant={containerStatus === 'running' ? 'destructive' : 'default'}
+                  variant={containerStatus === 'running' ? 'stop' : 'start'}
                   size="sm"
                   className="flex-1 min-w-0"
                 >
