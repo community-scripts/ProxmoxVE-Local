@@ -377,7 +377,7 @@ export function InstalledScriptsTab() {
         containerStatusMutation.mutate({ serverIds });
       }
     }, 500);
-  }, [containerStatusMutation]);
+  }, []);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -1365,21 +1365,17 @@ export function InstalledScriptsTab() {
                           </div>
                         ) : (
                           script.web_ui_ip ? (
-                            <div className="flex items-center justify-between w-full">
-                              <button
-                                onClick={() => handleOpenWebUI(script)}
-                                className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0"
-                              >
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm text-foreground">
                                 {script.web_ui_ip}:{script.web_ui_port ?? 80}
-                              </button>
-                              {script.container_id && script.execution_mode === 'ssh' && (
+                              </span>
+                              {containerStatuses.get(script.id) === 'running' && (
                                 <button
-                                  onClick={() => handleAutoDetectWebUI(script)}
-                                  disabled={autoDetectWebUIMutation.isPending}
-                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
-                                  title="Re-detect IP and port"
+                                  onClick={() => handleOpenWebUI(script)}
+                                  className="text-xs px-2 py-1 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md rounded disabled:opacity-50 flex-shrink-0"
+                                  title="Open Web UI"
                                 >
-                                  {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
+                                  Open UI
                                 </button>
                               )}
                             </div>
@@ -1485,6 +1481,15 @@ export function InstalledScriptsTab() {
                                         className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
                                       >
                                         Open UI
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && script.web_ui_ip && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleAutoDetectWebUI(script)}
+                                        disabled={autoDetectWebUIMutation.isPending || containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                                      >
+                                        {autoDetectWebUIMutation.isPending ? 'Re-detect...' : 'Re-detect IP/Port'}
                                       </DropdownMenuItem>
                                     )}
                                     {script.container_id && script.execution_mode === 'ssh' && (
