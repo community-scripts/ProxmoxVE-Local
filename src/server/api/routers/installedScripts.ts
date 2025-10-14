@@ -906,9 +906,8 @@ export const installedScriptsRouter = createTRPCRouter({
               );
             });
           }
-        } catch (_error) {
-          // If status check fails, continue with destroy attempt
-          // The destroy command will handle the error appropriately
+        } catch {
+
         }
 
         // Execute destroy command

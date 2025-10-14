@@ -322,7 +322,7 @@ export function InstalledScriptsTab() {
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
-  }, []); // Empty dependency array to prevent infinite loops
+  }, []);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -333,17 +333,12 @@ export function InstalledScriptsTab() {
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
 
-
-  // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
-
-  // Trigger status check when tab becomes active (component mounts)
   useEffect(() => {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
   }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
 
-  // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
     container_status: script.container_id ? containerStatuses.get(script.id) ?? 'unknown' : undefined
