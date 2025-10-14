@@ -32,7 +32,9 @@ class SSHExecutionService {
     const tempDir = mkdtempSync(join(tmpdir(), 'ssh-key-'));
     const tempKeyPath = join(tempDir, 'private_key');
     
-    writeFileSync(tempKeyPath, ssh_key);
+    // Normalize the key: trim any trailing whitespace and ensure exactly one newline at the end
+    const normalizedKey = ssh_key.trimEnd() + '\n';
+    writeFileSync(tempKeyPath, normalizedKey);
     chmodSync(tempKeyPath, 0o600); // Set proper permissions
     
     return tempKeyPath;
@@ -295,7 +297,7 @@ class SSHExecutionService {
           try {
             unlinkSync(tempKeyPath);
             const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            unlinkSync(tempDir);
+            rmdirSync(tempDir);
           } catch (cleanupError) {
             console.warn('Failed to clean up temporary SSH key file:', cleanupError);
           }
@@ -314,7 +316,7 @@ class SSHExecutionService {
           try {
             unlinkSync(tempKeyPath);
             const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            unlinkSync(tempDir);
+            rmdirSync(tempDir);
           } catch (cleanupError) {
             console.warn('Failed to clean up temporary SSH key file:', cleanupError);
           }
@@ -328,7 +330,7 @@ class SSHExecutionService {
           try {
             unlinkSync(tempKeyPath);
             const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            unlinkSync(tempDir);
+            rmdirSync(tempDir);
           } catch (cleanupError) {
             console.warn('Failed to clean up temporary SSH key file:', cleanupError);
           }
@@ -383,7 +385,7 @@ class SSHExecutionService {
           try {
             unlinkSync(tempKeyPath);
             const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            unlinkSync(tempDir);
+            rmdirSync(tempDir);
           } catch (cleanupError) {
             console.warn('Failed to clean up temporary SSH key file:', cleanupError);
           }
@@ -414,7 +416,7 @@ class SSHExecutionService {
           try {
             unlinkSync(tempKeyPath);
             const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            unlinkSync(tempDir);
+            rmdirSync(tempDir);
           } catch (cleanupError) {
             console.warn('Failed to clean up temporary SSH key file:', cleanupError);
           }

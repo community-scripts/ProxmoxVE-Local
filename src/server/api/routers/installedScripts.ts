@@ -551,23 +551,31 @@ export const installedScriptsRouter = createTRPCRouter({
             const listCommand = 'pct list';
             let listOutput = '';
             
-            await new Promise<void>((resolve, reject) => {
-              void sshExecutionService.executeCommand(
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                server as any,
-                listCommand,
-                (data: string) => {
-                  listOutput += data;
-                },
-                (error: string) => {
-                  console.error(`pct list error on server ${(server as any).name}:`, error);
-                  reject(new Error(error));
-                },
-                (_exitCode: number) => {
-                  resolve();
-                }
-              );
+            // Add timeout to prevent hanging connections
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('SSH command timeout after 30 seconds')), 30000);
             });
+            
+            await Promise.race([
+              new Promise<void>((resolve, reject) => {
+                void sshExecutionService.executeCommand(
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                  server as any,
+                  listCommand,
+                  (data: string) => {
+                    listOutput += data;
+                  },
+                  (error: string) => {
+                    console.error(`pct list error on server ${(server as any).name}:`, error);
+                    reject(new Error(error));
+                  },
+                  (_exitCode: number) => {
+                    resolve();
+                  }
+                );
+              }),
+              timeoutPromise
+            ]);
 
             // Parse pct list output
             const lines = listOutput.split('\n').filter(line => line.trim());

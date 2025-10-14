@@ -557,7 +557,9 @@ expect {
         tempKeyPath = join(tempDir, 'private_key');
         
         // Write the private key to temporary file
-        writeFileSync(tempKeyPath, ssh_key);
+        // Normalize the key: trim any trailing whitespace and ensure exactly one newline at the end
+        const normalizedKey = ssh_key.trimEnd() + '\n';
+        writeFileSync(tempKeyPath, normalizedKey);
         chmodSync(tempKeyPath, 0o600); // Set proper permissions
         
         // Build SSH command

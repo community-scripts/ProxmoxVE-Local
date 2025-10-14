@@ -59,6 +59,7 @@ export function InstalledScriptsTab() {
   } | null>(null);
   const [controllingScriptId, setControllingScriptId] = useState<number | null>(null);
   const scriptsRef = useRef<InstalledScript[]>([]);
+  const statusCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Error modal state
   const [errorModal, setErrorModal] = useState<{
@@ -312,17 +313,34 @@ export function InstalledScriptsTab() {
 
   // Function to fetch container statuses - simplified to just check all servers
   const fetchContainerStatuses = useCallback(() => {
-    const currentScripts = scriptsRef.current;
+    console.log('fetchContainerStatuses called, isPending:', containerStatusMutation.isPending);
     
-    // Get unique server IDs from scripts
-    const serverIds = [...new Set(currentScripts
-      .filter(script => script.server_id)
-      .map(script => script.server_id!))];
-
-    if (serverIds.length > 0) {
-      containerStatusMutation.mutate({ serverIds });
+    // Prevent multiple simultaneous status checks
+    if (containerStatusMutation.isPending) {
+      console.log('Status check already pending, skipping');
+      return;
     }
-  }, [containerStatusMutation]);
+    
+    // Clear any existing timeout
+    if (statusCheckTimeoutRef.current) {
+      clearTimeout(statusCheckTimeoutRef.current);
+    }
+    
+    // Debounce status checks by 500ms
+    statusCheckTimeoutRef.current = setTimeout(() => {
+      const currentScripts = scriptsRef.current;
+      
+      // Get unique server IDs from scripts
+      const serverIds = [...new Set(currentScripts
+        .filter(script => script.server_id)
+        .map(script => script.server_id!))];
+
+      console.log('Executing status check for server IDs:', serverIds);
+      if (serverIds.length > 0) {
+        containerStatusMutation.mutate({ serverIds });
+      }
+    }, 500);
+  }, []); // Remove containerStatusMutation from dependencies to prevent loops
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -335,9 +353,19 @@ export function InstalledScriptsTab() {
 
   useEffect(() => {
     if (scripts.length > 0) {
+      console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length, fetchContainerStatuses]);
+  }, [scripts.length]); // Remove fetchContainerStatuses from dependencies
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
