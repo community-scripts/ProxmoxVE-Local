@@ -104,9 +104,6 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
         keyType = 'ECDSA';
       } else if (keyLine.includes('OPENSSH PRIVATE KEY')) {
         // For OpenSSH format keys, try to detect type from the key content
-        // Look for common patterns in the base64 content
-        const base64Content = keyContent.replace(/-----BEGIN.*?-----/, '').replace(/-----END.*?-----/, '').replace(/\s/g, '');
-        
         // This is a heuristic - OpenSSH ED25519 keys typically start with specific patterns
         // We'll default to "OpenSSH" for now since we can't reliably detect the type
         keyType = 'OpenSSH';

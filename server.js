@@ -51,6 +51,7 @@ const handle = app.getRequestHandler();
  * @property {string} [mode]
  * @property {ServerInfo} [server]
  * @property {boolean} [isUpdate]
+ * @property {boolean} [isShell]
  * @property {string} [containerId]
  */
 
@@ -207,13 +208,15 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, containerId } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, containerId } = message;
 
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
           if (isUpdate && containerId) {
             await this.startUpdateExecution(ws, containerId, executionId, mode, server);
+          } else if (isShell && containerId) {
+            await this.startShellExecution(ws, containerId, executionId, mode, server);
           } else {
             await this.startScriptExecution(ws, scriptPath, executionId, mode, server);
           }
@@ -705,6 +708,145 @@ class ScriptExecutionHandler {
       this.sendMessage(ws, {
         type: 'error',
         data: `SSH execution failed: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  /**
+   * Start shell execution
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   * @param {string} mode
+   * @param {ServerInfo|null} server
+   */
+  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null) {
+    try {
+      
+      // Send start message
+      this.sendMessage(ws, {
+        type: 'start',
+        data: `Starting shell session for container ${containerId}...`,
+        timestamp: Date.now()
+      });
+
+      if (mode === 'ssh' && server) {
+        await this.startSSHShellExecution(ws, containerId, executionId, server);
+      } else {
+        await this.startLocalShellExecution(ws, containerId, executionId);
+      }
+
+    } catch (error) {
+      this.sendMessage(ws, {
+        type: 'error',
+        data: `Failed to start shell: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  /**
+   * Start local shell execution
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   */
+  async startLocalShellExecution(ws, containerId, executionId) {
+    const { spawn } = await import('node-pty');
+    
+    // Create a shell process that will run pct enter
+    const childProcess = spawn('bash', ['-c', `pct enter ${containerId}`], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 24,
+      cwd: process.cwd(),
+      env: process.env
+    });
+
+    // Store the execution
+    this.activeExecutions.set(executionId, { 
+      process: childProcess, 
+      ws
+    });
+
+    // Handle pty data
+    childProcess.onData((data) => {
+      this.sendMessage(ws, {
+        type: 'output',
+        data: data.toString(),
+        timestamp: Date.now()
+      });
+    });
+
+    // Note: No automatic command is sent - user can type commands interactively
+
+    // Handle process exit
+    childProcess.onExit((e) => {
+      this.sendMessage(ws, {
+        type: 'end',
+        data: `Shell session ended with exit code: ${e.exitCode}`,
+        timestamp: Date.now()
+      });
+      
+      this.activeExecutions.delete(executionId);
+    });
+  }
+
+  /**
+   * Start SSH shell execution
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   * @param {ServerInfo} server
+   */
+  async startSSHShellExecution(ws, containerId, executionId, server) {
+    const sshService = getSSHExecutionService();
+    
+    try {
+      const execution = await sshService.executeCommand(
+        server,
+        `pct enter ${containerId}`,
+        /** @param {string} data */
+        (data) => {
+          this.sendMessage(ws, {
+            type: 'output',
+            data: data,
+            timestamp: Date.now()
+          });
+        },
+        /** @param {string} error */
+        (error) => {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: error,
+            timestamp: Date.now()
+          });
+        },
+        /** @param {number} code */
+        (code) => {
+          this.sendMessage(ws, {
+            type: 'end',
+            data: `Shell session ended with exit code: ${code}`,
+            timestamp: Date.now()
+          });
+          
+          this.activeExecutions.delete(executionId);
+        }
+      );
+
+      // Store the execution
+      this.activeExecutions.set(executionId, { 
+        process: /** @type {any} */ (execution).process, 
+        ws
+      });
+
+      // Note: No automatic command is sent - user can type commands interactively
+
+    } catch (error) {
+      this.sendMessage(ws, {
+        type: 'error',
+        data: `SSH shell execution failed: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: Date.now()
       });
     }

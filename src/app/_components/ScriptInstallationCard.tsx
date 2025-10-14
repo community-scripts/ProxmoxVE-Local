@@ -14,6 +14,10 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
+  server_auth_type: string | null;
+  server_ssh_key: string | null;
+  server_ssh_key_passphrase: string | null;
+  server_ssh_port: number | null;
   server_color: string | null;
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
@@ -31,6 +35,7 @@ interface ScriptInstallationCardProps {
   onSave: () => void;
   onCancel: () => void;
   onUpdate: () => void;
+  onShell: () => void;
   onDelete: () => void;
   isUpdating: boolean;
   isDeleting: boolean;
@@ -50,6 +55,7 @@ export function ScriptInstallationCard({
   onSave,
   onCancel,
   onUpdate,
+  onShell,
   onDelete,
   isUpdating,
   isDeleting,
@@ -201,6 +207,18 @@ export function ScriptInstallationCard({
                 disabled={containerStatus === 'stopped'}
               >
                 Update
+              </Button>
+            )}
+            {/* Shell button - only show for SSH scripts with container_id */}
+            {script.container_id && script.execution_mode === 'ssh' && (
+              <Button
+                onClick={onShell}
+                variant="secondary"
+                size="sm"
+                className="flex-1 min-w-0"
+                disabled={containerStatus === 'stopped'}
+              >
+                Shell
               </Button>
             )}
             {/* Container Control Buttons - only show for SSH scripts with container_id */}

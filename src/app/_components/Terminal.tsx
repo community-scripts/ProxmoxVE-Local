@@ -11,6 +11,7 @@ interface TerminalProps {
   mode?: 'local' | 'ssh';
   server?: any;
   isUpdate?: boolean;
+  isShell?: boolean;
   containerId?: string;
 }
 
@@ -20,7 +21,7 @@ interface TerminalMessage {
   timestamp: number;
 }
 
-export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, containerId }: TerminalProps) {
+export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, containerId }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -332,6 +333,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             mode,
             server,
             isUpdate,
+            isShell,
             containerId
           };
           ws.send(JSON.stringify(message));
@@ -372,7 +374,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, mode, server, isUpdate, containerId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scriptPath, mode, server, isUpdate, isShell, containerId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
@@ -388,6 +390,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         mode,
         server,
         isUpdate,
+        isShell,
         containerId
       }));
     }

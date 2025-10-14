@@ -180,6 +180,10 @@ class DatabaseService {
         s.ip as server_ip,
         s.user as server_user,
         s.password as server_password,
+        s.auth_type as server_auth_type,
+        s.ssh_key as server_ssh_key,
+        s.ssh_key_passphrase as server_ssh_key_passphrase,
+        s.ssh_port as server_ssh_port,
         s.color as server_color
       FROM installed_scripts inst
       LEFT JOIN servers s ON inst.server_id = s.id
