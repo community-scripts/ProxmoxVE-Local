@@ -385,7 +385,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
     );
   }
 
-  if (!downloadedScripts || downloadedScripts.length === 0) {
+  if (!downloadedScripts?.length) {
     return (
       <div className="text-center py-12">
         <div className="text-muted-foreground">

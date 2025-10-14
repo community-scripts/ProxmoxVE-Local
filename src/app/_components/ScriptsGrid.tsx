@@ -571,7 +571,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     );
   }
 
-  if (!scriptsWithStatus || scriptsWithStatus.length === 0) {
+  if (!scriptsWithStatus?.length) {
     return (
       <div className="text-center py-12">
         <div className="text-muted-foreground">

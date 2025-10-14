@@ -322,7 +322,7 @@ export function InstalledScriptsTab() {
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
-  }, []);
+  }, [containerStatusMutation]);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -337,7 +337,7 @@ export function InstalledScriptsTab() {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
-  }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
+  }, [scripts.length, fetchContainerStatuses]);
 
   const scriptsWithStatus = scripts.map(script => ({
     ...script,

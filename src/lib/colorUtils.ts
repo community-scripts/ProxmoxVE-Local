@@ -3,7 +3,7 @@
  * to ensure optimal readability based on luminance
  */
 export function getContrastColor(hexColor: string): 'black' | 'white' {
-  if (!hexColor || hexColor.length !== 7 || !hexColor.startsWith('#')) {
+  if (!hexColor?.length || hexColor.length !== 7 || !hexColor.startsWith('#')) {
     return 'black'; // Default to black for invalid colors
   }
 
