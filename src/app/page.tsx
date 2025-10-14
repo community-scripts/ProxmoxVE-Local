@@ -70,15 +70,42 @@ export default function Home() {
 
   // Calculate script counts
   const scriptCounts = {
-    available: scriptCardsData?.success ? scriptCardsData.cards?.length ?? 0 : 0,
+    available: (() => {
+      if (!scriptCardsData?.success) return 0;
+      
+      // Deduplicate scripts using Map by slug (same logic as ScriptsGrid.tsx)
+      const scriptMap = new Map<string, any>();
+      
+      scriptCardsData.cards?.forEach(script => {
+        if (script?.name && script?.slug) {
+          // Use slug as unique identifier, only keep first occurrence
+          if (!scriptMap.has(script.slug)) {
+            scriptMap.set(script.slug, script);
+          }
+        }
+      });
+      
+      return scriptMap.size;
+    })(),
     downloaded: (() => {
       if (!scriptCardsData?.success || !localScriptsData?.scripts) return 0;
       
-      // Count scripts that are both in GitHub data and have local versions
-      const githubScripts = scriptCardsData.cards ?? [];
+      // First deduplicate GitHub scripts using Map by slug
+      const scriptMap = new Map<string, any>();
+      
+      scriptCardsData.cards?.forEach(script => {
+        if (script?.name && script?.slug) {
+          if (!scriptMap.has(script.slug)) {
+            scriptMap.set(script.slug, script);
+          }
+        }
+      });
+      
+      const deduplicatedGithubScripts = Array.from(scriptMap.values());
       const localScripts = localScriptsData.scripts ?? [];
       
-      return githubScripts.filter(script => {
+      // Count scripts that are both in deduplicated GitHub data and have local versions
+      return deduplicatedGithubScripts.filter(script => {
         if (!script?.name) return false;
         return localScripts.some(local => {
           if (!local?.name) return false;
