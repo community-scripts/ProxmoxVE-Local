@@ -35,6 +35,7 @@ export function InstalledScriptsTab() {
   const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('server_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
+  const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string }>({ script_name: '', container_id: '' });
   const [showAddForm, setShowAddForm] = useState(false);
@@ -550,6 +551,87 @@ export function InstalledScriptsTab() {
     setUpdatingScript(null);
   };
 
+  const handleOpenShell = (script: InstalledScript) => {
+    if (!script.container_id) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Shell Access Failed',
+        message: 'No Container ID available for this script',
+        details: 'This script does not have a valid container ID and cannot be accessed via shell.'
+      });
+      return;
+    }
+    
+    // Get server info if it's SSH mode
+    let server = null;
+    if (script.server_id && script.server_user && script.server_password) {
+      server = {
+        id: script.server_id,
+        name: script.server_name,
+        ip: script.server_ip,
+        user: script.server_user,
+        password: script.server_password
+      };
+    }
+    
+    setOpeningShell({
+      id: script.id,
+      containerId: script.container_id!,
+      server: server
+    });
+  };
+
+  const handleCloseShellTerminal = () => {
+    setOpeningShell(null);
+  };
+
+  // Auto-scroll to terminals when they open
+  useEffect(() => {
+    if (openingShell) {
+      // Small delay to ensure the terminal is rendered
+      setTimeout(() => {
+        const terminalElement = document.querySelector('[data-terminal="shell"]');
+        if (terminalElement) {
+          // Scroll to the terminal with smooth animation
+          terminalElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          
+          // Add a subtle highlight effect
+          terminalElement.classList.add('animate-pulse');
+          setTimeout(() => {
+            terminalElement.classList.remove('animate-pulse');
+          }, 2000);
+        }
+      }, 200);
+    }
+  }, [openingShell]);
+
+  useEffect(() => {
+    if (updatingScript) {
+      // Small delay to ensure the terminal is rendered
+      setTimeout(() => {
+        const terminalElement = document.querySelector('[data-terminal="update"]');
+        if (terminalElement) {
+          // Scroll to the terminal with smooth animation
+          terminalElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          
+          // Add a subtle highlight effect
+          terminalElement.classList.add('animate-pulse');
+          setTimeout(() => {
+            terminalElement.classList.remove('animate-pulse');
+          }, 2000);
+        }
+      }, 200);
+    }
+  }, [updatingScript]);
+
   const handleEditScript = (script: InstalledScript) => {
     setEditingScriptId(script.id);
     setEditFormData({
@@ -662,7 +744,7 @@ export function InstalledScriptsTab() {
     <div className="space-y-6">
       {/* Update Terminal */}
       {updatingScript && (
-        <div className="mb-8">
+        <div className="mb-8" data-terminal="update">
           <Terminal
             scriptPath={`update-${updatingScript.containerId}`}
             onClose={handleCloseUpdateTerminal}
@@ -670,6 +752,20 @@ export function InstalledScriptsTab() {
             server={updatingScript.server}
             isUpdate={true}
             containerId={updatingScript.containerId}
+          />
+        </div>
+      )}
+
+      {/* Shell Terminal */}
+      {openingShell && (
+        <div className="mb-8" data-terminal="shell">
+          <Terminal
+            scriptPath={`shell-${openingShell.containerId}`}
+            onClose={handleCloseShellTerminal}
+            mode={openingShell.server ? 'ssh' : 'local'}
+            server={openingShell.server}
+            isShell={true}
+            containerId={openingShell.containerId}
           />
         </div>
       )}
@@ -995,6 +1091,7 @@ export function InstalledScriptsTab() {
                   onSave={handleSaveEdit}
                   onCancel={handleCancelEdit}
                   onUpdate={() => handleUpdateScript(script)}
+                  onShell={() => handleOpenShell(script)}
                   onDelete={() => handleDeleteScript(Number(script.id))}
                   isUpdating={updateScriptMutation.isPending}
                   isDeleting={deleteScriptMutation.isPending}
@@ -1201,6 +1298,17 @@ export function InstalledScriptsTab() {
                                   disabled={containerStatuses.get(script.id) === 'stopped'}
                                 >
                                   Update
+                                </Button>
+                              )}
+                              {/* Shell button - only show for SSH scripts with container_id */}
+                              {script.container_id && script.execution_mode === 'ssh' && (
+                                <Button
+                                  onClick={() => handleOpenShell(script)}
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={containerStatuses.get(script.id) === 'stopped'}
+                                >
+                                  Shell
                                 </Button>
                               )}
                               {/* Container Control Buttons - only show for SSH scripts with container_id */}
