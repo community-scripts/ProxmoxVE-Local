@@ -9,6 +9,13 @@ import { ScriptInstallationCard } from './ScriptInstallationCard';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorModal } from './ErrorModal';
 import { getContrastColor } from '../../lib/colorUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu';
 
 interface InstalledScript {
   id: number;
@@ -44,6 +51,7 @@ export function InstalledScriptsTab() {
   const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
   const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
@@ -808,6 +816,15 @@ export function InstalledScriptsTab() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  // Helper function to check if a script has any actions available
+  const hasActions = (script: InstalledScript) => {
+    return !!(
+      (script.container_id && script.execution_mode === 'ssh') || // Update, Shell, Start/Stop, Destroy
+      script.web_ui_ip || // Open UI
+      (!script.container_id || script.execution_mode !== 'ssh') // Delete for non-SSH scripts
+    );
+  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -1433,70 +1450,81 @@ export function InstalledScriptsTab() {
                               >
                                 Edit
                               </Button>
-                              {script.container_id && (
-                                <Button
-                                  onClick={() => handleUpdateScript(script)}
-                                  variant="update"
-                                  size="sm"
-                                  disabled={containerStatuses.get(script.id) === 'stopped'}
-                                >
-                                  Update
-                                </Button>
-                              )}
-                              {/* Shell button - only show for SSH scripts with container_id */}
-                              {script.container_id && script.execution_mode === 'ssh' && (
-                                <Button
-                                  onClick={() => handleOpenShell(script)}
-                                  variant="shell"
-                                  size="sm"
-                                  disabled={containerStatuses.get(script.id) === 'stopped'}
-                                >
-                                  Shell
-                                </Button>
-                              )}
-                              {/* Open UI button - only show when web_ui_ip exists */}
-                              {script.web_ui_ip && (
-                                <Button
-                                  onClick={() => handleOpenWebUI(script)}
-                                  variant="openui"
-                                  size="sm"
-                                  disabled={containerStatuses.get(script.id) === 'stopped'}
-                                >
-                                  Open UI
-                                </Button>
-                              )}
-                              {/* Container Control Buttons - only show for SSH scripts with container_id */}
-                              {script.container_id && script.execution_mode === 'ssh' && (
-                                <>
-                                  <Button
-                                    onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
-                                    disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
-                                    variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start'}
-                                    size="sm"
-                                  >
-                                    {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleDestroy(script)}
-                                    disabled={controllingScriptId === script.id}
-                                    variant="destructive"
-                                    size="sm"
-                                    className="bg-red-800 hover:bg-red-900 text-white border border-red-600 hover:border-red-500 hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 transition-all duration-200 disabled:hover:scale-100"
-                                  >
-                                    {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
-                                  </Button>
-                                </>
-                              )}
-                              {/* Fallback to old Delete button for non-SSH scripts */}
-                              {(!script.container_id || script.execution_mode !== 'ssh') && (
-                                <Button
-                                  onClick={() => handleDeleteScript(Number(script.id))}
-                                  variant="delete"
-                                  size="sm"
-                                  disabled={deleteScriptMutation.isPending}
-                                >
-                                  {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
-                                </Button>
+                              {hasActions(script) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                    >
+                                      Actions
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent className="w-48 bg-gray-900 border-gray-700">
+                                    {script.container_id && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUpdateScript(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/20 focus:bg-cyan-900/20"
+                                      >
+                                        Update
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenShell(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-gray-300 hover:text-gray-200 hover:bg-gray-800/20 focus:bg-gray-800/20"
+                                      >
+                                        Shell
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.web_ui_ip && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenWebUI(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                                      >
+                                        Open UI
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <>
+                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
+                                          disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
+                                          className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
+                                            ? "text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                            : "text-green-300 hover:text-green-200 hover:bg-green-900/20 focus:bg-green-900/20"
+                                          }
+                                        >
+                                          {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleDestroy(script)}
+                                          disabled={controllingScriptId === script.id}
+                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                        >
+                                          {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {(!script.container_id || script.execution_mode !== 'ssh') && (
+                                      <>
+                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteScript(Number(script.id))}
+                                          disabled={deleteScriptMutation.isPending}
+                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                        >
+                                          {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )}
                             </>
                           )}

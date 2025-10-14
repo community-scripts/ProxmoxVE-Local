@@ -3,6 +3,13 @@
 import { Button } from './ui/button';
 import { StatusBadge } from './Badge';
 import { getContrastColor } from '../../lib/colorUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu';
 
 interface InstalledScript {
   id: number;
@@ -75,6 +82,15 @@ export function ScriptInstallationCard({
 }: ScriptInstallationCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  // Helper function to check if a script has any actions available
+  const hasActions = (script: InstalledScript) => {
+    return !!(
+      (script.container_id && script.execution_mode === 'ssh') || // Update, Shell, Start/Stop, Destroy
+      script.web_ui_ip || // Open UI
+      (!script.container_id || script.execution_mode !== 'ssh') // Delete for non-SSH scripts
+    );
   };
 
   return (
@@ -271,75 +287,81 @@ export function ScriptInstallationCard({
             >
               Edit
             </Button>
-            {script.container_id && (
-              <Button
-                onClick={onUpdate}
-                variant="update"
-                size="sm"
-                className="flex-1 min-w-0"
-                disabled={containerStatus === 'stopped'}
-              >
-                Update
-              </Button>
-            )}
-            {/* Shell button - only show for SSH scripts with container_id */}
-            {script.container_id && script.execution_mode === 'ssh' && (
-              <Button
-                onClick={onShell}
-                variant="secondary"
-                size="sm"
-                className="flex-1 min-w-0"
-                disabled={containerStatus === 'stopped'}
-              >
-                Shell
-              </Button>
-            )}
-            {/* Open UI button - only show when web_ui_ip exists */}
-            {script.web_ui_ip && (
-              <Button
-                onClick={onOpenWebUI}
-                variant="openui"
-                size="sm"
-                disabled={containerStatus === 'stopped'}
-                className="flex-1 min-w-0"
-              >
-                Open UI
-              </Button>
-            )}
-            {/* Container Control Buttons - only show for SSH scripts with container_id */}
-            {script.container_id && script.execution_mode === 'ssh' && (
-              <>
-                <Button
-                  onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
-                  disabled={isControlling || containerStatus === 'unknown'}
-                  variant={containerStatus === 'running' ? 'stop' : 'start'}
-                  size="sm"
-                  className="flex-1 min-w-0"
-                >
-                  {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
-                </Button>
-                <Button
-                  onClick={onDestroy}
-                  disabled={isControlling}
-                  variant="destructive"
-                  size="sm"
-                  className="flex-1 min-w-0"
-                >
-                  {isControlling ? 'Working...' : 'Destroy'}
-                </Button>
-              </>
-            )}
-            {/* Fallback to old Delete button for non-SSH scripts */}
-            {(!script.container_id || script.execution_mode !== 'ssh') && (
-              <Button
-                onClick={onDelete}
-                variant="delete"
-                size="sm"
-                disabled={isDeleting}
-                className="flex-1 min-w-0"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </Button>
+            {hasActions(script) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 min-w-0 bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                  >
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-48 bg-gray-900 border-gray-700">
+                  {script.container_id && (
+                    <DropdownMenuItem
+                      onClick={onUpdate}
+                      disabled={containerStatus === 'stopped'}
+                      className="text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/20 focus:bg-cyan-900/20"
+                    >
+                      Update
+                    </DropdownMenuItem>
+                  )}
+                  {script.container_id && script.execution_mode === 'ssh' && (
+                    <DropdownMenuItem
+                      onClick={onShell}
+                      disabled={containerStatus === 'stopped'}
+                      className="text-gray-300 hover:text-gray-200 hover:bg-gray-800/20 focus:bg-gray-800/20"
+                    >
+                      Shell
+                    </DropdownMenuItem>
+                  )}
+                  {script.web_ui_ip && (
+                    <DropdownMenuItem
+                      onClick={onOpenWebUI}
+                      disabled={containerStatus === 'stopped'}
+                      className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                    >
+                      Open UI
+                    </DropdownMenuItem>
+                  )}
+                  {script.container_id && script.execution_mode === 'ssh' && (
+                    <>
+                      <DropdownMenuSeparator className="bg-gray-700" />
+                      <DropdownMenuItem
+                        onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
+                        disabled={isControlling || containerStatus === 'unknown'}
+                        className={containerStatus === 'running' 
+                          ? "text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                          : "text-green-300 hover:text-green-200 hover:bg-green-900/20 focus:bg-green-900/20"
+                        }
+                      >
+                        {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={onDestroy}
+                        disabled={isControlling}
+                        className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                      >
+                        {isControlling ? 'Working...' : 'Destroy'}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {(!script.container_id || script.execution_mode !== 'ssh') && (
+                    <>
+                      <DropdownMenuSeparator className="bg-gray-700" />
+                      <DropdownMenuItem
+                        onClick={onDelete}
+                        disabled={isDeleting}
+                        className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </>
         )}
