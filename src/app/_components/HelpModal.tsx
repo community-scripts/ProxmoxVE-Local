@@ -337,7 +337,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
               </div>
 
               <div className="p-4 border border-border rounded-lg bg-blue-900/20 border-blue-700/50">
-                <h4 className="font-medium text-foreground mb-2">Web UI Access (NEW)</h4>
+                <h4 className="font-medium text-foreground mb-2">Web UI Access </h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Automatically detect and access Web UI interfaces for your installed scripts.
                 </p>
@@ -361,7 +361,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
               </div>
 
               <div className="p-4 border border-border rounded-lg bg-accent/50 dark:bg-accent/20">
-                <h4 className="font-medium text-foreground mb-2">Actions Dropdown (NEW)</h4>
+                <h4 className="font-medium text-foreground mb-2">Actions Dropdown </h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Clean interface with all actions organized in a dropdown menu.
                 </p>

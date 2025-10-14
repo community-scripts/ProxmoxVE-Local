@@ -134,7 +134,7 @@ class ScriptExecutionHandler {
   /**
    * Parse Web UI URL from terminal output
    * @param {string} output - Terminal output to parse
-   * @returns {Object|null} - Object with ip and port if found, null otherwise
+   * @returns {{ip: string, port: number}|null} - Object with ip and port if found, null otherwise
    */
   parseWebUIUrl(output) {
     // First, strip ANSI color codes to make pattern matching more reliable
@@ -416,10 +416,13 @@ class ScriptExecutionHandler {
         // Parse for Web UI URL
         const webUIUrl = this.parseWebUIUrl(output);
         if (webUIUrl && installationId) {
-          this.updateInstallationRecord(installationId, { 
-            web_ui_ip: webUIUrl.ip, 
-            web_ui_port: webUIUrl.port 
-          });
+          const { ip, port } = webUIUrl;
+          if (ip && port) {
+            this.updateInstallationRecord(installationId, { 
+              web_ui_ip: ip, 
+              web_ui_port: port 
+            });
+          }
         }
         
         this.sendMessage(ws, {
@@ -508,10 +511,13 @@ class ScriptExecutionHandler {
           // Parse for Web UI URL
           const webUIUrl = this.parseWebUIUrl(data);
           if (webUIUrl && installationId) {
-            this.updateInstallationRecord(installationId, { 
-              web_ui_ip: webUIUrl.ip, 
-              web_ui_port: webUIUrl.port 
-            });
+            const { ip, port } = webUIUrl;
+            if (ip && port) {
+              this.updateInstallationRecord(installationId, { 
+                web_ui_ip: ip, 
+                web_ui_port: port 
+              });
+            }
           }
           
           // Handle data output

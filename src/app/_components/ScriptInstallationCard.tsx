@@ -86,11 +86,10 @@ export function ScriptInstallationCard({
 
   // Helper function to check if a script has any actions available
   const hasActions = (script: InstalledScript) => {
-    return !!(
-      (script.container_id && script.execution_mode === 'ssh') || // Update, Shell, Start/Stop, Destroy
-      script.web_ui_ip || // Open UI
-      (!script.container_id || script.execution_mode !== 'ssh') // Delete for non-SSH scripts
-    );
+    if (script.container_id && script.execution_mode === 'ssh') return true;
+    if (script.web_ui_ip != null) return true;
+    if (!script.container_id || script.execution_mode !== 'ssh') return true;
+    return false;
   };
 
   return (
@@ -200,7 +199,7 @@ export function ScriptInstallationCard({
                       containerStatus === 'stopped' ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
-                    {script.web_ui_ip}:{script.web_ui_port || 80}
+                    {script.web_ui_ip}:{script.web_ui_port ?? 80}
                   </button>
                   {script.container_id && script.execution_mode === 'ssh' && (
                     <button

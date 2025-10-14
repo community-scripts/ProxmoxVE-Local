@@ -1081,7 +1081,7 @@ export const installedScriptsRouter = createTRPCRouter({
         console.log('🔍 Parsed IPs:', ips);
         console.log('🎯 Detected IP:', detectedIp);
         
-        if (!detectedIp || !detectedIp.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+        if (!detectedIp || !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.exec(detectedIp)) {
           console.log('❌ Invalid IP address detected:', detectedIp);
           return {
             success: false,
@@ -1105,7 +1105,7 @@ export const installedScriptsRouter = createTRPCRouter({
           
           const scriptMetadata = allScripts.find(script => script.slug === scriptSlug);
           
-          if (scriptMetadata && scriptMetadata.interface_port) {
+          if (scriptMetadata?.interface_port) {
             detectedPort = scriptMetadata.interface_port;
             console.log('📋 Found interface_port in metadata:', detectedPort);
           } else {

@@ -51,7 +51,6 @@ export function InstalledScriptsTab() {
   const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState<{ script_name: string; container_id: string; server_id: string }>({ script_name: '', container_id: '', server_id: 'local' });
   const [showAutoDetectForm, setShowAutoDetectForm] = useState(false);
@@ -394,7 +393,7 @@ export function InstalledScriptsTab() {
       console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length]); // Remove fetchContainerStatuses from dependencies to prevent infinite loop
+  }, [scripts.length, fetchContainerStatuses]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -811,18 +810,17 @@ export function InstalledScriptsTab() {
       return;
     }
 
-    const port = script.web_ui_port || 80;
+    const port = script.web_ui_port ?? 80;
     const url = `http://${script.web_ui_ip}:${port}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Helper function to check if a script has any actions available
   const hasActions = (script: InstalledScript) => {
-    return !!(
-      (script.container_id && script.execution_mode === 'ssh') || // Update, Shell, Start/Stop, Destroy
-      script.web_ui_ip || // Open UI
-      (!script.container_id || script.execution_mode !== 'ssh') // Delete for non-SSH scripts
-    );
+    if (script.container_id && script.execution_mode === 'ssh') return true;
+    if (script.web_ui_ip != null) return true;
+    if (!script.container_id || script.execution_mode !== 'ssh') return true;
+    return false;
   };
 
 
@@ -1372,7 +1370,7 @@ export function InstalledScriptsTab() {
                                 onClick={() => handleOpenWebUI(script)}
                                 className="text-sm font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0"
                               >
-                                {script.web_ui_ip}:{script.web_ui_port || 80}
+                                {script.web_ui_ip}:{script.web_ui_port ?? 80}
                               </button>
                               {script.container_id && script.execution_mode === 'ssh' && (
                                 <button

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { HelpModal } from './HelpModal';
-import { Button } from './ui/button';
 import { HelpCircle } from 'lucide-react';
 
 interface ContextualHelpIconProps {
