@@ -61,7 +61,7 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/better-sqlite3": "^7.6.8",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.7.1",
+    "@types/node": "^24.7.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.2",
