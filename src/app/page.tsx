@@ -20,7 +20,13 @@ import { api } from '~/trpc/react';
 
 export default function Home() {
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>('scripts');
+  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('activeTab') as 'scripts' | 'downloaded' | 'installed';
+      return savedTab || 'scripts';
+    }
+    return 'scripts';
+  });
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [highlightVersion, setHighlightVersion] = useState<string | undefined>(undefined);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -30,6 +36,13 @@ export default function Home() {
   const { data: localScriptsData } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: installedScriptsData } = api.installedScripts.getAllInstalledScripts.useQuery();
   const { data: versionData } = api.version.getCurrentVersion.useQuery();
+
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeTab', activeTab);
+    }
+  }, [activeTab]);
 
   // Auto-show release notes modal after update
   useEffect(() => {
@@ -131,64 +144,58 @@ export default function Home() {
         {/* Tab Navigation */}
         <div className="mb-6 sm:mb-8">
           <div className="border-b border-border">
-            <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 lg:space-x-8">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="null"
-                  onClick={() => setActiveTab('scripts')}
-                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                    activeTab === 'scripts'
-                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                  }`}>
-                  <Package className="h-4 w-4" />
-                  <span className="hidden sm:inline">Available Scripts</span>
-                  <span className="sm:hidden">Available</span>
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                    {scriptCounts.available}
-                  </span>
-                </Button>
+            <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-1">
+              <Button
+                variant="ghost"
+                size="null"
+                onClick={() => setActiveTab('scripts')}
+                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                  activeTab === 'scripts'
+                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                }`}>
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">Available Scripts</span>
+                <span className="sm:hidden">Available</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.available}
+                </span>
                 <ContextualHelpIcon section="available-scripts" tooltip="Help with Available Scripts" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="null"
-                  onClick={() => setActiveTab('downloaded')}
-                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                    activeTab === 'downloaded'
-                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                  }`}>
-                  <HardDrive className="h-4 w-4" />
-                  <span className="hidden sm:inline">Downloaded Scripts</span>
-                  <span className="sm:hidden">Downloaded</span>
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                    {scriptCounts.downloaded}
-                  </span>
-                </Button>
+              </Button>
+              <Button
+                variant="ghost"
+                size="null"
+                onClick={() => setActiveTab('downloaded')}
+                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                  activeTab === 'downloaded'
+                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                }`}>
+                <HardDrive className="h-4 w-4" />
+                <span className="hidden sm:inline">Downloaded Scripts</span>
+                <span className="sm:hidden">Downloaded</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.downloaded}
+                </span>
                 <ContextualHelpIcon section="downloaded-scripts" tooltip="Help with Downloaded Scripts" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="null"
-                  onClick={() => setActiveTab('installed')}
-                  className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
-                    activeTab === 'installed'
-                      ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
-                      : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
-                  }`}>
-                  <FolderOpen className="h-4 w-4" />
-                  <span className="hidden sm:inline">Installed Scripts</span>
-                  <span className="sm:hidden">Installed</span>
-                  <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                    {scriptCounts.installed}
-                  </span>
-                </Button>
+              </Button>
+              <Button
+                variant="ghost"
+                size="null"
+                onClick={() => setActiveTab('installed')}
+                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                  activeTab === 'installed'
+                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                }`}>
+                <FolderOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Installed Scripts</span>
+                <span className="sm:hidden">Installed</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.installed}
+                </span>
                 <ContextualHelpIcon section="installed-scripts" tooltip="Help with Installed Scripts" />
-              </div>
+              </Button>
             </nav>
           </div>
         </div>

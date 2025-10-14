@@ -322,7 +322,7 @@ export function InstalledScriptsTab() {
     if (serverIds.length > 0) {
       containerStatusMutation.mutate({ serverIds });
     }
-  }, []); // Empty dependency array to prevent infinite loops
+  }, []);
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -333,17 +333,12 @@ export function InstalledScriptsTab() {
   }, [scripts.length, serversData?.servers, cleanupMutation]);
 
 
-
-  // Note: Individual status fetching removed - using bulk fetchContainerStatuses instead
-
-  // Trigger status check when tab becomes active (component mounts)
   useEffect(() => {
     if (scripts.length > 0) {
       fetchContainerStatuses();
     }
   }, [scripts.length]); // Only depend on scripts.length to prevent infinite loops
 
-  // Update scripts with container statuses
   const scriptsWithStatus = scripts.map(script => ({
     ...script,
     container_status: script.container_id ? containerStatuses.get(script.id) ?? 'unknown' : undefined
@@ -1067,15 +1062,14 @@ export function InstalledScriptsTab() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingScriptId === script.id ? (
-                          <div className="space-y-2">
+                          <div className="flex items-center min-h-[2.5rem]">
                             <input
                               type="text"
                               value={editFormData.script_name}
                               onChange={(e) => handleInputChange('script_name', e.target.value)}
-                              className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                              className="w-full px-3 py-2 text-sm font-medium border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                               placeholder="Script name"
                             />
-                            <div className="text-xs text-muted-foreground">{script.script_path}</div>
                           </div>
                         ) : (
                           <div>
@@ -1086,13 +1080,15 @@ export function InstalledScriptsTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingScriptId === script.id ? (
-                          <input
-                            type="text"
-                            value={editFormData.container_id}
-                            onChange={(e) => handleInputChange('container_id', e.target.value)}
-                            className="w-full px-2 py-1 text-sm font-mono border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Container ID"
-                          />
+                          <div className="flex items-center min-h-[2.5rem]">
+                            <input
+                              type="text"
+                              value={editFormData.container_id}
+                              onChange={(e) => handleInputChange('container_id', e.target.value)}
+                              className="w-full px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              placeholder="Container ID"
+                            />
+                          </div>
                         ) : (
                           script.container_id ? (
                             <div className="flex items-center space-x-2">
@@ -1187,6 +1183,10 @@ export function InstalledScriptsTab() {
                                     disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
                                     variant={(containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'destructive' : 'default'}
                                     size="sm"
+                                    className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
+                                      ? "bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-400 hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 transition-all duration-200 disabled:hover:scale-100" 
+                                      : "bg-green-600 hover:bg-green-700 text-white border border-green-500 hover:border-green-400 hover:scale-105 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200 disabled:hover:scale-100"
+                                    }
                                   >
                                     {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
                                   </Button>
@@ -1195,6 +1195,7 @@ export function InstalledScriptsTab() {
                                     disabled={controllingScriptId === script.id}
                                     variant="destructive"
                                     size="sm"
+                                    className="bg-red-800 hover:bg-red-900 text-white border border-red-600 hover:border-red-500 hover:scale-105 hover:shadow-lg hover:shadow-red-600/30 transition-all duration-200 disabled:hover:scale-100"
                                   >
                                     {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
                                   </Button>
