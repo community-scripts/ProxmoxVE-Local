@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
 import { Button } from './ui/button';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface ServerListProps {
   servers: Server[];
@@ -15,6 +16,14 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [testingConnections, setTestingConnections] = useState<Set<number>>(new Set());
   const [connectionResults, setConnectionResults] = useState<Map<number, { success: boolean; message: string }>>(new Map());
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    variant: 'danger';
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleEdit = (server: Server) => {
     setEditingId(server.id);
@@ -32,9 +41,20 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
   };
 
   const handleDelete = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this server configuration?')) {
-      onDelete(id);
-    }
+    const server = servers.find(s => s.id === id);
+    if (!server) return;
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: 'danger',
+      title: 'Delete Server',
+      message: `This will permanently delete the server configuration "${server.name}" (${server.ip}) and all associated installed scripts. This action cannot be undone!`,
+      confirmText: server.name,
+      onConfirm: () => {
+        onDelete(id);
+        setConfirmationModal(null);
+      }
+    });
   };
 
   const handleTestConnection = async (server: Server) => {
@@ -228,6 +248,21 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
           )}
         </div>
       ))}
+      
+      {/* Confirmation Modal */}
+      {confirmationModal && (
+        <ConfirmationModal
+          isOpen={confirmationModal.isOpen}
+          onClose={() => setConfirmationModal(null)}
+          onConfirm={confirmationModal.onConfirm}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          variant={confirmationModal.variant}
+          confirmText={confirmationModal.confirmText}
+          confirmButtonText="Delete Server"
+          cancelButtonText="Cancel"
+        />
+      )}
     </div>
   );
 }

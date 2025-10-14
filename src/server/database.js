@@ -90,7 +90,7 @@ class DatabaseService {
         installation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         status TEXT NOT NULL CHECK(status IN ('in_progress', 'success', 'failed')),
         output_log TEXT,
-        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE SET NULL
+        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
       )
     `);
 
@@ -274,6 +274,14 @@ class DatabaseService {
   deleteInstalledScript(id) {
     const stmt = this.db.prepare('DELETE FROM installed_scripts WHERE id = ?');
     return stmt.run(id);
+  }
+
+  /**
+   * @param {number} server_id
+   */
+  deleteInstalledScriptsByServer(server_id) {
+    const stmt = this.db.prepare('DELETE FROM installed_scripts WHERE server_id = ?');
+    return stmt.run(server_id);
   }
 
   close() {
