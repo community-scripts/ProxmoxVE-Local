@@ -14,6 +14,10 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
+  server_auth_type: string | null;
+  server_ssh_key: string | null;
+  server_ssh_key_passphrase: string | null;
+  server_ssh_port: number | null;
   server_color: string | null;
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';

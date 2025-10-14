@@ -20,6 +20,10 @@ interface InstalledScript {
   server_ip: string | null;
   server_user: string | null;
   server_password: string | null;
+  server_auth_type: string | null;
+  server_ssh_key: string | null;
+  server_ssh_key_passphrase: string | null;
+  server_ssh_port: number | null;
   server_color: string | null;
   installation_date: string;
   status: 'in_progress' | 'success' | 'failed';
@@ -527,13 +531,17 @@ export function InstalledScriptsTab() {
       onConfirm: () => {
         // Get server info if it's SSH mode
         let server = null;
-        if (script.server_id && script.server_user && script.server_password) {
+        if (script.server_id && script.server_user) {
           server = {
             id: script.server_id,
             name: script.server_name,
             ip: script.server_ip,
             user: script.server_user,
-            password: script.server_password
+            password: script.server_password,
+            auth_type: script.server_auth_type || 'password',
+            ssh_key: script.server_ssh_key,
+            ssh_key_passphrase: script.server_ssh_key_passphrase,
+            ssh_port: script.server_ssh_port || 22
           };
         }
         
@@ -564,13 +572,17 @@ export function InstalledScriptsTab() {
     
     // Get server info if it's SSH mode
     let server = null;
-    if (script.server_id && script.server_user && script.server_password) {
+    if (script.server_id && script.server_user) {
       server = {
         id: script.server_id,
         name: script.server_name,
         ip: script.server_ip,
         user: script.server_user,
-        password: script.server_password
+        password: script.server_password,
+        auth_type: script.server_auth_type || 'password',
+        ssh_key: script.server_ssh_key,
+        ssh_key_passphrase: script.server_ssh_key_passphrase,
+        ssh_port: script.server_ssh_port || 22
       };
     }
     
