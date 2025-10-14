@@ -5,6 +5,8 @@ import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { X, ExternalLink, Calendar, Tag, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ReleaseNotesModalProps {
   isOpen: boolean;
@@ -170,9 +172,23 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
                     {/* Release Body */}
                     {release.body && (
                       <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <div className="whitespace-pre-wrap text-sm text-card-foreground leading-relaxed">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h1: ({children}) => <h1 className="text-2xl font-bold text-card-foreground mb-4 mt-6">{children}</h1>,
+                            h2: ({children}) => <h2 className="text-xl font-semibold text-card-foreground mb-3 mt-5">{children}</h2>,
+                            h3: ({children}) => <h3 className="text-lg font-medium text-card-foreground mb-2 mt-4">{children}</h3>,
+                            p: ({children}) => <p className="text-card-foreground mb-3 leading-relaxed">{children}</p>,
+                            ul: ({children}) => <ul className="list-disc list-inside text-card-foreground mb-3 space-y-1">{children}</ul>,
+                            ol: ({children}) => <ol className="list-decimal list-inside text-card-foreground mb-3 space-y-1">{children}</ol>,
+                            li: ({children}) => <li className="text-card-foreground">{children}</li>,
+                            a: ({href, children}) => <a href={href} className="text-blue-500 hover:text-blue-400 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                            strong: ({children}) => <strong className="font-semibold text-card-foreground">{children}</strong>,
+                            em: ({children}) => <em className="italic text-card-foreground">{children}</em>,
+                          }}
+                        >
                           {release.body}
-                        </div>
+                        </ReactMarkdown>
                       </div>
                     )}
                   </div>
