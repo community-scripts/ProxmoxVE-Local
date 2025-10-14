@@ -173,6 +173,9 @@ export async function DELETE(
       );
     }
 
+    // Delete all installed scripts associated with this server
+    db.deleteInstalledScriptsByServer(id);
+
     const result = db.deleteServer(id);
     
     return NextResponse.json(

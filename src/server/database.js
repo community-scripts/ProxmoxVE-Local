@@ -308,6 +308,14 @@ class DatabaseService {
     return stmt.run(id);
   }
 
+  /**
+   * @param {number} server_id
+   */
+  deleteInstalledScriptsByServer(server_id) {
+    const stmt = this.db.prepare('DELETE FROM installed_scripts WHERE server_id = ?');
+    return stmt.run(server_id);
+  }
+
   close() {
     this.db.close();
   }
