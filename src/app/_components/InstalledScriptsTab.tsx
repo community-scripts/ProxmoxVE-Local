@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { ScriptInstallationCard } from './ScriptInstallationCard';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorModal } from './ErrorModal';
+import { LoadingModal } from './LoadingModal';
 import { getContrastColor } from '../../lib/colorUtils';
 import {
   DropdownMenu,
@@ -82,6 +83,12 @@ export function InstalledScriptsTab() {
     message: string;
     details?: string;
     type?: 'error' | 'success';
+  } | null>(null);
+
+  // Loading modal state
+  const [loadingModal, setLoadingModal] = useState<{
+    isOpen: boolean;
+    action: string;
   } | null>(null);
 
   // Fetch installed scripts
@@ -247,6 +254,7 @@ export function InstalledScriptsTab() {
 
   const controlContainerMutation = api.installedScripts.controlContainer.useMutation({
     onSuccess: (data, variables) => {
+      setLoadingModal(null);
       setControllingScriptId(null);
       
       if (data.success) {
@@ -287,6 +295,7 @@ export function InstalledScriptsTab() {
     },
     onError: (error) => {
       console.error('Container control error:', error);
+      setLoadingModal(null);
       setControllingScriptId(null);
       
       // Show detailed error message
@@ -302,6 +311,7 @@ export function InstalledScriptsTab() {
 
   const destroyContainerMutation = api.installedScripts.destroyContainer.useMutation({
     onSuccess: (data) => {
+      setLoadingModal(null);
       setControllingScriptId(null);
       
       if (data.success) {
@@ -326,6 +336,7 @@ export function InstalledScriptsTab() {
     },
     onError: (error) => {
       console.error('Container destroy error:', error);
+      setLoadingModal(null);
       setControllingScriptId(null);
       
       // Show detailed error message
@@ -515,6 +526,7 @@ export function InstalledScriptsTab() {
       message: `Are you sure you want to ${action} container ${script.container_id} (${script.script_name})?`,
       onConfirm: () => {
         setControllingScriptId(script.id);
+        setLoadingModal({ isOpen: true, action: `${action === 'start' ? 'Starting' : 'Stopping'} container ${script.container_id}...` });
         void controlContainerMutation.mutate({ id: script.id, action });
         setConfirmationModal(null);
       }
@@ -535,6 +547,7 @@ export function InstalledScriptsTab() {
       confirmText: script.container_id,
       onConfirm: () => {
         setControllingScriptId(script.id);
+        setLoadingModal({ isOpen: true, action: `Destroying container ${script.container_id}...` });
         void destroyContainerMutation.mutate({ id: script.id });
         setConfirmationModal(null);
       }
@@ -1564,6 +1577,14 @@ export function InstalledScriptsTab() {
             message={errorModal.message}
             details={errorModal.details}
             type={errorModal.type ?? 'error'}
+          />
+        )}
+
+        {/* Loading Modal */}
+        {loadingModal && (
+          <LoadingModal
+            isOpen={loadingModal.isOpen}
+            action={loadingModal.action}
           />
         )}
     </div>
