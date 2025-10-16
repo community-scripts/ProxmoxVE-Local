@@ -11,9 +11,25 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         const db = getDatabase();
         const scripts = await db.getAllInstalledScripts();
+        
+        // Transform scripts to flatten server data for frontend compatibility
+        const transformedScripts = scripts.map(script => ({
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        }));
+        
         return {
           success: true,
-          scripts
+          scripts: transformedScripts
         };
       } catch (error) {
         console.error('Error in getAllInstalledScripts:', error);
@@ -32,9 +48,25 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         const db = getDatabase();
         const scripts = await db.getInstalledScriptsByServer(input.serverId);
+        
+        // Transform scripts to flatten server data for frontend compatibility
+        const transformedScripts = scripts.map(script => ({
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        }));
+        
         return {
           success: true,
-          scripts
+          scripts: transformedScripts
         };
       } catch (error) {
         console.error('Error in getInstalledScriptsByServer:', error);
@@ -60,9 +92,24 @@ export const installedScriptsRouter = createTRPCRouter({
             script: null
           };
         }
+        // Transform script to flatten server data for frontend compatibility
+        const transformedScript = {
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        };
+        
         return {
           success: true,
-          script
+          script: transformedScript
         };
       } catch (error) {
         console.error('Error in getInstalledScriptById:', error);
