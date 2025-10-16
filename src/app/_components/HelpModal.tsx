@@ -55,8 +55,15 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 <ul className="text-sm text-muted-foreground space-y-2">
                   <li>• <strong>Password:</strong> Use username and password authentication</li>
                   <li>• <strong>SSH Key:</strong> Use SSH key pair for secure authentication</li>
-                  <li>• <strong>Both:</strong> Try SSH key first, fallback to password if needed</li>
                 </ul>
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">SSH Key Features:</h5>
+                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                    <li>• <strong>Generate Key Pair:</strong> Create new SSH keys automatically</li>
+                    <li>• <strong>View Public Key:</strong> Copy public key for server setup</li>
+                    <li>• <strong>Persistent Storage:</strong> Keys are stored securely on disk</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="p-4 border border-border rounded-lg">

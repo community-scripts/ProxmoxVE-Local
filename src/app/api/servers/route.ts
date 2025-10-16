@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color }: CreateServerData = body;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated, ssh_key_path }: CreateServerData = body;
 
     // Validate required fields
     if (!name || !ip || !user) {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Validate authentication based on auth_type
     const authType = auth_type ?? 'password';
     
-    if (authType === 'password' || authType === 'both') {
+    if (authType === 'password') {
       if (!password?.trim()) {
         return NextResponse.json(
           { error: 'Password is required for password authentication' },
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    if (authType === 'key' || authType === 'both') {
+    if (authType === 'key') {
       if (!ssh_key?.trim()) {
         return NextResponse.json(
           { error: 'SSH key is required for key authentication' },
@@ -59,15 +59,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if at least one authentication method is provided
-    if (authType === 'both') {
-      if (!password?.trim() && !ssh_key?.trim()) {
-        return NextResponse.json(
-          { error: 'At least one authentication method (password or SSH key) is required' },
-          { status: 400 }
-        );
-      }
-    }
 
     const db = getDatabase();
     const result = db.createServer({ 
@@ -79,7 +70,9 @@ export async function POST(request: NextRequest) {
       ssh_key,
       ssh_key_passphrase,
       ssh_port: ssh_port ?? 22,
-      color
+      color,
+      key_generated: key_generated ?? 0,
+      ssh_key_path
     });
     
     return NextResponse.json(

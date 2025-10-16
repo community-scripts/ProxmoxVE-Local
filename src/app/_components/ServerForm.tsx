@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import type { CreateServerData } from '../../types/server';
 import { Button } from './ui/button';
 import { SSHKeyInput } from './SSHKeyInput';
+import { PublicKeyModal } from './PublicKeyModal';
+import { Key } from 'lucide-react';
 
 interface ServerFormProps {
   onSubmit: (data: CreateServerData) => void;
@@ -30,6 +32,11 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateServerData, string>>>({});
   const [sshKeyError, setSshKeyError] = useState<string>('');
   const [colorCodingEnabled, setColorCodingEnabled] = useState(false);
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [showPublicKeyModal, setShowPublicKeyModal] = useState(false);
+  const [generatedPublicKey, setGeneratedPublicKey] = useState('');
+  const [, setIsGeneratedKey] = useState(false);
+  const [, setGeneratedServerId] = useState<number | null>(null);
 
   useEffect(() => {
     const loadColorCodingSetting = async () => {
@@ -75,25 +82,18 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     // Validate authentication based on auth_type
     const authType = formData.auth_type ?? 'password';
     
-    if (authType === 'password' || authType === 'both') {
+    if (authType === 'password') {
       if (!formData.password?.trim()) {
         newErrors.password = 'Password is required for password authentication';
       }
     }
     
-    if (authType === 'key' || authType === 'both') {
+    if (authType === 'key') {
       if (!formData.ssh_key?.trim()) {
         newErrors.ssh_key = 'SSH key is required for key authentication';
       }
     }
 
-    // Check if at least one authentication method is provided
-    if (authType === 'both') {
-      if (!formData.password?.trim() && !formData.ssh_key?.trim()) {
-        newErrors.password = 'At least one authentication method (password or SSH key) is required';
-        newErrors.ssh_key = 'At least one authentication method (password or SSH key) is required';
-      }
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0 && !sshKeyError;
@@ -127,6 +127,54 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
+    
+    // Reset generated key state when switching auth types
+    if (field === 'auth_type') {
+      setIsGeneratedKey(false);
+      setGeneratedPublicKey('');
+    }
+  };
+
+  const handleGenerateKeyPair = async () => {
+    setIsGeneratingKey(true);
+    try {
+      const response = await fetch('/api/servers/generate-keypair', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate key pair');
+      }
+
+      const data = await response.json() as { success: boolean; privateKey?: string; publicKey?: string; serverId?: number; error?: string };
+      
+      if (data.success) {
+        const serverId = data.serverId ?? 0;
+        const keyPath = `data/ssh-keys/server_${serverId}_key`;
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          ssh_key: data.privateKey ?? '',
+          ssh_key_path: keyPath,
+          key_generated: 1
+        }));
+        setGeneratedPublicKey(data.publicKey ?? '');
+        setGeneratedServerId(serverId);
+        setIsGeneratedKey(true);
+        setShowPublicKeyModal(true);
+        setSshKeyError('');
+      } else {
+        throw new Error(data.error ?? 'Failed to generate key pair');
+      }
+    } catch (error) {
+      console.error('Error generating key pair:', error);
+        setSshKeyError(error instanceof Error ? error.message : 'Failed to generate key pair');
+    } finally {
+      setIsGeneratingKey(false);
+    }
   };
 
   const handleSSHKeyChange = (value: string) => {
@@ -137,6 +185,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -221,7 +270,6 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           >
             <option value="password">Password Only</option>
             <option value="key">SSH Key Only</option>
-            <option value="both">Both Password & SSH Key</option>
           </select>
         </div>
 
@@ -247,10 +295,10 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       </div>
 
       {/* Password Authentication */}
-      {(formData.auth_type === 'password' || formData.auth_type === 'both') && (
+      {formData.auth_type === 'password' && (
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
-            Password {formData.auth_type === 'both' ? '(Optional)' : '*'}
+            Password *
           </label>
           <input
             type="password"
@@ -267,19 +315,55 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       )}
 
       {/* SSH Key Authentication */}
-      {(formData.auth_type === 'key' || formData.auth_type === 'both') && (
+      {formData.auth_type === 'key' && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">
-              SSH Private Key {formData.auth_type === 'both' ? '(Optional)' : '*'}
-            </label>
-            <SSHKeyInput
-              value={formData.ssh_key ?? ''}
-              onChange={handleSSHKeyChange}
-              onError={setSshKeyError}
-            />
-            {errors.ssh_key && <p className="mt-1 text-sm text-destructive">{errors.ssh_key}</p>}
-            {sshKeyError && <p className="mt-1 text-sm text-destructive">{sshKeyError}</p>}
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-muted-foreground">
+                SSH Private Key *
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateKeyPair}
+                disabled={isGeneratingKey}
+                className="gap-2"
+              >
+                <Key className="h-4 w-4" />
+                {isGeneratingKey ? 'Generating...' : 'Generate Key Pair'}
+              </Button>
+            </div>
+            
+            {/* Show manual key input only if no key has been generated */}
+            {!formData.key_generated && (
+              <>
+                <SSHKeyInput
+                  value={formData.ssh_key ?? ''}
+                  onChange={handleSSHKeyChange}
+                  onError={setSshKeyError}
+                />
+                {errors.ssh_key && <p className="mt-1 text-sm text-destructive">{errors.ssh_key}</p>}
+                {sshKeyError && <p className="mt-1 text-sm text-destructive">{sshKeyError}</p>}
+              </>
+            )}
+            
+            {/* Show generated key status */}
+            {formData.key_generated && (
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    SSH key pair generated successfully
+                  </span>
+                </div>
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                  The private key has been generated and will be saved with the server.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -323,6 +407,16 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
         </Button>
       </div>
     </form>
+    
+    {/* Public Key Modal */}
+    <PublicKeyModal
+      isOpen={showPublicKeyModal}
+      onClose={() => setShowPublicKeyModal(false)}
+      publicKey={generatedPublicKey}
+      serverName={formData.name || 'New Server'}
+      serverIp={formData.ip}
+    />
+    </>
   );
 }
 

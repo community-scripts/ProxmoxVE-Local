@@ -1,5 +1,7 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
+import { writeFileSync, unlinkSync, chmodSync, mkdirSync } from 'fs';
+import { existsSync } from 'fs';
 
 class DatabaseService {
   constructor() {
@@ -9,6 +11,12 @@ class DatabaseService {
   }
 
   init() {
+    // Ensure data/ssh-keys directory exists
+    const sshKeysDir = join(process.cwd(), 'data', 'ssh-keys');
+    if (!existsSync(sshKeysDir)) {
+      mkdirSync(sshKeysDir, { mode: 0o700 });
+    }
+
     // Create servers table if it doesn't exist
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS servers (
@@ -17,10 +25,12 @@ class DatabaseService {
         ip TEXT NOT NULL,
         user TEXT NOT NULL,
         password TEXT,
-        auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key', 'both')),
+        auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key')),
         ssh_key TEXT,
         ssh_key_passphrase TEXT,
         ssh_port INTEGER DEFAULT 22,
+        ssh_key_path TEXT,
+        key_generated INTEGER DEFAULT 0,
         color TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -30,7 +40,7 @@ class DatabaseService {
     // Migration: Add new columns to existing servers table
     try {
       this.db.exec(`
-        ALTER TABLE servers ADD COLUMN auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key', 'both'))
+        ALTER TABLE servers ADD COLUMN auth_type TEXT DEFAULT 'password' CHECK(auth_type IN ('password', 'key'))
       `);
     } catch (e) {
       // Column already exists, ignore error
@@ -68,6 +78,22 @@ class DatabaseService {
       // Column already exists, ignore error
     }
 
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN ssh_key_path TEXT
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
+    try {
+      this.db.exec(`
+        ALTER TABLE servers ADD COLUMN key_generated INTEGER DEFAULT 0
+      `);
+    } catch (e) {
+      // Column already exists, ignore error
+    }
+
     // Update existing servers to have auth_type='password' if not set
     this.db.exec(`
       UPDATE servers SET auth_type = 'password' WHERE auth_type IS NULL
@@ -76,6 +102,16 @@ class DatabaseService {
     // Update existing servers to have ssh_port=22 if not set
     this.db.exec(`
       UPDATE servers SET ssh_port = 22 WHERE ssh_port IS NULL
+    `);
+
+    // Migration: Convert 'both' auth_type to 'key'
+    this.db.exec(`
+      UPDATE servers SET auth_type = 'key' WHERE auth_type = 'both'
+    `);
+
+    // Update existing servers to have key_generated=0 if not set
+    this.db.exec(`
+      UPDATE servers SET key_generated = 0 WHERE key_generated IS NULL
     `);
 
     // Migration: Add web_ui_ip column to existing installed_scripts table
@@ -129,12 +165,21 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   createServer(serverData) {
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated } = serverData;
+    
+    let ssh_key_path = null;
+    
+    // If using SSH key authentication, create persistent key file
+    if (auth_type === 'key' && ssh_key) {
+      const serverId = this.getNextServerId();
+      ssh_key_path = this.createSSHKeyFile(serverId, ssh_key);
+    }
+    
     const stmt = this.db.prepare(`
-      INSERT INTO servers (name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO servers (name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, ssh_key_path, key_generated, color) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, color);
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, ssh_key_path, key_generated || 0, color);
   }
 
   getAllServers() {
@@ -155,19 +200,85 @@ class DatabaseService {
    * @param {import('../types/server').CreateServerData} serverData
    */
   updateServer(id, serverData) {
-    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color } = serverData;
+    const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated } = serverData;
+    
+    // Get existing server to check for key changes
+    const existingServer = this.getServerById(id);
+    // @ts-ignore - Database migration adds this column
+    let ssh_key_path = existingServer?.ssh_key_path;
+    
+    // Handle SSH key changes
+    if (auth_type === 'key' && ssh_key) {
+      // Delete old key file if it exists
+      // @ts-ignore - Database migration adds this column
+      if (existingServer?.ssh_key_path && existsSync(existingServer.ssh_key_path)) {
+        try {
+          // @ts-ignore - Database migration adds this column
+          unlinkSync(existingServer.ssh_key_path);
+          // Also delete public key file if it exists
+          // @ts-ignore - Database migration adds this column
+          const pubKeyPath = existingServer.ssh_key_path + '.pub';
+          if (existsSync(pubKeyPath)) {
+            unlinkSync(pubKeyPath);
+          }
+        } catch (error) {
+          console.warn('Failed to delete old SSH key file:', error);
+        }
+      }
+      
+      // Create new key file
+      ssh_key_path = this.createSSHKeyFile(id, ssh_key);
+    } else if (auth_type !== 'key') {
+      // If switching away from key auth, delete key files
+      // @ts-ignore - Database migration adds this column
+      if (existingServer?.ssh_key_path && existsSync(existingServer.ssh_key_path)) {
+        try {
+          // @ts-ignore - Database migration adds this column
+          unlinkSync(existingServer.ssh_key_path);
+          // @ts-ignore - Database migration adds this column
+          const pubKeyPath = existingServer.ssh_key_path + '.pub';
+          if (existsSync(pubKeyPath)) {
+            unlinkSync(pubKeyPath);
+          }
+        } catch (error) {
+          console.warn('Failed to delete SSH key file:', error);
+        }
+      }
+      ssh_key_path = null;
+    }
+    
     const stmt = this.db.prepare(`
       UPDATE servers 
-      SET name = ?, ip = ?, user = ?, password = ?, auth_type = ?, ssh_key = ?, ssh_key_passphrase = ?, ssh_port = ?, color = ?
+      SET name = ?, ip = ?, user = ?, password = ?, auth_type = ?, ssh_key = ?, ssh_key_passphrase = ?, ssh_port = ?, ssh_key_path = ?, key_generated = ?, color = ?
       WHERE id = ?
     `);
-    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, color, id);
+    // @ts-ignore - Database migration adds this column
+    return stmt.run(name, ip, user, password, auth_type || 'password', ssh_key, ssh_key_passphrase, ssh_port || 22, ssh_key_path, key_generated !== undefined ? key_generated : (existingServer?.key_generated || 0), color, id);
   }
 
   /**
    * @param {number} id
    */
   deleteServer(id) {
+    // Get server info before deletion to clean up key files
+    const server = this.getServerById(id);
+    
+    // Delete SSH key files if they exist
+    // @ts-ignore - Database migration adds this column
+    if (server?.ssh_key_path && existsSync(server.ssh_key_path)) {
+      try {
+        // @ts-ignore - Database migration adds this column
+        unlinkSync(server.ssh_key_path);
+        // @ts-ignore - Database migration adds this column
+        const pubKeyPath = server.ssh_key_path + '.pub';
+        if (existsSync(pubKeyPath)) {
+          unlinkSync(pubKeyPath);
+        }
+      } catch (error) {
+        console.warn('Failed to delete SSH key file:', error);
+      }
+    }
+    
     const stmt = this.db.prepare('DELETE FROM servers WHERE id = ?');
     return stmt.run(id);
   }
@@ -314,6 +425,35 @@ class DatabaseService {
   deleteInstalledScriptsByServer(server_id) {
     const stmt = this.db.prepare('DELETE FROM installed_scripts WHERE server_id = ?');
     return stmt.run(server_id);
+  }
+
+  /**
+   * Get the next available server ID for key file naming
+   * @returns {number}
+   */
+  getNextServerId() {
+    const stmt = this.db.prepare('SELECT MAX(id) as maxId FROM servers');
+    const result = stmt.get();
+    // @ts-ignore - SQL query result type
+    return (result?.maxId || 0) + 1;
+  }
+
+  /**
+   * Create SSH key file and return the path
+   * @param {number} serverId 
+   * @param {string} sshKey 
+   * @returns {string}
+   */
+  createSSHKeyFile(serverId, sshKey) {
+    const sshKeysDir = join(process.cwd(), 'data', 'ssh-keys');
+    const keyPath = join(sshKeysDir, `server_${serverId}_key`);
+    
+    // Normalize the key: trim any trailing whitespace and ensure exactly one newline at the end
+    const normalizedKey = sshKey.trimEnd() + '\n';
+    writeFileSync(keyPath, normalizedKey);
+    chmodSync(keyPath, 0o600); // Set proper permissions
+    
+    return keyPath;
   }
 
   close() {
