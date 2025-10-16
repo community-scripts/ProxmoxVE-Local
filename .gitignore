@@ -16,6 +16,9 @@
 db.sqlite
 data/settings.db
 
+# ssh keys (sensitive)
+data/ssh-keys/
+
 # next.js
 /.next/
 /out/

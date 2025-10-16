@@ -5,6 +5,8 @@ import type { Server, CreateServerData } from '../../types/server';
 import { ServerForm } from './ServerForm';
 import { Button } from './ui/button';
 import { ConfirmationModal } from './ConfirmationModal';
+import { PublicKeyModal } from './PublicKeyModal';
+import { Key } from 'lucide-react';
 
 interface ServerListProps {
   servers: Server[];
@@ -24,6 +26,12 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
     confirmText: string;
     onConfirm: () => void;
   } | null>(null);
+  const [showPublicKeyModal, setShowPublicKeyModal] = useState(false);
+  const [publicKeyData, setPublicKeyData] = useState<{
+    publicKey: string;
+    serverName: string;
+    serverIp: string;
+  } | null>(null);
 
   const handleEdit = (server: Server) => {
     setEditingId(server.id);
@@ -38,6 +46,32 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
 
   const handleCancel = () => {
     setEditingId(null);
+  };
+
+  const handleViewPublicKey = async (server: Server) => {
+    try {
+      const response = await fetch(`/api/servers/${server.id}/public-key`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to retrieve public key');
+      }
+
+      const data = await response.json() as { success: boolean; publicKey?: string; serverName?: string; serverIp?: string; error?: string };
+      
+      if (data.success) {
+        setPublicKeyData({
+          publicKey: data.publicKey ?? '',
+          serverName: data.serverName ?? '',
+          serverIp: data.serverIp ?? ''
+        });
+        setShowPublicKeyModal(true);
+      } else {
+        throw new Error(data.error ?? 'Failed to retrieve public key');
+      }
+    } catch (error) {
+      console.error('Error retrieving public key:', error);
+      // You could show a toast notification here
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -218,6 +252,19 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                   )}
                 </Button>
                 <div className="flex space-x-2">
+                  {/* View Public Key button - only show for generated keys */}
+                  {server.key_generated === 1 && (
+                    <Button
+                      onClick={() => handleViewPublicKey(server)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none border-blue-500/20 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                    >
+                      <Key className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">View Public Key</span>
+                      <span className="sm:hidden">Key</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={() => handleEdit(server)}
                     variant="outline"
@@ -261,6 +308,20 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
           confirmText={confirmationModal.confirmText}
           confirmButtonText="Delete Server"
           cancelButtonText="Cancel"
+        />
+      )}
+      
+      {/* Public Key Modal */}
+      {publicKeyData && (
+        <PublicKeyModal
+          isOpen={showPublicKeyModal}
+          onClose={() => {
+            setShowPublicKeyModal(false);
+            setPublicKeyData(null);
+          }}
+          publicKey={publicKeyData.publicKey}
+          serverName={publicKeyData.serverName}
+          serverIp={publicKeyData.serverIp}
         />
       )}
     </div>

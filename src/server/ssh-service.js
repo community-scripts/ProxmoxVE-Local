@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, chmodSync, mkdtempSync, rmdirSync } from 'fs';
+import { writeFileSync, unlinkSync, chmodSync, mkdtempSync, rmdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -21,9 +21,6 @@ class SSHService {
       let authPromise;
       if (auth_type === 'key') {
         authPromise = this.testWithSSHKey(server);
-      } else if (auth_type === 'both') {
-        // Try SSH key first, then password
-        authPromise = this.testWithSSHKey(server).catch(() => this.testWithSshpass(server));
       } else {
         // Default to password authentication
         authPromise = this.testWithSshpass(server).catch(() => this.testWithExpect(server));
@@ -540,31 +537,20 @@ expect {
    * @returns {Promise<Object>} Connection test result
    */
   async testWithSSHKey(server) {
-    const { ip, user, ssh_key, ssh_key_passphrase, ssh_port = 22 } = server;
+    const { ip, user, ssh_key_path, ssh_key_passphrase, ssh_port = 22 } = server;
     
-    if (!ssh_key) {
-      throw new Error('SSH key not provided');
+    if (!ssh_key_path || !existsSync(ssh_key_path)) {
+      throw new Error('SSH key file not found');
     }
 
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;
-      let tempKeyPath = null;
       
       try {
-        // Create temporary key file
-        const tempDir = mkdtempSync(join(tmpdir(), 'ssh-key-'));
-        tempKeyPath = join(tempDir, 'private_key');
-        
-        // Write the private key to temporary file
-        // Normalize the key: trim any trailing whitespace and ensure exactly one newline at the end
-        const normalizedKey = ssh_key.trimEnd() + '\n';
-        writeFileSync(tempKeyPath, normalizedKey);
-        chmodSync(tempKeyPath, 0o600); // Set proper permissions
-        
         // Build SSH command
         const sshArgs = [
-          '-i', tempKeyPath,
+          '-i', ssh_key_path,
           '-p', ssh_port.toString(),
           '-o', 'ConnectTimeout=10',
           '-o', 'StrictHostKeyChecking=no',
@@ -662,20 +648,80 @@ expect {
           resolved = true;
           reject(error);
         }
-      } finally {
-        // Clean up temporary key file
-        if (tempKeyPath) {
-          try {
-            unlinkSync(tempKeyPath);
-            // Also remove the temp directory
-            const tempDir = tempKeyPath.substring(0, tempKeyPath.lastIndexOf('/'));
-            rmdirSync(tempDir);
-          } catch (cleanupError) {
-            console.warn('Failed to clean up temporary SSH key file:', cleanupError);
-          }
-        }
       }
     });
+  }
+
+  /**
+   * Generate SSH key pair for a server
+   * @param {number} serverId - Server ID for key file naming
+   * @returns {Promise<{privateKey: string, publicKey: string}>}
+   */
+  async generateKeyPair(serverId) {
+    const sshKeysDir = join(process.cwd(), 'data', 'ssh-keys');
+    const keyPath = join(sshKeysDir, `server_${serverId}_key`);
+    
+    return new Promise((resolve, reject) => {
+      const sshKeygen = spawn('ssh-keygen', [
+        '-t', 'ed25519',
+        '-f', keyPath,
+        '-N', '', // No passphrase
+        '-C', 'pve-scripts-local'
+      ], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let errorOutput = '';
+      
+      sshKeygen.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      sshKeygen.on('close', (code) => {
+        if (code === 0) {
+          try {
+            // Read the generated private key
+            const privateKey = readFileSync(keyPath, 'utf8');
+            
+            // Read the generated public key
+            const publicKeyPath = keyPath + '.pub';
+            const publicKey = readFileSync(publicKeyPath, 'utf8');
+            
+            // Set proper permissions
+            chmodSync(keyPath, 0o600);
+            chmodSync(publicKeyPath, 0o644);
+            
+            resolve({
+              privateKey,
+              publicKey: publicKey.trim()
+            });
+          } catch (error) {
+            reject(new Error(`Failed to read generated key files: ${error instanceof Error ? error.message : String(error)}`));
+          }
+        } else {
+          reject(new Error(`ssh-keygen failed: ${errorOutput}`));
+        }
+      });
+
+      sshKeygen.on('error', (error) => {
+        reject(new Error(`Failed to run ssh-keygen: ${error.message}`));
+      });
+    });
+  }
+
+  /**
+   * Get public key from private key file
+   * @param {string} keyPath - Path to private key file
+   * @returns {string} Public key content
+   */
+  getPublicKey(keyPath) {
+    const publicKeyPath = keyPath + '.pub';
+    
+    if (!existsSync(publicKeyPath)) {
+      throw new Error('Public key file not found');
+    }
+    
+    return readFileSync(publicKeyPath, 'utf8').trim();
   }
 
 }
