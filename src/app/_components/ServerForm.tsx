@@ -159,7 +159,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           ...prev, 
           ssh_key: data.privateKey ?? '',
           ssh_key_path: keyPath,
-          key_generated: 1
+          key_generated: true
         }));
         setGeneratedPublicKey(data.publicKey ?? '');
         setGeneratedServerId(serverId);

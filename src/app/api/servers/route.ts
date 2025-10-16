@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getDatabase } from '../../../server/database';
+import { getDatabase } from '../../../server/database-prisma.js';
 import type { CreateServerData } from '../../../types/server';
 
 export async function GET() {
   try {
     const db = getDatabase();
-    const servers = db.getAllServers();
+    const servers = await db.getAllServers();
     return NextResponse.json(servers);
   } catch (error) {
     console.error('Error fetching servers:', error);
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
 
     const db = getDatabase();
-    const result = db.createServer({ 
+    const result = await db.createServer({ 
       name, 
       ip, 
       user, 
@@ -71,14 +71,14 @@ export async function POST(request: NextRequest) {
       ssh_key_passphrase,
       ssh_port: ssh_port ?? 22,
       color,
-      key_generated: key_generated ?? 0,
+      key_generated: key_generated ?? false,
       ssh_key_path
     });
     
     return NextResponse.json(
       { 
         message: 'Server created successfully',
-        id: result.lastInsertRowid 
+        id: result.id 
       },
       { status: 201 }
     );

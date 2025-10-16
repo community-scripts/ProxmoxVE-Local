@@ -192,8 +192,8 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                       </span>
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      Created: {new Date(server.created_at).toLocaleDateString()}
-                      {server.updated_at !== server.created_at && (
+                      Created: {server.created_at ? new Date(server.created_at).toLocaleDateString() : 'Unknown'}
+                      {server.updated_at && server.updated_at !== server.created_at && (
                         <span> • Updated: {new Date(server.updated_at).toLocaleDateString()}</span>
                       )}
                     </div>
@@ -253,7 +253,7 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                 </Button>
                 <div className="flex space-x-2">
                   {/* View Public Key button - only show for generated keys */}
-                  {server.key_generated === 1 && (
+                  {server.key_generated === true && (
                     <Button
                       onClick={() => handleViewPublicKey(server)}
                       variant="outline"

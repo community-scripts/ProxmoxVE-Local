@@ -7,7 +7,7 @@ import { join, resolve } from 'path';
 import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
-import { getDatabase } from './src/server/database.js';
+import { getDatabase } from './src/server/database-prisma.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
@@ -186,11 +186,11 @@ class ScriptExecutionHandler {
    * @param {string} scriptPath - Path to the script
    * @param {string} executionMode - 'local' or 'ssh'
    * @param {number|null} serverId - Server ID for SSH executions
-   * @returns {number|null} - Installation record ID
+   * @returns {Promise<number|null>} - Installation record ID
    */
-  createInstallationRecord(scriptName, scriptPath, executionMode, serverId = null) {
+  async createInstallationRecord(scriptName, scriptPath, executionMode, serverId = null) {
     try {
-      const result = this.db.createInstalledScript({
+      const result = await this.db.createInstalledScript({
         script_name: scriptName,
         script_path: scriptPath,
         container_id: undefined,
@@ -199,7 +199,7 @@ class ScriptExecutionHandler {
         status: 'in_progress',
         output_log: ''
       });
-      return Number(result.lastInsertRowid);
+      return Number(result.id);
     } catch (error) {
       console.error('Error creating installation record:', error);
       return null;
@@ -211,9 +211,9 @@ class ScriptExecutionHandler {
    * @param {number} installationId - Installation record ID
    * @param {Object} updateData - Data to update
    */
-  updateInstallationRecord(installationId, updateData) {
+  async updateInstallationRecord(installationId, updateData) {
     try {
-      this.db.updateInstalledScript(installationId, updateData);
+      await this.db.updateInstalledScript(installationId, updateData);
     } catch (error) {
       console.error('Error updating installation record:', error);
     }
@@ -327,7 +327,7 @@ class ScriptExecutionHandler {
       
       // Create installation record
       const serverId = server ? (server.id ?? null) : null;
-      installationId = this.createInstallationRecord(scriptName, scriptPath, mode, serverId);
+      installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId);
       
       if (!installationId) {
         console.error('Failed to create installation record');
@@ -356,7 +356,7 @@ class ScriptExecutionHandler {
         
         // Update installation record with failure
         if (installationId) {
-          this.updateInstallationRecord(installationId, { status: 'failed' });
+          await this.updateInstallationRecord(installationId, { status: 'failed' });
         }
         return;
       }
@@ -394,7 +394,7 @@ class ScriptExecutionHandler {
       });
 
       // Handle pty data (both stdout and stderr combined)
-      childProcess.onData((data) => {
+      childProcess.onData(async (data) => {
         const output = data.toString();
         
         // Store output in buffer for logging
@@ -410,7 +410,7 @@ class ScriptExecutionHandler {
         // Parse for Container ID
         const containerId = this.parseContainerId(output);
         if (containerId && installationId) {
-          this.updateInstallationRecord(installationId, { container_id: containerId });
+          await this.updateInstallationRecord(installationId, { container_id: containerId });
         }
         
         // Parse for Web UI URL
@@ -418,7 +418,7 @@ class ScriptExecutionHandler {
         if (webUIUrl && installationId) {
           const { ip, port } = webUIUrl;
           if (ip && port) {
-            this.updateInstallationRecord(installationId, { 
+            await this.updateInstallationRecord(installationId, { 
               web_ui_ip: ip, 
               web_ui_port: port 
             });
@@ -464,7 +464,7 @@ class ScriptExecutionHandler {
       
       // Update installation record with failure
       if (installationId) {
-        this.updateInstallationRecord(installationId, { status: 'failed' });
+        await this.updateInstallationRecord(installationId, { status: 'failed' });
       }
     }
   }
@@ -491,7 +491,7 @@ class ScriptExecutionHandler {
       const execution = /** @type {ExecutionResult} */ (await sshService.executeScript(
         server,
         scriptPath,
-        /** @param {string} data */ (data) => {
+        /** @param {string} data */ async (data) => {
           // Store output in buffer for logging
           const exec = this.activeExecutions.get(executionId);
           if (exec) {
@@ -505,7 +505,7 @@ class ScriptExecutionHandler {
           // Parse for Container ID
           const containerId = this.parseContainerId(data);
           if (containerId && installationId) {
-            this.updateInstallationRecord(installationId, { container_id: containerId });
+            await this.updateInstallationRecord(installationId, { container_id: containerId });
           }
           
           // Parse for Web UI URL
@@ -513,7 +513,7 @@ class ScriptExecutionHandler {
           if (webUIUrl && installationId) {
             const { ip, port } = webUIUrl;
             if (ip && port) {
-              this.updateInstallationRecord(installationId, { 
+              await this.updateInstallationRecord(installationId, { 
                 web_ui_ip: ip, 
                 web_ui_port: port 
               });
@@ -545,13 +545,13 @@ class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         },
-        /** @param {number} code */ (code) => {
+        /** @param {number} code */ async (code) => {
           const exec = this.activeExecutions.get(executionId);
           const isSuccess = code === 0;
           
           // Update installation record with final status and output
           if (installationId && exec) {
-            this.updateInstallationRecord(installationId, {
+            await this.updateInstallationRecord(installationId, {
               status: isSuccess ? 'success' : 'failed',
               output_log: exec.outputBuffer
             });
@@ -586,7 +586,7 @@ class ScriptExecutionHandler {
       
       // Update installation record with failure
       if (installationId) {
-        this.updateInstallationRecord(installationId, { status: 'failed' });
+        await this.updateInstallationRecord(installationId, { status: 'failed' });
       }
     }
   }

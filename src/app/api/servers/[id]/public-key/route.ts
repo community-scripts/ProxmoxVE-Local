@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getDatabase } from '../../../../../server/database';
+import { getDatabase } from '../../../../../server/database-prisma.js';
 import { getSSHService } from '../../../../../server/ssh-service';
 
 export async function GET(
@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const db = getDatabase();
-    const server = db.getServerById(id);
+    const server = await db.getServerById(id);
     
     if (!server) {
       return NextResponse.json(

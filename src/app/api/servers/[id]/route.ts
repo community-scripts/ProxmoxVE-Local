@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getDatabase } from '../../../../server/database';
+import { getDatabase } from '../../../../server/database-prisma.js';
 import type { CreateServerData } from '../../../../types/server';
 
 export async function GET(
@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const db = getDatabase();
-    const server = db.getServerById(id);
+    const server = await db.getServerById(id);
     
     if (!server) {
       return NextResponse.json(
@@ -95,7 +95,7 @@ export async function PUT(
     const db = getDatabase();
     
     // Check if server exists
-    const existingServer = db.getServerById(id);
+    const existingServer = await db.getServerById(id);
     if (!existingServer) {
       return NextResponse.json(
         { error: 'Server not found' },
@@ -103,7 +103,7 @@ export async function PUT(
       );
     }
 
-    const result = db.updateServer(id, { 
+    await db.updateServer(id, { 
       name, 
       ip, 
       user, 
@@ -113,14 +113,14 @@ export async function PUT(
       ssh_key_passphrase,
       ssh_port: ssh_port ?? 22,
       color,
-      key_generated: key_generated ?? 0,
+      key_generated: key_generated ?? false,
       ssh_key_path
     });
     
     return NextResponse.json(
       { 
         message: 'Server updated successfully',
-        changes: result.changes 
+        changes: 1 
       }
     );
   } catch (error) {
@@ -158,7 +158,7 @@ export async function DELETE(
     const db = getDatabase();
     
     // Check if server exists
-    const existingServer = db.getServerById(id);
+    const existingServer = await db.getServerById(id);
     if (!existingServer) {
       return NextResponse.json(
         { error: 'Server not found' },
@@ -167,14 +167,14 @@ export async function DELETE(
     }
 
     // Delete all installed scripts associated with this server
-    db.deleteInstalledScriptsByServer(id);
+    await db.deleteInstalledScriptsByServer(id);
 
-    const result = db.deleteServer(id);
+    await db.deleteServer(id);
     
     return NextResponse.json(
       { 
         message: 'Server deleted successfully',
-        changes: result.changes 
+        changes: 1 
       }
     );
   } catch (error) {

@@ -607,6 +607,32 @@ install_and_build() {
     log_success "Dependencies installed successfully"
     rm -f "$npm_log"
     
+    # Generate Prisma client
+    log "Generating Prisma client..."
+    if ! npx prisma generate > "$npm_log" 2>&1; then
+        log_error "Failed to generate Prisma client"
+        log_error "Prisma generate output:"
+        cat "$npm_log" | while read -r line; do
+            log_error "PRISMA: $line"
+        done
+        rm -f "$npm_log"
+        return 1
+    fi
+    log_success "Prisma client generated successfully"
+    
+    # Run Prisma migrations
+    log "Running Prisma migrations..."
+    if ! npx prisma migrate deploy > "$npm_log" 2>&1; then
+        log_warning "Prisma migrations failed or no migrations to run"
+        log "Prisma migrate output:"
+        cat "$npm_log" | while read -r line; do
+            log "PRISMA: $line"
+        done
+    else
+        log_success "Prisma migrations completed successfully"
+    fi
+    rm -f "$npm_log"
+    
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
