@@ -93,17 +93,6 @@ export function FilterBar({
         </div>
       )}
 
-      {/* Filter Persistence Status */}
-      {!isLoadingFilters && saveFiltersEnabled && (
-        <div className="mb-4 flex items-center justify-center py-1">
-          <div className="flex items-center space-x-2 text-xs text-green-600">
-            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span>Filters are being saved automatically</span>
-          </div>
-        </div>
-      )}
 
       {/* Filter Header */}
       {!isLoadingFilters && (
@@ -391,18 +380,30 @@ export function FilterBar({
 
       {/* Filter Summary and Clear All */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">
-          {filteredCount === totalScripts ? (
-            <span>Showing all {totalScripts} scripts</span>
-          ) : (
-            <span>
-              {filteredCount} of {totalScripts} scripts{" "}
-              {hasActiveFilters && (
-                <span className="font-medium text-blue-600">
-                  (filtered)
-                </span>
-              )}
-            </span>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            {filteredCount === totalScripts ? (
+              <span>Showing all {totalScripts} scripts</span>
+            ) : (
+              <span>
+                {filteredCount} of {totalScripts} scripts{" "}
+                {hasActiveFilters && (
+                  <span className="font-medium text-blue-600">
+                    (filtered)
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+          
+          {/* Filter Persistence Status */}
+          {!isLoadingFilters && saveFiltersEnabled && (
+            <div className="flex items-center space-x-1 text-xs text-green-600">
+              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              <span>Filters are being saved automatically</span>
+            </div>
           )}
         </div>
 
