@@ -7,6 +7,9 @@ exclude-labels:
   - automated
 
 categories:
+  - title: "Breaking Changes"
+    labels:
+      - breaking
   - title: "🚀 Features"
     labels:
       - feature
