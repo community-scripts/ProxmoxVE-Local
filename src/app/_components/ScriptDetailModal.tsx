@@ -359,91 +359,91 @@ export function ScriptDetailModal({
             })()}
         </div>
 
-        {/* Load Message */}
-        {loadMessage && (
-          <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
-            {loadMessage}
-          </div>
-        )}
-
-        {/* Script Files Status */}
-        {(scriptFilesLoading || comparisonLoading) && (
-          <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
-              <span>Loading script status...</span>
-            </div>
-          </div>
-        )}
-
-        {scriptFilesData?.success &&
-          !scriptFilesLoading &&
-          (() => {
-            // Determine script type from the first install method
-            const firstScript = script?.install_methods?.[0]?.script;
-            let scriptType = "Script";
-            if (firstScript?.startsWith("ct/")) {
-              scriptType = "CT Script";
-            } else if (firstScript?.startsWith("tools/")) {
-              scriptType = "Tools Script";
-            } else if (firstScript?.startsWith("vm/")) {
-              scriptType = "VM Script";
-            } else if (firstScript?.startsWith("vw/")) {
-              scriptType = "VW Script";
-            }
-
-            return (
-              <div className="mx-4 sm:mx-6 mb-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-muted"}`}
-                    ></div>
-                    <span>
-                      {scriptType}:{" "}
-                      {scriptFilesData.ctExists ? "Available" : "Not loaded"}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-green-500" : "bg-muted"}`}
-                    ></div>
-                    <span>
-                      Install Script:{" "}
-                      {scriptFilesData.installExists
-                        ? "Available"
-                        : "Not loaded"}
-                    </span>
-                  </div>
-                  {scriptFilesData?.success &&
-                    (scriptFilesData.ctExists ||
-                      scriptFilesData.installExists) &&
-                    comparisonData?.success &&
-                    !comparisonLoading && (
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-orange-500" : "bg-green-500"}`}
-                        ></div>
-                        <span>
-                          Status:{" "}
-                          {comparisonData.hasDifferences
-                            ? "Update available"
-                            : "Up to date"}
-                        </span>
-                      </div>
-                    )}
-                </div>
-                {scriptFilesData.files.length > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground break-words">
-                    Files: {scriptFilesData.files.join(", ")}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
         {/* Content */}
         <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+          {/* Script Files Status */}
+          {(scriptFilesLoading || comparisonLoading) && (
+            <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+              <div className="flex items-center space-x-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                <span>Loading script status...</span>
+              </div>
+            </div>
+          )}
+
+          {scriptFilesData?.success &&
+            !scriptFilesLoading &&
+            (() => {
+              // Determine script type from the first install method
+              const firstScript = script?.install_methods?.[0]?.script;
+              let scriptType = "Script";
+              if (firstScript?.startsWith("ct/")) {
+                scriptType = "CT Script";
+              } else if (firstScript?.startsWith("tools/")) {
+                scriptType = "Tools Script";
+              } else if (firstScript?.startsWith("vm/")) {
+                scriptType = "VM Script";
+              } else if (firstScript?.startsWith("vw/")) {
+                scriptType = "VW Script";
+              }
+
+              return (
+                <div className="mb-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-muted"}`}
+                      ></div>
+                      <span>
+                        {scriptType}:{" "}
+                        {scriptFilesData.ctExists ? "Available" : "Not loaded"}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-green-500" : "bg-muted"}`}
+                      ></div>
+                      <span>
+                        Install Script:{" "}
+                        {scriptFilesData.installExists
+                          ? "Available"
+                          : "Not loaded"}
+                      </span>
+                    </div>
+                    {scriptFilesData?.success &&
+                      (scriptFilesData.ctExists ||
+                        scriptFilesData.installExists) &&
+                      comparisonData?.success &&
+                      !comparisonLoading && (
+                        <div className="flex items-center space-x-2">
+                          <div
+                            className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-orange-500" : "bg-green-500"}`}
+                          ></div>
+                          <span>
+                            Status:{" "}
+                            {comparisonData.hasDifferences
+                              ? "Update available"
+                              : "Up to date"}
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                  {scriptFilesData.files.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground break-words">
+                      Files: {scriptFilesData.files.join(", ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+          {/* Load Message */}
+          {loadMessage && (
+            <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+              {loadMessage}
+            </div>
+          )}
+
           {/* Description */}
           <div>
             <h3 className="mb-2 text-base sm:text-lg font-semibold text-foreground">
