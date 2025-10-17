@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { getDatabase } from "~/server/database";
+import { getDatabase } from "~/server/database-prisma.js";
 
 export const serversRouter = createTRPCRouter({
   getAllServers: publicProcedure
     .query(async () => {
       try {
         const db = getDatabase();
-        const servers = db.getAllServers();
+        const servers = await db.getAllServers();
         return { success: true, servers };
       } catch (error) {
         console.error('Error fetching servers:', error);
@@ -24,7 +24,7 @@ export const serversRouter = createTRPCRouter({
     .query(async ({ input }) => {
       try {
         const db = getDatabase();
-        const server = db.getServerById(input.id);
+        const server = await db.getServerById(input.id);
         if (!server) {
           return { success: false, error: 'Server not found', server: null };
         }

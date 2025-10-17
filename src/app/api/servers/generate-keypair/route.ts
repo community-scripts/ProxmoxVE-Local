@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSSHService } from '../../../../server/ssh-service';
-import { getDatabase } from '../../../../server/database';
+import { getDatabase } from '../../../../server/database-prisma.js';
 
 export async function POST(_request: NextRequest) {
   try {
@@ -9,7 +9,7 @@ export async function POST(_request: NextRequest) {
     const db = getDatabase();
     
     // Get the next available server ID for key file naming
-    const serverId = db.getNextServerId();
+    const serverId = await db.getNextServerId();
     
     const keyPair = await sshService.generateKeyPair(serverId);
     

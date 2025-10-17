@@ -412,6 +412,36 @@ restore_backup_files() {
     fi
 }
 
+# Ensure DATABASE_URL is set in .env file for Prisma
+ensure_database_url() {
+    log "Ensuring DATABASE_URL is set in .env file..."
+    
+    # Check if .env file exists
+    if [ ! -f ".env" ]; then
+        log_warning ".env file not found, creating from .env.example..."
+        if [ -f ".env.example" ]; then
+            cp ".env.example" ".env"
+        else
+            log_error ".env.example not found, cannot create .env file"
+            return 1
+        fi
+    fi
+    
+    # Check if DATABASE_URL is already set
+    if grep -q "^DATABASE_URL=" .env; then
+        log "DATABASE_URL already exists in .env file"
+        return 0
+    fi
+    
+    # Add DATABASE_URL to .env file
+    log "Adding DATABASE_URL to .env file..."
+    echo "" >> .env
+    echo "# Database" >> .env
+    echo "DATABASE_URL=\"file:./data/database.sqlite\"" >> .env
+    
+    log_success "DATABASE_URL added to .env file"
+}
+
 # Check if systemd service exists
 check_service() {
     # systemctl status returns 0-3 if service exists (running, exited, failed, etc.)
@@ -605,6 +635,32 @@ install_and_build() {
     fi
     
     log_success "Dependencies installed successfully"
+    rm -f "$npm_log"
+    
+    # Generate Prisma client
+    log "Generating Prisma client..."
+    if ! npx prisma generate > "$npm_log" 2>&1; then
+        log_error "Failed to generate Prisma client"
+        log_error "Prisma generate output:"
+        cat "$npm_log" | while read -r line; do
+            log_error "PRISMA: $line"
+        done
+        rm -f "$npm_log"
+        return 1
+    fi
+    log_success "Prisma client generated successfully"
+    
+    # Run Prisma migrations
+    log "Running Prisma migrations..."
+    if ! npx prisma migrate deploy > "$npm_log" 2>&1; then
+        log_warning "Prisma migrations failed or no migrations to run"
+        log "Prisma migrate output:"
+        cat "$npm_log" | while read -r line; do
+            log "PRISMA: $line"
+        done
+    else
+        log_success "Prisma migrations completed successfully"
+    fi
     rm -f "$npm_log"
     
     log "Building application..."
@@ -837,6 +893,9 @@ main() {
     
     # Restore .env and data directory before building
     restore_backup_files
+    
+    # Ensure DATABASE_URL is set for Prisma
+    ensure_database_url
     
     # Install dependencies and build
     if ! install_and_build; then

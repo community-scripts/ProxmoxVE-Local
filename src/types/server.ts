@@ -8,11 +8,11 @@ export interface Server {
   ssh_key?: string;
   ssh_key_passphrase?: string;
   ssh_key_path?: string;
-  key_generated?: number;
+  key_generated?: boolean;
   ssh_port?: number;
   color?: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export interface CreateServerData {
@@ -24,7 +24,7 @@ export interface CreateServerData {
   ssh_key?: string;
   ssh_key_passphrase?: string;
   ssh_key_path?: string;
-  key_generated?: number;
+  key_generated?: boolean;
   ssh_port?: number;
   color?: string;
 }

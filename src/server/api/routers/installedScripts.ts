@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { getDatabase } from "~/server/database";
+import { getDatabase } from "~/server/database-prisma.js";
 // Removed unused imports
 
 
@@ -10,10 +10,26 @@ export const installedScriptsRouter = createTRPCRouter({
     .query(async () => {
       try {
         const db = getDatabase();
-        const scripts = db.getAllInstalledScripts();
+        const scripts = await db.getAllInstalledScripts();
+        
+        // Transform scripts to flatten server data for frontend compatibility
+        const transformedScripts = scripts.map(script => ({
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        }));
+        
         return {
           success: true,
-          scripts
+          scripts: transformedScripts
         };
       } catch (error) {
         console.error('Error in getAllInstalledScripts:', error);
@@ -31,10 +47,26 @@ export const installedScriptsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       try {
         const db = getDatabase();
-        const scripts = db.getInstalledScriptsByServer(input.serverId);
+        const scripts = await db.getInstalledScriptsByServer(input.serverId);
+        
+        // Transform scripts to flatten server data for frontend compatibility
+        const transformedScripts = scripts.map(script => ({
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        }));
+        
         return {
           success: true,
-          scripts
+          scripts: transformedScripts
         };
       } catch (error) {
         console.error('Error in getInstalledScriptsByServer:', error);
@@ -52,7 +84,7 @@ export const installedScriptsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       try {
         const db = getDatabase();
-        const script = db.getInstalledScriptById(input.id);
+        const script = await db.getInstalledScriptById(input.id);
         if (!script) {
           return {
             success: false,
@@ -60,9 +92,24 @@ export const installedScriptsRouter = createTRPCRouter({
             script: null
           };
         }
+        // Transform script to flatten server data for frontend compatibility
+        const transformedScript = {
+          ...script,
+          server_name: script.server?.name ?? null,
+          server_ip: script.server?.ip ?? null,
+          server_user: script.server?.user ?? null,
+          server_password: script.server?.password ?? null,
+          server_auth_type: script.server?.auth_type ?? null,
+          server_ssh_key: script.server?.ssh_key ?? null,
+          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_port: script.server?.ssh_port ?? null,
+          server_color: script.server?.color ?? null,
+          server: undefined // Remove nested server object
+        };
+        
         return {
           success: true,
-          script
+          script: transformedScript
         };
       } catch (error) {
         console.error('Error in getInstalledScriptById:', error);
@@ -90,10 +137,10 @@ export const installedScriptsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         const db = getDatabase();
-        const result = db.createInstalledScript(input);
+        const result = await db.createInstalledScript(input);
         return {
           success: true,
-          id: result.lastInsertRowid,
+          id: result.id,
           message: 'Installed script record created successfully'
         };
       } catch (error) {
@@ -120,9 +167,9 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         const { id, ...updateData } = input;
         const db = getDatabase();
-        const result = db.updateInstalledScript(id, updateData);
+        const result = await db.updateInstalledScript(id, updateData);
         
-        if (result.changes === 0) {
+        if (!result) {
           return {
             success: false,
             error: 'No changes made or script not found'
@@ -148,9 +195,9 @@ export const installedScriptsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         const db = getDatabase();
-        const result = db.deleteInstalledScript(input.id);
+        const result = await db.deleteInstalledScript(input.id);
         
-        if (result.changes === 0) {
+        if (!result) {
           return {
             success: false,
             error: 'Script not found or already deleted'
@@ -175,7 +222,7 @@ export const installedScriptsRouter = createTRPCRouter({
     .query(async () => {
       try {
         const db = getDatabase();
-        const allScripts = db.getAllInstalledScripts();
+        const allScripts = await db.getAllInstalledScripts();
         
         const stats = {
           total: allScripts.length,
@@ -219,7 +266,7 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         
         const db = getDatabase();
-        const server = db.getServerById(input.serverId);
+        const server = await db.getServerById(input.serverId);
         
         if (!server) {
           console.error('Server not found for ID:', input.serverId);
@@ -350,7 +397,7 @@ export const installedScriptsRouter = createTRPCRouter({
 
 
         // Get existing scripts to check for duplicates
-        const existingScripts = db.getAllInstalledScripts();
+        const existingScripts = await db.getAllInstalledScripts();
 
         // Create installed script records for detected containers (skip duplicates)
         const createdScripts = [];
@@ -373,7 +420,7 @@ export const installedScriptsRouter = createTRPCRouter({
               continue;
             }
 
-            const result = db.createInstalledScript({
+            const result = await db.createInstalledScript({
               script_name: container.hostname,
               script_path: `detected/${container.hostname}`,
               container_id: container.containerId,
@@ -384,7 +431,7 @@ export const installedScriptsRouter = createTRPCRouter({
             });
             
             createdScripts.push({
-              id: result.lastInsertRowid,
+              id: result.id,
               containerId: container.containerId,
               hostname: container.hostname,
               serverName: container.serverName
@@ -420,8 +467,8 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         
         const db = getDatabase();
-        const allScripts = db.getAllInstalledScripts();
-        const allServers = db.getAllServers();
+        const allScripts = await db.getAllInstalledScripts();
+        const allServers = await db.getAllServers();
         
         
         if (allScripts.length === 0) {
@@ -452,7 +499,7 @@ export const installedScriptsRouter = createTRPCRouter({
             const scriptData = script as any;
             const server = allServers.find((s: any) => s.id === scriptData.server_id);
             if (!server) {
-              db.deleteInstalledScript(Number(scriptData.id));
+              await db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
               continue;
             }
@@ -488,7 +535,7 @@ export const installedScriptsRouter = createTRPCRouter({
             });
 
             if (!containerExists) {
-              db.deleteInstalledScript(Number(scriptData.id));
+              await db.deleteInstalledScript(Number(scriptData.id));
               deletedScripts.push(String(scriptData.script_name));
             } else {
             }
@@ -525,7 +572,7 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         
         const db = getDatabase();
-        const allServers = db.getAllServers();
+        const allServers = await db.getAllServers();
         const statusMap: Record<string, 'running' | 'stopped' | 'unknown'> = {};
 
         // Import SSH services
@@ -630,7 +677,7 @@ export const installedScriptsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       try {
         const db = getDatabase();
-        const script = db.getInstalledScriptById(input.id);
+        const script = await db.getInstalledScriptById(input.id);
         
         if (!script) {
           return {
@@ -652,7 +699,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(Number(scriptData.server_id));
+        const server = await db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -732,7 +779,7 @@ export const installedScriptsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         const db = getDatabase();
-        const script = db.getInstalledScriptById(input.id);
+        const script = await db.getInstalledScriptById(input.id);
         
         if (!script) {
           return {
@@ -752,7 +799,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(Number(scriptData.server_id));
+        const server = await db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -823,7 +870,7 @@ export const installedScriptsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         const db = getDatabase();
-        const script = db.getInstalledScriptById(input.id);
+        const script = await db.getInstalledScriptById(input.id);
         
         if (!script) {
           return {
@@ -843,7 +890,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(Number(scriptData.server_id));
+        const server = await db.getServerById(Number(scriptData.server_id));
         if (!server) {
           return {
             success: false,
@@ -950,9 +997,9 @@ export const installedScriptsRouter = createTRPCRouter({
         });
 
         // If destroy was successful, delete the database record
-        const deleteResult = db.deleteInstalledScript(input.id);
+        const deleteResult = await db.deleteInstalledScript(input.id);
         
-        if (deleteResult.changes === 0) {
+        if (!deleteResult) {
           return {
             success: false,
             error: 'Container destroyed but failed to delete database record'
@@ -985,7 +1032,7 @@ export const installedScriptsRouter = createTRPCRouter({
       try {
         console.log('🔍 Auto-detect WebUI called with id:', input.id);
         const db = getDatabase();
-        const script = db.getInstalledScriptById(input.id);
+        const script = await db.getInstalledScriptById(input.id);
         
         if (!script) {
           console.log('❌ Script not found for id:', input.id);
@@ -1013,7 +1060,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Get server info
-        const server = db.getServerById(Number(scriptData.server_id));
+        const server = await db.getServerById(Number(scriptData.server_id));
         if (!server) {
           console.log('❌ Server not found for id:', scriptData.server_id);
           return {
@@ -1121,12 +1168,12 @@ export const installedScriptsRouter = createTRPCRouter({
         
         // Update the database with detected IP and port
         console.log('💾 Updating database with IP:', detectedIp, 'Port:', detectedPort);
-        const updateResult = db.updateInstalledScript(input.id, {
+        const updateResult = await db.updateInstalledScript(input.id, {
           web_ui_ip: detectedIp,
           web_ui_port: detectedPort
         });
 
-        if (updateResult.changes === 0) {
+        if (!updateResult) {
           console.log('❌ Database update failed - no changes made');
           return {
             success: false,

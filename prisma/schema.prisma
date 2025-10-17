@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model InstalledScript {
+  id                Int       @id @default(autoincrement())
+  script_name       String
+  script_path       String
+  container_id      String?
+  server_id         Int?
+  execution_mode    String
+  installation_date DateTime? @default(now())
+  status            String
+  output_log        String?
+  web_ui_ip         String?
+  web_ui_port       Int?
+  server            Server?   @relation(fields: [server_id], references: [id], onDelete: SetNull)
+  
+  @@map("installed_scripts")
+}
+
+model Server {
+  id                 Int                @id @default(autoincrement())
+  name               String             @unique
+  ip                 String
+  user               String
+  password           String?
+  auth_type          String?            @default("password")
+  ssh_key            String?
+  ssh_key_passphrase String?
+  ssh_port           Int?               @default(22)
+  color              String?
+  created_at         DateTime?          @default(now())
+  updated_at         DateTime?          @updatedAt
+  ssh_key_path       String?
+  key_generated      Boolean?           @default(false)
+  installed_scripts  InstalledScript[]
+  
+  @@map("servers")
+}
