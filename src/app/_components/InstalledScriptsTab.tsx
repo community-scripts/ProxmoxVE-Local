@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '~/trpc/react';
 import { Terminal } from './Terminal';
 import { StatusBadge } from './Badge';
@@ -289,7 +289,8 @@ export function InstalledScriptsTab() {
         });
 
         // Re-fetch status for all containers using bulk method (in background)
-        fetchContainerStatuses();
+        // Trigger status check by updating scripts length dependency
+        // This will be handled by the useEffect that watches scripts.length
       } else {
         // Show error message from backend
         const errorMessage = data.error ?? 'Unknown error occurred';
@@ -367,36 +368,6 @@ export function InstalledScriptsTab() {
     scriptsRef.current = scripts;
   }, [scripts]);
 
-  // Function to fetch container statuses - simplified to just check all servers
-  const fetchContainerStatuses = useCallback(() => {
-    console.log('fetchContainerStatuses called, isPending:', containerStatusMutation.isPending);
-    
-    // Prevent multiple simultaneous status checks
-    if (containerStatusMutation.isPending) {
-      console.log('Status check already pending, skipping');
-      return;
-    }
-    
-    // Clear any existing timeout
-    if (statusCheckTimeoutRef.current) {
-      clearTimeout(statusCheckTimeoutRef.current);
-    }
-    
-    // Debounce status checks by 500ms
-    statusCheckTimeoutRef.current = setTimeout(() => {
-      const currentScripts = scriptsRef.current;
-      
-      // Get unique server IDs from scripts
-      const serverIds = [...new Set(currentScripts
-        .filter(script => script.server_id)
-        .map(script => script.server_id!))];
-
-      console.log('Executing status check for server IDs:', serverIds);
-      if (serverIds.length > 0) {
-        containerStatusMutation.mutate({ serverIds });
-      }
-    }, 500);
-  }, [containerStatusMutation]); 
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -410,9 +381,34 @@ export function InstalledScriptsTab() {
   useEffect(() => {
     if (scripts.length > 0) {
       console.log('Status check triggered - scripts length:', scripts.length);
-      fetchContainerStatuses();
+      
+      // Prevent multiple simultaneous status checks
+      if (containerStatusMutation.isPending) {
+        console.log('Status check already pending, skipping');
+        return;
+      }
+      
+      // Clear any existing timeout
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+      }
+      
+      // Debounce status checks by 500ms
+      statusCheckTimeoutRef.current = setTimeout(() => {
+        const currentScripts = scriptsRef.current;
+        
+        // Get unique server IDs from scripts
+        const serverIds = [...new Set(currentScripts
+          .filter(script => script.server_id)
+          .map(script => script.server_id!))];
+
+        console.log('Executing status check for server IDs:', serverIds);
+        if (serverIds.length > 0) {
+          containerStatusMutation.mutate({ serverIds });
+        }
+      }, 500);
     }
-  }, [scripts.length, fetchContainerStatuses]); 
+  }, [scripts.length, containerStatusMutation]); 
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -933,7 +929,15 @@ export function InstalledScriptsTab() {
             {showAutoDetectForm ? 'Cancel Auto-Detect' : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
           </Button>
           <Button
-            onClick={fetchContainerStatuses}
+            onClick={() => {
+              // Trigger status check by calling the mutation directly
+              const serverIds = [...new Set(scripts
+                .filter(script => script.server_id)
+                .map(script => script.server_id!))];
+              if (serverIds.length > 0) {
+                containerStatusMutation.mutate({ serverIds });
+              }
+            }}
             disabled={containerStatusMutation.isPending ?? scripts.length === 0}
             variant="outline"
             size="default"
@@ -1485,7 +1489,7 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleUpdateScript(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
                                         Update
                                       </DropdownMenuItem>
@@ -1503,7 +1507,7 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleOpenWebUI(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
                                         Open UI
                                       </DropdownMenuItem>
@@ -1512,7 +1516,7 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleAutoDetectWebUI(script)}
                                         disabled={autoDetectWebUIMutation.isPending ?? containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
                                         {autoDetectWebUIMutation.isPending ? 'Re-detect...' : 'Re-detect IP/Port'}
                                       </DropdownMenuItem>
@@ -1522,7 +1526,7 @@ export function InstalledScriptsTab() {
                                         <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
                                           onClick={() => handleLXCSettings(script)}
-                                          className="text-primary hover:text-primary-foreground hover:bg-primary/20 focus:bg-primary/20"
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                         >
                                           <Settings className="mr-2 h-4 w-4" />
                                           LXC Settings
@@ -1531,17 +1535,14 @@ export function InstalledScriptsTab() {
                                         <DropdownMenuItem
                                           onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
                                           disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
-                                          className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
-                                            ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
-                                            : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
-                                          }
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                           onClick={() => handleDestroy(script)}
                                           disabled={controllingScriptId === script.id}
-                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
                                         </DropdownMenuItem>
@@ -1553,7 +1554,7 @@ export function InstalledScriptsTab() {
                                         <DropdownMenuItem
                                           onClick={() => handleDeleteScript(Number(script.id))}
                                           disabled={deleteScriptMutation.isPending}
-                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                         >
                                           {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
                                         </DropdownMenuItem>

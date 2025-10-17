@@ -302,7 +302,7 @@ export function ScriptInstallationCard({
                     <DropdownMenuItem
                       onClick={onUpdate}
                       disabled={containerStatus === 'stopped'}
-                      className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Update
                     </DropdownMenuItem>
@@ -320,7 +320,7 @@ export function ScriptInstallationCard({
                     <DropdownMenuItem
                       onClick={onOpenWebUI}
                       disabled={containerStatus === 'stopped'}
-                      className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Open UI
                     </DropdownMenuItem>
@@ -331,17 +331,14 @@ export function ScriptInstallationCard({
                       <DropdownMenuItem
                         onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
                         disabled={isControlling || containerStatus === 'unknown'}
-                        className={containerStatus === 'running' 
-                          ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
-                          : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
-                        }
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                       >
                         {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={onDestroy}
                         disabled={isControlling}
-                        className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                       >
                         {isControlling ? 'Working...' : 'Destroy'}
                       </DropdownMenuItem>
@@ -353,7 +350,7 @@ export function ScriptInstallationCard({
                       <DropdownMenuItem
                         onClick={onDelete}
                         disabled={isDeleting}
-                        className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                       >
                         {isDeleting ? 'Deleting...' : 'Delete'}
                       </DropdownMenuItem>
