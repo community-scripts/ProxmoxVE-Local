@@ -899,22 +899,22 @@ export function InstalledScriptsTab() {
         <h2 className="text-2xl font-bold text-foreground mb-4">Installed Scripts</h2>
         
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-info/10 border border-info/20 p-4 rounded-lg">
               <div className="text-2xl font-bold text-info">{stats.total}</div>
               <div className="text-sm text-info/80">Total Installations</div>
             </div>
             <div className="bg-success/10 border border-success/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-success">{stats.byStatus.success}</div>
-              <div className="text-sm text-success/80">Successful</div>
+              <div className="text-2xl font-bold text-success">
+                {scriptsWithStatus.filter(script => script.container_status === 'running').length}
+              </div>
+              <div className="text-sm text-success/80">Running LXC</div>
             </div>
             <div className="bg-error/10 border border-error/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-error">{stats.byStatus.failed}</div>
-              <div className="text-sm text-error/80">Failed</div>
-            </div>
-            <div className="bg-warning/10 border border-warning/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-warning">{stats.byStatus.in_progress}</div>
-              <div className="text-sm text-warning/80">In Progress</div>
+              <div className="text-2xl font-bold text-error">
+                {scriptsWithStatus.filter(script => script.container_status === 'stopped').length}
+              </div>
+              <div className="text-sm text-error/80">Stopped LXC</div>
             </div>
           </div>
         )}
