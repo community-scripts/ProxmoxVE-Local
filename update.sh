@@ -412,6 +412,36 @@ restore_backup_files() {
     fi
 }
 
+# Ensure DATABASE_URL is set in .env file for Prisma
+ensure_database_url() {
+    log "Ensuring DATABASE_URL is set in .env file..."
+    
+    # Check if .env file exists
+    if [ ! -f ".env" ]; then
+        log_warning ".env file not found, creating from .env.example..."
+        if [ -f ".env.example" ]; then
+            cp ".env.example" ".env"
+        else
+            log_error ".env.example not found, cannot create .env file"
+            return 1
+        fi
+    fi
+    
+    # Check if DATABASE_URL is already set
+    if grep -q "^DATABASE_URL=" .env; then
+        log "DATABASE_URL already exists in .env file"
+        return 0
+    fi
+    
+    # Add DATABASE_URL to .env file
+    log "Adding DATABASE_URL to .env file..."
+    echo "" >> .env
+    echo "# Database" >> .env
+    echo "DATABASE_URL=\"file:./data/database.sqlite\"" >> .env
+    
+    log_success "DATABASE_URL added to .env file"
+}
+
 # Check if systemd service exists
 check_service() {
     # systemctl status returns 0-3 if service exists (running, exited, failed, etc.)
@@ -863,6 +893,9 @@ main() {
     
     # Restore .env and data directory before building
     restore_backup_files
+    
+    # Ensure DATABASE_URL is set for Prisma
+    ensure_database_url
     
     # Install dependencies and build
     if ! install_and_build; then
