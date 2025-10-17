@@ -396,7 +396,7 @@ export function InstalledScriptsTab() {
         containerStatusMutation.mutate({ serverIds });
       }
     }, 500);
-  }, []); 
+  }, [containerStatusMutation]); 
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -412,7 +412,7 @@ export function InstalledScriptsTab() {
       console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length]); 
+  }, [scripts.length, fetchContainerStatuses]); 
 
   // Cleanup timeout on unmount
   useEffect(() => {

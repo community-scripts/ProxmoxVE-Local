@@ -40,7 +40,7 @@ interface LXCSettingsModalProps {
   onSave: () => void;
 }
 
-export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSettingsModalProps) {
+export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: LXCSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<string>('common');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
