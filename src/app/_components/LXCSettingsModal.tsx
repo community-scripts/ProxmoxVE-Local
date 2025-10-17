@@ -43,10 +43,13 @@ interface LXCSettingsModalProps {
 export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<string>('common');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultType, setResultType] = useState<'success' | 'error' | null>(null);
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [forceSync] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState<any>({
     arch: '',
@@ -76,27 +79,41 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
   });
 
   // tRPC hooks
-  const { data: configData, isLoading } = api.installedScripts.getLXCConfig.useQuery(
+  const { data: configData, isLoading, refetch } = api.installedScripts.getLXCConfig.useQuery(
     { scriptId: script?.id ?? 0, forceSync },
     { enabled: !!script && isOpen }
   );
 
   const saveMutation = api.installedScripts.saveLXCConfig.useMutation({
-    onSuccess: () => {
-      setSuccessMessage('LXC configuration saved successfully');
-      setHasChanges(false);
+    onSuccess: (data) => {
+      console.log('Save mutation success data:', data);
+      setIsSaving(false);
       setShowConfirmation(false);
-      onSave();
+      
+      if (data.success) {
+        setResultType('success');
+        setResultMessage(data.message ?? 'LXC configuration saved successfully');
+        setHasChanges(false);
+      } else {
+        console.log('Backend returned error:', data.error);
+        setResultType('error');
+        setResultMessage(data.error ?? 'Failed to save configuration');
+      }
+      setShowResultModal(true);
     },
     onError: (err) => {
-      setError(`Failed to save configuration: ${err.message}`);
+      console.log('Save mutation error:', err);
+      setIsSaving(false);
+      setShowConfirmation(false);
+      setResultType('error');
+      setResultMessage(`Failed to save configuration: ${err.message}`);
+      setShowResultModal(true);
     }
   });
 
   const syncMutation = api.installedScripts.syncLXCConfig.useMutation({
     onSuccess: (result) => {
       populateFormData(result);
-      setSuccessMessage('Configuration synced from server successfully');
       setHasChanges(false);
     },
     onError: (err) => {
@@ -158,13 +175,61 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
     syncMutation.mutate({ scriptId: script.id });
   };
 
+  const validateForm = () => {
+    // Check required fields
+    if (!formData.arch?.trim()) {
+      setError('Architecture is required');
+      return false;
+    }
+    if (!formData.cores || formData.cores < 1) {
+      setError('Cores must be at least 1');
+      return false;
+    }
+    if (!formData.memory || formData.memory < 128) {
+      setError('Memory must be at least 128 MB');
+      return false;
+    }
+    if (!formData.hostname?.trim()) {
+      setError('Hostname is required');
+      return false;
+    }
+    if (!formData.ostype?.trim()) {
+      setError('OS Type is required');
+      return false;
+    }
+    if (!formData.rootfs_storage?.trim()) {
+      setError('Root filesystem storage is required');
+      return false;
+    }
+    
+    // Check if trying to decrease disk size
+    const currentSize = configData?.config?.rootfs_size ?? '0G';
+    const newSize = formData.rootfs_size ?? '0G';
+    const currentSizeGB = parseFloat(String(currentSize));
+    const newSizeGB = parseFloat(String(newSize));
+    
+    if (newSizeGB < currentSizeGB) {
+      setError('Disk size cannot be decreased. Only increases are allowed for safety.');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSave = () => {
-    setShowConfirmation(true);
+    setError(null);
+    
+    // Validate form - only show confirmation modal if no errors
+    if (validateForm()) {
+      setShowConfirmation(true);
+    }
   };
 
   const handleConfirmSave = () => {
     if (!script) return;
     setError(null);
+    setIsSaving(true);
+    setShowConfirmation(false);
     
     saveMutation.mutate({
       scriptId: script.id,
@@ -177,6 +242,14 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
         feature_fuse: formData.feature_fuse ? 1 : 0
       }
     });
+  };
+
+  const handleResultModalClose = () => {
+    setShowResultModal(false);
+    setResultType(null);
+    setResultMessage(null);
+    // Refresh the data to show updated values
+    void refetch();
   };
 
   if (!isOpen || !script) return null;
@@ -229,23 +302,6 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
             </div>
           )}
 
-          {/* Success Message */}
-          {successMessage && (
-            <div className="bg-green-50 dark:bg-green-950/20 border-b border-green-200 dark:border-green-800 p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-green-800 dark:text-green-200">{successMessage}</p>
-                </div>
-                <button
-                  onClick={() => setSuccessMessage(null)}
-                  className="text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Error Message */}
           {error && (
@@ -485,13 +541,19 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                       />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="rootfs_size" className="block text-sm font-medium text-foreground">Size</label>
+                      <label htmlFor="rootfs_size" className="block text-sm font-medium text-foreground">
+                        Size
+                        <span className="text-xs text-muted-foreground ml-2">(can only be increased)</span>
+                      </label>
                       <Input
                         id="rootfs_size"
                         value={formData.rootfs_size}
                         onChange={(e) => handleInputChange('rootfs_size', e.target.value)}
                         placeholder="4G"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Disk size can only be increased for safety. Format: 4G, 8G, 16G, etc.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -590,10 +652,10 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saveMutation.isPending || !hasChanges}
+                disabled={isSaving || saveMutation.isPending || !hasChanges}
                 variant="default"
               >
-                {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
+                {isSaving ? 'Saving & Resizing...' : saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
               </Button>
             </div>
           </div>
@@ -608,17 +670,55 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
         }}
         onConfirm={handleConfirmSave}
         title="Confirm LXC Configuration Changes"
-        message="Modifying LXC configuration can break your container and may require manual recovery. Ensure you understand these changes before proceeding. The container may need to be restarted for changes to take effect."
+        message={`Modifying LXC configuration can break your container and may require manual recovery. Ensure you understand these changes before proceeding.${
+          formData.rootfs_size && configData?.config?.rootfs_size && 
+          parseFloat(String(formData.rootfs_size)) > parseFloat(String(configData.config.rootfs_size ?? '0'))
+            ? `\n\n⚠️ DISK RESIZE DETECTED: The disk size will be increased from ${configData.config.rootfs_size} to ${formData.rootfs_size}. This operation will automatically resize the underlying storage and filesystem.`
+            : ''
+        }\n\nThe container may need to be restarted for changes to take effect.`}
         variant="danger"
         confirmText={script.container_id ?? ''}
-        confirmButtonText="Save Configuration"
+        confirmButtonText={formData.rootfs_size && configData?.config?.rootfs_size && 
+          parseFloat(String(formData.rootfs_size)) > parseFloat(String(configData.config.rootfs_size ?? '0'))
+          ? "Save & Resize Disk" : "Save Configuration"}
       />
 
       {/* Loading Modal */}
       <LoadingModal
-        isOpen={isLoading}
-        action="Loading LXC configuration..."
+        isOpen={isLoading || isSaving}
+        action={isSaving ? "Saving configuration and resizing disk..." : "Loading LXC configuration..."}
       />
+
+      {/* Result Modal */}
+      {showResultModal && resultType && resultMessage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card text-card-foreground rounded-lg shadow-xl max-w-md w-full mx-4 border border-border">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                {resultType === 'success' ? (
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-500" />
+                ) : (
+                  <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-500" />
+                )}
+                <h3 className="text-lg font-semibold text-card-foreground">
+                  {resultType === 'success' ? 'Success' : 'Error'}
+                </h3>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                {resultMessage}
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleResultModalClose}
+                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

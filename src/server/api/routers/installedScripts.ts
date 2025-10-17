@@ -142,6 +142,246 @@ function calculateConfigHash(rawConfig: string): string {
   return createHash('md5').update(rawConfig).digest('hex');
 }
 
+// Helper function to parse rootfs_storage and extract storage pool and disk identifier
+function parseRootfsStorage(rootfs_storage: string): { storagePool: string; diskId: string } | null {
+  // Format: "PROX2-STORAGE2:vm-113-disk-0"
+  const regex = /^([^:]+):(.+)$/;
+  const match = regex.exec(rootfs_storage);
+  if (!match?.[1] || !match?.[2]) return null;
+  
+  return {
+    storagePool: match[1],
+    diskId: match[2]
+  };
+}
+
+// Helper function to extract size in GB from size string
+function extractSizeInGB(sizeString: string): number {
+  if (!sizeString) return 0;
+  
+  const regex = /^(\d+(?:\.\d+)?)\s*([GMK]?)$/i;
+  const match = regex.exec(sizeString);
+  if (!match?.[1]) return 0;
+  
+  const value = parseFloat(match[1]);
+  const unit = (match[2] ?? '').toUpperCase();
+  
+  switch (unit) {
+    case 'T': return value * 1024;
+    case 'G': return value;
+    case 'M': return value / 1024;
+    case 'K': return value / (1024 * 1024);
+    case '': return value; // Assume GB if no unit
+    default: return 0;
+  }
+}
+
+
+// Helper function to resize disk
+async function resizeDisk(
+  server: Server, 
+  containerId: string, 
+  storageInfo: { storagePool: string; diskId: string }, 
+  oldSizeGB: number, 
+  newSizeGB: number
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+  const sshExecutionService = new SSHExecutionService();
+  
+  try {
+    // First, try using pct resize (works for most storage types)
+    const pctCommand = `pct resize ${containerId} rootfs ${newSizeGB}G`;
+    
+    return new Promise((resolve) => {
+      let errorOutput = '';
+      let dataOutput = '';
+      
+      console.log(`Executing pct resize command: ${pctCommand}`);
+      
+      void sshExecutionService.executeCommand(
+        server,
+        pctCommand,
+        (data: string) => {
+          dataOutput += data;
+          console.log('pct resize data:', data);
+        },
+        (error: string) => {
+          errorOutput += error;
+          console.log('pct resize error:', error);
+        },
+        (exitCode: number) => {
+          console.log(`pct resize exit code: ${exitCode}`);
+          console.log(`pct resize error output: "${errorOutput}"`);
+          console.log(`pct resize data output: "${dataOutput}"`);
+          
+          // Check for error messages in both stderr and stdout
+          const hasError = errorOutput.trim() || dataOutput.toLowerCase().includes('error') || dataOutput.toLowerCase().includes('insufficient');
+          
+          // Check both exit code and error output for failure
+          if (exitCode === 0 && !hasError) {
+            resolve({
+              success: true,
+              message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using pct resize`
+            });
+          } else {
+            // If pct resize fails (either non-zero exit code or error output), try LVM-specific commands
+            const errorMessage = errorOutput.trim() || dataOutput.trim();
+            const combinedError = errorMessage ? `pct resize error: ${errorMessage}` : `pct resize failed with exit code ${exitCode}`;
+            void tryLVMResize(server, containerId, storageInfo, newSizeGB, oldSizeGB, resolve, combinedError);
+          }
+        }
+      );
+    });
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Resize failed',
+      error: error instanceof Error ? error.message : 'Unknown error during resize'
+    };
+  }
+}
+
+// Helper function to try LVM-specific resize
+async function tryLVMResize(
+  server: Server,
+  containerId: string,
+  storageInfo: { storagePool: string; diskId: string },
+  newSizeGB: number,
+  oldSizeGB: number,
+  resolve: (result: { success: boolean; message: string; error?: string }) => void,
+  previousError?: string
+) {
+  const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+  const sshExecutionService = new SSHExecutionService();
+  
+  // Try LVM resize commands
+  const lvPath = `/dev/${storageInfo.storagePool}/${storageInfo.diskId}`;
+  const lvresizeCommand = `lvresize -L ${newSizeGB}G ${lvPath}`;
+  
+  void sshExecutionService.executeCommand(
+    server,
+    lvresizeCommand,
+    (_data: string) => {
+      // Now resize the filesystem
+      const resize2fsCommand = `resize2fs ${lvPath}`;
+      
+      void sshExecutionService.executeCommand(
+        server,
+        resize2fsCommand,
+        (_fsData: string) => {
+          resolve({
+            success: true,
+            message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM commands`
+          });
+        },
+        (fsError: string) => {
+          // Try xfs_growfs as fallback
+          const xfsCommand = `xfs_growfs ${lvPath}`;
+          
+          void sshExecutionService.executeCommand(
+            server,
+            xfsCommand,
+            (_xfsData: string) => {
+              resolve({
+                success: true,
+                message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM + XFS commands`
+              });
+            },
+            (xfsError: string) => {
+              resolve({
+                success: false,
+                message: 'Filesystem resize failed',
+                error: `LVM resize succeeded but filesystem resize failed: ${fsError}, XFS fallback also failed: ${xfsError}`
+              });
+            },
+            (xfsExitCode: number) => {
+              if (xfsExitCode === 0) {
+                resolve({
+                  success: true,
+                  message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM + XFS commands`
+                });
+              } else {
+                resolve({
+                  success: false,
+                  message: 'Filesystem resize failed',
+                  error: `LVM resize succeeded but filesystem resize failed: ${fsError}, XFS fallback also failed with exit code ${xfsExitCode}`
+                });
+              }
+            }
+          );
+        },
+        (fsExitCode: number) => {
+          if (fsExitCode === 0) {
+            resolve({
+              success: true,
+              message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM commands`
+            });
+          } else {
+            // Try xfs_growfs as fallback
+            const xfsCommand = `xfs_growfs ${lvPath}`;
+            
+            void sshExecutionService.executeCommand(
+              server,
+              xfsCommand,
+              (_xfsData: string) => {
+                resolve({
+                  success: true,
+                  message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM + XFS commands`
+                });
+              },
+              (xfsError: string) => {
+                resolve({
+                  success: false,
+                  message: 'Filesystem resize failed',
+                  error: `LVM resize succeeded but filesystem resize failed with exit code ${fsExitCode}, XFS fallback also failed: ${xfsError}`
+                });
+              },
+              (xfsExitCode: number) => {
+                if (xfsExitCode === 0) {
+                  resolve({
+                    success: true,
+                    message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM + XFS commands`
+                  });
+                } else {
+                  resolve({
+                    success: false,
+                    message: 'Filesystem resize failed',
+                    error: `LVM resize succeeded but filesystem resize failed with exit code ${fsExitCode}, XFS fallback also failed with exit code ${xfsExitCode}`
+                  });
+                }
+              }
+            );
+          }
+        }
+      );
+    },
+    (error: string) => {
+      const combinedError = previousError ? `${previousError} LVM error: ${error}` : `LVM resize failed: ${error}`;
+      resolve({
+        success: false,
+        message: 'Resize failed',
+        error: `Both pct resize and LVM resize failed. ${combinedError}`
+      });
+    },
+    (exitCode: number) => {
+      if (exitCode === 0) {
+        // This shouldn't happen as we're in the error callback, but handle it
+        resolve({
+          success: true,
+          message: `Disk resized from ${oldSizeGB}G to ${newSizeGB}G using LVM commands`
+        });
+      } else {
+        const combinedError = previousError ? `${previousError} LVM command failed with exit code ${exitCode}` : `LVM command failed with exit code ${exitCode}`;
+        resolve({
+          success: false,
+          message: 'Resize failed',
+          error: `Both pct resize and LVM resize failed. ${combinedError}`
+        });
+      }
+    }
+  );
+}
+
 
 export const installedScriptsRouter = createTRPCRouter({
   // Get all installed scripts
@@ -1536,6 +1776,19 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
+        // Get current config for comparison
+        const currentConfig = await db.getLXCConfigByScriptId(input.scriptId);
+        const oldSizeGB = currentConfig ? extractSizeInGB(String(currentConfig.rootfs_size ?? '0G')) : 0;
+        const newSizeGB = extractSizeInGB(String(input.config.rootfs_size ?? '0G'));
+        
+        // Validate size change - only allow increases
+        if (newSizeGB < oldSizeGB) {
+          return {
+            success: false,
+            error: `Disk size cannot be decreased. Current size: ${oldSizeGB}G, requested size: ${newSizeGB}G. Only increases are allowed for safety.`
+          };
+        }
+
         // Write config file using heredoc for safe escaping
         const configPath = `/etc/pve/lxc/${script.container_id}.conf`;
         const writeCommand = `cat > "${configPath}" << 'EOFCONFIG'
@@ -1562,6 +1815,104 @@ EOFCONFIG`;
           );
         });
 
+        // Check if disk size increased and needs resizing
+        let resizeResult: { success: boolean; message: string; error?: string } | null = null;
+        if (newSizeGB > oldSizeGB) {
+          // Parse storage information
+          const storageInfo = parseRootfsStorage(String(input.config.rootfs_storage));
+          if (!storageInfo) {
+            // Rollback config file
+            const rollbackCommand = `cat > "${configPath}" << 'EOFCONFIG'
+${reconstructConfig(currentConfig ?? {})}
+EOFCONFIG`;
+            
+            await new Promise<void>((resolve, reject) => {
+              void sshExecutionService.executeCommand(
+                server as Server,
+                rollbackCommand,
+                () => resolve(),
+                (error: string) => reject(new Error(error)),
+                (exitCode: number) => {
+                  if (exitCode === 0) resolve();
+                  else reject(new Error(`Rollback failed with exit code ${exitCode}`));
+                }
+              );
+            });
+            
+            return {
+              success: false,
+              error: 'Invalid rootfs_storage format. Configuration rolled back.'
+            };
+          }
+
+          // Attempt disk resize
+          try {
+            console.log(`Attempting to resize disk from ${oldSizeGB}G to ${newSizeGB}G for container ${script.container_id}`);
+            resizeResult = await resizeDisk(server as Server, script.container_id, storageInfo, oldSizeGB, newSizeGB);
+            console.log('Resize result:', resizeResult);
+            
+            if (!resizeResult.success) {
+              console.log('Resize failed, attempting rollback...');
+              // Rollback config file on resize failure
+              const rollbackCommand = `cat > "${configPath}" << 'EOFCONFIG'
+${reconstructConfig(currentConfig ?? {})}
+EOFCONFIG`;
+              
+              try {
+                await new Promise<void>((resolve, reject) => {
+                  void sshExecutionService.executeCommand(
+                    server as Server,
+                    rollbackCommand,
+                    () => resolve(),
+                    (error: string) => reject(new Error(error)),
+                    (exitCode: number) => {
+                      if (exitCode === 0) resolve();
+                      else reject(new Error(`Rollback failed with exit code ${exitCode}`));
+                    }
+                  );
+                });
+                console.log('Rollback successful');
+              } catch (rollbackError) {
+                console.error('Rollback failed:', rollbackError);
+              }
+              
+              return {
+                success: false,
+                error: `Configuration rolled back. Disk resize failed: ${resizeResult.error}`
+              };
+            }
+          } catch (error) {
+            console.error('Resize operation threw error:', error);
+            // Rollback config file on resize error
+            const rollbackCommand = `cat > "${configPath}" << 'EOFCONFIG'
+${reconstructConfig(currentConfig ?? {})}
+EOFCONFIG`;
+            
+            try {
+              await new Promise<void>((resolve, reject) => {
+                void sshExecutionService.executeCommand(
+                  server as Server,
+                  rollbackCommand,
+                  () => resolve(),
+                  (error: string) => reject(new Error(error)),
+                  (exitCode: number) => {
+                    if (exitCode === 0) resolve();
+                    else reject(new Error(`Rollback failed with exit code ${exitCode}`));
+                  }
+                );
+              });
+              console.log('Rollback successful after error');
+            } catch (rollbackError) {
+              console.error('Rollback failed after error:', rollbackError);
+            }
+            
+            return {
+              success: false,
+              error: `Configuration rolled back. Disk resize error: ${error instanceof Error ? error.message : 'Unknown error'}`
+            };
+          }
+        }
+
         // Update database cache
         const configData = {
           ...input.config,
@@ -1571,9 +1922,14 @@ EOFCONFIG`;
         
         await db.updateLXCConfig(input.scriptId, configData);
         
+        // Return success message with resize info if applicable
+        const message = resizeResult 
+          ? `LXC configuration saved successfully. ${resizeResult.message}`
+          : 'LXC configuration saved successfully';
+        
         return {
           success: true,
-          message: 'LXC configuration saved successfully'
+          message
         };
       } catch (error) {
         console.error('Error in saveLXCConfig:', error);
