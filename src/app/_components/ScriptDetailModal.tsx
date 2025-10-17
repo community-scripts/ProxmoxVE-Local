@@ -267,7 +267,7 @@ export function ScriptDetailModal({
                     className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
                       isLoading
                         ? "cursor-not-allowed bg-muted text-muted-foreground"
-                        : "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-success text-success-foreground hover:bg-success/90"
                     }`}
                   >
                     {isLoading ? (
@@ -327,7 +327,7 @@ export function ScriptDetailModal({
                     className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
                       isLoading
                         ? "cursor-not-allowed bg-muted text-muted-foreground"
-                        : "bg-orange-600 text-white hover:bg-orange-700"
+                        : "bg-warning text-warning-foreground hover:bg-warning/90"
                     }`}
                   >
                     {isLoading ? (
@@ -365,7 +365,7 @@ export function ScriptDetailModal({
           {(scriptFilesLoading || comparisonLoading) && (
             <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary">
               <div className="flex items-center space-x-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary"></div>
                 <span>Loading script status...</span>
               </div>
             </div>
@@ -392,7 +392,7 @@ export function ScriptDetailModal({
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <div className="flex items-center space-x-2">
                       <div
-                        className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-green-500" : "bg-muted"}`}
+                        className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-success" : "bg-muted"}`}
                       ></div>
                       <span>
                         {scriptType}:{" "}
@@ -401,7 +401,7 @@ export function ScriptDetailModal({
                     </div>
                     <div className="flex items-center space-x-2">
                       <div
-                        className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-green-500" : "bg-muted"}`}
+                        className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-success" : "bg-muted"}`}
                       ></div>
                       <span>
                         Install Script:{" "}
@@ -417,7 +417,7 @@ export function ScriptDetailModal({
                       !comparisonLoading && (
                         <div className="flex items-center space-x-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-orange-500" : "bg-green-500"}`}
+                            className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-warning" : "bg-success"}`}
                           ></div>
                           <span>
                             Status:{" "}
@@ -663,7 +663,7 @@ export function ScriptDetailModal({
                       key={index}
                       className={`rounded-lg p-3 text-sm ${
                         noteType === "warning"
-                          ? "border-l-4 border-yellow-400 bg-yellow-500/10 text-yellow-400"
+                          ? "border-l-4 border-warning bg-warning/10 text-warning"
                           : noteType === "error"
                             ? "border-l-4 border-destructive bg-destructive/10 text-destructive"
                             : "bg-muted text-muted-foreground"

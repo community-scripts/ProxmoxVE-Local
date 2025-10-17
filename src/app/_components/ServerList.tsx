@@ -169,8 +169,8 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start sm:items-center space-x-3">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 sm:w-6 sm:h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -202,8 +202,8 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                     {connectionResults.has(server.id) && (
                       <div className={`mt-2 p-2 rounded-md text-xs ${
                         connectionResults.get(server.id)?.success 
-                          ? 'bg-green-50 text-green-700 border border-green-200' 
-                          : 'bg-red-50 text-red-700 border border-red-200'
+                          ? 'bg-success/10 text-success border border-success/20' 
+                          : 'bg-error/10 text-error border border-error/20'
                       }`}>
                         <div className="flex items-center">
                           {connectionResults.get(server.id)?.success ? (
@@ -231,7 +231,7 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                   disabled={testingConnections.has(server.id)}
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto border-green-500/20 text-green-400 bg-green-500/10 hover:bg-green-500/20"
+                  className="w-full sm:w-auto border-success/20 text-success bg-success/10 hover:bg-success/20"
                 >
                   {testingConnections.has(server.id) ? (
                     <>
@@ -258,7 +258,7 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                       onClick={() => handleViewPublicKey(server)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 sm:flex-none border-blue-500/20 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                      className="flex-1 sm:flex-none border-info/20 text-info bg-info/10 hover:bg-info/20"
                     >
                       <Key className="w-4 h-4 mr-1" />
                       <span className="hidden sm:inline">View Public Key</span>

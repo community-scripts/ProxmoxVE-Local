@@ -149,7 +149,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                 <div className="bg-muted/50 rounded-lg p-4 border border-border">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <div className="w-3 h-3 bg-success rounded-full"></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
@@ -216,7 +216,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     disabled={!selectedServer}
                     variant="default"
                     size="default"
-                    className={!selectedServer ? 'bg-gray-400 cursor-not-allowed' : ''}
+                    className={!selectedServer ? 'bg-muted-foreground cursor-not-allowed' : ''}
                   >
                     Run on Server
                   </Button>

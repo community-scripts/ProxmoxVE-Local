@@ -67,7 +67,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <Tag className="h-6 w-6 text-blue-600" />
+            <Tag className="h-6 w-6 text-primary" />
             <h2 className="text-2xl font-bold text-card-foreground">Release Notes</h2>
           </div>
           <Button
@@ -113,7 +113,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
                     key={release.tagName}
                     className={`border rounded-lg p-6 ${
                       isHighlighted 
-                        ? 'border-blue-500 bg-blue-50/10 dark:bg-blue-950/10' 
+                        ? 'border-primary bg-primary/10' 
                         : 'border-border bg-card'
                     } ${isLatest ? 'ring-2 ring-primary/20' : ''}`}
                   >
@@ -130,7 +130,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
                             </Badge>
                           )}
                           {isHighlighted && (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
                               New
                             </Badge>
                           )}
@@ -182,7 +182,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
                             ul: ({children}) => <ul className="list-disc list-inside text-card-foreground mb-3 space-y-1">{children}</ul>,
                             ol: ({children}) => <ol className="list-decimal list-inside text-card-foreground mb-3 space-y-1">{children}</ol>,
                             li: ({children}) => <li className="text-card-foreground">{children}</li>,
-                            a: ({href, children}) => <a href={href} className="text-blue-500 hover:text-blue-400 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                            a: ({href, children}) => <a href={href} className="text-info hover:text-info/80 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
                             strong: ({children}) => <strong className="font-semibold text-card-foreground">{children}</strong>,
                             em: ({children}) => <em className="italic text-card-foreground">{children}</em>,
                           }}

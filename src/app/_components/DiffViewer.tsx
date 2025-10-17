@@ -45,7 +45,7 @@ export function DiffViewer({ scriptSlug, filePath, isOpen, onClose }: DiffViewer
         key={index}
         className={`flex font-mono text-sm ${
           isAdded
-            ? 'bg-green-500/10 text-green-400 border-l-4 border-green-500'
+            ? 'bg-success/10 text-success border-l-4 border-success'
             : isRemoved
             ? 'bg-destructive/10 text-destructive border-l-4 border-destructive'
             : 'bg-muted text-muted-foreground'
@@ -55,7 +55,7 @@ export function DiffViewer({ scriptSlug, filePath, isOpen, onClose }: DiffViewer
           {lineNumber}
         </div>
         <div className="flex-1 pl-2">
-          <span className={isAdded ? 'text-green-400' : isRemoved ? 'text-destructive' : ''}>
+          <span className={isAdded ? 'text-success' : isRemoved ? 'text-destructive' : ''}>
             {isAdded ? '+' : isRemoved ? '-' : ' '}
           </span>
           <span className="whitespace-pre-wrap">{content}</span>
@@ -99,8 +99,8 @@ export function DiffViewer({ scriptSlug, filePath, isOpen, onClose }: DiffViewer
         <div className="px-4 py-2 bg-muted border-b border-border">
           <div className="flex items-center space-x-4 text-sm">
             <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-green-500/20 border border-green-500/40"></div>
-              <span className="text-green-400">Added (Remote)</span>
+              <div className="w-3 h-3 bg-success/20 border border-success/40"></div>
+              <span className="text-success">Added (Remote)</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className="w-3 h-3 bg-destructive/20 border border-destructive/40"></div>

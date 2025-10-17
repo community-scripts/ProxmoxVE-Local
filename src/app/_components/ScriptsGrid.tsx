@@ -573,7 +573,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   if (githubLoading || localLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         <span className="ml-2 text-muted-foreground">Loading scripts...</span>
       </div>
     );
@@ -582,7 +582,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   if (githubError || localError) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 mb-4">
+        <div className="text-error mb-4">
           <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
@@ -684,7 +684,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                             onToggleSelect={toggleScriptSelection}
                           />
                           {/* NEW badge */}
-                          <div className="absolute top-2 right-2 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-md shadow-md z-10">
+                          <div className="absolute top-2 right-2 bg-success text-success-foreground text-xs font-semibold px-2 py-1 rounded-md shadow-md z-10">
                             NEW
                           </div>
                         </div>
@@ -705,7 +705,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
               disabled={loadSingleScriptMutation.isPending}
               variant="outline"
               size="sm"
-              className="bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-300 hover:text-blue-200 hover:border-blue-400/50"
+              className="bg-info/10 hover:bg-info/20 border-info/30 text-info hover:text-info-foreground hover:border-info/50"
             >
               {loadSingleScriptMutation.isPending ? (
                 <>
@@ -791,7 +791,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             <div className="w-full bg-muted rounded-full h-2 mb-2">
               <div 
                 className={`h-2 rounded-full transition-all duration-300 ease-out ${
-                  downloadProgress.failed.length > 0 ? 'bg-yellow-500' : 'bg-primary'
+                  downloadProgress.failed.length > 0 ? 'bg-warning' : 'bg-primary'
                 }`}
                 style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }}
               />
@@ -811,9 +811,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                       key={i} 
                       className={`px-1 py-0.5 rounded text-xs ${
                         isCompleted 
-                          ? isFailed ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          ? isFailed ? 'bg-error/10 text-error' : 'bg-success/10 text-success'
                           : isCurrent 
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 animate-pulse'
+                            ? 'bg-info/10 text-info animate-pulse'
                             : 'bg-muted text-muted-foreground'
                       }`}
                     >
@@ -826,18 +826,18 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             
             {/* Failed Scripts Details */}
             {downloadProgress.failed.length > 0 && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="mt-3 p-3 bg-error/10 border border-error/20 rounded-lg">
                 <div className="flex items-center mb-2">
-                  <svg className="w-4 h-4 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-error mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                  <span className="text-sm font-medium text-error-foreground">
                     Failed Downloads ({downloadProgress.failed.length})
                   </span>
                 </div>
                 <div className="space-y-1">
                   {downloadProgress.failed.map((failed, index) => (
-                    <div key={index} className="text-xs text-red-700 dark:text-red-300">
+                    <div key={index} className="text-xs text-error/80">
                       <span className="font-medium">{failed.slug}:</span> {failed.error}
                     </div>
                   ))}

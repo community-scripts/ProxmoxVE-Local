@@ -146,14 +146,14 @@ export function ScriptInstallationCard({
                   {script.container_status && (
                     <div className="flex items-center space-x-1">
                       <div className={`w-2 h-2 rounded-full ${
-                        script.container_status === 'running' ? 'bg-green-500' : 
-                        script.container_status === 'stopped' ? 'bg-red-500' : 
-                        'bg-gray-400'
+                        script.container_status === 'running' ? 'bg-success' : 
+                        script.container_status === 'stopped' ? 'bg-error' : 
+                        'bg-muted-foreground'
                       }`}></div>
                       <span className={`text-xs font-medium ${
-                        script.container_status === 'running' ? 'text-green-700 dark:text-green-300' : 
-                        script.container_status === 'stopped' ? 'text-red-700 dark:text-red-300' : 
-                        'text-gray-500 dark:text-gray-400'
+                        script.container_status === 'running' ? 'text-success' : 
+                        script.container_status === 'stopped' ? 'text-error' : 
+                        'text-muted-foreground'
                       }`}>
                         {script.container_status === 'running' ? 'Running' : 
                          script.container_status === 'stopped' ? 'Stopped' : 
@@ -195,7 +195,7 @@ export function ScriptInstallationCard({
                   <button
                     onClick={onOpenWebUI}
                     disabled={containerStatus === 'stopped'}
-                    className={`text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex-shrink-0 ${
+                    className={`text-info hover:text-info/80 hover:underline flex-shrink-0 ${
                       containerStatus === 'stopped' ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -205,7 +205,7 @@ export function ScriptInstallationCard({
                     <button
                       onClick={onAutoDetectWebUI}
                       disabled={isAutoDetecting}
-                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
+                      className="text-xs px-2 py-1 bg-info hover:bg-info/90 text-info-foreground border border-info rounded disabled:opacity-50 transition-colors flex-shrink-0 ml-2"
                       title="Re-detect IP and port"
                     >
                       {isAutoDetecting ? '...' : 'Re-detect'}
@@ -219,7 +219,7 @@ export function ScriptInstallationCard({
                     <button
                       onClick={onAutoDetectWebUI}
                       disabled={isAutoDetecting}
-                      className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
+                      className="text-xs px-2 py-1 bg-info hover:bg-info/90 text-info-foreground border border-info rounded disabled:opacity-50 transition-colors"
                       title="Re-detect IP and port"
                     >
                       {isAutoDetecting ? '...' : 'Re-detect'}
@@ -292,17 +292,17 @@ export function ScriptInstallationCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 min-w-0 bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                    className="flex-1 min-w-0 bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md"
                   >
                     Actions
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-48 bg-gray-900 border-gray-700">
+                <DropdownMenuContent className="w-48 bg-card border-border">
                   {script.container_id && (
                     <DropdownMenuItem
                       onClick={onUpdate}
                       disabled={containerStatus === 'stopped'}
-                      className="text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/20 focus:bg-cyan-900/20"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Update
                     </DropdownMenuItem>
@@ -311,7 +311,7 @@ export function ScriptInstallationCard({
                     <DropdownMenuItem
                       onClick={onShell}
                       disabled={containerStatus === 'stopped'}
-                      className="text-gray-300 hover:text-gray-200 hover:bg-gray-800/20 focus:bg-gray-800/20"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Shell
                     </DropdownMenuItem>
@@ -320,20 +320,20 @@ export function ScriptInstallationCard({
                     <DropdownMenuItem
                       onClick={onOpenWebUI}
                       disabled={containerStatus === 'stopped'}
-                      className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Open UI
                     </DropdownMenuItem>
                   )}
                   {script.container_id && script.execution_mode === 'ssh' && (
                     <>
-                      <DropdownMenuSeparator className="bg-gray-700" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
                         onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
                         disabled={isControlling || containerStatus === 'unknown'}
                         className={containerStatus === 'running' 
-                          ? "text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
-                          : "text-green-300 hover:text-green-200 hover:bg-green-900/20 focus:bg-green-900/20"
+                          ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                          : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
                         }
                       >
                         {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
@@ -341,7 +341,7 @@ export function ScriptInstallationCard({
                       <DropdownMenuItem
                         onClick={onDestroy}
                         disabled={isControlling}
-                        className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                        className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                       >
                         {isControlling ? 'Working...' : 'Destroy'}
                       </DropdownMenuItem>
@@ -349,11 +349,11 @@ export function ScriptInstallationCard({
                   )}
                   {(!script.container_id || script.execution_mode !== 'ssh') && (
                     <>
-                      <DropdownMenuSeparator className="bg-gray-700" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
                         onClick={onDelete}
                         disabled={isDeleting}
-                        className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                       >
                         {isDeleting ? 'Deleting...' : 'Delete'}
                       </DropdownMenuItem>

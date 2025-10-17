@@ -350,13 +350,13 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
             
             {/* Show generated key status */}
             {formData.key_generated && (
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md">
+              <div className="p-3 bg-success/10 border border-success/20 rounded-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    <span className="text-sm font-medium text-success-foreground">
                       SSH key pair generated successfully
                     </span>
                   </div>
@@ -365,13 +365,13 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
                     variant="outline"
                     size="sm"
                     onClick={() => setShowPublicKeyModal(true)}
-                    className="gap-2 border-blue-500/20 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                    className="gap-2 border-info/20 text-info bg-info/10 hover:bg-info/20"
                   >
                     <Key className="h-4 w-4" />
                     View Public Key
                   </Button>
                 </div>
-                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                <p className="text-xs text-success/80 mt-1">
                   The private key has been generated and will be saved with the server.
                 </p>
               </div>

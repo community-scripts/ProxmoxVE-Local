@@ -18,11 +18,11 @@ export function Badge({ variant, type, noteType, status, executionMode, children
       case 'ct':
         return 'bg-primary/10 text-primary border-primary/20';
       case 'addon':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+        return 'bg-primary/10 text-primary border-primary/20';
       case 'vm':
-        return 'bg-green-500/10 text-green-400 border-green-500/20';
+        return 'bg-success/10 text-success border-success/20';
       case 'pve':
-        return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+        return 'bg-warning/10 text-warning border-warning/20';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }
@@ -34,7 +34,7 @@ export function Badge({ variant, type, noteType, status, executionMode, children
         return `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${type ? getTypeStyles(type) : getTypeStyles('unknown')}`;
       
       case 'updateable':
-        return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20';
+        return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20';
       
       case 'privileged':
         return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20';
@@ -42,11 +42,11 @@ export function Badge({ variant, type, noteType, status, executionMode, children
       case 'status':
         switch (status) {
           case 'success':
-            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20';
+            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20';
           case 'failed':
-            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20';
+            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/10 text-error border border-error/20';
           case 'in_progress':
-            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/20';
           default:
             return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border';
         }
@@ -56,7 +56,7 @@ export function Badge({ variant, type, noteType, status, executionMode, children
           case 'local':
             return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20';
           case 'ssh':
-            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20';
+            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20';
           default:
             return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border';
         }
@@ -64,7 +64,7 @@ export function Badge({ variant, type, noteType, status, executionMode, children
       case 'note':
         switch (noteType) {
           case 'warning':
-            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+            return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/20';
           case 'error':
             return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20';
           default:

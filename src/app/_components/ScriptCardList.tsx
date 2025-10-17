@@ -104,10 +104,10 @@ export function ScriptCardList({ script, onClick, isSelected = false, onToggleSe
                   {script.updateable && <UpdateableBadge />}
                   <div className="flex items-center space-x-1">
                     <div className={`w-2 h-2 rounded-full ${
-                      script.isDownloaded ? 'bg-green-500' : 'bg-red-500'
+                      script.isDownloaded ? 'bg-success' : 'bg-error'
                     }`}></div>
                     <span className={`text-sm font-medium ${
-                      script.isDownloaded ? 'text-green-700' : 'text-destructive'
+                      script.isDownloaded ? 'text-success' : 'text-error'
                     }`}>
                       {script.isDownloaded ? 'Downloaded' : 'Not Downloaded'}
                     </span>
@@ -121,7 +121,7 @@ export function ScriptCardList({ script, onClick, isSelected = false, onToggleSe
                   href={script.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 ml-4"
+                  className="text-info hover:text-info/80 text-sm font-medium flex items-center space-x-1 ml-4"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span>Website</span>

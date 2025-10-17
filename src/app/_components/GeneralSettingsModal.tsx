@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
+import { useTheme } from './ThemeProvider';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface GeneralSettingsModalProps {
 }
 
 export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth'>('general');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
@@ -298,7 +300,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-border">
           <nav className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-8 px-4 sm:px-6">
             <Button
               onClick={() => setActiveTab('general')}
@@ -306,7 +308,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
               size="null"
               className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
                 activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -318,7 +320,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
               size="null"
               className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
                 activeTab === 'github'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -330,7 +332,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
               size="null"
               className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
                 activeTab === 'auth'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -349,6 +351,35 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                   Configure general application preferences and behavior.
                 </p>
                 <div className="space-y-4">
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Theme</h4>
+                    <p className="text-sm text-muted-foreground mb-4">Choose your preferred color theme for the application.</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Current Theme</p>
+                        <p className="text-xs text-muted-foreground">
+                          {theme === 'light' ? 'Light mode' : 'Dark mode'}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setTheme('light')}
+                          variant={theme === 'light' ? 'default' : 'outline'}
+                          size="sm"
+                        >
+                          Light
+                        </Button>
+                        <Button
+                          onClick={() => setTheme('dark')}
+                          variant={theme === 'dark' ? 'default' : 'outline'}
+                          size="sm"
+                        >
+                          Dark
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="p-4 border border-border rounded-lg">
                     <h4 className="font-medium text-foreground mb-2">Save Filters</h4>
                     <p className="text-sm text-muted-foreground mb-4">Save your configured script filters.</p>
@@ -379,7 +410,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                               onClick={clearSavedFilters}
                               variant="outline"
                               size="sm"
-                              className="text-red-600 hover:text-red-800"
+                              className="text-error hover:text-error/80"
                             >
                               Clear
                             </Button>
@@ -433,8 +464,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                       {message && (
                         <div className={`p-3 rounded-md text-sm ${
                           message.type === 'success' 
-                            ? 'bg-green-50 text-green-800 border border-green-200' 
-                            : 'bg-red-50 text-red-800 border border-red-200'
+                            ? 'bg-success/10 text-success-foreground border border-success/20' 
+                            : 'bg-error/10 text-error-foreground border border-error/20'
                         }`}>
                           {message.text}
                         </div>
@@ -561,8 +592,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                       {message && (
                         <div className={`p-3 rounded-md text-sm ${
                           message.type === 'success' 
-                            ? 'bg-green-50 text-green-800 border border-green-200' 
-                            : 'bg-red-50 text-red-800 border border-red-200'
+                            ? 'bg-success/10 text-success-foreground border border-success/20' 
+                            : 'bg-error/10 text-error-foreground border border-error/20'
                         }`}>
                           {message.text}
                         </div>

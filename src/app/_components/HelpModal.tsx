@@ -57,9 +57,9 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Password:</strong> Use username and password authentication</li>
                   <li>• <strong>SSH Key:</strong> Use SSH key pair for secure authentication</li>
                 </ul>
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
-                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">SSH Key Features:</h5>
-                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                <div className="mt-3 p-3 bg-info/10 rounded-md">
+                  <h5 className="font-medium text-info-foreground mb-2">SSH Key Features:</h5>
+                  <ul className="text-xs text-info/80 space-y-1">
                     <li>• <strong>Generate Key Pair:</strong> Create new SSH keys automatically</li>
                     <li>• <strong>View Public Key:</strong> Copy public key for server setup</li>
                     <li>• <strong>Persistent Storage:</strong> Keys are stored securely on disk</li>
@@ -344,7 +344,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                 </ul>
               </div>
 
-              <div className="p-4 border border-border rounded-lg bg-blue-900/20 border-blue-700/50">
+              <div className="p-4 border border-border rounded-lg bg-info/10 border-info/50">
                 <h4 className="font-medium text-foreground mb-2">Web UI Access </h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Automatically detect and access Web UI interfaces for your installed scripts.
@@ -357,8 +357,8 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Port Detection:</strong> Uses script metadata to get correct port (e.g., actualbudget:5006)</li>
                   <li>• <strong>Editable Fields:</strong> Manually edit IP and port values as needed</li>
                 </ul>
-                <div className="mt-3 p-3 bg-blue-900/30 rounded-lg border border-blue-700/30">
-                  <p className="text-sm font-medium text-blue-300">💡 How it works:</p>
+                <div className="mt-3 p-3 bg-info/20 rounded-lg border border-info/30">
+                  <p className="text-sm font-medium text-info">💡 How it works:</p>
                   <ul className="text-sm text-muted-foreground mt-1 space-y-1">
                     <li>• Scripts automatically detect URLs like <code>http://10.10.10.1:3000</code> during installation</li>
                     <li>• Re-detect button runs <code>hostname -I</code> inside the container via SSH</li>
@@ -586,9 +586,9 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <p className="text-sm text-muted-foreground">
                     To save configuration changes, you must type the container ID exactly as shown to confirm your changes.
                   </p>
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
-                    <h5 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">⚠️ Important Warnings</h5>
-                    <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                  <div className="bg-warning/10 border border-warning/20 rounded-md p-3">
+                    <h5 className="font-medium text-warning-foreground mb-2">⚠️ Important Warnings</h5>
+                    <ul className="text-sm text-warning/80 space-y-1">
                       <li>• Modifying LXC configuration can break your container</li>
                       <li>• Some changes may require container restart to take effect</li>
                       <li>• Always backup your configuration before making changes</li>

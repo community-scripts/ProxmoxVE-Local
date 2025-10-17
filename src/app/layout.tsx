@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
 import { AuthProvider } from "./_components/AuthProvider";
 import { AuthGuard } from "./_components/AuthGuard";
+import { ThemeProvider } from "./_components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "PVE Scripts local",
@@ -32,28 +33,20 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geist.variable} dark`}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Force dark mode
-              document.documentElement.classList.add('dark');
-            `,
-          }}
-        />
-      </head>
+    <html lang="en" className={geist.variable}>
       <body 
         className="bg-background text-foreground transition-colors"
         suppressHydrationWarning={true}
       >
-        <TRPCReactProvider>
-          <AuthProvider>
-            <AuthGuard>
-              {children}
-            </AuthGuard>
-          </AuthProvider>
-        </TRPCReactProvider>
+        <ThemeProvider>
+          <TRPCReactProvider>
+            <AuthProvider>
+              <AuthGuard>
+                {children}
+              </AuthGuard>
+            </AuthProvider>
+          </TRPCReactProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

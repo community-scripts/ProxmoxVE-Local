@@ -97,8 +97,8 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Server className="h-6 w-6 text-blue-600" />
+            <div className="p-2 bg-info/10 rounded-lg">
+              <Server className="h-6 w-6 text-info" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-card-foreground">SSH Public Key</h2>

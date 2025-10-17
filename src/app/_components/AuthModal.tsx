@@ -39,7 +39,7 @@ export function AuthModal({ isOpen }: AuthModalProps) {
         {/* Header */}
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <Lock className="h-8 w-8 text-blue-600" />
+            <Lock className="h-8 w-8 text-primary" />
             <h2 className="text-2xl font-bold text-card-foreground">Authentication Required</h2>
           </div>
         </div>
@@ -90,7 +90,7 @@ export function AuthModal({ isOpen }: AuthModalProps) {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-800 border border-red-200 rounded-md">
+              <div className="flex items-center gap-2 p-3 bg-error/10 text-error-foreground border border-error/20 rounded-md">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">{error}</span>
               </div>

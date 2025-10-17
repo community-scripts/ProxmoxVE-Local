@@ -11,6 +11,7 @@ import { ServerSettingsButton } from './_components/ServerSettingsButton';
 import { SettingsButton } from './_components/SettingsButton';
 import { HelpButton } from './_components/HelpButton';
 import { VersionDisplay } from './_components/VersionDisplay';
+import { ThemeToggle } from './_components/ThemeToggle';
 import { Button } from './_components/ui/button';
 import { ContextualHelpIcon } from './_components/ContextualHelpIcon';
 import { ReleaseNotesModal, getLastSeenVersion } from './_components/ReleaseNotesModal';
@@ -146,10 +147,15 @@ export default function Home() {
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-2 sm:gap-3">
-            
-            <span className="break-words">PVE Scripts Management</span>
-          </h1>
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex-1"></div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground flex items-center justify-center gap-2 sm:gap-3 flex-1">
+              <span className="break-words">PVE Scripts Management</span>
+            </h1>
+            <div className="flex-1 flex justify-end">
+              <ThemeToggle />
+            </div>
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground mb-4 px-2">
             Manage and execute Proxmox helper scripts locally with live output streaming
           </p>
