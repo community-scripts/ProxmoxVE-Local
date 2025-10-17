@@ -10,7 +10,7 @@ interface HelpModalProps {
   initialSection?: string;
 }
 
-type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'update-system';
+type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
   const [activeSection, setActiveSection] = useState<HelpSection>(initialSection as HelpSection);
@@ -24,6 +24,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
     { id: 'available-scripts' as HelpSection, label: 'Available Scripts', icon: Package },
     { id: 'downloaded-scripts' as HelpSection, label: 'Downloaded Scripts', icon: HardDrive },
     { id: 'installed-scripts' as HelpSection, label: 'Installed Scripts', icon: FolderOpen },
+    { id: 'lxc-settings' as HelpSection, label: 'LXC Settings', icon: Settings },
     { id: 'update-system' as HelpSection, label: 'Update System', icon: Download },
   ];
 
@@ -495,6 +496,131 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Downtime:</strong> Brief downtime occurs during the update process</li>
                   <li>• <strong>Compatibility:</strong> Updates maintain backward compatibility with your data</li>
                   <li>• <strong>Rollback:</strong> If issues occur, you can manually revert to previous version</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'lxc-settings':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-4">LXC Settings</h3>
+              <p className="text-muted-foreground mb-6">
+                Edit LXC container configuration files directly from the installed scripts interface. This feature allows you to modify container settings without manually accessing the Proxmox VE server.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Overview</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The LXC Settings modal provides a user-friendly interface to edit container configuration files. It parses common settings into editable fields while preserving advanced configurations.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Common Settings:</strong> Edit basic container parameters like cores, memory, network, and storage</li>
+                  <li>• <strong>Advanced Settings:</strong> Raw text editing for lxc.* entries and other advanced configurations</li>
+                  <li>• <strong>Database Caching:</strong> Configurations are cached locally for faster access</li>
+                  <li>• <strong>Change Detection:</strong> Warns when cached config differs from server version</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Common Settings Tab</h4>
+                <div className="space-y-3">
+                  <div>
+                    <h5 className="font-medium text-sm text-foreground mb-1">Basic Configuration</h5>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• <strong>Architecture:</strong> Container architecture (usually amd64)</li>
+                      <li>• <strong>Cores:</strong> Number of CPU cores allocated to the container</li>
+                      <li>• <strong>Memory:</strong> RAM allocation in megabytes</li>
+                      <li>• <strong>Swap:</strong> Swap space allocation in megabytes</li>
+                      <li>• <strong>Hostname:</strong> Container hostname</li>
+                      <li>• <strong>OS Type:</strong> Operating system type (e.g., debian, ubuntu)</li>
+                      <li>• <strong>Start on Boot:</strong> Whether to start container automatically on host boot</li>
+                      <li>• <strong>Unprivileged:</strong> Whether the container runs in unprivileged mode</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-sm text-foreground mb-1">Network Configuration</h5>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• <strong>IP Configuration:</strong> Choose between DHCP or static IP assignment</li>
+                      <li>• <strong>IP Address:</strong> Static IP with CIDR notation (e.g., 10.10.10.164/24)</li>
+                      <li>• <strong>Gateway:</strong> Network gateway for static IP configuration</li>
+                      <li>• <strong>Bridge:</strong> Network bridge interface (usually vmbr0)</li>
+                      <li>• <strong>MAC Address:</strong> Hardware address for the network interface</li>
+                      <li>• <strong>VLAN Tag:</strong> Optional VLAN tag for network segmentation</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h5 className="font-medium text-sm text-foreground mb-1">Storage & Features</h5>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• <strong>Root Filesystem:</strong> Storage location and disk identifier</li>
+                      <li>• <strong>Size:</strong> Disk size allocation (e.g., 4G, 8G)</li>
+                      <li>• <strong>Features:</strong> Container capabilities (keyctl, nesting, fuse)</li>
+                      <li>• <strong>Tags:</strong> Comma-separated tags for organization</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Advanced Settings Tab</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The Advanced Settings tab provides raw text editing for configurations not covered in the Common Settings tab.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>lxc.* entries:</strong> Low-level LXC configuration options</li>
+                  <li>• <strong>Comments:</strong> Configuration file comments and documentation</li>
+                  <li>• <strong>Custom settings:</strong> Any other configuration parameters</li>
+                  <li>• <strong>Preservation:</strong> All content is preserved when switching between tabs</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Saving Changes</h4>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    To save configuration changes, you must type the container ID exactly as shown to confirm your changes.
+                  </p>
+                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
+                    <h5 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">⚠️ Important Warnings</h5>
+                    <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                      <li>• Modifying LXC configuration can break your container</li>
+                      <li>• Some changes may require container restart to take effect</li>
+                      <li>• Always backup your configuration before making changes</li>
+                      <li>• Test changes in a non-production environment first</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Sync from Server</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The &quot;Sync from Server&quot; button allows you to refresh the configuration from the actual server file, useful when:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Configuration was modified outside of this interface</li>
+                  <li>• You want to discard local changes and get the latest server version</li>
+                  <li>• The warning banner indicates the cached config differs from server</li>
+                  <li>• You want to ensure you&apos;re working with the most current configuration</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Database Caching</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  LXC configurations are cached in the database for improved performance and offline access.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Automatic caching:</strong> Configs are cached during auto-detection and after saves</li>
+                  <li>• <strong>Cache expiration:</strong> Cached configs expire after 5 minutes for freshness</li>
+                  <li>• <strong>Change detection:</strong> Hash comparison detects external modifications</li>
+                  <li>• <strong>Manual sync:</strong> Always available via the &quot;Sync from Server&quot; button</li>
                 </ul>
               </div>
             </div>

@@ -9,6 +9,7 @@ import { ScriptInstallationCard } from './ScriptInstallationCard';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorModal } from './ErrorModal';
 import { LoadingModal } from './LoadingModal';
+import { LXCSettingsModal } from './LXCSettingsModal';
 import { getContrastColor } from '../../lib/colorUtils';
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from './ui/dropdown-menu';
+import { Settings } from 'lucide-react';
 
 interface InstalledScript {
   id: number;
@@ -90,6 +92,12 @@ export function InstalledScriptsTab() {
     isOpen: boolean;
     action: string;
   } | null>(null);
+
+  // LXC Settings modal state
+  const [lxcSettingsModal, setLxcSettingsModal] = useState<{
+    isOpen: boolean;
+    script: InstalledScript | null;
+  }>({ isOpen: false, script: null });
 
   // Fetch installed scripts
   const { data: scriptsData, refetch: refetchScripts, isLoading } = api.installedScripts.getAllInstalledScripts.useQuery();
@@ -388,7 +396,7 @@ export function InstalledScriptsTab() {
         containerStatusMutation.mutate({ serverIds });
       }
     }, 500);
-  }, []);
+  }, []); 
 
   // Run cleanup when component mounts and scripts are loaded (only once)
   useEffect(() => {
@@ -404,7 +412,7 @@ export function InstalledScriptsTab() {
       console.log('Status check triggered - scripts length:', scripts.length);
       fetchContainerStatuses();
     }
-  }, [scripts.length, fetchContainerStatuses]);
+  }, [scripts.length]); 
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -704,6 +712,10 @@ export function InstalledScriptsTab() {
     setEditFormData({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   };
 
+  const handleLXCSettings = (script: InstalledScript) => {
+    setLxcSettingsModal({ isOpen: true, script });
+  };
+
   const handleSaveEdit = () => {
     if (!editFormData.script_name.trim()) {
       setErrorModal({
@@ -922,7 +934,7 @@ export function InstalledScriptsTab() {
           </Button>
           <Button
             onClick={fetchContainerStatuses}
-            disabled={containerStatusMutation.isPending || scripts.length === 0}
+            disabled={containerStatusMutation.isPending ?? scripts.length === 0}
             variant="outline"
             size="default"
           >
@@ -1127,7 +1139,7 @@ export function InstalledScriptsTab() {
               </Button>
               <Button
                 onClick={handleAutoDetect}
-                disabled={autoDetectMutation.isPending || !autoDetectServerId}
+                disabled={autoDetectMutation.isPending ?? !autoDetectServerId}
                 variant="default"
                 size="default"
                 className="w-full sm:w-auto"
@@ -1499,7 +1511,7 @@ export function InstalledScriptsTab() {
                                     {script.container_id && script.execution_mode === 'ssh' && script.web_ui_ip && (
                                       <DropdownMenuItem
                                         onClick={() => handleAutoDetectWebUI(script)}
-                                        disabled={autoDetectWebUIMutation.isPending || containerStatuses.get(script.id) === 'stopped'}
+                                        disabled={autoDetectWebUIMutation.isPending ?? containerStatuses.get(script.id) === 'stopped'}
                                         className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
                                       >
                                         {autoDetectWebUIMutation.isPending ? 'Re-detect...' : 'Re-detect IP/Port'}
@@ -1507,6 +1519,14 @@ export function InstalledScriptsTab() {
                                     )}
                                     {script.container_id && script.execution_mode === 'ssh' && (
                                       <>
+                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleLXCSettings(script)}
+                                          className="text-purple-300 hover:text-purple-200 hover:bg-purple-900/20 focus:bg-purple-900/20"
+                                        >
+                                          <Settings className="mr-2 h-4 w-4" />
+                                          LXC Settings
+                                        </DropdownMenuItem>
                                         <DropdownMenuSeparator className="bg-gray-700" />
                                         <DropdownMenuItem
                                           onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
@@ -1587,6 +1607,17 @@ export function InstalledScriptsTab() {
             action={loadingModal.action}
           />
         )}
+
+        {/* LXC Settings Modal */}
+        <LXCSettingsModal
+          isOpen={lxcSettingsModal.isOpen}
+          script={lxcSettingsModal.script}
+          onClose={() => setLxcSettingsModal({ isOpen: false, script: null })}
+          onSave={() => {
+            setLxcSettingsModal({ isOpen: false, script: null });
+            void refetchScripts();
+          }}
+        />
     </div>
   );
 }

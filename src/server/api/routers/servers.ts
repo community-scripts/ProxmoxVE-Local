@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { getDatabase } from "~/server/database-prisma.js";
+import { getDatabase } from "~/server/database-prisma";
 
 export const serversRouter = createTRPCRouter({
   getAllServers: publicProcedure

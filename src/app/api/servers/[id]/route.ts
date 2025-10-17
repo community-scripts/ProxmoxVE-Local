@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getDatabase } from '../../../../server/database-prisma.js';
+import { getDatabase } from '../../../../server/database-prisma';
 import type { CreateServerData } from '../../../../types/server';
 
 export async function GET(

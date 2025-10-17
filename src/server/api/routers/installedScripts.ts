@@ -1,7 +1,146 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { getDatabase } from "~/server/database-prisma.js";
-// Removed unused imports
+import { getDatabase } from "~/server/database-prisma";
+import { createHash } from "crypto";
+import type { Server } from "~/types/server";
+
+// Helper function to parse raw LXC config into structured data
+function parseRawConfig(rawConfig: string): any {
+  const lines = rawConfig.split('\n');
+  const config: any = { advanced: [] };
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Preserve comments in advanced
+    if (trimmed.startsWith('#')) {
+      config.advanced.push(line);
+      continue;
+    }
+    
+    if (!trimmed) continue;
+    
+    const [key, ...valueParts] = trimmed.split(':');
+    const value = valueParts.join(':').trim();
+    
+    switch (key?.trim()) {
+      case 'arch': config.arch = value; break;
+      case 'cores': config.cores = parseInt(value); break;
+      case 'memory': config.memory = parseInt(value); break;
+      case 'hostname': config.hostname = value; break;
+      case 'swap': config.swap = parseInt(value); break;
+      case 'onboot': config.onboot = parseInt(value); break;
+      case 'ostype': config.ostype = value; break;
+      case 'unprivileged': config.unprivileged = parseInt(value); break;
+      case 'tags': config.tags = value; break;
+      case 'rootfs': config.rootfs = value; break;
+      case 'net0': 
+        // Parse: name=eth0,bridge=vmbr0,gw=10.10.10.254,hwaddr=BC:24:11:EC:0F:F0,ip=10.10.10.164/24,type=veth
+        const parts = value.split(',');
+        for (const part of parts) {
+          const [k, v] = part.split('=');
+          if (k === 'name') config.net_name = v;
+          else if (k === 'bridge') config.net_bridge = v;
+          else if (k === 'hwaddr') config.net_hwaddr = v;
+          else if (k === 'ip') {
+            config.net_ip = v;
+            config.net_ip_type = v === 'dhcp' ? 'dhcp' : 'static';
+          }
+          else if (k === 'gw') config.net_gateway = v;
+          else if (k === 'type') config.net_type = v;
+          else if (k === 'tag' && v) config.net_vlan = parseInt(v);
+        }
+        break;
+      case 'features':
+        // Parse: keyctl=1,nesting=1,fuse=1
+        const feats = value.split(',');
+        for (const feat of feats) {
+          const [k, v] = feat.split('=');
+          if (k === 'keyctl' && v) config.feature_keyctl = parseInt(v);
+          else if (k === 'nesting' && v) config.feature_nesting = parseInt(v);
+          else if (k === 'fuse' && v) config.feature_fuse = parseInt(v);
+          else config.feature_mount = (config.feature_mount ? config.feature_mount + ',' : '') + feat;
+        }
+        break;
+      default:
+        // Advanced settings (lxc.* and unknown)
+        config.advanced.push(line);
+    }
+  }
+  
+  // Parse rootfs into storage and size
+  if (config.rootfs) {
+    const match = config.rootfs.match(/^([^:]+):([^,]+)(?:,size=(.+))?$/);
+    if (match) {
+      config.rootfs_storage = `${match[1]}:${match[2]}`;
+      config.rootfs_size = match[3] ?? '';
+    }
+    delete config.rootfs; // Remove the rootfs field since we only need rootfs_storage and rootfs_size
+  }
+  
+  config.advanced_config = config.advanced.join('\n');
+  delete config.advanced; // Remove the advanced array since we only need advanced_config
+  return config;
+}
+
+// Helper function to reconstruct config from structured data
+function reconstructConfig(parsed: any): string {
+  const lines: string[] = [];
+  
+  // Add standard fields in order
+  if (parsed.arch) lines.push(`arch: ${parsed.arch}`);
+  if (parsed.cores) lines.push(`cores: ${parsed.cores}`);
+  
+  // Build features line
+  if (parsed.feature_keyctl !== undefined || parsed.feature_nesting !== undefined || parsed.feature_fuse !== undefined) {
+    const feats: string[] = [];
+    if (parsed.feature_keyctl !== undefined) feats.push(`keyctl=${parsed.feature_keyctl}`);
+    if (parsed.feature_nesting !== undefined) feats.push(`nesting=${parsed.feature_nesting}`);
+    if (parsed.feature_fuse !== undefined) feats.push(`fuse=${parsed.feature_fuse}`);
+    if (parsed.feature_mount) feats.push(String(parsed.feature_mount));
+    lines.push(`features: ${feats.join(',')}`);
+  }
+  
+  if (parsed.hostname) lines.push(`hostname: ${parsed.hostname}`);
+  if (parsed.memory) lines.push(`memory: ${parsed.memory}`);
+  
+  // Build net0 line
+  if (parsed.net_name || parsed.net_bridge || parsed.net_ip) {
+    const netParts: string[] = [];
+    if (parsed.net_name) netParts.push(`name=${parsed.net_name}`);
+    if (parsed.net_bridge) netParts.push(`bridge=${parsed.net_bridge}`);
+    if (parsed.net_gateway && parsed.net_ip_type === 'static') netParts.push(`gw=${parsed.net_gateway}`);
+    if (parsed.net_hwaddr) netParts.push(`hwaddr=${parsed.net_hwaddr}`);
+    if (parsed.net_ip) netParts.push(`ip=${parsed.net_ip}`);
+    if (parsed.net_type) netParts.push(`type=${parsed.net_type}`);
+    if (parsed.net_vlan) netParts.push(`tag=${parsed.net_vlan}`);
+    lines.push(`net0: ${netParts.join(',')}`);
+  }
+  
+  if (parsed.onboot !== undefined) lines.push(`onboot: ${parsed.onboot}`);
+  if (parsed.ostype) lines.push(`ostype: ${parsed.ostype}`);
+  if (parsed.rootfs_storage) {
+    const rootfs = parsed.rootfs_size 
+      ? `${parsed.rootfs_storage},size=${parsed.rootfs_size}`
+      : parsed.rootfs_storage;
+    lines.push(`rootfs: ${rootfs}`);
+  }
+  if (parsed.swap !== undefined) lines.push(`swap: ${parsed.swap}`);
+  if (parsed.tags) lines.push(`tags: ${parsed.tags}`);
+  if (parsed.unprivileged !== undefined) lines.push(`unprivileged: ${parsed.unprivileged}`);
+  
+  // Add advanced config
+  if (parsed.advanced_config) {
+    lines.push(String(parsed.advanced_config));
+  }
+  
+  return lines.join('\n');
+}
+
+// Helper function to calculate config hash
+function calculateConfigHash(rawConfig: string): string {
+  return createHash('md5').update(rawConfig).digest('hex');
+}
 
 
 export const installedScriptsRouter = createTRPCRouter({
@@ -285,8 +424,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
         
               // Test SSH connection first
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-              const connectionTest = await sshService.testSSHConnection(server as any);
+               
+              const connectionTest = await sshService.testSSHConnection(server as Server);
               
               if (!(connectionTest as any).success) {
                 return {
@@ -307,8 +446,8 @@ export const installedScriptsRouter = createTRPCRouter({
         await new Promise<void>((resolve, reject) => {
          
           void sshExecutionService.executeCommand(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            server as any,
+             
+            server as Server,
             command,
             (data: string) => {
               commandOutput += data;
@@ -339,8 +478,8 @@ export const installedScriptsRouter = createTRPCRouter({
                   return new Promise<any>((readResolve) => {
                    
                     void sshExecutionService.executeCommand(
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                      server as any,
+                       
+                      server as Server,
                       readCommand,
                       (configData: string) => {
                         // Parse config file for hostname
@@ -356,12 +495,21 @@ export const installedScriptsRouter = createTRPCRouter({
                         }
 
                         if (hostname) {
+                          // Parse full config and store in database
+                          const parsedConfig = parseRawConfig(configData);
+                          const configHash = calculateConfigHash(configData);
+                          
                           const container = {
                             containerId,
                             hostname,
                             configPath,
                             serverId: Number((server as any).id),
-                            serverName: (server as any).name
+                            serverName: (server as any).name,
+                            parsedConfig: {
+                              ...parsedConfig,
+                              config_hash: configHash,
+                              synced_at: new Date()
+                            }
                           };
                           readResolve(container);
                         } else {
@@ -429,6 +577,11 @@ export const installedScriptsRouter = createTRPCRouter({
               status: 'success',
               output_log: `Auto-detected from LXC config: ${container.configPath}`
             });
+            
+            // Store LXC config in database
+            if (container.parsedConfig) {
+              await db.createLXCConfig(result.id, container.parsedConfig);
+            }
             
             createdScripts.push({
               id: result.id,
@@ -506,8 +659,8 @@ export const installedScriptsRouter = createTRPCRouter({
 
 
             // Test SSH connection
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            const connectionTest = await sshService.testSSHConnection(server as any);
+             
+            const connectionTest = await sshService.testSSHConnection(server as Server);
             if (!(connectionTest as any).success) {
               continue;
             }
@@ -518,8 +671,8 @@ export const installedScriptsRouter = createTRPCRouter({
             const containerExists = await new Promise<boolean>((resolve) => {
              
               void sshExecutionService.executeCommand(
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                server as any,
+                 
+                server as Server,
                 checkCommand,
                 (data: string) => {
                   resolve(data.trim() === 'exists');
@@ -592,8 +745,8 @@ export const installedScriptsRouter = createTRPCRouter({
           try {
 
             // Test SSH connection
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            const connectionTest = await sshService.testSSHConnection(server as any);
+             
+            const connectionTest = await sshService.testSSHConnection(server as Server);
             if (!(connectionTest as any).success) {
               continue;
             }
@@ -610,8 +763,8 @@ export const installedScriptsRouter = createTRPCRouter({
             await Promise.race([
               new Promise<void>((resolve, reject) => {
                 void sshExecutionService.executeCommand(
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                  server as any,
+                   
+                  server as Server,
                   listCommand,
                   (data: string) => {
                     listOutput += data;
@@ -715,8 +868,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
 
         // Test SSH connection first
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const connectionTest = await sshService.testSSHConnection(server as any);
+         
+        const connectionTest = await sshService.testSSHConnection(server as Server);
         if (!(connectionTest as any).success) {
           return {
             success: false,
@@ -731,8 +884,8 @@ export const installedScriptsRouter = createTRPCRouter({
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            server as any,
+             
+            server as Server,
             statusCommand,
             (data: string) => {
               statusOutput += data;
@@ -814,8 +967,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
 
         // Test SSH connection first
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const connectionTest = await sshService.testSSHConnection(server as any);
+         
+        const connectionTest = await sshService.testSSHConnection(server as Server);
         if (!(connectionTest as any).success) {
           return {
             success: false,
@@ -830,8 +983,8 @@ export const installedScriptsRouter = createTRPCRouter({
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            server as any,
+             
+            server as Server,
             controlCommand,
             (data: string) => {
               commandOutput += data;
@@ -905,8 +1058,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
 
         // Test SSH connection first
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const connectionTest = await sshService.testSSHConnection(server as any);
+         
+        const connectionTest = await sshService.testSSHConnection(server as Server);
         if (!(connectionTest as any).success) {
           return {
             success: false,
@@ -921,8 +1074,8 @@ export const installedScriptsRouter = createTRPCRouter({
         try {
           await new Promise<void>((resolve, reject) => {
             void sshExecutionService.executeCommand(
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-              server as any,
+               
+              server as Server,
               statusCommand,
               (data: string) => {
                 statusOutput += data;
@@ -945,8 +1098,8 @@ export const installedScriptsRouter = createTRPCRouter({
             
             await new Promise<void>((resolve, reject) => {
               void sshExecutionService.executeCommand(
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                server as any,
+                 
+                server as Server,
                 stopCommand,
                 (data: string) => {
                   stopOutput += data;
@@ -976,8 +1129,8 @@ export const installedScriptsRouter = createTRPCRouter({
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            server as any,
+             
+            server as Server,
             destroyCommand,
             (data: string) => {
               commandOutput += data;
@@ -1079,8 +1232,8 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Test SSH connection first
         console.log('🔌 Testing SSH connection...');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const connectionTest = await sshService.testSSHConnection(server as any);
+         
+        const connectionTest = await sshService.testSSHConnection(server as Server);
         if (!(connectionTest as any).success) {
           console.log('❌ SSH connection failed:', (connectionTest as any).error);
           return {
@@ -1099,8 +1252,8 @@ export const installedScriptsRouter = createTRPCRouter({
         
         await new Promise<void>((resolve, reject) => {
           void sshExecutionService.executeCommand(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            server as any,
+             
+            server as Server,
             hostnameCommand,
             (data: string) => {
               console.log('📤 Command output chunk:', data);
@@ -1197,5 +1350,249 @@ export const installedScriptsRouter = createTRPCRouter({
           error: error instanceof Error ? error.message : 'Failed to auto-detect Web UI IP'
         };
       }
+    }),
+
+  // Get LXC configuration
+  getLXCConfig: publicProcedure
+    .input(z.object({ 
+      scriptId: z.number(), 
+      forceSync: z.boolean().optional().default(false) 
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = await db.getInstalledScriptById(input.scriptId);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        if (!script.container_id || !script.server_id) {
+          return {
+            success: false,
+            error: 'Script does not have container ID or server ID'
+          };
+        }
+
+        // Check if we have cached config and it's recent (5 minutes)
+        console.log("DB object in getLXCConfig:", Object.keys(db));
+        console.log("getLXCConfigByScriptId exists:", typeof db.getLXCConfigByScriptId);
+        const cachedConfig = await db.getLXCConfigByScriptId(input.scriptId);
+        const now = new Date();
+        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+        
+        if (cachedConfig?.synced_at && cachedConfig.synced_at > fiveMinutesAgo && !input.forceSync) {
+          return {
+            success: true,
+            config: cachedConfig,
+            source: 'cache',
+            has_changes: false,
+            synced_at: cachedConfig.synced_at
+          };
+        }
+
+        // Read from server
+        const server = await db.getServerById(script.server_id);
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+        
+        // Test SSH connection
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // Read config file
+        const configPath = `/etc/pve/lxc/${script.container_id}.conf`;
+        const readCommand = `cat "${configPath}" 2>/dev/null`;
+        let rawConfig = '';
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            server as Server,
+            readCommand,
+            (data: string) => {
+              rawConfig += data;
+            },
+            (error: string) => {
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              if (exitCode === 0) {
+                resolve();
+              } else {
+                reject(new Error(`Command failed with exit code ${exitCode}`));
+              }
+            }
+          );
+        });
+
+        // Parse config
+        const parsedConfig = parseRawConfig(rawConfig);
+        const configHash = calculateConfigHash(rawConfig);
+        
+        // Check for changes if we have cached config
+        const hasChanges = cachedConfig ? cachedConfig.config_hash !== configHash : false;
+        
+        // Update database cache
+        const configData = {
+          ...parsedConfig,
+          config_hash: configHash,
+          synced_at: new Date()
+        };
+        
+        await db.updateLXCConfig(input.scriptId, configData);
+        
+        return {
+          success: true,
+          config: configData,
+          source: 'server',
+          has_changes: hasChanges,
+          synced_at: configData.synced_at
+        };
+      } catch (error) {
+        console.error('Error in getLXCConfig:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get LXC config'
+        };
+      }
+    }),
+
+  // Save LXC configuration
+  saveLXCConfig: publicProcedure
+    .input(z.object({ 
+      scriptId: z.number(), 
+      config: z.any() 
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const script = await db.getInstalledScriptById(input.scriptId);
+        
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found'
+          };
+        }
+
+        if (!script.container_id || !script.server_id) {
+          return {
+            success: false,
+            error: 'Script does not have container ID or server ID'
+          };
+        }
+
+        // Validate required fields
+        if (!input.config.arch || !input.config.cores || !input.config.memory || !input.config.hostname || !input.config.ostype || !input.config.rootfs_storage) {
+          return {
+            success: false,
+            error: 'Missing required fields: arch, cores, memory, hostname, ostype, or rootfs_storage'
+          };
+        }
+
+        // Reconstruct config
+        const rawConfig = reconstructConfig(input.config);
+        const configHash = calculateConfigHash(rawConfig);
+
+        // Get server info
+        const server = await db.getServerById(script.server_id);
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found'
+          };
+        }
+
+        // Import SSH services
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = new SSHExecutionService();
+        
+        // Test SSH connection
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+          };
+        }
+
+        // Write config file using heredoc for safe escaping
+        const configPath = `/etc/pve/lxc/${script.container_id}.conf`;
+        const writeCommand = `cat > "${configPath}" << 'EOFCONFIG'
+${rawConfig}
+EOFCONFIG`;
+        
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            server as Server,
+            writeCommand,
+            (_data: string) => {
+              // Success data
+            },
+            (error: string) => {
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              if (exitCode === 0) {
+                resolve();
+              } else {
+                reject(new Error(`Command failed with exit code ${exitCode}`));
+              }
+            }
+          );
+        });
+
+        // Update database cache
+        const configData = {
+          ...input.config,
+          config_hash: configHash,
+          synced_at: new Date()
+        };
+        
+        await db.updateLXCConfig(input.scriptId, configData);
+        
+        return {
+          success: true,
+          message: 'LXC configuration saved successfully'
+        };
+      } catch (error) {
+        console.error('Error in saveLXCConfig:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save LXC config'
+        };
+      }
+    }),
+
+  // Sync LXC configuration from server
+  syncLXCConfig: publicProcedure
+    .input(z.object({ scriptId: z.number() }))
+    .mutation(async ({ input }): Promise<any> => {
+      // This is just a wrapper around getLXCConfig with forceSync=true
+      const result = await installedScriptsRouter
+        .createCaller({ headers: new Headers() })
+        .getLXCConfig({ scriptId: input.scriptId, forceSync: true });
+      
+      return result;
     })
 });
