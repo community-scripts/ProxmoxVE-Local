@@ -20,6 +20,7 @@ model InstalledScript {
   web_ui_ip         String?
   web_ui_port       Int?
   server            Server?   @relation(fields: [server_id], references: [id], onDelete: SetNull)
+  lxc_config        LXCConfig?
   
   @@map("installed_scripts")
 }
@@ -42,4 +43,55 @@ model Server {
   installed_scripts  InstalledScript[]
   
   @@map("servers")
+}
+
+model LXCConfig {
+  id                    Int              @id @default(autoincrement())
+  installed_script_id   Int              @unique
+  installed_script      InstalledScript  @relation(fields: [installed_script_id], references: [id], onDelete: Cascade)
+  
+  // Basic settings
+  arch                  String?
+  cores                 Int?
+  memory                Int?
+  hostname              String?
+  swap                  Int?
+  onboot                Int?            // 0 or 1
+  ostype                String?
+  unprivileged          Int?            // 0 or 1
+  
+  // Network settings (net0)
+  net_name              String?
+  net_bridge            String?
+  net_hwaddr            String?
+  net_ip_type           String?         // 'dhcp' or 'static'
+  net_ip                String?         // IP with CIDR for static
+  net_gateway           String?
+  net_type              String?         // usually 'veth'
+  net_vlan              Int?
+  
+  // Storage
+  rootfs_storage        String?
+  rootfs_size           String?
+  
+  // Features
+  feature_keyctl        Int?            // 0 or 1
+  feature_nesting       Int?            // 0 or 1
+  feature_fuse          Int?            // 0 or 1
+  feature_mount         String?         // other mount features
+  
+  // Tags
+  tags                  String?
+  
+  // Advanced/raw settings (lxc.* entries and other uncommon settings)
+  advanced_config       String?         // Text blob for advanced settings
+  
+  // Metadata
+  synced_at             DateTime?
+  config_hash           String?         // Hash of server config for diff detection
+  
+  created_at            DateTime         @default(now())
+  updated_at            DateTime         @updatedAt
+  
+  @@map("lxc_configs")
 }

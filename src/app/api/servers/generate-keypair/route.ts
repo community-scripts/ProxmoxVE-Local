@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSSHService } from '../../../../server/ssh-service';
-import { getDatabase } from '../../../../server/database-prisma.js';
+import { getDatabase } from '../../../../server/database-prisma';
 
 export async function POST(_request: NextRequest) {
   try {

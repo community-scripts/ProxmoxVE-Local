@@ -15,7 +15,7 @@ import { Button } from './_components/ui/button';
 import { ContextualHelpIcon } from './_components/ContextualHelpIcon';
 import { ReleaseNotesModal, getLastSeenVersion } from './_components/ReleaseNotesModal';
 import { Footer } from './_components/Footer';
-import { Rocket, Package, HardDrive, FolderOpen } from 'lucide-react';
+import { Package, HardDrive, FolderOpen } from 'lucide-react';
 import { api } from '~/trpc/react';
 
 export default function Home() {

@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getDatabase } from '../../../../../server/database-prisma.js';
+import { getDatabase } from '../../../../../server/database-prisma';
 import { getSSHService } from '../../../../../server/ssh-service';
 
 export async function GET(

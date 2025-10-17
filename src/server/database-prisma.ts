@@ -263,6 +263,39 @@ class DatabaseServicePrisma {
     return keyPath;
   }
 
+  // LXC Config CRUD operations
+  async createLXCConfig(scriptId: number, configData: any) {
+    return await prisma.lXCConfig.create({
+      data: {
+        installed_script_id: scriptId,
+        ...configData
+      }
+    });
+  }
+
+  async updateLXCConfig(scriptId: number, configData: any) {
+    return await prisma.lXCConfig.upsert({
+      where: { installed_script_id: scriptId },
+      update: configData,
+      create: {
+        installed_script_id: scriptId,
+        ...configData
+      }
+    });
+  }
+
+  async getLXCConfigByScriptId(scriptId: number) {
+    return await prisma.lXCConfig.findUnique({
+      where: { installed_script_id: scriptId }
+    });
+  }
+
+  async deleteLXCConfig(scriptId: number) {
+    return await prisma.lXCConfig.delete({
+      where: { installed_script_id: scriptId }
+    });
+  }
+
   async close() {
     await prisma.$disconnect();
   }
