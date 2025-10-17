@@ -14,6 +14,7 @@ interface PublicKeyModalProps {
 
 export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverIp }: PublicKeyModalProps) {
   const [copied, setCopied] = useState(false);
+  const [commandCopied, setCommandCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -51,6 +52,42 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
       console.error('Failed to copy to clipboard:', error);
       // Fallback: show the key in an alert
       alert('Please manually copy this key:\n\n' + publicKey);
+    }
+  };
+
+  const handleCopyCommand = async () => {
+    const command = `echo "${publicKey}" >> ~/.ssh/authorized_keys`;
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(command);
+        setCommandCopied(true);
+        setTimeout(() => setCommandCopied(false), 2000);
+      } else {
+        // Fallback for older browsers or non-HTTPS
+        const textArea = document.createElement('textarea');
+        textArea.value = command;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          setCommandCopied(true);
+          setTimeout(() => setCommandCopied(false), 2000);
+        } catch (fallbackError) {
+          console.error('Fallback copy failed:', fallbackError);
+          alert('Please manually copy this command:\n\n' + command);
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (error) {
+      console.error('Failed to copy command to clipboard:', error);
+      alert('Please manually copy this command:\n\n' + command);
     }
   };
 
@@ -129,9 +166,42 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
             <textarea
               value={publicKey}
               readOnly
-              className="w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground font-mono text-xs min-h-[120px] resize-none border-border focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+              className="w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground font-mono text-xs min-h-[60px] resize-none border-border focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               placeholder="Public key will appear here..."
             />
+          </div>
+
+          {/* Quick Command */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Quick Add Command:</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyCommand}
+                className="gap-2"
+              >
+                {commandCopied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy Command
+                  </>
+                )}
+              </Button>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-md border border-border">
+              <code className="text-sm font-mono text-foreground break-all">
+                echo &quot;{publicKey}&quot; &gt;&gt; ~/.ssh/authorized_keys
+              </code>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Copy and paste this command directly into your server terminal to add the key to authorized_keys
+            </p>
           </div>
 
           {/* Footer */}

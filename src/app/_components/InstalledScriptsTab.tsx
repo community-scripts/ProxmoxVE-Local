@@ -1376,7 +1376,7 @@ export function InstalledScriptsTab() {
                               type="text"
                               value={editFormData.web_ui_ip}
                               onChange={(e) => handleInputChange('web_ui_ip', e.target.value)}
-                              className="w-32 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                              className="w-40 px-3 py-2 text-sm font-mono border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                               placeholder="IP"
                             />
                             <span className="text-muted-foreground">:</span>
