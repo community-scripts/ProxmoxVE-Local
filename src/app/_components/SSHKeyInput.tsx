@@ -30,7 +30,11 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target?.result as string;
+      let content = e.target?.result as string;
+      
+      // Auto-trim trailing whitespace and empty lines to fix import issues
+      content = content.replace(/\n\s*$/, '').trimEnd();
+      
       if (validateSSHKey(content)) {
         onChange(content);
         onError?.('');
@@ -72,7 +76,12 @@ export function SSHKeyInput({ value, onChange, onError, disabled = false }: SSHK
   };
 
   const handlePasteChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const content = event.target.value;
+    let content = event.target.value;
+    
+    // Auto-trim trailing whitespace and empty lines to fix import issues
+    // This addresses the common problem where pasted SSH keys have extra whitespace
+    content = content.replace(/\n\s*$/, '').trimEnd();
+    
     onChange(content);
     
     if (content.trim() && !validateSSHKey(content)) {
