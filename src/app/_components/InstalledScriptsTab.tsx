@@ -204,6 +204,9 @@ export function InstalledScriptsTab() {
     }
   });
 
+  // Ref for container status mutation to avoid dependency loops
+  const containerStatusMutationRef = useRef(containerStatusMutation);
+
   // Cleanup orphaned scripts mutation
   const cleanupMutation = api.installedScripts.cleanupOrphanedScripts.useMutation({
     onSuccess: (data) => {
@@ -363,10 +366,14 @@ export function InstalledScriptsTab() {
   const scripts: InstalledScript[] = useMemo(() => (scriptsData?.scripts as InstalledScript[]) ?? [], [scriptsData?.scripts]);
   const stats = statsData?.stats;
 
-  // Update ref when scripts change
+  // Update refs when data changes
   useEffect(() => {
     scriptsRef.current = scripts;
   }, [scripts]);
+  
+  useEffect(() => {
+    containerStatusMutationRef.current = containerStatusMutation;
+  }, [containerStatusMutation]);
 
 
   // Run cleanup when component mounts and scripts are loaded (only once)
@@ -382,12 +389,6 @@ export function InstalledScriptsTab() {
     if (scripts.length > 0) {
       console.log('Status check triggered - scripts length:', scripts.length);
       
-      // Prevent multiple simultaneous status checks
-      if (containerStatusMutation.isPending) {
-        console.log('Status check already pending, skipping');
-        return;
-      }
-      
       // Clear any existing timeout
       if (statusCheckTimeoutRef.current) {
         clearTimeout(statusCheckTimeoutRef.current);
@@ -395,6 +396,12 @@ export function InstalledScriptsTab() {
       
       // Debounce status checks by 500ms
       statusCheckTimeoutRef.current = setTimeout(() => {
+        // Prevent multiple simultaneous status checks
+        if (containerStatusMutationRef.current.isPending) {
+          console.log('Status check already pending, skipping');
+          return;
+        }
+        
         const currentScripts = scriptsRef.current;
         
         // Get unique server IDs from scripts
@@ -404,11 +411,11 @@ export function InstalledScriptsTab() {
 
         console.log('Executing status check for server IDs:', serverIds);
         if (serverIds.length > 0) {
-          containerStatusMutation.mutate({ serverIds });
+          containerStatusMutationRef.current.mutate({ serverIds });
         }
       }, 500);
     }
-  }, [scripts.length, containerStatusMutation]); 
+  }, [scripts.length]); 
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1535,14 +1542,17 @@ export function InstalledScriptsTab() {
                                         <DropdownMenuItem
                                           onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
                                           disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                          className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
+                                            ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                            : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
+                                          }
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                           onClick={() => handleDestroy(script)}
                                           disabled={controllingScriptId === script.id}
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
                                         </DropdownMenuItem>

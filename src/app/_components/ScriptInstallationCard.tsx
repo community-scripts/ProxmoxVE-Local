@@ -331,14 +331,17 @@ export function ScriptInstallationCard({
                       <DropdownMenuItem
                         onClick={() => onStartStop(containerStatus === 'running' ? 'stop' : 'start')}
                         disabled={isControlling || containerStatus === 'unknown'}
-                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                        className={containerStatus === 'running' 
+                          ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                          : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
+                        }
                       >
                         {isControlling ? 'Working...' : containerStatus === 'running' ? 'Stop' : 'Start'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={onDestroy}
                         disabled={isControlling}
-                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                        className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                       >
                         {isControlling ? 'Working...' : 'Destroy'}
                       </DropdownMenuItem>
