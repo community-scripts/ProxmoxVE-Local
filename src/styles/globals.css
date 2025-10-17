@@ -137,6 +137,25 @@
 .hover\:ring-2:hover { --tw-ring-width: 2px; }
 .hover\:ring-offset-2:hover { --tw-ring-offset-width: 2px; }
 
+/* Status color hover states */
+.hover\:bg-success:hover { background-color: hsl(var(--success)); }
+.hover\:bg-success\/20:hover { background-color: hsl(var(--success) / 0.2); }
+.hover\:text-success:hover { color: hsl(var(--success)); }
+.hover\:text-success-foreground:hover { color: hsl(var(--success-foreground)); }
+.hover\:bg-warning:hover { background-color: hsl(var(--warning)); }
+.hover\:bg-warning\/20:hover { background-color: hsl(var(--warning) / 0.2); }
+.hover\:text-warning:hover { color: hsl(var(--warning)); }
+.hover\:text-warning-foreground:hover { color: hsl(var(--warning-foreground)); }
+.hover\:bg-info:hover { background-color: hsl(var(--info)); }
+.hover\:bg-info\/20:hover { background-color: hsl(var(--info) / 0.2); }
+.hover\:text-info:hover { color: hsl(var(--info)); }
+.hover\:text-info-foreground:hover { color: hsl(var(--info-foreground)); }
+.hover\:bg-error:hover { background-color: hsl(var(--error)); }
+.hover\:bg-error\/20:hover { background-color: hsl(var(--error) / 0.2); }
+.hover\:text-error:hover { color: hsl(var(--error)); }
+.hover\:text-error-foreground:hover { color: hsl(var(--error-foreground)); }
+.hover\:bg-muted\/20:hover { background-color: hsl(var(--muted) / 0.2); }
+
 
 * {
   -ms-overflow-style: none;
