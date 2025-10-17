@@ -87,7 +87,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         {/* Header */}
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-green-600" />
+            <Shield className="h-8 w-8 text-success" />
             <h2 className="text-2xl font-bold text-card-foreground">Setup Authentication</h2>
           </div>
         </div>
@@ -180,7 +180,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-800 border border-red-200 rounded-md">
+              <div className="flex items-center gap-2 p-3 bg-error/10 text-error-foreground border border-error/20 rounded-md">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">{error}</span>
               </div>

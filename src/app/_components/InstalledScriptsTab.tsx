@@ -897,21 +897,21 @@ export function InstalledScriptsTab() {
         
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-400">{stats.total}</div>
-              <div className="text-sm text-blue-300">Total Installations</div>
+            <div className="bg-info/10 border border-info/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-info">{stats.total}</div>
+              <div className="text-sm text-info/80">Total Installations</div>
             </div>
-            <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-400">{stats.byStatus.success}</div>
-              <div className="text-sm text-green-300">Successful</div>
+            <div className="bg-success/10 border border-success/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-success">{stats.byStatus.success}</div>
+              <div className="text-sm text-success/80">Successful</div>
             </div>
-            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-red-400">{stats.byStatus.failed}</div>
-              <div className="text-sm text-red-300">Failed</div>
+            <div className="bg-error/10 border border-error/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-error">{stats.byStatus.failed}</div>
+              <div className="text-sm text-error/80">Failed</div>
             </div>
-            <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-400">{stats.byStatus.in_progress}</div>
-              <div className="text-sm text-yellow-300">In Progress</div>
+            <div className="bg-warning/10 border border-warning/20 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-warning">{stats.byStatus.in_progress}</div>
+              <div className="text-sm text-warning/80">In Progress</div>
             </div>
           </div>
         )}
@@ -1018,17 +1018,17 @@ export function InstalledScriptsTab() {
             {autoDetectStatus.type && (
               <div className={`p-4 rounded-lg border ${
                 autoDetectStatus.type === 'success' 
-                  ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
-                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                  ? 'bg-success/10 border-success/20' 
+                  : 'bg-error/10 border-error/20'
               }`}>
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     {autoDetectStatus.type === 'success' ? (
-                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-success" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     ) : (
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-error" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     )}
@@ -1036,8 +1036,8 @@ export function InstalledScriptsTab() {
                   <div className="ml-3">
                     <p className={`text-sm font-medium ${
                       autoDetectStatus.type === 'success' 
-                        ? 'text-green-800 dark:text-green-200' 
-                        : 'text-red-800 dark:text-red-200'
+                        ? 'text-success-foreground' 
+                        : 'text-error-foreground'
                     }`}>
                       {autoDetectStatus.message}
                     </p>
@@ -1050,17 +1050,17 @@ export function InstalledScriptsTab() {
             {cleanupStatus.type && (
               <div className={`p-4 rounded-lg border ${
                 cleanupStatus.type === 'success' 
-                  ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700' 
-                  : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                  ? 'bg-muted/50 border-muted' 
+                  : 'bg-error/10 border-error/20'
               }`}>
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     {cleanupStatus.type === 'success' ? (
-                      <svg className="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-muted-foreground" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     ) : (
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-error" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     )}
@@ -1068,8 +1068,8 @@ export function InstalledScriptsTab() {
                   <div className="ml-3">
                     <p className={`text-sm font-medium ${
                       cleanupStatus.type === 'success' 
-                        ? 'text-slate-700 dark:text-slate-300' 
-                        : 'text-red-800 dark:text-red-200'
+                        ? 'text-foreground' 
+                        : 'text-error-foreground'
                     }`}>
                       {cleanupStatus.message}
                     </p>
@@ -1085,18 +1085,18 @@ export function InstalledScriptsTab() {
           <div className="mb-6 p-4 sm:p-6 bg-card rounded-lg border border-border shadow-sm">
             <h3 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Auto-Detect LXC Containers (Must contain a tag with &quot;community-script&quot;)</h3>
             <div className="space-y-4 sm:space-y-6">
-              <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+              <div className="bg-muted/30 border border-muted rounded-lg p-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="h-5 w-5 text-muted-foreground" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <h4 className="text-sm font-medium text-foreground">
                       How it works
                     </h4>
-                    <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="mt-2 text-sm text-muted-foreground">
                       <p>This feature will:</p>
                       <ul className="list-disc list-inside mt-1 space-y-1">
                         <li>Connect to the selected server via SSH</li>
@@ -1348,14 +1348,14 @@ export function InstalledScriptsTab() {
                               {script.container_status && (
                                 <div className="flex items-center space-x-1">
                                   <div className={`w-2 h-2 rounded-full ${
-                                    script.container_status === 'running' ? 'bg-green-500' : 
-                                    script.container_status === 'stopped' ? 'bg-red-500' : 
-                                    'bg-gray-400'
+                                    script.container_status === 'running' ? 'bg-success' : 
+                                    script.container_status === 'stopped' ? 'bg-error' : 
+                                    'bg-muted-foreground'
                                   }`}></div>
                                   <span className={`text-xs font-medium ${
-                                    script.container_status === 'running' ? 'text-green-700 dark:text-green-300' : 
-                                    script.container_status === 'stopped' ? 'text-red-700 dark:text-red-300' : 
-                                    'text-gray-500 dark:text-gray-400'
+                                    script.container_status === 'running' ? 'text-success' : 
+                                    script.container_status === 'stopped' ? 'text-error' : 
+                                    'text-muted-foreground'
                                   }`}>
                                     {script.container_status === 'running' ? 'Running' : 
                                      script.container_status === 'stopped' ? 'Stopped' : 
@@ -1397,7 +1397,7 @@ export function InstalledScriptsTab() {
                               {containerStatuses.get(script.id) === 'running' && (
                                 <button
                                   onClick={() => handleOpenWebUI(script)}
-                                  className="text-xs px-2 py-1 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md rounded disabled:opacity-50 flex-shrink-0"
+                                  className="text-xs px-2 py-1 bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md rounded disabled:opacity-50 flex-shrink-0"
                                   title="Open Web UI"
                                 >
                                   Open UI
@@ -1411,7 +1411,7 @@ export function InstalledScriptsTab() {
                                 <button
                                   onClick={() => handleAutoDetectWebUI(script)}
                                   disabled={autoDetectWebUIMutation.isPending}
-                                  className="text-xs px-2 py-1 bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700 rounded disabled:opacity-50 transition-colors"
+                                  className="text-xs px-2 py-1 bg-info hover:bg-info/90 text-info-foreground border border-info rounded disabled:opacity-50 transition-colors"
                                   title="Re-detect IP and port"
                                 >
                                   {autoDetectWebUIMutation.isPending ? '...' : 'Re-detect'}
@@ -1475,17 +1475,17 @@ export function InstalledScriptsTab() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className="bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                      className="bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md"
                                     >
                                       Actions
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent className="w-48 bg-gray-900 border-gray-700">
+                                  <DropdownMenuContent className="w-48 bg-card border-border">
                                     {script.container_id && (
                                       <DropdownMenuItem
                                         onClick={() => handleUpdateScript(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/20 focus:bg-cyan-900/20"
+                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
                                       >
                                         Update
                                       </DropdownMenuItem>
@@ -1494,7 +1494,7 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleOpenShell(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-gray-300 hover:text-gray-200 hover:bg-gray-800/20 focus:bg-gray-800/20"
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
                                         Shell
                                       </DropdownMenuItem>
@@ -1503,7 +1503,7 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleOpenWebUI(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
                                       >
                                         Open UI
                                       </DropdownMenuItem>
@@ -1512,28 +1512,28 @@ export function InstalledScriptsTab() {
                                       <DropdownMenuItem
                                         onClick={() => handleAutoDetectWebUI(script)}
                                         disabled={autoDetectWebUIMutation.isPending ?? containerStatuses.get(script.id) === 'stopped'}
-                                        className="text-blue-300 hover:text-blue-200 hover:bg-blue-900/20 focus:bg-blue-900/20"
+                                        className="text-info hover:text-info-foreground hover:bg-info/20 focus:bg-info/20"
                                       >
                                         {autoDetectWebUIMutation.isPending ? 'Re-detect...' : 'Re-detect IP/Port'}
                                       </DropdownMenuItem>
                                     )}
                                     {script.container_id && script.execution_mode === 'ssh' && (
                                       <>
-                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
                                           onClick={() => handleLXCSettings(script)}
-                                          className="text-purple-300 hover:text-purple-200 hover:bg-purple-900/20 focus:bg-purple-900/20"
+                                          className="text-primary hover:text-primary-foreground hover:bg-primary/20 focus:bg-primary/20"
                                         >
                                           <Settings className="mr-2 h-4 w-4" />
                                           LXC Settings
                                         </DropdownMenuItem>
-                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
                                           onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
                                           disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
                                           className={(containerStatuses.get(script.id) ?? 'unknown') === 'running' 
-                                            ? "text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
-                                            : "text-green-300 hover:text-green-200 hover:bg-green-900/20 focus:bg-green-900/20"
+                                            ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                            : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
                                           }
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'Stop' : 'Start'}
@@ -1541,7 +1541,7 @@ export function InstalledScriptsTab() {
                                         <DropdownMenuItem
                                           onClick={() => handleDestroy(script)}
                                           disabled={controllingScriptId === script.id}
-                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
                                         </DropdownMenuItem>
@@ -1549,11 +1549,11 @@ export function InstalledScriptsTab() {
                                     )}
                                     {(!script.container_id || script.execution_mode !== 'ssh') && (
                                       <>
-                                        <DropdownMenuSeparator className="bg-gray-700" />
+                                        <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
                                           onClick={() => handleDeleteScript(Number(script.id))}
                                           disabled={deleteScriptMutation.isPending}
-                                          className="text-red-300 hover:text-red-200 hover:bg-red-900/20 focus:bg-red-900/20"
+                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                                         >
                                           {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete'}
                                         </DropdownMenuItem>

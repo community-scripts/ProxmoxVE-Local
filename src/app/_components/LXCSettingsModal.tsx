@@ -287,14 +287,14 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
 
           {/* Warning Banner */}
           {configData?.has_changes && (
-            <div className="bg-yellow-50 dark:bg-yellow-950/20 border-b border-yellow-200 dark:border-yellow-800 p-4">
+            <div className="bg-warning/10 border-b border-warning/20 p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  <p className="text-sm font-medium text-warning-foreground">
                     Configuration Mismatch Detected
                   </p>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                  <p className="text-sm text-warning/80 mt-1">
                     The cached configuration differs from the server. Click &quot;Sync from Server&quot; to get the latest version.
                   </p>
                 </div>
@@ -305,16 +305,16 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-950/20 border-b border-red-200 dark:border-red-800 p-4">
+            <div className="bg-error/10 border-b border-error/20 p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-error flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-800 dark:text-red-200">Error</p>
-                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">{error}</p>
+                  <p className="text-sm font-medium text-error-foreground">Error</p>
+                  <p className="text-sm text-error/80 mt-1">{error}</p>
                 </div>
                 <button
                   onClick={() => setError(null)}
-                  className="text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                  className="text-error hover:text-error/80"
                 >
                   ✕
                 </button>
@@ -331,8 +331,8 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                   onClick={() => setActiveTab('common')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'common'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                   }`}
                 >
                   Common Settings
@@ -341,8 +341,8 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                   onClick={() => setActiveTab('advanced')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'advanced'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                   }`}
                 >
                   Advanced Settings
@@ -423,7 +423,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                         id="onboot"
                         checked={formData.onboot}
                         onChange={(e) => handleInputChange('onboot', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                       />
                       <label htmlFor="onboot" className="text-sm font-medium text-foreground">Start on Boot</label>
                     </div>
@@ -433,7 +433,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                         id="unprivileged"
                         checked={formData.unprivileged}
                         onChange={(e) => handleInputChange('unprivileged', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                       />
                       <label htmlFor="unprivileged" className="text-sm font-medium text-foreground">Unprivileged Container</label>
                     </div>
@@ -568,7 +568,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                         id="feature_keyctl"
                         checked={formData.feature_keyctl}
                         onChange={(e) => handleInputChange('feature_keyctl', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                       />
                       <label htmlFor="feature_keyctl" className="text-sm font-medium text-foreground">Keyctl</label>
                     </div>
@@ -578,7 +578,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                         id="feature_nesting"
                         checked={formData.feature_nesting}
                         onChange={(e) => handleInputChange('feature_nesting', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                       />
                       <label htmlFor="feature_nesting" className="text-sm font-medium text-foreground">Nesting</label>
                     </div>
@@ -588,7 +588,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
                         id="feature_fuse"
                         checked={formData.feature_fuse}
                         onChange={(e) => handleInputChange('feature_fuse', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                       />
                       <label htmlFor="feature_fuse" className="text-sm font-medium text-foreground">FUSE</label>
                     </div>
@@ -696,9 +696,9 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave }: LXCSetting
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 {resultType === 'success' ? (
-                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-500" />
+                  <CheckCircle className="h-6 w-6 text-success" />
                 ) : (
-                  <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-500" />
+                  <AlertTriangle className="h-6 w-6 text-error" />
                 )}
                 <h3 className="text-lg font-semibold text-card-foreground">
                   {resultType === 'success' ? 'Success' : 'Error'}

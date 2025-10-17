@@ -40,9 +40,9 @@ export function ErrorModal({
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
             {type === 'success' ? (
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+              <CheckCircle className="h-8 w-8 text-success" />
             ) : (
-              <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+              <AlertCircle className="h-8 w-8 text-error" />
             )}
             <h2 className="text-xl font-semibold text-foreground">{title}</h2>
           </div>
@@ -54,20 +54,20 @@ export function ErrorModal({
           {details && (
             <div className={`rounded-lg p-3 ${
               type === 'success'
-                ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800'
-                : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
+                ? 'bg-success/10 border border-success/20'
+                : 'bg-error/10 border border-error/20'
             }`}>
               <p className={`text-xs font-medium mb-1 ${
                 type === 'success'
-                  ? 'text-green-800 dark:text-green-200'
-                  : 'text-red-800 dark:text-red-200'
+                  ? 'text-success-foreground'
+                  : 'text-error-foreground'
               }`}>
                 {type === 'success' ? 'Details:' : 'Error Details:'}
               </p>
               <pre className={`text-xs whitespace-pre-wrap break-words ${
                 type === 'success'
-                  ? 'text-green-700 dark:text-green-300'
-                  : 'text-red-700 dark:text-red-300'
+                  ? 'text-success/80'
+                  : 'text-error/80'
               }`}>
                 {details}
               </pre>

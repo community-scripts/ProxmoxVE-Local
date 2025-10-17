@@ -171,7 +171,7 @@ export function FilterBar({
             filters.showUpdatable === null
               ? "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               : filters.showUpdatable === true
-                ? "border border-green-500/20 bg-green-500/10 text-green-400"
+                ? "border border-success/20 bg-success/10 text-success"
                 : "border border-destructive/20 bg-destructive/10 text-destructive"
           }`}
         >
@@ -388,7 +388,7 @@ export function FilterBar({
               <span>
                 {filteredCount} of {totalScripts} scripts{" "}
                 {hasActiveFilters && (
-                  <span className="font-medium text-blue-600">
+                  <span className="font-medium text-info">
                     (filtered)
                   </span>
                 )}
@@ -398,7 +398,7 @@ export function FilterBar({
           
           {/* Filter Persistence Status */}
           {!isLoadingFilters && saveFiltersEnabled && (
-            <div className="flex items-center space-x-1 text-xs text-green-600">
+            <div className="flex items-center space-x-1 text-xs text-success">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
@@ -412,7 +412,7 @@ export function FilterBar({
             onClick={clearAllFilters}
             variant="ghost"
             size="sm"
-            className="flex items-center space-x-1 text-red-600 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto justify-center sm:justify-start"
+            className="flex items-center space-x-1 text-error hover:bg-error/10 hover:text-error-foreground w-full sm:w-auto justify-center sm:justify-start"
           >
             <svg
               className="h-4 w-4"

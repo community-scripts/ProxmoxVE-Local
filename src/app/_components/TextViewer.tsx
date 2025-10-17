@@ -185,7 +185,7 @@ export function TextViewer({ scriptName, isOpen, onClose }: TextViewerProps) {
                 </SyntaxHighlighter>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <div className="text-lg text-gray-600">
+                  <div className="text-lg text-muted-foreground">
                     {activeTab === 'ct' ? 'CT script not found' : 'Install script not found'}
                   </div>
                 </div>

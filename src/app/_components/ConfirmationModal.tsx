@@ -53,9 +53,9 @@ export function ConfirmationModal({
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
             {isDanger ? (
-              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <AlertTriangle className="h-8 w-8 text-error" />
             ) : (
-              <Info className="h-8 w-8 text-blue-600" />
+              <Info className="h-8 w-8 text-info" />
             )}
             <h2 className="text-2xl font-bold text-card-foreground">{title}</h2>
           </div>

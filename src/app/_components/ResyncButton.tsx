@@ -80,8 +80,8 @@ export function ResyncButton() {
       {syncMessage && (
         <div className={`text-sm px-3 py-1 rounded-lg ${
           syncMessage.includes('Error') || syncMessage.includes('Failed')
-            ? 'bg-red-100 text-destructive'
-            : 'bg-green-100 text-green-700'
+            ? 'bg-error/10 text-error'
+            : 'bg-success/10 text-success'
         }`}>
           {syncMessage}
         </div>

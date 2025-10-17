@@ -28,6 +28,15 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    /* Semantic status colors for light mode */
+    --success: 142 76% 36%;
+    --success-foreground: 355 100% 97%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --info: 213 94% 68%;
+    --info-foreground: 213 31% 91%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 98%;
   }
 
   ::selection {
@@ -60,6 +69,15 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    /* Semantic status colors for dark mode */
+    --success: 142 70% 45%;
+    --success-foreground: 355 100% 97%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --info: 213 94% 68%;
+    --info-foreground: 213 31% 91%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 98%;
   }
 }
 
@@ -87,6 +105,20 @@
 .border-border { border-color: hsl(var(--border)); }
 .border-input { border-color: hsl(var(--input)); }
 .ring-ring { --tw-ring-color: hsl(var(--ring)); }
+
+/* Status color utility classes */
+.bg-success { background-color: hsl(var(--success)); }
+.text-success { color: hsl(var(--success)); }
+.text-success-foreground { color: hsl(var(--success-foreground)); }
+.bg-warning { background-color: hsl(var(--warning)); }
+.text-warning { color: hsl(var(--warning)); }
+.text-warning-foreground { color: hsl(var(--warning-foreground)); }
+.bg-info { background-color: hsl(var(--info)); }
+.text-info { color: hsl(var(--info)); }
+.text-info-foreground { color: hsl(var(--info-foreground)); }
+.bg-error { background-color: hsl(var(--error)); }
+.text-error { color: hsl(var(--error)); }
+.text-error-foreground { color: hsl(var(--error-foreground)); }
 
 /* Hover states for semantic colors */
 .hover\:bg-accent:hover { background-color: hsl(var(--accent)); }
@@ -117,7 +149,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(155, 155, 155, 0.25);
+  background-color: hsl(var(--muted-foreground) / 0.25);
   border-radius: 20px;
   border: transparent;
 }

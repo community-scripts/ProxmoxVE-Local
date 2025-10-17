@@ -34,16 +34,16 @@ const buttonVariants = cva(
           "relative after:absolute after:bg-primary after:bottom-2 after:h-[1px] after:w-2/3 after:origin-bottom-left after:scale-x-100 hover:after:origin-bottom-right hover:after:scale-x-0 after:transition-transform after:ease-in-out after:duration-300",
         linkHover2:
           "relative after:absolute after:bg-primary after:bottom-2 after:h-[1px] after:w-2/3 after:origin-bottom-right after:scale-x-0 hover:after:origin-bottom-left hover:after:scale-x-100 after:transition-transform after:ease-in-out after:duration-300",
-        // Dark theme action button variants
-        edit: "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        update: "bg-cyan-900/20 hover:bg-cyan-900/30 border border-cyan-700/50 text-cyan-300 hover:text-cyan-200 hover:border-cyan-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        shell: "bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        openui: "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/50 text-blue-300 hover:text-blue-200 hover:border-blue-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        start: "bg-green-900/20 hover:bg-green-900/30 border border-green-700/50 text-green-300 hover:text-green-200 hover:border-green-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        stop: "bg-red-900/20 hover:bg-red-900/30 border border-red-700/50 text-red-300 hover:text-red-200 hover:border-red-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        delete: "bg-red-900/20 hover:bg-red-900/30 border border-red-700/50 text-red-300 hover:text-red-200 hover:border-red-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
-        save: "bg-green-900/20 hover:bg-green-900/30 border border-green-700/50 text-green-300 hover:text-green-200 hover:border-green-600/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
-        cancel: "bg-gray-800/20 hover:bg-gray-800/30 border border-gray-600/50 text-gray-300 hover:text-gray-200 hover:border-gray-500/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        // Action button variants
+        edit: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        update: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        shell: "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
+        openui: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        start: "bg-success/20 hover:bg-success/30 border border-success/50 text-success hover:text-success-foreground hover:border-success/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        stop: "bg-error/20 hover:bg-error/30 border border-error/50 text-error hover:text-error-foreground hover:border-error/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        delete: "bg-error/20 hover:bg-error/30 border border-error/50 text-error hover:text-error-foreground hover:border-error/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
+        save: "bg-success/20 hover:bg-success/30 border border-success/50 text-success hover:text-success-foreground hover:border-success/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
+        cancel: "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
       },
       size: {
         default: "h-10 px-4 py-2",
