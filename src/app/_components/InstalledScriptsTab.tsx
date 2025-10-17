@@ -900,17 +900,17 @@ export function InstalledScriptsTab() {
         
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-info/10 border border-info/20 p-4 rounded-lg">
+            <div className="bg-info/10 border border-info/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-info">{stats.total}</div>
               <div className="text-sm text-info/80">Total Installations</div>
             </div>
-            <div className="bg-success/10 border border-success/20 p-4 rounded-lg">
+            <div className="bg-success/10 border border-success/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-success">
                 {scriptsWithStatus.filter(script => script.container_status === 'running').length}
               </div>
               <div className="text-sm text-success/80">Running LXC</div>
             </div>
-            <div className="bg-error/10 border border-error/20 p-4 rounded-lg">
+            <div className="bg-error/10 border border-error/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-error">
                 {scriptsWithStatus.filter(script => script.container_status === 'stopped').length}
               </div>
