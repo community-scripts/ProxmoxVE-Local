@@ -9,6 +9,7 @@ import { CategorySidebar } from './CategorySidebar';
 import { FilterBar, type FilterState } from './FilterBar';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
+import { Clock } from 'lucide-react';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
 
 
@@ -220,6 +221,31 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
   }, [combinedScripts, localScriptsData]);
 
+  // Check if any filters are active (excluding default state)
+  const hasActiveFilters = React.useMemo(() => {
+    return (
+      filters.searchQuery?.trim() !== '' ||
+      filters.showUpdatable !== null ||
+      filters.selectedTypes.length > 0 ||
+      filters.sortBy !== 'name' ||
+      filters.sortOrder !== 'asc' ||
+      selectedCategory !== null
+    );
+  }, [filters, selectedCategory]);
+
+  // Get the 6 newest scripts based on date_created field
+  const newestScripts = React.useMemo((): ScriptCardType[] => {
+    return scriptsWithStatus
+      .filter(script => script?.date_created) // Only scripts with date_created
+      .sort((a, b) => {
+        const aCreated = a?.date_created ?? '';
+        const bCreated = b?.date_created ?? '';
+        // Sort by date descending (newest first)
+        return bCreated.localeCompare(aCreated);
+      })
+      .slice(0, 6); // Take only the first 6
+  }, [scriptsWithStatus]);
+
   // Filter scripts based on all filters and category
   const filteredScripts = React.useMemo((): ScriptCardType[] => {
     let scripts = scriptsWithStatus;
@@ -270,6 +296,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       });
     }
 
+    // Exclude newest scripts from main grid when no filters are active (they'll be shown in carousel)
+    if (!hasActiveFilters) {
+      const newestScriptSlugs = new Set(newestScripts.map(script => script.slug).filter(Boolean));
+      scripts = scripts.filter(script => !newestScriptSlugs.has(script.slug));
+    }
+
     // Apply sorting
     scripts.sort((a, b) => {
       if (!a || !b) return 0;
@@ -309,7 +341,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
 
     return scripts;
-  }, [scriptsWithStatus, filters, selectedCategory]);
+  }, [scriptsWithStatus, filters, selectedCategory, hasActiveFilters, newestScripts]);
 
   // Calculate filter counts for FilterBar
   const filterCounts = React.useMemo(() => {
@@ -619,6 +651,51 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           onViewModeChange={setViewMode}
         />
 
+        {/* Newest Scripts Carousel - Only show when no filters are active */}
+        {!hasActiveFilters && newestScripts.length > 0 && (
+          <div className="mb-8">
+            <div className="bg-card border-l-4 border-l-primary border border-border rounded-lg p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                  <Clock className="h-6 w-6 text-primary" />
+                  Newest Scripts
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  {newestScripts.length} recently added
+                </span>
+              </div>
+              
+              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+                  {newestScripts.map((script, index) => {
+                    if (!script || typeof script !== 'object') {
+                      return null;
+                    }
+                    
+                    const uniqueKey = `newest-${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+                    
+                    return (
+                      <div key={uniqueKey} className="flex-shrink-0 w-64 sm:w-72 md:w-80">
+                        <div className="relative">
+                          <ScriptCard
+                            script={script}
+                            onClick={handleCardClick}
+                            isSelected={selectedSlugs.has(script.slug ?? '')}
+                            onToggleSelect={toggleScriptSelection}
+                          />
+                          {/* NEW badge */}
+                          <div className="absolute top-2 right-2 bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-md shadow-md z-10">
+                            NEW
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
