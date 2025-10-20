@@ -1,9 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
-import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter } from "lucide-react";
+import {
+  Package,
+  Monitor,
+  Wrench,
+  Server,
+  FileText,
+  Calendar,
+  RefreshCw,
+  Filter,
+} from "lucide-react";
+import { useTranslation } from "~/lib/i18n/useTranslation";
 
 export interface FilterState {
   searchQuery: string;
@@ -24,10 +34,10 @@ interface FilterBarProps {
 }
 
 const SCRIPT_TYPES = [
-  { value: "ct", label: "LXC Container", Icon: Package },
-  { value: "vm", label: "Virtual Machine", Icon: Monitor },
-  { value: "addon", label: "Add-on", Icon: Wrench },
-  { value: "pve", label: "PVE Host", Icon: Server },
+  { value: "ct", labelKey: "types.options.ct", Icon: Package },
+  { value: "vm", labelKey: "types.options.vm", Icon: Monitor },
+  { value: "addon", labelKey: "types.options.addon", Icon: Wrench },
+  { value: "pve", labelKey: "types.options.pve", Icon: Server },
 ];
 
 export function FilterBar({
@@ -39,6 +49,7 @@ export function FilterBar({
   saveFiltersEnabled = false,
   isLoadingFilters = false,
 }: FilterBarProps) {
+  const { t } = useTranslation("filterBar");
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
@@ -64,50 +75,55 @@ export function FilterBar({
     filters.sortOrder !== "asc";
 
   const getUpdatableButtonText = () => {
-    if (filters.showUpdatable === null) return "Updatable: All";
-    if (filters.showUpdatable === true)
-      return `Updatable: Yes (${updatableCount})`;
-    return "Updatable: No";
+    if (filters.showUpdatable === null) return t("updatable.all");
+    if (filters.showUpdatable === true) {
+      return t("updatable.yes", { values: { count: updatableCount } });
+    }
+    return t("updatable.no");
   };
 
   const getTypeButtonText = () => {
-    if (filters.selectedTypes.length === 0) return "All Types";
+    if (filters.selectedTypes.length === 0) return t("types.all");
     if (filters.selectedTypes.length === 1) {
       const type = SCRIPT_TYPES.find(
         (t) => t.value === filters.selectedTypes[0],
       );
-      return type?.label ?? filters.selectedTypes[0];
+      return type ? t(type.labelKey) : filters.selectedTypes[0];
     }
-    return `${filters.selectedTypes.length} Types`;
+    return t("types.multiple", {
+      values: { count: filters.selectedTypes.length },
+    });
   };
 
   return (
-    <div className="mb-6 rounded-lg border border-border bg-card p-4 sm:p-6 shadow-sm">
+    <div className="border-border bg-card mb-6 rounded-lg border p-4 shadow-sm sm:p-6">
       {/* Loading State */}
       {isLoadingFilters && (
         <div className="mb-4 flex items-center justify-center py-2">
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-            <span>Loading saved filters...</span>
+          <div className="text-muted-foreground flex items-center space-x-2 text-sm">
+            <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"></div>
+            <span>{t("loading")}</span>
           </div>
         </div>
       )}
 
-
       {/* Filter Header */}
       {!isLoadingFilters && (
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-foreground">Filter Scripts</h3>
-          <ContextualHelpIcon section="available-scripts" tooltip="Help with filtering and searching" />
+          <h3 className="text-foreground text-lg font-medium">{t("header")}</h3>
+          <ContextualHelpIcon
+            section="available-scripts"
+            tooltip={t("helpTooltip")}
+          />
         </div>
       )}
 
       {/* Search Bar */}
       <div className="mb-4">
-        <div className="relative max-w-md w-full">
+        <div className="relative w-full max-w-md">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <svg
-              className="h-5 w-5 text-muted-foreground"
+              className="text-muted-foreground h-5 w-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -122,17 +138,17 @@ export function FilterBar({
           </div>
           <input
             type="text"
-            placeholder="Search scripts..."
+            placeholder={t("search.placeholder")}
             value={filters.searchQuery}
             onChange={(e) => updateFilters({ searchQuery: e.target.value })}
-            className="block w-full rounded-lg border border-input bg-background py-3 pr-10 pl-10 text-sm leading-5 text-foreground placeholder-muted-foreground focus:border-primary focus:placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+            className="border-input bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:placeholder-muted-foreground focus:ring-primary block w-full rounded-lg border py-3 pr-10 pl-10 text-sm leading-5 focus:ring-2 focus:outline-none"
           />
           {filters.searchQuery && (
             <Button
               onClick={() => updateFilters({ searchQuery: "" })}
               variant="ghost"
               size="icon"
-              className="absolute inset-y-0 right-0 pr-3 text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 pr-3"
             >
               <svg
                 className="h-5 w-5"
@@ -153,7 +169,7 @@ export function FilterBar({
       </div>
 
       {/* Filter Buttons */}
-      <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+      <div className="mb-4 flex flex-col flex-wrap gap-2 sm:flex-row sm:gap-3">
         {/* Updateable Filter */}
         <Button
           onClick={() => {
@@ -167,12 +183,12 @@ export function FilterBar({
           }}
           variant="outline"
           size="default"
-          className={`w-full sm:w-auto flex items-center justify-center space-x-2 ${
+          className={`flex w-full items-center justify-center space-x-2 sm:w-auto ${
             filters.showUpdatable === null
               ? "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               : filters.showUpdatable === true
-                ? "border border-success/20 bg-success/10 text-success"
-                : "border border-destructive/20 bg-destructive/10 text-destructive"
+                ? "border-success/20 bg-success/10 text-success border"
+                : "border-destructive/20 bg-destructive/10 text-destructive border"
           }`}
         >
           <RefreshCw className="h-4 w-4" />
@@ -185,10 +201,10 @@ export function FilterBar({
             onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
             variant="outline"
             size="default"
-            className={`w-full flex items-center justify-center space-x-2 ${
+            className={`flex w-full items-center justify-center space-x-2 ${
               filters.selectedTypes.length === 0
                 ? "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                : "border border-primary/20 bg-primary/10 text-primary"
+                : "border-primary/20 bg-primary/10 text-primary border"
             }`}
           >
             <Filter className="h-4 w-4" />
@@ -209,14 +225,14 @@ export function FilterBar({
           </Button>
 
           {isTypeDropdownOpen && (
-            <div className="absolute top-full left-0 z-10 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
+            <div className="border-border bg-card absolute top-full left-0 z-10 mt-1 w-48 rounded-lg border shadow-lg">
               <div className="p-2">
                 {SCRIPT_TYPES.map((type) => {
                   const IconComponent = type.Icon;
                   return (
                     <label
                       key={type.value}
-                      className="flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2 hover:bg-accent"
+                      className="hover:bg-accent flex cursor-pointer items-center space-x-3 rounded-md px-3 py-2"
                     >
                       <input
                         type="checkbox"
@@ -237,17 +253,17 @@ export function FilterBar({
                             });
                           }
                         }}
-                        className="rounded border-input text-primary focus:ring-primary"
+                        className="border-input text-primary focus:ring-primary rounded"
                       />
                       <IconComponent className="h-4 w-4" />
-                      <span className="text-sm text-muted-foreground">
-                        {type.label}
+                      <span className="text-muted-foreground text-sm">
+                        {t(type.labelKey)}
                       </span>
                     </label>
                   );
                 })}
               </div>
-              <div className="border-t border-border p-2">
+              <div className="border-border border-t p-2">
                 <Button
                   onClick={() => {
                     updateFilters({ selectedTypes: [] });
@@ -255,9 +271,9 @@ export function FilterBar({
                   }}
                   variant="ghost"
                   size="sm"
-                  className="w-full justify-start text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="text-muted-foreground hover:bg-accent hover:text-foreground w-full justify-start"
                 >
-                  Clear all
+                  {t("actions.clearAllTypes")}
                 </Button>
               </div>
             </div>
@@ -270,14 +286,18 @@ export function FilterBar({
             onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
             variant="outline"
             size="default"
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-center space-x-2 sm:w-auto"
           >
             {filters.sortBy === "name" ? (
               <FileText className="h-4 w-4" />
             ) : (
               <Calendar className="h-4 w-4" />
             )}
-            <span>{filters.sortBy === "name" ? "By Name" : "By Created Date"}</span>
+            <span>
+              {filters.sortBy === "name"
+                ? t("sort.byName")
+                : t("sort.byCreated")}
+            </span>
             <svg
               className={`h-4 w-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`}
               fill="none"
@@ -294,31 +314,35 @@ export function FilterBar({
           </Button>
 
           {isSortDropdownOpen && (
-            <div className="absolute top-full left-0 z-10 mt-1 w-full sm:w-48 rounded-lg border border-border bg-card shadow-lg">
+            <div className="border-border bg-card absolute top-full left-0 z-10 mt-1 w-full rounded-lg border shadow-lg sm:w-48">
               <div className="p-2">
                 <button
                   onClick={() => {
                     updateFilters({ sortBy: "name" });
                     setIsSortDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 rounded-md px-3 py-2 text-left hover:bg-accent ${
-                    filters.sortBy === "name" ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                  className={`hover:bg-accent flex w-full items-center space-x-3 rounded-md px-3 py-2 text-left ${
+                    filters.sortBy === "name"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground"
                   }`}
                 >
                   <FileText className="h-4 w-4" />
-                  <span className="text-sm">By Name</span>
+                  <span className="text-sm">{t("sort.byName")}</span>
                 </button>
                 <button
                   onClick={() => {
                     updateFilters({ sortBy: "created" });
                     setIsSortDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 rounded-md px-3 py-2 text-left hover:bg-accent ${
-                    filters.sortBy === "created" ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                  className={`hover:bg-accent flex w-full items-center space-x-3 rounded-md px-3 py-2 text-left ${
+                    filters.sortBy === "created"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground"
                   }`}
                 >
                   <Calendar className="h-4 w-4" />
-                  <span className="text-sm">By Created Date</span>
+                  <span className="text-sm">{t("sort.byCreated")}</span>
                 </button>
               </div>
             </div>
@@ -334,7 +358,7 @@ export function FilterBar({
           }
           variant="outline"
           size="default"
-          className="w-full sm:w-auto flex items-center justify-center space-x-1 bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-center space-x-1 sm:w-auto"
         >
           {filters.sortOrder === "asc" ? (
             <>
@@ -352,7 +376,9 @@ export function FilterBar({
                 />
               </svg>
               <span>
-                {filters.sortBy === "created" ? "Oldest First" : "A-Z"}
+                {filters.sortBy === "created"
+                  ? t("sort.oldestFirst")
+                  : t("sort.aToZ")}
               </span>
             </>
           ) : (
@@ -371,7 +397,9 @@ export function FilterBar({
                 />
               </svg>
               <span>
-                {filters.sortBy === "created" ? "Newest First" : "Z-A"}
+                {filters.sortBy === "created"
+                  ? t("sort.newestFirst")
+                  : t("sort.zToA")}
               </span>
             </>
           )}
@@ -379,30 +407,38 @@ export function FilterBar({
       </div>
 
       {/* Filter Summary and Clear All */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             {filteredCount === totalScripts ? (
-              <span>Showing all {totalScripts} scripts</span>
+              <span>
+                {t("summary.showingAll", { values: { count: totalScripts } })}
+              </span>
             ) : (
               <span>
-                {filteredCount} of {totalScripts} scripts{" "}
+                {t("summary.showingFiltered", {
+                  values: { filtered: filteredCount, total: totalScripts },
+                })}{" "}
                 {hasActiveFilters && (
-                  <span className="font-medium text-info">
-                    (filtered)
+                  <span className="text-info font-medium">
+                    {t("summary.filteredSuffix")}
                   </span>
                 )}
               </span>
             )}
           </div>
-          
+
           {/* Filter Persistence Status */}
           {!isLoadingFilters && saveFiltersEnabled && (
-            <div className="flex items-center space-x-1 text-xs text-success">
+            <div className="text-success flex items-center space-x-1 text-xs">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
-              <span>Filters are being saved automatically</span>
+              <span>{t("persistence.enabled")}</span>
             </div>
           )}
         </div>
@@ -412,7 +448,7 @@ export function FilterBar({
             onClick={clearAllFilters}
             variant="ghost"
             size="sm"
-            className="flex items-center space-x-1 text-error hover:bg-error/10 hover:text-error-foreground w-full sm:w-auto justify-center sm:justify-start"
+            className="text-error hover:bg-error/10 hover:text-error-foreground flex w-full items-center justify-center space-x-1 sm:w-auto sm:justify-start"
           >
             <svg
               className="h-4 w-4"
@@ -427,7 +463,7 @@ export function FilterBar({
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-            <span>Clear all filters</span>
+            <span>{t("actions.clearFilters")}</span>
           </Button>
         )}
       </div>
