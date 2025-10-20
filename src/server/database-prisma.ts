@@ -20,6 +20,7 @@ class DatabaseServicePrisma {
   // Server CRUD operations
   async createServer(serverData: CreateServerData) {
     const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated } = serverData;
+    const normalizedPort = ssh_port !== undefined ? parseInt(String(ssh_port), 10) : 22;
     
     let ssh_key_path = null;
     
@@ -38,7 +39,7 @@ class DatabaseServicePrisma {
         auth_type: auth_type ?? 'password',
         ssh_key,
         ssh_key_passphrase,
-        ssh_port: ssh_port ?? 22,
+        ssh_port: Number.isNaN(normalizedPort) ? 22 : normalizedPort,
         ssh_key_path,
         key_generated: Boolean(key_generated),
         color,
@@ -60,6 +61,7 @@ class DatabaseServicePrisma {
 
   async updateServer(id: number, serverData: CreateServerData) {
     const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated } = serverData;
+    const normalizedPort = ssh_port !== undefined ? parseInt(String(ssh_port), 10) : undefined;
     
     // Get existing server to check for key changes
     const existingServer = await this.getServerById(id);
@@ -109,7 +111,7 @@ class DatabaseServicePrisma {
         auth_type: auth_type ?? 'password',
         ssh_key,
         ssh_key_passphrase,
-        ssh_port: ssh_port ?? 22,
+        ssh_port: normalizedPort ?? 22,
         ssh_key_path,
         key_generated: key_generated !== undefined ? Boolean(key_generated) : (existingServer?.key_generated ?? false),
         color,

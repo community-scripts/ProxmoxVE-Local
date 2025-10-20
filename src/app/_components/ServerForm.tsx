@@ -122,7 +122,21 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
   const handleChange = (field: keyof CreateServerData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+    // Special handling for numeric ssh_port: keep it strictly numeric
+    if (field === 'ssh_port') {
+      const raw = (e.target as HTMLInputElement).value ?? '';
+      const digitsOnly = raw.replace(/\D+/g, '');
+      setFormData(prev => ({
+        ...prev,
+        ssh_port: digitsOnly ? parseInt(digitsOnly, 10) : undefined,
+      }));
+      if (errors.ssh_port) {
+        setErrors(prev => ({ ...prev, ssh_port: undefined }));
+      }
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, [field]: (e.target as HTMLInputElement).value }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
@@ -246,14 +260,17 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
           <input
             type="number"
             id="ssh_port"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
             value={formData.ssh_port ?? 22}
             onChange={handleChange('ssh_port')}
             className={`w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ${
               errors.ssh_port ? 'border-destructive' : 'border-border'
             }`}
             placeholder="22"
-            min="1"
-            max="65535"
+            min={1}
+            max={65535}
           />
           {errors.ssh_port && <p className="mt-1 text-sm text-destructive">{errors.ssh_port}</p>}
         </div>

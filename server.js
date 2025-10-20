@@ -8,7 +8,18 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
-import { registerGlobalErrorHandlers } from './src/server/logging/globalHandlers.js';
+// Fallback minimal global error handlers for Node runtime (avoid TS import)
+function registerGlobalErrorHandlers() {
+  if (registerGlobalErrorHandlers._registered) return;
+  registerGlobalErrorHandlers._registered = true;
+  process.on('uncaughtException', (err) => {
+    console.error('uncaught_exception', err);
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('unhandled_rejection', reason);
+  });
+}
+registerGlobalErrorHandlers._registered = false;
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
