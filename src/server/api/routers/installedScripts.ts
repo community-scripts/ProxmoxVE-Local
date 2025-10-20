@@ -908,21 +908,44 @@ export const installedScriptsRouter = createTRPCRouter({
             // Check if the container config file still exists
             const checkCommand = `test -f "/etc/pve/lxc/${scriptData.container_id}.conf" && echo "exists" || echo "not_found"`;
             
+            // Await full command completion to avoid early false negatives
             const containerExists = await new Promise<boolean>((resolve) => {
-             
+              let combinedOutput = '';
+              let resolved = false;
+
+              const finish = () => {
+                if (resolved) return;
+                resolved = true;
+                const out = combinedOutput.trim();
+                if (out.includes('exists')) {
+                  resolve(true);
+                } else if (out.includes('not_found')) {
+                  resolve(false);
+                } else {
+                  // Unknown output; treat as not found but log for diagnostics
+                  console.warn(`cleanupOrphanedScripts: unexpected output for ${String(scriptData.script_name)} (${String(scriptData.container_id)}): ${out}`);
+                  resolve(false);
+                }
+              };
+
+              // Add a guard timeout so we don't hang indefinitely
+              const timer = setTimeout(() => {
+                console.warn(`cleanupOrphanedScripts: timeout while checking ${String(scriptData.script_name)} on server ${String((server as any).name)}`);
+                finish();
+              }, 15000);
+
               void sshExecutionService.executeCommand(
-                 
                 server as Server,
                 checkCommand,
                 (data: string) => {
-                  resolve(data.trim() === 'exists');
+                  combinedOutput += data;
                 },
                 (error: string) => {
-                  console.error(`Error checking container ${scriptData.script_name}:`, error);
-                  resolve(false);
+                  combinedOutput += error;
                 },
                 (_exitCode: number) => {
-                  resolve(false);
+                  clearTimeout(timer);
+                  finish();
                 }
               );
             });
