@@ -4,9 +4,10 @@ import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
+import { useTranslation } from "~/lib/i18n/useTranslation";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface VersionDisplayProps {
   onOpenReleaseNotes?: () => void;
@@ -20,6 +21,7 @@ function LoadingOverlay({
   isNetworkError?: boolean; 
   logs?: string[];
 }) {
+  const { t } = useTranslation('versionDisplay.loadingOverlay');
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new logs arrive
@@ -38,18 +40,18 @@ function LoadingOverlay({
           </div>
           <div className="text-center">
             <h3 className="text-lg font-semibold text-card-foreground mb-2">
-              {isNetworkError ? 'Server Restarting' : 'Updating Application'}
+              {isNetworkError ? t('serverRestarting') : t('updatingApplication')}
             </h3>
             <p className="text-sm text-muted-foreground">
               {isNetworkError 
-                ? 'The server is restarting after the update...' 
-                : 'Please stand by while we update your application...'
+                ? t('serverRestartingMessage')
+                : t('updatingMessage')
               }
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {isNetworkError 
-                ? 'This may take a few moments. The page will reload automatically.'
-                : 'The server will restart automatically when complete.'
+                ? t('serverRestartingNote')
+                : t('updatingNote')
               }
             </p>
           </div>
@@ -78,6 +80,8 @@ function LoadingOverlay({
 }
 
 export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {}) {
+  const { t } = useTranslation('versionDisplay');
+  const { t: tOverlay } = useTranslation('versionDisplay.loadingOverlay');
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -95,7 +99,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       if (result.success) {
         // Start subscribing to update logs
         setShouldSubscribe(true);
-        setUpdateLogs(['Update started...']);
+        setUpdateLogs([tOverlay('updateStarted')]);
       } else {
         setIsUpdating(false);
       }
@@ -113,6 +117,36 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     refetchIntervalInBackground: true,
   });
 
+  // Attempt to reconnect and reload page when server is back
+  const startReconnectAttempts = useCallback(() => {
+    if (reconnectIntervalRef.current) return;
+    
+    setUpdateLogs(prev => [...prev, tOverlay('reconnecting')]);
+    
+    reconnectIntervalRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          // Try to fetch the root path to check if server is back
+          const response = await fetch('/', { method: 'HEAD' });
+          if (response.ok || response.status === 200) {
+            setUpdateLogs(prev => [...prev, tOverlay('serverBackOnline')]);
+            
+            // Clear interval and reload
+            if (reconnectIntervalRef.current) {
+              clearInterval(reconnectIntervalRef.current);
+            }
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        } catch {
+          // Server still down, keep trying
+        }
+      })();
+    }, 2000);
+  }, [tOverlay]);
+
   // Update logs when data changes
   useEffect(() => {
     if (updateLogsData?.success && updateLogsData.logs) {
@@ -120,13 +154,13 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       setUpdateLogs(updateLogsData.logs);
       
       if (updateLogsData.isComplete) {
-        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+        setUpdateLogs(prev => [...prev, tOverlay('updateComplete')]);
         setIsNetworkError(true);
         // Start reconnection attempts when we know update is complete
         startReconnectAttempts();
       }
     }
-  }, [updateLogsData]);
+  }, [updateLogsData, tOverlay, startReconnectAttempts]);
 
   // Monitor for server connection loss and auto-reload (fallback only)
   useEffect(() => {
@@ -143,7 +177,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       
       if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
         setIsNetworkError(true);
-        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
+        setUpdateLogs(prev => [...prev, tOverlay('serverRestarting2')]);
         
         // Start trying to reconnect
         startReconnectAttempts();
@@ -151,37 +185,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     }, 10000); // Check every 10 seconds
 
     return () => clearInterval(checkInterval);
-  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError]);
-
-  // Attempt to reconnect and reload page when server is back
-  const startReconnectAttempts = () => {
-    if (reconnectIntervalRef.current) return;
-    
-    setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
-    
-    reconnectIntervalRef.current = setInterval(() => {
-      void (async () => {
-        try {
-          // Try to fetch the root path to check if server is back
-          const response = await fetch('/', { method: 'HEAD' });
-          if (response.ok || response.status === 200) {
-            setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
-            
-            // Clear interval and reload
-            if (reconnectIntervalRef.current) {
-              clearInterval(reconnectIntervalRef.current);
-            }
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }
-        } catch {
-          // Server still down, keep trying
-        }
-      })();
-    }, 2000);
-  };
+  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError, tOverlay, startReconnectAttempts]);
 
   // Cleanup reconnect interval on unmount
   useEffect(() => {
@@ -207,7 +211,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     return (
       <div className="flex items-center gap-2">
         <Badge variant="secondary" className="animate-pulse">
-          Loading...
+          {t('loading')}
         </Badge>
       </div>
     );
@@ -217,10 +221,10 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     return (
       <div className="flex items-center gap-2">
         <Badge variant="destructive">
-          v{versionStatus?.currentVersion ?? 'Unknown'}
+          v{versionStatus?.currentVersion ?? t('unknownVersion')}
         </Badge>
         <span className="text-xs text-muted-foreground">
-          (Unable to check for updates)
+          {t('unableToCheck')}
         </span>
       </div>
     );
@@ -255,23 +259,23 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
                 {isUpdating ? (
                   <>
                     <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                    <span className="hidden sm:inline">Updating...</span>
-                    <span className="sm:hidden">...</span>
+                    <span className="hidden sm:inline">{t('update.updating')}</span>
+                    <span className="sm:hidden">{t('update.updatingShort')}</span>
                   </>
                 ) : (
                   <>
                     <Download className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">Update Now</span>
-                    <span className="sm:hidden">Update</span>
+                    <span className="hidden sm:inline">{t('update.updateNow')}</span>
+                    <span className="sm:hidden">{t('update.updateNowShort')}</span>
                   </>
                 )}
               </Button>
               
-              <ContextualHelpIcon section="update-system" tooltip="Help with updates" />
+              <ContextualHelpIcon section="update-system" tooltip={t('helpTooltip')} />
             </div>
             
             <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">Release Notes:</span>
+              <span className="text-xs text-muted-foreground">{t('releaseNotes')}</span>
               <a
                 href={releaseInfo.htmlUrl}
                 target="_blank"
@@ -297,7 +301,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         
         {isUpToDate && (
           <span className="text-xs text-chart-2">
-            ✓ Up to date
+            {t('upToDate')}
           </span>
         )}
       </div>
