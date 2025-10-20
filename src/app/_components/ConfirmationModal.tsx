@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { AlertTriangle, Info } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -28,10 +29,12 @@ export function ConfirmationModal({
   cancelButtonText = 'Cancel'
 }: ConfirmationModalProps) {
   const [typedText, setTypedText] = useState('');
+  const isDanger = variant === 'danger';
+  const allowEscape = useMemo(() => !isDanger, [isDanger]);
+
+  useRegisterModal(isOpen, { id: 'confirmation-modal', allowEscape, onClose });
 
   if (!isOpen) return null;
-
-  const isDanger = variant === 'danger';
   const isConfirmEnabled = isDanger ? typedText === confirmText : true;
 
   const handleConfirm = () => {

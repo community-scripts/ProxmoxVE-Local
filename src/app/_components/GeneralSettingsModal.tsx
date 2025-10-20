@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { useTheme } from './ThemeProvider';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface GeneralSettingsModalProps {
 }
 
 export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
+  useRegisterModal(isOpen, { id: 'general-settings-modal', allowEscape: true, onClose });
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth'>('general');
   const [githubToken, setGithubToken] = useState('');

@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 import { Lock, User, Shield, AlertCircle } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface SetupModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SetupModalProps {
 }
 
 export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
+  useRegisterModal(isOpen, { id: 'setup-modal', allowEscape: true, onClose: () => null });
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

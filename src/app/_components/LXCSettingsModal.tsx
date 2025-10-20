@@ -9,6 +9,7 @@ import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { LoadingModal } from './LoadingModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface InstalledScript {
   id: number;
@@ -41,6 +42,7 @@ interface LXCSettingsModalProps {
 }
 
 export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: LXCSettingsModalProps) {
+  useRegisterModal(isOpen, { id: 'lxc-settings-modal', allowEscape: true, onClose });
   const [activeTab, setActiveTab] = useState<string>('common');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);

@@ -7,6 +7,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { AuthProvider } from "./_components/AuthProvider";
 import { AuthGuard } from "./_components/AuthGuard";
 import { ThemeProvider } from "./_components/ThemeProvider";
+import { ModalStackProvider } from "./_components/modal/ModalStackProvider";
 
 export const metadata: Metadata = {
   title: "PVE Scripts local",
@@ -41,9 +42,11 @@ export default function RootLayout({
         <ThemeProvider>
           <TRPCReactProvider>
             <AuthProvider>
-              <AuthGuard>
-                {children}
-              </AuthGuard>
+              <ModalStackProvider>
+                <AuthGuard>
+                  {children}
+                </AuthGuard>
+              </ModalStackProvider>
             </AuthProvider>
           </TRPCReactProvider>
         </ThemeProvider>

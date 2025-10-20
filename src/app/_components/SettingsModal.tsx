@@ -6,6 +6,7 @@ import { ServerForm } from './ServerForm';
 import { ServerList } from './ServerList';
 import { Button } from './ui/button';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  useRegisterModal(isOpen, { id: 'settings-modal', allowEscape: true, onClose });
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
