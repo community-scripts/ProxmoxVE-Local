@@ -391,4 +391,53 @@ export const enMessages: NestedMessages = {
     buttonTitle: 'Open Settings',
     buttonLabel: 'Settings',
   },
+  executionModeModal: {
+    title: 'Select Server',
+    loadingServers: 'Loading servers...',
+    noServersConfigured: 'No servers configured',
+    addServersHint: 'Add servers in Settings to execute scripts',
+    openServerSettings: 'Open Server Settings',
+    installConfirmation: {
+      title: 'Install Script Confirmation',
+      description: 'Do you want to install "{scriptName}" on the following server?',
+    },
+    unnamedServer: 'Unnamed Server',
+    multipleServers: {
+      title: 'Select server to execute "{scriptName}"',
+      selectServerLabel: 'Select Server',
+      placeholder: 'Select a server...',
+    },
+    actions: {
+      cancel: 'Cancel',
+      install: 'Install',
+      runOnServer: 'Run on Server',
+    },
+    errors: {
+      noServerSelected: 'Please select a server for SSH execution',
+      fetchFailed: 'Failed to fetch servers',
+    },
+  },
+  publicKeyModal: {
+    title: 'SSH Public Key',
+    subtitle: 'Add this key to your server\'s authorized_keys',
+    instructions: {
+      title: 'Instructions:',
+      step1: 'Copy the public key below',
+      step2: 'SSH into your server:',
+      step3: 'Add the key to authorized_keys:',
+      step4: 'Set proper permissions:',
+    },
+    publicKeyLabel: 'Public Key:',
+    quickCommandLabel: 'Quick Add Command:',
+    quickCommandHint: 'Copy and paste this command directly into your server terminal to add the key to authorized_keys',
+    placeholder: 'Public key will appear here...',
+    actions: {
+      copy: 'Copy',
+      copied: 'Copied!',
+      copyCommand: 'Copy Command',
+      close: 'Close',
+    },
+    copyFallback: 'Please manually copy this key:\n\n',
+    copyCommandFallback: 'Please manually copy this command:\n\n',
+  },
 };

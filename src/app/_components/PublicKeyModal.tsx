@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Copy, Check, Server, Globe } from 'lucide-react';
 import { Button } from './ui/button';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface PublicKeyModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface PublicKeyModalProps {
 }
 
 export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverIp }: PublicKeyModalProps) {
+  const { t } = useTranslation('publicKeyModal');
   useRegisterModal(isOpen, { id: 'public-key-modal', allowEscape: true, onClose });
   const [copied, setCopied] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
@@ -45,7 +47,7 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
         } catch (fallbackError) {
           console.error('Fallback copy failed:', fallbackError);
           // If all else fails, show the key in an alert
-          alert('Please manually copy this key:\n\n' + publicKey);
+          alert(t('copyFallback') + publicKey);
         }
         
         document.body.removeChild(textArea);
@@ -53,7 +55,7 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
       // Fallback: show the key in an alert
-      alert('Please manually copy this key:\n\n' + publicKey);
+      alert(t('copyFallback') + publicKey);
     }
   };
 
@@ -82,14 +84,14 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
           setTimeout(() => setCommandCopied(false), 2000);
         } catch (fallbackError) {
           console.error('Fallback copy failed:', fallbackError);
-          alert('Please manually copy this command:\n\n' + command);
+          alert(t('copyCommandFallback') + command);
         }
         
         document.body.removeChild(textArea);
       }
     } catch (error) {
       console.error('Failed to copy command to clipboard:', error);
-      alert('Please manually copy this command:\n\n' + command);
+      alert(t('copyCommandFallback') + command);
     }
   };
 
@@ -103,8 +105,8 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
               <Server className="h-6 w-6 text-info" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-card-foreground">SSH Public Key</h2>
-              <p className="text-sm text-muted-foreground">Add this key to your server&apos;s authorized_keys</p>
+              <h2 className="text-xl font-semibold text-card-foreground">{t('title')}</h2>
+              <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
             </div>
           </div>
           <Button
@@ -133,19 +135,19 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
 
           {/* Instructions */}
           <div className="space-y-2">
-            <h3 className="font-medium text-foreground">Instructions:</h3>
+            <h3 className="font-medium text-foreground">{t('instructions.title')}</h3>
             <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Copy the public key below</li>
-              <li>SSH into your server: <code className="bg-muted px-1 rounded">ssh root@{serverIp}</code></li>
-              <li>Add the key to authorized_keys: <code className="bg-muted px-1 rounded">echo &quot;&lt;paste-key&gt;&quot; &gt;&gt; ~/.ssh/authorized_keys</code></li>
-              <li>Set proper permissions: <code className="bg-muted px-1 rounded">chmod 600 ~/.ssh/authorized_keys</code></li>
+              <li>{t('instructions.step1')}</li>
+              <li>{t('instructions.step2')} <code className="bg-muted px-1 rounded">ssh root@{serverIp}</code></li>
+              <li>{t('instructions.step3')} <code className="bg-muted px-1 rounded">echo &quot;&lt;paste-key&gt;&quot; &gt;&gt; ~/.ssh/authorized_keys</code></li>
+              <li>{t('instructions.step4')} <code className="bg-muted px-1 rounded">chmod 600 ~/.ssh/authorized_keys</code></li>
             </ol>
           </div>
 
           {/* Public Key */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Public Key:</label>
+              <label className="text-sm font-medium text-foreground">{t('publicKeyLabel')}</label>
               <Button
                 variant="outline"
                 size="sm"
@@ -155,12 +157,12 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
                 {copied ? (
                   <>
                     <Check className="h-4 w-4" />
-                    Copied!
+                    {t('actions.copied')}
                   </>
                 ) : (
                   <>
                     <Copy className="h-4 w-4" />
-                    Copy
+                    {t('actions.copy')}
                   </>
                 )}
               </Button>
@@ -169,14 +171,14 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
               value={publicKey}
               readOnly
               className="w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground font-mono text-xs min-h-[60px] resize-none border-border focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-              placeholder="Public key will appear here..."
+              placeholder={t('placeholder')}
             />
           </div>
 
           {/* Quick Command */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Quick Add Command:</label>
+              <label className="text-sm font-medium text-foreground">{t('quickCommandLabel')}</label>
               <Button
                 variant="outline"
                 size="sm"
@@ -186,12 +188,12 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
                 {commandCopied ? (
                   <>
                     <Check className="h-4 w-4" />
-                    Copied!
+                    {t('actions.copied')}
                   </>
                 ) : (
                   <>
                     <Copy className="h-4 w-4" />
-                    Copy Command
+                    {t('actions.copyCommand')}
                   </>
                 )}
               </Button>
@@ -202,14 +204,14 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
               </code>
             </div>
             <p className="text-xs text-muted-foreground">
-              Copy and paste this command directly into your server terminal to add the key to authorized_keys
+              {t('quickCommandHint')}
             </p>
           </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('actions.close')}
             </Button>
           </div>
         </div>

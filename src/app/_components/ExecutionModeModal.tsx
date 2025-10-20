@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { ColorCodedDropdown } from './ColorCodedDropdown';
 import { SettingsModal } from './SettingsModal';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 
 interface ExecutionModeModalProps {
@@ -16,25 +17,13 @@ interface ExecutionModeModalProps {
 }
 
 export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: ExecutionModeModalProps) {
+  const { t } = useTranslation('executionModeModal');
   useRegisterModal(isOpen, { id: 'execution-mode-modal', allowEscape: true, onClose });
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      void fetchServers();
-    }
-  }, [isOpen]);
-
-  // Auto-select server when exactly one server is available
-  useEffect(() => {
-    if (isOpen && !loading && servers.length === 1) {
-      setSelectedServer(servers[0] ?? null);
-    }
-  }, [isOpen, loading, servers]);
 
   // Refresh servers when settings modal closes
   const handleSettingsModalClose = () => {
@@ -49,7 +38,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
     try {
       const response = await fetch('/api/servers');
       if (!response.ok) {
-        throw new Error('Failed to fetch servers');
+        throw new Error(t('errors.fetchFailed'));
       }
       const data = await response.json();
       // Sort servers by name alphabetically
@@ -58,15 +47,29 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
       );
       setServers(sortedServers);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : t('errors.fetchFailed'));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (isOpen) {
+      void fetchServers();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Auto-select server when exactly one server is available
+  useEffect(() => {
+    if (isOpen && !loading && servers.length === 1) {
+      setSelectedServer(servers[0] ?? null);
+    }
+  }, [isOpen, loading, servers]);
+
   const handleExecute = () => {
     if (!selectedServer) {
-      setError('Please select a server for SSH execution');
+      setError(t('errors.noServerSelected'));
       return;
     }
     
@@ -88,7 +91,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
         <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
-            <h2 className="text-xl font-bold text-foreground">Select Server</h2>
+            <h2 className="text-xl font-bold text-foreground">{t('title')}</h2>
             <Button
               onClick={onClose}
               variant="ghost"
@@ -121,19 +124,19 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
             {loading ? (
               <div className="text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <p className="mt-2 text-sm text-muted-foreground">Loading servers...</p>
+                <p className="mt-2 text-sm text-muted-foreground">{t('loadingServers')}</p>
               </div>
             ) : servers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">No servers configured</p>
-                <p className="text-xs mt-1">Add servers in Settings to execute scripts</p>
+                <p className="text-sm">{t('noServersConfigured')}</p>
+                <p className="text-xs mt-1">{t('addServersHint')}</p>
                 <Button
                   onClick={() => setSettingsModalOpen(true)}
                   variant="outline"
                   size="sm"
                   className="mt-3"
                 >
-                  Open Server Settings
+                  {t('openServerSettings')}
                 </Button>
               </div>
             ) : servers.length === 1 ? (
@@ -141,10 +144,10 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
               <div className="space-y-6">
                 <div className="text-center">
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    Install Script Confirmation
+                    {t('installConfirmation.title')}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Do you want to install &quot;{scriptName}&quot; on the following server?
+                    {t('installConfirmation.description', { values: { scriptName } })}
                   </p>
                 </div>
                 
@@ -155,7 +158,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {selectedServer?.name ?? 'Unnamed Server'}
+                        {selectedServer?.name ?? t('unnamedServer')}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {selectedServer?.ip}
@@ -171,14 +174,14 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     variant="outline"
                     size="default"
                   >
-                    Cancel
+                    {t('actions.cancel')}
                   </Button>
                   <Button
                     onClick={handleExecute}
                     variant="default"
                     size="default"
                   >
-                    Install
+                    {t('actions.install')}
                   </Button>
                 </div>
               </div>
@@ -187,20 +190,20 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
               <div className="space-y-6">
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    Select server to execute &quot;{scriptName}&quot;
+                    {t('multipleServers.title', { values: { scriptName } })}
                   </h3>
                 </div>
 
                 {/* Server Selection */}
                 <div className="mb-6">
                   <label htmlFor="server" className="block text-sm font-medium text-foreground mb-2">
-                    Select Server
+                    {t('multipleServers.selectServerLabel')}
                   </label>
                   <ColorCodedDropdown
                     servers={servers}
                     selectedServer={selectedServer}
                     onServerSelect={handleServerSelect}
-                    placeholder="Select a server..."
+                    placeholder={t('multipleServers.placeholder')}
                   />
                 </div>
 
@@ -211,7 +214,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     variant="outline"
                     size="default"
                   >
-                    Cancel
+                    {t('actions.cancel')}
                   </Button>
                   <Button
                     onClick={handleExecute}
@@ -220,7 +223,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     size="default"
                     className={!selectedServer ? 'bg-muted-foreground cursor-not-allowed' : ''}
                   >
-                    Run on Server
+                    {t('actions.runOnServer')}
                   </Button>
                 </div>
               </div>
