@@ -22,10 +22,10 @@ const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
             {...props}
           />
           <div className={cn(
-            "w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-gray-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform after:duration-300 after:ease-in-out transition-colors duration-300 ease-in-out",
+            "w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-gray-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform after:duration-300 after:ease-in-out after:shadow-md transition-colors duration-300 ease-in-out border-2 border-gray-300 dark:border-gray-600",
             checked 
-              ? "bg-primary after:translate-x-full" 
-              : "bg-gray-200 dark:bg-gray-600",
+              ? "bg-blue-500 dark:bg-blue-600 after:translate-x-full" 
+              : "bg-gray-300 dark:bg-gray-700",
             className
           )} />
         </label>
