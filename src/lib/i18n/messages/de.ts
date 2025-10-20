@@ -115,6 +115,27 @@ export const deMessages: NestedMessages = {
       settingUp: 'Wird eingerichtet...',
     },
   },
+  helpButton: {
+    needHelp: 'Brauchen Sie Hilfe?',
+    openHelp: 'Hilfe öffnen',
+    help: 'Hilfe',
+  },
+  resyncButton: {
+    syncDescription: 'Skripte mit ProxmoxVE-Repo synchronisieren',
+    syncing: 'Synchronisiere...',
+    syncJsonFiles: 'JSON-Dateien synchronisieren',
+    helpTooltip: 'Hilfe zum Sync-Button',
+    lastSync: 'Letzte Synchronisierung: {time}',
+    messages: {
+      success: 'Skripte erfolgreich synchronisiert',
+      failed: 'Fehler beim Synchronisieren der Skripte',
+      error: 'Fehler: {message}',
+    },
+  },
+  viewToggle: {
+    cardView: 'Karten-Ansicht',
+    listView: 'Listen-Ansicht',
+  },
   layout: {
     title: 'PVE Skriptverwaltung',
     tagline: 'Verwalte und starte lokale Proxmox-Hilfsskripte mit Live-Ausgabe',

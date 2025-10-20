@@ -3,6 +3,7 @@
 import React from 'react';
 import { Button } from './ui/button';
 import { Grid3X3, List } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface ViewToggleProps {
   viewMode: 'card' | 'list';
@@ -10,6 +11,8 @@ interface ViewToggleProps {
 }
 
 export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
+  const { t } = useTranslation('viewToggle');
+
   return (
     <div className="flex justify-center mb-6">
       <div className="flex items-center space-x-1 bg-muted rounded-lg p-1">
@@ -24,7 +27,7 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
           }`}
         >
           <Grid3X3 className="h-4 w-4" />
-          <span className="text-sm">Card View</span>
+          <span className="text-sm">{t('cardView')}</span>
         </Button>
         <Button
           onClick={() => onViewModeChange('list')}
@@ -37,7 +40,7 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
           }`}
         >
           <List className="h-4 w-4" />
-          <span className="text-sm">List View</span>
+          <span className="text-sm">{t('listView')}</span>
         </Button>
       </div>
     </div>

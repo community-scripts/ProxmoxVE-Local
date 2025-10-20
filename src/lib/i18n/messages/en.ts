@@ -349,4 +349,25 @@ export const enMessages: NestedMessages = {
       settingUp: 'Setting Up...',
     },
   },
+  helpButton: {
+    needHelp: 'Need help?',
+    openHelp: 'Open Help',
+    help: 'Help',
+  },
+  resyncButton: {
+    syncDescription: 'Sync scripts with ProxmoxVE repo',
+    syncing: 'Syncing...',
+    syncJsonFiles: 'Sync Json Files',
+    helpTooltip: 'Help with Sync Button',
+    lastSync: 'Last sync: {time}',
+    messages: {
+      success: 'Scripts synced successfully',
+      failed: 'Failed to sync scripts',
+      error: 'Error: {message}',
+    },
+  },
+  viewToggle: {
+    cardView: 'Card View',
+    listView: 'List View',
+  },
 };
