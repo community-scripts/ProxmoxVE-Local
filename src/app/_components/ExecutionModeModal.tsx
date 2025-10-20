@@ -5,6 +5,7 @@ import type { Server } from '../../types/server';
 import { Button } from './ui/button';
 import { ColorCodedDropdown } from './ColorCodedDropdown';
 import { SettingsModal } from './SettingsModal';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 
 interface ExecutionModeModalProps {
@@ -15,6 +16,7 @@ interface ExecutionModeModalProps {
 }
 
 export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: ExecutionModeModalProps) {
+  useRegisterModal(isOpen, { id: 'execution-mode-modal', allowEscape: true, onClose });
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

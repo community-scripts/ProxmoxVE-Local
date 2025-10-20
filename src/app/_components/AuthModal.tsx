@@ -5,12 +5,14 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useAuth } from './AuthProvider';
 import { Lock, User, AlertCircle } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface AuthModalProps {
   isOpen: boolean;
 }
 
 export function AuthModal({ isOpen }: AuthModalProps) {
+  useRegisterModal(isOpen, { id: 'auth-modal', allowEscape: false, onClose: () => null });
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');

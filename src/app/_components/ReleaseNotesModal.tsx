@@ -5,6 +5,7 @@ import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { X, ExternalLink, Calendar, Tag, Loader2 } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -34,6 +35,7 @@ const markVersionAsSeen = (version: string): void => {
 };
 
 export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: ReleaseNotesModalProps) {
+  useRegisterModal(isOpen, { id: 'release-notes-modal', allowEscape: true, onClose });
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const { data: releasesData, isLoading, error } = api.version.getAllReleases.useQuery(undefined, {
     enabled: isOpen

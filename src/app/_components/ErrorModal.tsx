@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Button } from './ui/button';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface ErrorModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function ErrorModal({
   details,
   type = 'error'
 }: ErrorModalProps) {
+  useRegisterModal(isOpen, { id: 'error-modal', allowEscape: true, onClose });
   // Auto-close after 10 seconds
   useEffect(() => {
     if (isOpen) {

@@ -9,6 +9,7 @@ import { TextViewer } from "./TextViewer";
 import { ExecutionModeModal } from "./ExecutionModeModal";
 import { TypeBadge, UpdateableBadge, PrivilegedBadge, NoteBadge } from "./Badge";
 import { Button } from "./ui/button";
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface ScriptDetailModalProps {
   script: Script | null;
@@ -28,6 +29,7 @@ export function ScriptDetailModal({
   onClose,
   onInstallScript,
 }: ScriptDetailModalProps) {
+  useRegisterModal(isOpen, { id: 'script-detail-modal', allowEscape: true, onClose });
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadMessage, setLoadMessage] = useState<string | null>(null);

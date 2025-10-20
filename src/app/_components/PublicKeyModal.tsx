@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Copy, Check, Server, Globe } from 'lucide-react';
 import { Button } from './ui/button';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface PublicKeyModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface PublicKeyModalProps {
 }
 
 export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverIp }: PublicKeyModalProps) {
+  useRegisterModal(isOpen, { id: 'public-key-modal', allowEscape: true, onClose });
   const [copied, setCopied] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
 

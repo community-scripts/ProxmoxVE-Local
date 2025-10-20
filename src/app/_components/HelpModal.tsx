@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { HelpCircle, Server, Settings, RefreshCw, Package, HardDrive, FolderOpen, Search, Download } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface HelpModalProps {
 type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
+  useRegisterModal(isOpen, { id: 'help-modal', allowEscape: true, onClose });
   const [activeSection, setActiveSection] = useState<HelpSection>(initialSection as HelpSection);
 
   if (!isOpen) return null;

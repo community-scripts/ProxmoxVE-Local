@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface LoadingModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface LoadingModalProps {
 }
 
 export function LoadingModal({ isOpen, action }: LoadingModalProps) {
+  useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: false, onClose: () => null });
   if (!isOpen) return null;
 
   return (
