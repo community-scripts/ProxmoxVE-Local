@@ -29,6 +29,14 @@ export const deMessages: NestedMessages = {
       empty: 'Keine Daten verfügbar',
     },
   },
+  confirmationModal: {
+    typeToConfirm: 'Tippe {text} um zu bestätigen:',
+    placeholder: 'Tippe "{text}" hier ein',
+  },
+  errorModal: {
+    detailsLabel: 'Details:',
+    errorDetailsLabel: 'Fehlerdetails:',
+  },
   layout: {
     title: 'PVE Skriptverwaltung',
     tagline: 'Verwalte und starte lokale Proxmox-Hilfsskripte mit Live-Ausgabe',

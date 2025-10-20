@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from './ui/button';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '~/lib/i18n/useTranslation';
 
 interface ErrorModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export function ErrorModal({
   details,
   type = 'error'
 }: ErrorModalProps) {
+  const { t } = useTranslation('errorModal');
+  const { t: tc } = useTranslation('common.actions');
   useRegisterModal(isOpen, { id: 'error-modal', allowEscape: true, onClose });
   // Auto-close after 10 seconds
   useEffect(() => {
@@ -64,7 +67,7 @@ export function ErrorModal({
                   ? 'text-success-foreground'
                   : 'text-error-foreground'
               }`}>
-                {type === 'success' ? 'Details:' : 'Error Details:'}
+                {type === 'success' ? t('detailsLabel') : t('errorDetailsLabel')}
               </p>
               <pre className={`text-xs whitespace-pre-wrap break-words ${
                 type === 'success'
@@ -80,7 +83,7 @@ export function ErrorModal({
         {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t border-border">
           <Button variant="outline" onClick={onClose}>
-            Close
+            {tc('close')}
           </Button>
         </div>
       </div>

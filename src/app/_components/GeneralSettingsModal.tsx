@@ -23,7 +23,7 @@ export function GeneralSettingsModal({
     allowEscape: true,
     onClose,
   });
-  const { t, locale, setLocale, availableLocales } = useTranslation("settings");
+  const { t } = useTranslation("settings");
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"general" | "github" | "auth">(
     "general",
@@ -98,7 +98,7 @@ export function GeneralSettingsModal({
 
       if (response.ok) {
         setSaveFilter(enabled);
-        setMessage({ type: "success", text: "Save filter setting updated!" });
+        setMessage({ type: "success", text: t("messages.filterSettingSaved") });
 
         // If disabling save filters, clear saved filters
         if (!enabled) {
@@ -108,11 +108,11 @@ export function GeneralSettingsModal({
         const errorData = await response.json();
         setMessage({
           type: "error",
-          text: errorData.error ?? "Failed to save setting",
+          text: errorData.error ?? t("messages.filterSettingError"),
         });
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to save setting" });
+      setMessage({ type: "error", text: t("messages.filterSettingError") });
     }
   };
 
@@ -136,16 +136,19 @@ export function GeneralSettingsModal({
 
       if (response.ok) {
         setSavedFilters(null);
-        setMessage({ type: "success", text: "Saved filters cleared!" });
+        setMessage({
+          type: "success",
+          text: t("messages.clearFiltersSuccess"),
+        });
       } else {
         const errorData = await response.json();
         setMessage({
           type: "error",
-          text: errorData.error ?? "Failed to clear filters",
+          text: errorData.error ?? t("messages.clearFiltersError"),
         });
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to clear filters" });
+      setMessage({ type: "error", text: t("messages.clearFiltersError") });
     }
   };
 
@@ -165,17 +168,17 @@ export function GeneralSettingsModal({
       if (response.ok) {
         setMessage({
           type: "success",
-          text: "GitHub token saved successfully!",
+          text: t("messages.githubTokenSuccess"),
         });
       } else {
         const errorData = await response.json();
         setMessage({
           type: "error",
-          text: errorData.error ?? "Failed to save token",
+          text: errorData.error ?? t("messages.githubTokenError"),
         });
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to save token" });
+      setMessage({ type: "error", text: t("messages.githubTokenError") });
     } finally {
       setIsSaving(false);
     }
@@ -207,13 +210,13 @@ export function GeneralSettingsModal({
         setColorCodingEnabled(enabled);
         setMessage({
           type: "success",
-          text: "Color coding setting saved successfully",
+          text: t("messages.colorCodingSuccess"),
         });
         setTimeout(() => setMessage(null), 3000);
       } else {
         setMessage({
           type: "error",
-          text: "Failed to save color coding setting",
+          text: t("messages.colorCodingError"),
         });
         setTimeout(() => setMessage(null), 3000);
       }
@@ -221,7 +224,7 @@ export function GeneralSettingsModal({
       console.error("Error saving color coding setting:", error);
       setMessage({
         type: "error",
-        text: "Failed to save color coding setting",
+        text: t("messages.colorCodingError"),
       });
       setTimeout(() => setMessage(null), 3000);
     }
@@ -252,7 +255,7 @@ export function GeneralSettingsModal({
 
   const saveAuthCredentials = async () => {
     if (authPassword !== authConfirmPassword) {
-      setMessage({ type: "error", text: "Passwords do not match" });
+      setMessage({ type: "error", text: t("messages.passwordMismatch") });
       return;
     }
 
@@ -275,7 +278,7 @@ export function GeneralSettingsModal({
       if (response.ok) {
         setMessage({
           type: "success",
-          text: "Authentication credentials updated successfully!",
+          text: t("messages.authCredentialsSuccess"),
         });
         setAuthPassword("");
         setAuthConfirmPassword("");
@@ -284,11 +287,11 @@ export function GeneralSettingsModal({
         const errorData = await response.json();
         setMessage({
           type: "error",
-          text: errorData.error ?? "Failed to save credentials",
+          text: errorData.error ?? t("messages.authCredentialsError"),
         });
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to save credentials" });
+      setMessage({ type: "error", text: t("messages.authCredentialsError") });
     } finally {
       setAuthLoading(false);
     }
@@ -311,17 +314,23 @@ export function GeneralSettingsModal({
         setAuthEnabled(enabled);
         setMessage({
           type: "success",
-          text: `Authentication ${enabled ? "enabled" : "disabled"} successfully!`,
+          text: t("messages.authStatusSuccess", {
+            values: {
+              status: enabled
+                ? t("auth.sections.status.enabled")
+                : t("auth.sections.status.disabled"),
+            },
+          }),
         });
       } else {
         const errorData = await response.json();
         setMessage({
           type: "error",
-          text: errorData.error ?? "Failed to update auth status",
+          text: errorData.error ?? t("messages.authStatusError"),
         });
       }
     } catch {
-      setMessage({ type: "error", text: "Failed to update auth status" });
+      setMessage({ type: "error", text: t("messages.authStatusError") });
     } finally {
       setAuthLoading(false);
     }
@@ -336,11 +345,11 @@ export function GeneralSettingsModal({
         <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
           <div className="flex items-center gap-2">
             <h2 className="text-card-foreground text-xl font-bold sm:text-2xl">
-              Settings
+              {t("title")}
             </h2>
             <ContextualHelpIcon
               section="general-settings"
-              tooltip="Help with General Settings"
+              tooltip={t("help")}
             />
           </div>
           <Button
@@ -378,7 +387,7 @@ export function GeneralSettingsModal({
                   : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
               }`}
             >
-              General
+              {t("tabs.general")}
             </Button>
             <Button
               onClick={() => setActiveTab("github")}
@@ -390,7 +399,7 @@ export function GeneralSettingsModal({
                   : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
               }`}
             >
-              GitHub
+              {t("tabs.github")}
             </Button>
             <Button
               onClick={() => setActiveTab("auth")}
@@ -402,7 +411,7 @@ export function GeneralSettingsModal({
                   : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
               }`}
             >
-              Authentication
+              {t("tabs.auth")}
             </Button>
           </nav>
         </div>
@@ -412,24 +421,28 @@ export function GeneralSettingsModal({
           {activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
               <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                General Settings
+                {t("general.title")}
               </h3>
               <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                Configure general application preferences and behavior.
+                {t("general.description")}
               </p>
               <div className="space-y-4">
                 <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-medium">Theme</h4>
+                  <h4 className="text-foreground mb-2 font-medium">
+                    {t("general.sections.theme.title")}
+                  </h4>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    Choose your preferred color theme for the application.
+                    {t("general.sections.theme.description")}
                   </p>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-foreground text-sm font-medium">
-                        Current Theme
+                        {t("general.sections.theme.current")}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {theme === "light" ? "Light mode" : "Dark mode"}
+                        {theme === "light"
+                          ? t("general.sections.theme.lightLabel")
+                          : t("general.sections.theme.darkLabel")}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -438,14 +451,14 @@ export function GeneralSettingsModal({
                         variant={theme === "light" ? "default" : "outline"}
                         size="sm"
                       >
-                        Light
+                        {t("general.sections.theme.actions.light")}
                       </Button>
                       <Button
                         onClick={() => setTheme("dark")}
                         variant={theme === "dark" ? "default" : "outline"}
                         size="sm"
                       >
-                        Dark
+                        {t("general.sections.theme.actions.dark")}
                       </Button>
                     </div>
                   </div>
@@ -453,15 +466,15 @@ export function GeneralSettingsModal({
 
                 <div className="border-border rounded-lg border p-4">
                   <h4 className="text-foreground mb-2 font-medium">
-                    Save Filters
+                    {t("general.sections.filters.title")}
                   </h4>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    Save your configured script filters.
+                    {t("general.sections.filters.description")}
                   </p>
                   <Toggle
                     checked={saveFilter}
                     onCheckedChange={saveSaveFilter}
-                    label="Enable filter saving"
+                    label={t("general.sections.filters.toggleLabel")}
                   />
 
                   {saveFilter && (
@@ -469,25 +482,41 @@ export function GeneralSettingsModal({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-foreground text-sm font-medium">
-                            Saved Filters
+                            {t("general.sections.filters.savedTitle")}
                           </p>
                           <p className="text-muted-foreground text-xs">
                             {savedFilters
-                              ? "Filters are currently saved"
-                              : "No filters saved yet"}
+                              ? t("general.sections.filters.savedActive")
+                              : t("general.sections.filters.savedEmpty")}
                           </p>
                           {savedFilters && (
                             <div className="text-muted-foreground mt-2 text-xs">
                               <div>
-                                Search: {savedFilters.searchQuery ?? "None"}
+                                {t("general.sections.filters.details.search", {
+                                  values: {
+                                    value:
+                                      savedFilters.searchQuery ??
+                                      t(
+                                        "general.sections.filters.details.none",
+                                      ),
+                                  },
+                                })}
                               </div>
                               <div>
-                                Types: {savedFilters.selectedTypes?.length ?? 0}{" "}
-                                selected
+                                {t("general.sections.filters.details.types", {
+                                  values: {
+                                    count:
+                                      savedFilters.selectedTypes?.length ?? 0,
+                                  },
+                                })}
                               </div>
                               <div>
-                                Sort: {savedFilters.sortBy} (
-                                {savedFilters.sortOrder})
+                                {t("general.sections.filters.details.sort", {
+                                  values: {
+                                    field: savedFilters.sortBy,
+                                    order: savedFilters.sortOrder,
+                                  },
+                                })}
                               </div>
                             </div>
                           )}
@@ -499,7 +528,7 @@ export function GeneralSettingsModal({
                             size="sm"
                             className="text-error hover:text-error/80"
                           >
-                            Clear
+                            {t("general.sections.filters.actions.clear")}
                           </Button>
                         )}
                       </div>
@@ -509,16 +538,15 @@ export function GeneralSettingsModal({
 
                 <div className="border-border rounded-lg border p-4">
                   <h4 className="text-foreground mb-2 font-medium">
-                    Server Color Coding
+                    {t("general.sections.colorCoding.title")}
                   </h4>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    Enable color coding for servers to visually distinguish them
-                    throughout the application.
+                    {t("general.sections.colorCoding.description")}
                   </p>
                   <Toggle
                     checked={colorCodingEnabled}
                     onCheckedChange={saveColorCodingSetting}
-                    label="Enable server color coding"
+                    label={t("general.sections.colorCoding.toggleLabel")}
                   />
                 </div>
               </div>
@@ -529,20 +557,18 @@ export function GeneralSettingsModal({
             <div className="space-y-4 sm:space-y-6">
               <div>
                 <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                  GitHub Integration
+                  {t("github.title")}
                 </h3>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Configure GitHub integration for script management and
-                  updates.
+                  {t("github.description")}
                 </p>
                 <div className="space-y-4">
                   <div className="border-border rounded-lg border p-4">
                     <h4 className="text-foreground mb-2 font-medium">
-                      GitHub Personal Access Token
+                      {t("github.sections.token.title")}
                     </h4>
                     <p className="text-muted-foreground mb-4 text-sm">
-                      Save a GitHub Personal Access Token to circumvent GitHub
-                      API rate limits.
+                      {t("github.sections.token.description")}
                     </p>
 
                     <div className="space-y-3">
@@ -551,12 +577,12 @@ export function GeneralSettingsModal({
                           htmlFor="github-token"
                           className="text-foreground mb-1 block text-sm font-medium"
                         >
-                          Token
+                          {t("github.sections.token.tokenLabel")}
                         </label>
                         <Input
                           id="github-token"
                           type="password"
-                          placeholder="Enter your GitHub Personal Access Token"
+                          placeholder={t("github.sections.token.placeholder")}
                           value={githubToken}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             setGithubToken(e.target.value)
@@ -586,14 +612,18 @@ export function GeneralSettingsModal({
                           }
                           className="flex-1"
                         >
-                          {isSaving ? "Saving..." : "Save Token"}
+                          {isSaving
+                            ? t("github.sections.token.actions.saving")
+                            : t("github.sections.token.actions.save")}
                         </Button>
                         <Button
                           onClick={loadGithubToken}
                           disabled={isLoading || isSaving}
                           variant="outline"
                         >
-                          {isLoading ? "Loading..." : "Refresh"}
+                          {isLoading
+                            ? t("github.sections.token.actions.loading")
+                            : t("github.sections.token.actions.refresh")}
                         </Button>
                       </div>
                     </div>
@@ -607,41 +637,57 @@ export function GeneralSettingsModal({
             <div className="space-y-4 sm:space-y-6">
               <div>
                 <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                  Authentication Settings
+                  {t("auth.title")}
                 </h3>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Configure authentication to secure access to your application.
+                  {t("auth.description")}
                 </p>
                 <div className="space-y-4">
                   <div className="border-border rounded-lg border p-4">
                     <h4 className="text-foreground mb-2 font-medium">
-                      Authentication Status
+                      {t("auth.sections.status.title")}
                     </h4>
                     <p className="text-muted-foreground mb-4 text-sm">
                       {authSetupCompleted
                         ? authHasCredentials
-                          ? `Authentication is ${authEnabled ? "enabled" : "disabled"}. Current username: ${authUsername}`
-                          : `Authentication is ${authEnabled ? "enabled" : "disabled"}. No credentials configured.`
-                        : "Authentication setup has not been completed yet."}
+                          ? t("auth.sections.status.enabledWithCredentials", {
+                              values: {
+                                status: authEnabled
+                                  ? t("auth.sections.status.enabled")
+                                  : t("auth.sections.status.disabled"),
+                                username: authUsername,
+                              },
+                            })
+                          : t(
+                              "auth.sections.status.enabledWithoutCredentials",
+                              {
+                                values: {
+                                  status: authEnabled
+                                    ? t("auth.sections.status.enabled")
+                                    : t("auth.sections.status.disabled"),
+                                },
+                              },
+                            )
+                        : t("auth.sections.status.notSetup")}
                     </p>
 
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-foreground text-sm font-medium">
-                            Enable Authentication
+                            {t("auth.sections.status.toggleLabel")}
                           </p>
                           <p className="text-muted-foreground text-xs">
                             {authEnabled
-                              ? "Authentication is required on every page load"
-                              : "Authentication is optional"}
+                              ? t("auth.sections.status.toggleEnabled")
+                              : t("auth.sections.status.toggleDisabled")}
                           </p>
                         </div>
                         <Toggle
                           checked={authEnabled}
                           onCheckedChange={toggleAuthEnabled}
                           disabled={authLoading || !authSetupCompleted}
-                          label="Enable authentication"
+                          label={t("auth.sections.status.toggleLabel")}
                         />
                       </div>
                     </div>
@@ -649,10 +695,10 @@ export function GeneralSettingsModal({
 
                   <div className="border-border rounded-lg border p-4">
                     <h4 className="text-foreground mb-2 font-medium">
-                      Update Credentials
+                      {t("auth.sections.credentials.title")}
                     </h4>
                     <p className="text-muted-foreground mb-4 text-sm">
-                      Change your username and password for authentication.
+                      {t("auth.sections.credentials.description")}
                     </p>
 
                     <div className="space-y-3">
@@ -661,12 +707,14 @@ export function GeneralSettingsModal({
                           htmlFor="auth-username"
                           className="text-foreground mb-1 block text-sm font-medium"
                         >
-                          Username
+                          {t("auth.sections.credentials.usernameLabel")}
                         </label>
                         <Input
                           id="auth-username"
                           type="text"
-                          placeholder="Enter username"
+                          placeholder={t(
+                            "auth.sections.credentials.usernamePlaceholder",
+                          )}
                           value={authUsername}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             setAuthUsername(e.target.value)
@@ -682,12 +730,14 @@ export function GeneralSettingsModal({
                           htmlFor="auth-password"
                           className="text-foreground mb-1 block text-sm font-medium"
                         >
-                          New Password
+                          {t("auth.sections.credentials.passwordLabel")}
                         </label>
                         <Input
                           id="auth-password"
                           type="password"
-                          placeholder="Enter new password"
+                          placeholder={t(
+                            "auth.sections.credentials.passwordPlaceholder",
+                          )}
                           value={authPassword}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             setAuthPassword(e.target.value)
@@ -703,12 +753,14 @@ export function GeneralSettingsModal({
                           htmlFor="auth-confirm-password"
                           className="text-foreground mb-1 block text-sm font-medium"
                         >
-                          Confirm Password
+                          {t("auth.sections.credentials.confirmPasswordLabel")}
                         </label>
                         <Input
                           id="auth-confirm-password"
                           type="password"
-                          placeholder="Confirm new password"
+                          placeholder={t(
+                            "auth.sections.credentials.confirmPasswordPlaceholder",
+                          )}
                           value={authConfirmPassword}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             setAuthConfirmPassword(e.target.value)
@@ -742,14 +794,18 @@ export function GeneralSettingsModal({
                           }
                           className="flex-1"
                         >
-                          {authLoading ? "Saving..." : "Update Credentials"}
+                          {authLoading
+                            ? t("auth.sections.credentials.actions.updating")
+                            : t("auth.sections.credentials.actions.update")}
                         </Button>
                         <Button
                           onClick={loadAuthCredentials}
                           disabled={authLoading}
                           variant="outline"
                         >
-                          {authLoading ? "Loading..." : "Refresh"}
+                          {authLoading
+                            ? t("auth.sections.credentials.actions.loading")
+                            : t("auth.sections.credentials.actions.refresh")}
                         </Button>
                       </div>
                     </div>

@@ -29,6 +29,14 @@ export const enMessages: NestedMessages = {
       empty: 'No data available',
     },
   },
+  confirmationModal: {
+    typeToConfirm: 'Type {text} to confirm:',
+    placeholder: 'Type "{text}" here',
+  },
+  errorModal: {
+    detailsLabel: 'Details:',
+    errorDetailsLabel: 'Error Details:',
+  },
   layout: {
     title: 'PVE Scripts Management',
     tagline: 'Manage and execute Proxmox helper scripts locally with live output streaming',

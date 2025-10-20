@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { AlertTriangle, Info } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '~/lib/i18n/useTranslation';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -25,12 +26,18 @@ export function ConfirmationModal({
   message,
   variant,
   confirmText,
-  confirmButtonText = 'Confirm',
-  cancelButtonText = 'Cancel'
+  confirmButtonText,
+  cancelButtonText
 }: ConfirmationModalProps) {
+  const { t } = useTranslation('confirmationModal');
+  const { t: tc } = useTranslation('common.actions');
   const [typedText, setTypedText] = useState('');
   const isDanger = variant === 'danger';
   const allowEscape = useMemo(() => !isDanger, [isDanger]);
+  
+  // Use provided button texts or fallback to translations
+  const finalConfirmText = confirmButtonText ?? tc('confirm');
+  const finalCancelText = cancelButtonText ?? tc('cancel');
 
   useRegisterModal(isOpen, { id: 'confirmation-modal', allowEscape, onClose });
 
@@ -74,14 +81,16 @@ export function ConfirmationModal({
           {isDanger && confirmText && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-foreground mb-2">
-                Type <code className="bg-muted px-2 py-1 rounded text-sm">{confirmText}</code> to confirm:
+                {t('typeToConfirm', { values: { text: confirmText } }).split(confirmText)[0]}
+                <code className="bg-muted px-2 py-1 rounded text-sm">{confirmText}</code>
+                {t('typeToConfirm', { values: { text: confirmText } }).split(confirmText)[1]}
               </label>
               <input
                 type="text"
                 value={typedText}
                 onChange={(e) => setTypedText(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                placeholder={`Type "${confirmText}" here`}
+                placeholder={t('placeholder', { values: { text: confirmText } })}
                 autoComplete="off"
               />
             </div>
@@ -95,7 +104,7 @@ export function ConfirmationModal({
               size="default"
               className="w-full sm:w-auto"
             >
-              {cancelButtonText}
+              {finalCancelText}
             </Button>
             <Button
               onClick={handleConfirm}
@@ -104,7 +113,7 @@ export function ConfirmationModal({
               size="default"
               className="w-full sm:w-auto"
             >
-              {confirmButtonText}
+              {finalConfirmText}
             </Button>
           </div>
         </div>
