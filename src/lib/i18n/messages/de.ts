@@ -136,6 +136,27 @@ export const deMessages: NestedMessages = {
     cardView: 'Karten-Ansicht',
     listView: 'Listen-Ansicht',
   },
+  scriptCard: {
+    unnamedScript: 'Unbenanntes Skript',
+    downloaded: 'Heruntergeladen',
+    notDownloaded: 'Nicht heruntergeladen',
+    noDescription: 'Keine Beschreibung verfügbar',
+    website: 'Webseite',
+  },
+  badge: {
+    updateable: 'Aktualisierbar',
+    privileged: 'Privilegiert',
+  },
+  serverSettingsButton: {
+    description: 'PVE-Server hinzufügen und verwalten:',
+    buttonTitle: 'PVE-Server hinzufügen',
+    buttonLabel: 'PVE-Server verwalten',
+  },
+  settingsButton: {
+    description: 'Anwendungseinstellungen:',
+    buttonTitle: 'Einstellungen öffnen',
+    buttonLabel: 'Einstellungen',
+  },
   layout: {
     title: 'PVE Skriptverwaltung',
     tagline: 'Verwalte und starte lokale Proxmox-Hilfsskripte mit Live-Ausgabe',

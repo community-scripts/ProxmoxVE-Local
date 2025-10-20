@@ -3,22 +3,24 @@
 import { useState } from 'react';
 import { SettingsModal } from './SettingsModal';
 import { Button } from './ui/button';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export function ServerSettingsButton() {
+  const { t } = useTranslation('serverSettingsButton');
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="text-sm text-muted-foreground font-medium">
-          Add and manage PVE Servers: 
+          {t('description')}
         </div>
         <Button
           onClick={() => setIsOpen(true)}
           variant="outline"
           size="default"
           className="inline-flex items-center"
-          title="Add PVE Server"
+          title={t('buttonTitle')}
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -40,7 +42,7 @@ export function ServerSettingsButton() {
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          Manage PVE Servers
+          {t('buttonLabel')}
         </Button>
       </div>
 

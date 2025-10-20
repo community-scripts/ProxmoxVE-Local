@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface BadgeProps {
   variant: 'type' | 'updateable' | 'privileged' | 'status' | 'note' | 'execution-mode';
@@ -109,17 +110,23 @@ export const TypeBadge = ({ type, className }: { type: string; className?: strin
   </Badge>
 );
 
-export const UpdateableBadge = ({ className }: { className?: string }) => (
-  <Badge variant="updateable" className={className}>
-    Updateable
-  </Badge>
-);
+export const UpdateableBadge = ({ className }: { className?: string }) => {
+  const { t } = useTranslation('badge');
+  return (
+    <Badge variant="updateable" className={className}>
+      {t('updateable')}
+    </Badge>
+  );
+};
 
-export const PrivilegedBadge = ({ className }: { className?: string }) => (
-  <Badge variant="privileged" className={className}>
-    Privileged
-  </Badge>
-);
+export const PrivilegedBadge = ({ className }: { className?: string }) => {
+  const { t } = useTranslation('badge');
+  return (
+    <Badge variant="privileged" className={className}>
+      {t('privileged')}
+    </Badge>
+  );
+};
 
 export const StatusBadge = ({ status, children, className }: { status: 'success' | 'failed' | 'in_progress'; children: React.ReactNode; className?: string }) => (
   <Badge variant="status" status={status} className={className}>

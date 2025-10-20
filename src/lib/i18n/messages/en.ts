@@ -370,4 +370,25 @@ export const enMessages: NestedMessages = {
     cardView: 'Card View',
     listView: 'List View',
   },
+  scriptCard: {
+    unnamedScript: 'Unnamed Script',
+    downloaded: 'Downloaded',
+    notDownloaded: 'Not Downloaded',
+    noDescription: 'No description available',
+    website: 'Website',
+  },
+  badge: {
+    updateable: 'Updateable',
+    privileged: 'Privileged',
+  },
+  serverSettingsButton: {
+    description: 'Add and manage PVE Servers:',
+    buttonTitle: 'Add PVE Server',
+    buttonLabel: 'Manage PVE Servers',
+  },
+  settingsButton: {
+    description: 'Application Settings:',
+    buttonTitle: 'Open Settings',
+    buttonLabel: 'Settings',
+  },
 };

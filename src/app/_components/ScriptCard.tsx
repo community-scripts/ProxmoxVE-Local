@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import type { ScriptCard } from '~/types/script';
 import { TypeBadge, UpdateableBadge } from './Badge';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface ScriptCardProps {
   script: ScriptCard;
@@ -13,6 +14,7 @@ interface ScriptCardProps {
 }
 
 export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect }: ScriptCardProps) {
+  const { t } = useTranslation('scriptCard');
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => {
@@ -74,7 +76,7 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-foreground truncate">
-              {script.name || 'Unnamed Script'}
+              {script.name || t('unnamedScript')}
             </h3>
             <div className="mt-2 space-y-2">
               {/* Type and Updateable status on first row */}
@@ -91,7 +93,7 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
                 <span className={`text-xs font-medium ${
                   script.isDownloaded ? 'text-success' : 'text-error'
                 }`}>
-                  {script.isDownloaded ? 'Downloaded' : 'Not Downloaded'}
+                  {script.isDownloaded ? t('downloaded') : t('notDownloaded')}
                 </span>
               </div>
             </div>
@@ -100,7 +102,7 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
 
         {/* Description */}
         <p className="text-muted-foreground text-sm line-clamp-3 mb-4 flex-1">
-          {script.description || 'No description available'}
+          {script.description || t('noDescription')}
         </p>
 
         {/* Footer with website link */}
@@ -113,7 +115,7 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
               className="text-info hover:text-info/80 text-sm font-medium flex items-center space-x-1"
               onClick={(e) => e.stopPropagation()}
             >
-              <span>Website</span>
+              <span>{t('website')}</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
