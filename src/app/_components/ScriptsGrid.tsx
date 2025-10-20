@@ -303,7 +303,11 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       scripts = scripts.filter(script => {
         if (!script) return false;
         const scriptType = (script.type ?? '').toLowerCase();
-        return filters.selectedTypes.some(type => type.toLowerCase() === scriptType);
+        
+        // Map non-standard types to standard categories
+        const mappedType = scriptType === 'turnkey' ? 'ct' : scriptType;
+        
+        return filters.selectedTypes.some(type => type.toLowerCase() === mappedType);
       });
     }
 
