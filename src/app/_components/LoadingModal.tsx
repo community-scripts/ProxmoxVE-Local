@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Loader2 } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
-import { useTranslation } from '@/lib/i18n/useTranslation';
+import { Loader2 } from "lucide-react";
+import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 interface LoadingModalProps {
   isOpen: boolean;
@@ -10,27 +10,29 @@ interface LoadingModalProps {
 }
 
 export function LoadingModal({ isOpen, action }: LoadingModalProps) {
-  const { t } = useTranslation('loadingModal');
-  useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: false, onClose: () => null });
+  const { t } = useTranslation("loadingModal");
+  useRegisterModal(isOpen, {
+    id: "loading-modal",
+    allowEscape: false,
+    onClose: () => null,
+  });
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="bg-card border-border w-full max-w-md rounded-lg border p-8 shadow-xl">
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse"></div>
+            <Loader2 className="text-primary h-12 w-12 animate-spin" />
+            <div className="border-primary/20 absolute inset-0 animate-pulse rounded-full border-2"></div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-card-foreground mb-2">
-              {t('processing')}
+            <h3 className="text-card-foreground mb-2 text-lg font-semibold">
+              {t("processing")}
             </h3>
-            <p className="text-sm text-muted-foreground">
-              {action}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              {t('pleaseWait')}
+            <p className="text-muted-foreground text-sm">{action}</p>
+            <p className="text-muted-foreground mt-2 text-xs">
+              {t("pleaseWait")}
             </p>
           </div>
         </div>
@@ -38,4 +40,3 @@ export function LoadingModal({ isOpen, action }: LoadingModalProps) {
     </div>
   );
 }
-

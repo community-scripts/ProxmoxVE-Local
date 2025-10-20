@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { Button } from './ui/button';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
-import { useTranslation } from '~/lib/i18n/useTranslation';
+import { useEffect } from "react";
+import { Button } from "./ui/button";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useTranslation } from "~/lib/i18n/useTranslation";
 
 interface ErrorModalProps {
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface ErrorModalProps {
   title: string;
   message: string;
   details?: string;
-  type?: 'error' | 'success';
+  type?: "error" | "success";
 }
 
 export function ErrorModal({
@@ -21,11 +21,11 @@ export function ErrorModal({
   title,
   message,
   details,
-  type = 'error'
+  type = "error",
 }: ErrorModalProps) {
-  const { t } = useTranslation('errorModal');
-  const { t: tc } = useTranslation('common.actions');
-  useRegisterModal(isOpen, { id: 'error-modal', allowEscape: true, onClose });
+  const { t } = useTranslation("errorModal");
+  const { t: tc } = useTranslation("common.actions");
+  useRegisterModal(isOpen, { id: "error-modal", allowEscape: true, onClose });
   // Auto-close after 10 seconds
   useEffect(() => {
     if (isOpen) {
@@ -39,41 +39,47 @@ export function ErrorModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg shadow-xl max-w-lg w-full border border-border">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="bg-card border-border w-full max-w-lg rounded-lg border shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-center p-6 border-b border-border">
+        <div className="border-border flex items-center justify-center border-b p-6">
           <div className="flex items-center gap-3">
-            {type === 'success' ? (
-              <CheckCircle className="h-8 w-8 text-success" />
+            {type === "success" ? (
+              <CheckCircle className="text-success h-8 w-8" />
             ) : (
-              <AlertCircle className="h-8 w-8 text-error" />
+              <AlertCircle className="text-error h-8 w-8" />
             )}
-            <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+            <h2 className="text-foreground text-xl font-semibold">{title}</h2>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6">
-          <p className="text-sm text-foreground mb-4">{message}</p>
+          <p className="text-foreground mb-4 text-sm">{message}</p>
           {details && (
-            <div className={`rounded-lg p-3 ${
-              type === 'success'
-                ? 'bg-success/10 border border-success/20'
-                : 'bg-error/10 border border-error/20'
-            }`}>
-              <p className={`text-xs font-medium mb-1 ${
-                type === 'success'
-                  ? 'text-success-foreground'
-                  : 'text-error-foreground'
-              }`}>
-                {type === 'success' ? t('detailsLabel') : t('errorDetailsLabel')}
+            <div
+              className={`rounded-lg p-3 ${
+                type === "success"
+                  ? "bg-success/10 border-success/20 border"
+                  : "bg-error/10 border-error/20 border"
+              }`}
+            >
+              <p
+                className={`mb-1 text-xs font-medium ${
+                  type === "success"
+                    ? "text-success-foreground"
+                    : "text-error-foreground"
+                }`}
+              >
+                {type === "success"
+                  ? t("detailsLabel")
+                  : t("errorDetailsLabel")}
               </p>
-              <pre className={`text-xs whitespace-pre-wrap break-words ${
-                type === 'success'
-                  ? 'text-success/80'
-                  : 'text-error/80'
-              }`}>
+              <pre
+                className={`text-xs break-words whitespace-pre-wrap ${
+                  type === "success" ? "text-success/80" : "text-error/80"
+                }`}
+              >
                 {details}
               </pre>
             </div>
@@ -81,9 +87,9 @@ export function ErrorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-border">
+        <div className="border-border flex justify-end gap-3 border-t p-6">
           <Button variant="outline" onClick={onClose}>
-            {tc('close')}
+            {tc("close")}
           </Button>
         </div>
       </div>

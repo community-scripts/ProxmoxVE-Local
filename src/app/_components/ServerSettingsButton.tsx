@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { SettingsModal } from './SettingsModal';
-import { Button } from './ui/button';
-import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useState } from "react";
+import { SettingsModal } from "./SettingsModal";
+import { Button } from "./ui/button";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function ServerSettingsButton() {
-  const { t } = useTranslation('serverSettingsButton');
+  const { t } = useTranslation("serverSettingsButton");
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="text-sm text-muted-foreground font-medium">
-          {t('description')}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="text-muted-foreground text-sm font-medium">
+          {t("description")}
         </div>
         <Button
           onClick={() => setIsOpen(true)}
           variant="outline"
           size="default"
           className="inline-flex items-center"
-          title={t('buttonTitle')}
+          title={t("buttonTitle")}
         >
           <svg
-            className="w-5 h-5 mr-2"
+            className="mr-2 h-5 w-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -42,7 +42,7 @@ export function ServerSettingsButton() {
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          {t('buttonLabel')}
+          {t("buttonLabel")}
         </Button>
       </div>
 
