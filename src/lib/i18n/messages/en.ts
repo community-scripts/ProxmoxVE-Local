@@ -298,4 +298,55 @@ export const enMessages: NestedMessages = {
       passwordMismatch: 'Passwords do not match',
     },
   },
+  loadingModal: {
+    processing: 'Processing',
+    pleaseWait: 'Please wait...',
+  },
+  authModal: {
+    title: 'Authentication Required',
+    description: 'Please enter your credentials to access the application.',
+    username: {
+      label: 'Username',
+      placeholder: 'Enter your username',
+    },
+    password: {
+      label: 'Password',
+      placeholder: 'Enter your password',
+    },
+    error: 'Invalid username or password',
+    actions: {
+      signIn: 'Sign In',
+      signingIn: 'Signing In...',
+    },
+  },
+  setupModal: {
+    title: 'Setup Authentication',
+    description: 'Set up authentication to secure your application. This will be required for future access.',
+    username: {
+      label: 'Username',
+      placeholder: 'Choose a username',
+    },
+    password: {
+      label: 'Password',
+      placeholder: 'Choose a password',
+    },
+    confirmPassword: {
+      label: 'Confirm Password',
+      placeholder: 'Confirm your password',
+    },
+    enableAuth: {
+      title: 'Enable Authentication',
+      descriptionEnabled: 'Authentication will be required on every page load',
+      descriptionDisabled: 'Authentication will be optional (can be enabled later in settings)',
+      label: 'Enable authentication',
+    },
+    errors: {
+      passwordMismatch: 'Passwords do not match',
+      setupFailed: 'Failed to setup authentication',
+    },
+    actions: {
+      completeSetup: 'Complete Setup',
+      settingUp: 'Setting Up...',
+    },
+  },
 };

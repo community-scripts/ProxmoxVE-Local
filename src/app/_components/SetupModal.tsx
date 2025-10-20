@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 import { Lock, User, Shield, AlertCircle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface SetupModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface SetupModalProps {
 }
 
 export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
+  const { t } = useTranslation('setupModal');
   useRegisterModal(isOpen, { id: 'setup-modal', allowEscape: true, onClose: () => null });
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +30,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
 
     // Only validate passwords if authentication is enabled
     if (enableAuth && password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('errors.passwordMismatch'));
       setIsLoading(false);
       return;
     }
@@ -71,11 +73,11 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         }
       } else {
         const errorData = await response.json() as { error: string };
-        setError(errorData.error ?? 'Failed to setup authentication');
+        setError(errorData.error ?? t('errors.setupFailed'));
       }
     } catch (error) {
       console.error('Setup error:', error);
-      setError('Failed to setup authentication');
+      setError(t('errors.setupFailed'));
     }
     
     setIsLoading(false);
@@ -90,27 +92,27 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <Shield className="h-8 w-8 text-success" />
-            <h2 className="text-2xl font-bold text-card-foreground">Setup Authentication</h2>
+            <h2 className="text-2xl font-bold text-card-foreground">{t('title')}</h2>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6">
           <p className="text-muted-foreground text-center mb-6">
-            Set up authentication to secure your application. This will be required for future access.
+            {t('description')}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="setup-username" className="block text-sm font-medium text-foreground mb-2">
-                Username
+                {t('username.label')}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="setup-username"
                           type="text"
-                          placeholder="Choose a username"
+                          placeholder={t('username.placeholder')}
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           disabled={isLoading}
@@ -123,14 +125,14 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
 
             <div>
               <label htmlFor="setup-password" className="block text-sm font-medium text-foreground mb-2">
-                Password
+                {t('password.label')}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="setup-password"
                           type="password"
-                          placeholder="Choose a password"
+                          placeholder={t('password.placeholder')}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           disabled={isLoading}
@@ -143,14 +145,14 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
 
             <div>
               <label htmlFor="confirm-password" className="block text-sm font-medium text-foreground mb-2">
-                Confirm Password
+                {t('confirmPassword.label')}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="confirm-password"
                           type="password"
-                          placeholder="Confirm your password"
+                          placeholder={t('confirmPassword.placeholder')}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           disabled={isLoading}
@@ -164,11 +166,11 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
             <div className="p-4 border border-border rounded-lg bg-muted/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-foreground mb-1">Enable Authentication</h4>
+                  <h4 className="font-medium text-foreground mb-1">{t('enableAuth.title')}</h4>
                   <p className="text-sm text-muted-foreground">
                     {enableAuth 
-                      ? 'Authentication will be required on every page load'
-                      : 'Authentication will be optional (can be enabled later in settings)'
+                      ? t('enableAuth.descriptionEnabled')
+                      : t('enableAuth.descriptionDisabled')
                     }
                   </p>
                 </div>
@@ -176,7 +178,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
                   checked={enableAuth}
                   onCheckedChange={setEnableAuth}
                   disabled={isLoading}
-                  label="Enable authentication"
+                  label={t('enableAuth.label')}
                 />
               </div>
             </div>
@@ -196,7 +198,7 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
               }
               className="w-full"
             >
-              {isLoading ? 'Setting Up...' : 'Complete Setup'}
+              {isLoading ? t('actions.settingUp') : t('actions.completeSetup')}
             </Button>
           </form>
         </div>

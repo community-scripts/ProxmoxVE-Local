@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface LoadingModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface LoadingModalProps {
 }
 
 export function LoadingModal({ isOpen, action }: LoadingModalProps) {
+  const { t } = useTranslation('loadingModal');
   useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: false, onClose: () => null });
   if (!isOpen) return null;
 
@@ -22,13 +24,13 @@ export function LoadingModal({ isOpen, action }: LoadingModalProps) {
           </div>
           <div className="text-center">
             <h3 className="text-lg font-semibold text-card-foreground mb-2">
-              Processing
+              {t('processing')}
             </h3>
             <p className="text-sm text-muted-foreground">
               {action}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Please wait...
+              {t('pleaseWait')}
             </p>
           </div>
         </div>

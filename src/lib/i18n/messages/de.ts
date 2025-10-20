@@ -64,6 +64,57 @@ export const deMessages: NestedMessages = {
       serverBackOnline: 'Server ist wieder online! Seite wird neu geladen...',
     },
   },
+  loadingModal: {
+    processing: 'Verarbeite',
+    pleaseWait: 'Bitte warten...',
+  },
+  authModal: {
+    title: 'Authentifizierung erforderlich',
+    description: 'Bitte geben Sie Ihre Anmeldedaten ein, um auf die Anwendung zuzugreifen.',
+    username: {
+      label: 'Benutzername',
+      placeholder: 'Benutzername eingeben',
+    },
+    password: {
+      label: 'Passwort',
+      placeholder: 'Passwort eingeben',
+    },
+    error: 'Ungültiger Benutzername oder Passwort',
+    actions: {
+      signIn: 'Anmelden',
+      signingIn: 'Anmeldung läuft...',
+    },
+  },
+  setupModal: {
+    title: 'Authentifizierung einrichten',
+    description: 'Richten Sie die Authentifizierung ein, um Ihre Anwendung zu sichern. Diese wird für zukünftige Zugriffe erforderlich sein.',
+    username: {
+      label: 'Benutzername',
+      placeholder: 'Wählen Sie einen Benutzernamen',
+    },
+    password: {
+      label: 'Passwort',
+      placeholder: 'Wählen Sie ein Passwort',
+    },
+    confirmPassword: {
+      label: 'Passwort bestätigen',
+      placeholder: 'Bestätigen Sie Ihr Passwort',
+    },
+    enableAuth: {
+      title: 'Authentifizierung aktivieren',
+      descriptionEnabled: 'Authentifizierung wird bei jedem Seitenladevorgang erforderlich sein',
+      descriptionDisabled: 'Authentifizierung wird optional sein (kann später in den Einstellungen aktiviert werden)',
+      label: 'Authentifizierung aktivieren',
+    },
+    errors: {
+      passwordMismatch: 'Passwörter stimmen nicht überein',
+      setupFailed: 'Fehler beim Einrichten der Authentifizierung',
+    },
+    actions: {
+      completeSetup: 'Einrichtung abschließen',
+      settingUp: 'Wird eingerichtet...',
+    },
+  },
   layout: {
     title: 'PVE Skriptverwaltung',
     tagline: 'Verwalte und starte lokale Proxmox-Hilfsskripte mit Live-Ausgabe',

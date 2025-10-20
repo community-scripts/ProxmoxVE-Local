@@ -6,12 +6,14 @@ import { Input } from './ui/input';
 import { useAuth } from './AuthProvider';
 import { Lock, User, AlertCircle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface AuthModalProps {
   isOpen: boolean;
 }
 
 export function AuthModal({ isOpen }: AuthModalProps) {
+  const { t } = useTranslation('authModal');
   useRegisterModal(isOpen, { id: 'auth-modal', allowEscape: false, onClose: () => null });
   const { login } = useAuth();
   const [username, setUsername] = useState('');
@@ -27,7 +29,7 @@ export function AuthModal({ isOpen }: AuthModalProps) {
     const success = await login(username, password);
     
     if (!success) {
-      setError('Invalid username or password');
+      setError(t('error'));
     }
     
     setIsLoading(false);
@@ -42,27 +44,27 @@ export function AuthModal({ isOpen }: AuthModalProps) {
         <div className="flex items-center justify-center p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <Lock className="h-8 w-8 text-primary" />
-            <h2 className="text-2xl font-bold text-card-foreground">Authentication Required</h2>
+            <h2 className="text-2xl font-bold text-card-foreground">{t('title')}</h2>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6">
           <p className="text-muted-foreground text-center mb-6">
-            Please enter your credentials to access the application.
+            {t('description')}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
-                Username
+                {t('username.label')}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="username"
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder={t('username.placeholder')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={isLoading}
@@ -74,14 +76,14 @@ export function AuthModal({ isOpen }: AuthModalProps) {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-                Password
+                {t('password.label')}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder={t('password.placeholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
@@ -103,7 +105,7 @@ export function AuthModal({ isOpen }: AuthModalProps) {
               disabled={isLoading || !username.trim() || !password.trim()}
               className="w-full"
             >
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? t('actions.signingIn') : t('actions.signIn')}
             </Button>
           </form>
         </div>
