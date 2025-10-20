@@ -2,8 +2,9 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../../server/database-prisma';
 import type { CreateServerData } from '../../../../types/server';
+import { withApiLogging } from '../../../../server/logging/withApiLogging';
 
-export async function GET(
+export const GET = withApiLogging(async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -28,16 +29,16 @@ export async function GET(
     }
 
     return NextResponse.json(server);
-  } catch (error) {
-    console.error('Error fetching server:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to fetch server' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function PUT(
+export const PUT = withApiLogging(async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -62,8 +63,9 @@ export async function PUT(
       );
     }
 
-    // Validate SSH port
-    if (ssh_port !== undefined && (ssh_port < 1 || ssh_port > 65535)) {
+    // Coerce and validate SSH port
+    const port = ssh_port !== undefined ? parseInt(String(ssh_port), 10) : 22;
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
       return NextResponse.json(
         { error: 'SSH port must be between 1 and 65535' },
         { status: 400 }
@@ -111,7 +113,7 @@ export async function PUT(
       auth_type: authType,
       ssh_key,
       ssh_key_passphrase,
-      ssh_port: ssh_port ?? 22,
+      ssh_port: port,
       color,
       key_generated: key_generated ?? false,
       ssh_key_path
@@ -124,7 +126,7 @@ export async function PUT(
       }
     );
   } catch (error) {
-    console.error('Error updating server:', error);
+    // Error handled by withApiLogging
     
     // Handle unique constraint violation
     if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
@@ -139,9 +141,9 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function DELETE(
+export const DELETE = withApiLogging(async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -177,12 +179,12 @@ export async function DELETE(
         changes: 1 
       }
     );
-  } catch (error) {
-    console.error('Error deleting server:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to delete server' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 

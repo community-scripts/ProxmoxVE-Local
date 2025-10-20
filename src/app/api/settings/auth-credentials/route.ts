@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server';
 import { getAuthConfig, updateAuthCredentials, updateAuthEnabled } from '~/lib/auth';
 import fs from 'fs';
 import path from 'path';
+import { withApiLogging } from '../../../../server/logging/withApiLogging';
 
-export async function GET() {
+export const GET = withApiLogging(async function GET() {
   try {
     const authConfig = getAuthConfig();
     
@@ -14,16 +15,16 @@ export async function GET() {
       hasCredentials: authConfig.hasCredentials,
       setupCompleted: authConfig.setupCompleted,
     });
-  } catch (error) {
-    console.error('Error reading auth credentials:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to read auth configuration' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function POST(request: NextRequest) {
+export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
     const { username, password, enabled } = await request.json() as { username: string; password: string; enabled?: boolean };
 
@@ -54,16 +55,16 @@ export async function POST(request: NextRequest) {
       success: true, 
       message: 'Authentication credentials updated successfully' 
     });
-  } catch (error) {
-    console.error('Error updating auth credentials:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to update auth credentials' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
   try {
     const { enabled } = await request.json() as { enabled: boolean };
 
@@ -107,11 +108,11 @@ export async function PATCH(request: NextRequest) {
       success: true, 
       message: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully` 
     });
-  } catch (error) {
-    console.error('Error updating auth enabled status:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to update auth status' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });

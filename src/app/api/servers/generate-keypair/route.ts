@@ -2,8 +2,9 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSSHService } from '../../../../server/ssh-service';
 import { getDatabase } from '../../../../server/database-prisma';
+import { withApiLogging } from '../../../../server/logging/withApiLogging';
 
-export async function POST(_request: NextRequest) {
+export const POST = withApiLogging(async function POST(_request: NextRequest) {
   try {
     const sshService = getSSHService();
     const db = getDatabase();
@@ -20,7 +21,7 @@ export async function POST(_request: NextRequest) {
       serverId: serverId
     });
   } catch (error) {
-    console.error('Error generating SSH key pair:', error);
+    // Error handled by withApiLogging
     return NextResponse.json(
       { 
         success: false,
@@ -29,4 +30,4 @@ export async function POST(_request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });

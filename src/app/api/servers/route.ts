@@ -2,22 +2,23 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../server/database-prisma';
 import type { CreateServerData } from '../../../types/server';
+import { withApiLogging } from '../../../server/logging/withApiLogging';
 
-export async function GET() {
+export const GET = withApiLogging(async function GET() {
   try {
     const db = getDatabase();
     const servers = await db.getAllServers();
     return NextResponse.json(servers);
-  } catch (error) {
-    console.error('Error fetching servers:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to fetch servers' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function POST(request: NextRequest) {
+export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated, ssh_key_path }: CreateServerData = body;
@@ -30,8 +31,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate SSH port
-    if (ssh_port !== undefined && (ssh_port < 1 || ssh_port > 65535)) {
+    // Coerce and validate SSH port
+    const port = ssh_port !== undefined ? parseInt(String(ssh_port), 10) : 22;
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
       return NextResponse.json(
         { error: 'SSH port must be between 1 and 65535' },
         { status: 400 }
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
       auth_type: authType,
       ssh_key,
       ssh_key_passphrase,
-      ssh_port: ssh_port ?? 22,
+      ssh_port: port,
       color,
       key_generated: key_generated ?? false,
       ssh_key_path
@@ -82,11 +84,10 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Error creating server:', error);
-    
+  } catch {
+    // Error handled by withApiLogging
     // Handle unique constraint violation
-    if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+    if (Error instanceof Error && Error.message.includes('UNIQUE constraint failed')) {
       return NextResponse.json(
         { error: 'A server with this name already exists' },
         { status: 409 }
@@ -98,5 +99,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 

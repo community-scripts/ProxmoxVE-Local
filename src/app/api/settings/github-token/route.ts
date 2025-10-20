@@ -2,8 +2,9 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { withApiLogging } from '../../../../server/logging/withApiLogging';
 
-export async function POST(request: NextRequest) {
+export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
     const { token } = await request.json();
 
@@ -39,16 +40,16 @@ export async function POST(request: NextRequest) {
     fs.writeFileSync(envPath, envContent);
 
     return NextResponse.json({ success: true, message: 'GitHub token saved successfully' });
-  } catch (error) {
-    console.error('Error saving GitHub token:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to save GitHub token' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
 
-export async function GET() {
+export const GET = withApiLogging(async function GET() {
   try {
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
@@ -65,11 +66,11 @@ export async function GET() {
     const token = githubTokenMatch ? githubTokenMatch[1] : null;
     
     return NextResponse.json({ token });
-  } catch (error) {
-    console.error('Error reading GitHub token:', error);
+  } catch {
+    // Error handled by withApiLogging
     return NextResponse.json(
       { error: 'Failed to read GitHub token' },
       { status: 500 }
     );
   }
-}
+}, { redactBody: true });
