@@ -177,6 +177,15 @@ export const scriptsRouter = createTRPCRouter({
           const firstInstallMethod = script?.install_methods?.[0];
           const os = firstInstallMethod?.resources?.os;
           const version = firstInstallMethod?.resources?.version;
+          // Extract install basenames for robust local matching (e.g., execute.sh -> execute)
+          const install_basenames = (script?.install_methods ?? [])
+            .map(m => m?.script)
+            .filter((p): p is string => typeof p === 'string')
+            .map(p => {
+              const parts = p.split('/');
+              const file = parts[parts.length - 1] ?? '';
+              return file.replace(/\.(sh|bash|py|js|ts)$/i, '');
+            });
           
           return {
             ...card,
@@ -189,6 +198,7 @@ export const scriptsRouter = createTRPCRouter({
             version: version,
             // Add interface port
             interface_port: script?.interface_port,
+            install_basenames,
           } as ScriptCard;
         });
 
