@@ -8,12 +8,15 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
+import { registerGlobalErrorHandlers } from './src/server/logging/globalHandlers.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
+// Register global handlers once at bootstrap
+registerGlobalErrorHandlers();
 const handle = app.getRequestHandler();
 
 // WebSocket handler for script execution
