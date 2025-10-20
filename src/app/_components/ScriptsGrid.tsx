@@ -651,8 +651,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           onViewModeChange={setViewMode}
         />
 
-        {/* Newest Scripts Carousel - Only show when no filters are active */}
-        {!hasActiveFilters && newestScripts.length > 0 && (
+        {/* Newest Scripts Carousel - Always show when there are newest scripts */}
+        {newestScripts.length > 0 && (
           <div className="mb-8">
             <div className="bg-card border-l-4 border-l-primary border border-border rounded-lg p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
