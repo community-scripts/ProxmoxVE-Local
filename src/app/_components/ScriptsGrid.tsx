@@ -200,6 +200,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
 
   // Update scripts with download status
   const scriptsWithStatus = React.useMemo((): ScriptCardType[] => {
+    // Helper to normalize identifiers for robust matching
+    const normalizeId = (s?: string): string => (s ?? '')
+      .toLowerCase()
+      .replace(/\.(sh|bash|py|js|ts)$/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     return combinedScripts.map(script => {
       if (!script?.name) {
         return script; // Return as-is if invalid
@@ -208,9 +215,13 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       // Check if there's a corresponding local script
       const hasLocalVersion = localScriptsData?.scripts?.some(local => {
         if (!local?.name) return false;
-        const localName = local.name.replace(/\.sh$/, '');
-        return localName.toLowerCase() === script.name.toLowerCase() || 
-               localName.toLowerCase() === (script.slug ?? '').toLowerCase();
+        const normalizedLocal = normalizeId(local.name);
+        const matchesNameOrSlug = (
+          normalizedLocal === normalizeId(script.name) ||
+          normalizedLocal === normalizeId(script.slug)
+        );
+        const matchesInstallBasename = (script as any)?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
+        return matchesNameOrSlug || matchesInstallBasename;
       }) ?? false;
       
       return {

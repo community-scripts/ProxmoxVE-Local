@@ -169,6 +169,13 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
 
   // Update scripts with download status and filter to only downloaded scripts
   const downloadedScripts = React.useMemo((): ScriptCardType[] => {
+    // Helper to normalize identifiers so underscores vs hyphens don't break matches
+    const normalizeId = (s?: string): string => (s ?? '')
+      .toLowerCase()
+      .replace(/\.(sh|bash|py|js|ts)$/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     return combinedScripts
       .map(script => {
         if (!script?.name) {
@@ -178,9 +185,13 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
         // Check if there's a corresponding local script
         const hasLocalVersion = localScriptsData?.scripts?.some(local => {
           if (!local?.name) return false;
-          const localName = local.name.replace(/\.sh$/, '');
-          return localName.toLowerCase() === script.name.toLowerCase() || 
-                 localName.toLowerCase() === (script.slug ?? '').toLowerCase();
+          const normalizedLocal = normalizeId(local.name);
+          const matchesNameOrSlug = (
+            normalizedLocal === normalizeId(script.name) ||
+            normalizedLocal === normalizeId(script.slug)
+          );
+          const matchesInstallBasename = (script as any)?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
+          return matchesNameOrSlug || matchesInstallBasename;
         }) ?? false;
         
         return {

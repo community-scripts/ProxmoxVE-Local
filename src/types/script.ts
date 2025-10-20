@@ -60,6 +60,8 @@ export interface ScriptCard {
   os?: string;
   version?: string;
   interface_port?: number | null;
+  // Optional: basenames of install scripts (without extension)
+  install_basenames?: string[];
 }
 
 export interface GitHubFile {
