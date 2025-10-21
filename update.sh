@@ -355,7 +355,7 @@ restore_backup_files() {
             if [ -f ".env" ]; then
                 rm -f ".env"
             fi
-            if mv "$BACKUP_DIR/.env" ".env"; then
+            if cp "$BACKUP_DIR/.env" ".env"; then
                 log_success ".env file restored from backup"
             else
                 log_error "Failed to restore .env file"
@@ -370,7 +370,7 @@ restore_backup_files() {
             if [ -d "data" ]; then
                 rm -rf "data"
             fi
-            if mv "$BACKUP_DIR/data" "data"; then
+            if cp -r "$BACKUP_DIR/data" "data"; then
                 log_success "Data directory restored from backup"
             else
                 log_error "Failed to restore data directory"
@@ -397,7 +397,7 @@ restore_backup_files() {
                     rm -rf "$target_dir"
                 fi
                 
-                if mv "$BACKUP_DIR/$backup_name" "$target_dir"; then
+                if cp -r "$BACKUP_DIR/$backup_name" "$target_dir"; then
                     log_success "$target_dir directory restored from backup"
                 else
                     log_error "Failed to restore $target_dir directory"
@@ -430,8 +430,8 @@ verify_database_restored() {
     
     local db_size=$(stat -f%z "$db_file" 2>/dev/null || stat -c%s "$db_file" 2>/dev/null)
     if [ "$db_size" -eq 0 ]; then
-        log_error "Database file is empty after restore!"
-        return 1
+        log_warning "Database file is empty - will be recreated by Prisma migrations"
+        return 0  # Don't fail the update, let Prisma recreate the database
     fi
     
     log_success "Database verified (file: $db_file, size: $db_size bytes)"
@@ -490,15 +490,15 @@ stop_application() {
     if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
     else
-        # Try to find the application directory
-        app_dir=$(find /root -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
-        if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+        # Change to production application directory
+        app_dir="/opt/ProxmoxVE-Local"
+        if [ -d "$app_dir" ] && [ -f "$app_dir/server.js" ]; then
             cd "$app_dir" || {
                 log_error "Failed to change to application directory: $app_dir"
                 return 1
             }
         else
-            log_error "Could not find application directory"
+            log_error "Production application directory not found: $app_dir"
             return 1
         fi
     fi
@@ -741,11 +741,16 @@ start_application() {
             fi
         else
             log_error "Failed to enable/start service, falling back to npm start"
-            start_with_npm
+            if ! start_with_npm; then
+                log_error "Failed to start application with npm"
+                return 1
+            fi
         fi
     else
         log "Service was not running before update or no service exists, starting with npm..."
-        start_with_npm
+        if ! start_with_npm; then
+            return 1
+        fi
     fi
 }
 
@@ -869,23 +874,15 @@ main() {
     if [ -f "package.json" ] && [ -f "server.js" ]; then
         app_dir="$(pwd)"
     else
-        # Try multiple common locations:
-        for search_path in /opt /root /home /usr/local; do
-            if [ -d "$search_path" ]; then
-                app_dir=$(find "$search_path" -name "package.json" -path "*/ProxmoxVE-Local*" -exec dirname {} \; 2>/dev/null | head -1)
-                if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
-                    break
-                fi
-            fi
-        done
-        
-        if [ -n "$app_dir" ] && [ -d "$app_dir" ]; then
+        # Use production application directory
+        app_dir="/opt/ProxmoxVE-Local"
+        if [ -d "$app_dir" ] && [ -f "$app_dir/server.js" ]; then
             cd "$app_dir" || {
                 log_error "Failed to change to application directory: $app_dir"
                 exit 1
             }
         else
-            log_error "Could not find application directory"
+            log_error "Production application directory not found: $app_dir"
             exit 1
         fi
     fi
@@ -929,6 +926,7 @@ main() {
     # Restore .env and data directory before building
     restore_backup_files
     
+    
     # Verify database was restored correctly
     if ! verify_database_restored; then
         log_error "Database verification failed, rolling back..."
@@ -944,12 +942,17 @@ main() {
         rollback
     fi
     
-    # Cleanup
+    # Start the application
+    if ! start_application; then
+        log_error "Failed to start application after update"
+        rollback
+    fi
+    
+    # Cleanup only after successful start
     rm -rf "$source_dir"
     rm -rf "/tmp/pve-update-$$"
-    
-    # Start the application
-    start_application
+    rm -rf "$BACKUP_DIR"
+    log "Backup directory cleaned up"
     
     log_success "Update completed successfully!"
 }
