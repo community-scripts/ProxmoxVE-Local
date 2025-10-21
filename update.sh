@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#21.10.2025
+#21.10.2025 - @michelroegl-brunner
 # Enhanced update script for ProxmoxVE-Local
 # Fetches latest release from GitHub and backs up data directory
 
