@@ -298,13 +298,17 @@ clear_original_directory() {
     # List of files/directories to preserve (already backed up)
     local preserve_patterns=(
         "data"
+        "data/*"
         ".env"
         "*.log"
         "update.log"
         "*.backup"
         "*.bak"
         ".git"
-        "scripts"
+        "scripts\ct\*"
+        "scripts\install\*"
+        "scripts\tools\*"
+        "scripts\vm\*"
     )
     
     # Remove all files except preserved ones
@@ -410,6 +414,24 @@ restore_backup_files() {
         log_error "No backup directory found for restoration"
         return 1
     fi
+}
+
+# Verify database was restored correctly
+verify_database_restored() {
+    log "Verifying database was restored correctly..."
+    
+    if [ ! -f "data/database.sqlite" ]; then
+        log_error "Database file not found after restore!"
+        return 1
+    fi
+    
+    local db_size=$(stat -f%z "data/database.sqlite" 2>/dev/null || stat -c%s "data/database.sqlite" 2>/dev/null)
+    if [ "$db_size" -eq 0 ]; then
+        log_error "Database file is empty after restore!"
+        return 1
+    fi
+    
+    log_success "Database verified (size: $db_size bytes)"
 }
 
 # Ensure DATABASE_URL is set in .env file for Prisma
@@ -525,6 +547,7 @@ update_files() {
         "*.backup"
         "*.bak"
         "scripts"
+        "prisma/migrations"
     )
     
     # Find the actual source directory (strip the top-level directory)
@@ -555,7 +578,7 @@ update_files() {
         local should_exclude=false
         
         for pattern in "${exclude_patterns[@]}"; do
-            if [[ "$rel_path" == $pattern ]]; then
+            if [[ "$rel_path" == $pattern ]] || [[ "$rel_path" == $pattern/* ]]; then
                 should_exclude=true
                 break
             fi
@@ -649,6 +672,15 @@ install_and_build() {
         return 1
     fi
     log_success "Prisma client generated successfully"
+    
+    # Check if Prisma migrations exist and are compatible
+    if [ -d "prisma/migrations" ]; then
+        log "Existing migration history detected"
+        local migration_count=$(find prisma/migrations -type d -mindepth 1 | wc -l)
+        log "Found $migration_count existing migrations"
+    else
+        log_warning "No existing migration history found - this may be a fresh install"
+    fi
     
     # Run Prisma migrations
     log "Running Prisma migrations..."
@@ -893,6 +925,12 @@ main() {
     
     # Restore .env and data directory before building
     restore_backup_files
+    
+    # Verify database was restored correctly
+    if ! verify_database_restored; then
+        log_error "Database verification failed, rolling back..."
+        rollback
+    fi
     
     # Ensure DATABASE_URL is set for Prisma
     ensure_database_url
