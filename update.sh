@@ -551,7 +551,6 @@ update_files() {
         "*.backup"
         "*.bak"
         "scripts"
-        "prisma/migrations"
     )
     
     # Find the actual source directory (strip the top-level directory)
@@ -620,6 +619,64 @@ update_files() {
     fi
     
     log_success "Application files updated successfully ($files_copied files)"
+}
+
+# Merge new migrations with existing ones
+merge_migrations() {
+    local source_dir="$1"
+    
+    log "Merging Prisma migrations..."
+    
+    # Find the actual source directory
+    local actual_source_dir
+    actual_source_dir=$(find "$source_dir" -maxdepth 1 -type d -name "community-scripts-ProxmoxVE-Local-*" | head -1)
+    
+    if [ -z "$actual_source_dir" ]; then
+        log_error "Could not find source directory for migration merge"
+        return 1
+    fi
+    
+    # Check if source has migrations
+    if [ ! -d "$actual_source_dir/prisma/migrations" ]; then
+        log "No migrations found in new release"
+        return 0
+    fi
+    
+    # Check if we have existing migrations
+    if [ ! -d "prisma/migrations" ]; then
+        log "No existing migrations found, copying all migrations from new release"
+        mkdir -p "prisma"
+        cp -r "$actual_source_dir/prisma/migrations" "prisma/"
+        log_success "All migrations copied from new release"
+        return 0
+    fi
+    
+    # Merge migrations - copy only new ones
+    local new_migrations_copied=0
+    local existing_migrations=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)
+    
+    for migration_dir in "$actual_source_dir/prisma/migrations"/*; do
+        if [ -d "$migration_dir" ]; then
+            local migration_name=$(basename "$migration_dir")
+            local target_migration="prisma/migrations/$migration_name"
+            
+            if [ ! -d "$target_migration" ]; then
+                log "Adding new migration: $migration_name"
+                cp -r "$migration_dir" "$target_migration"
+                new_migrations_copied=$((new_migrations_copied + 1))
+            else
+                log "Migration $migration_name already exists, skipping"
+            fi
+        fi
+    done
+    
+    local final_migrations=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)
+    
+    if [ "$new_migrations_copied" -gt 0 ]; then
+        log_success "Added $new_migrations_copied new migrations (total: $final_migrations)"
+    else
+        log "No new migrations to add (total: $final_migrations)"
+    fi
 }
 
 # Install dependencies and build
@@ -921,6 +978,12 @@ main() {
     # Update files
     if ! update_files "$source_dir"; then
         log_error "File update failed, rolling back..."
+        rollback
+    fi
+    
+    # Merge new migrations with existing ones
+    if ! merge_migrations "$source_dir"; then
+        log_error "Migration merge failed, rolling back..."
         rollback
     fi
     
