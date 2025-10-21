@@ -305,10 +305,7 @@ clear_original_directory() {
         "*.backup"
         "*.bak"
         ".git"
-        "scripts\ct\*"
-        "scripts\install\*"
-        "scripts\tools\*"
-        "scripts\vm\*"
+        "scripts"
     )
     
     # Remove all files except preserved ones
@@ -420,18 +417,24 @@ restore_backup_files() {
 verify_database_restored() {
     log "Verifying database was restored correctly..."
     
-    if [ ! -f "data/database.sqlite" ]; then
-        log_error "Database file not found after restore!"
+    # Check for both possible database filenames
+    local db_file=""
+    if [ -f "data/database.sqlite" ]; then
+        db_file="data/database.sqlite"
+    elif [ -f "data/settings.db" ]; then
+        db_file="data/settings.db"
+    else
+        log_error "Database file not found after restore! (checked database.sqlite and settings.db)"
         return 1
     fi
     
-    local db_size=$(stat -f%z "data/database.sqlite" 2>/dev/null || stat -c%s "data/database.sqlite" 2>/dev/null)
+    local db_size=$(stat -f%z "$db_file" 2>/dev/null || stat -c%s "$db_file" 2>/dev/null)
     if [ "$db_size" -eq 0 ]; then
         log_error "Database file is empty after restore!"
         return 1
     fi
     
-    log_success "Database verified (size: $db_size bytes)"
+    log_success "Database verified (file: $db_file, size: $db_size bytes)"
 }
 
 # Ensure DATABASE_URL is set in .env file for Prisma
@@ -459,7 +462,7 @@ ensure_database_url() {
     log "Adding DATABASE_URL to .env file..."
     echo "" >> .env
     echo "# Database" >> .env
-    echo "DATABASE_URL=\"file:./data/database.sqlite\"" >> .env
+    echo "DATABASE_URL=\"file:./data/settings.db\"" >> .env
     
     log_success "DATABASE_URL added to .env file"
 }
