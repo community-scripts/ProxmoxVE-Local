@@ -8,6 +8,11 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
+import { initializeAutoSync, setupGracefulShutdown } from './src/server/lib/autoSyncInit.js';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 // Fallback minimal global error handlers for Node runtime (avoid TS import)
 function registerGlobalErrorHandlers() {
   if (registerGlobalErrorHandlers._registered) return;
@@ -976,5 +981,11 @@ app.prepare().then(() => {
     .listen(port, hostname, () => {
       console.log(`> Ready on http://${hostname}:${port}`);
       console.log(`> WebSocket server running on ws://${hostname}:${port}/ws/script-execution`);
+      
+      // Initialize auto-sync service
+      initializeAutoSync();
+      
+      // Setup graceful shutdown handlers
+      setupGracefulShutdown();
     });
 });

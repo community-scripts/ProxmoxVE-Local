@@ -4,6 +4,7 @@ import { scriptManager } from "~/server/lib/scripts";
 import { githubJsonService } from "~/server/services/githubJsonService";
 import { localScriptsService } from "~/server/services/localScripts";
 import { scriptDownloaderService } from "~/server/services/scriptDownloader";
+import { AutoSyncService } from "~/server/services/autoSyncService";
 import type { ScriptCard } from "~/types/script";
 
 export const scriptsRouter = createTRPCRouter({
@@ -455,6 +456,107 @@ export const scriptsRouter = createTRPCRouter({
           isProxmoxVE: false,
           error: error instanceof Error ? error.message : 'Failed to check Proxmox VE status',
           message: 'Failed to check Proxmox VE status'
+        };
+      }
+    }),
+
+  // Auto-sync settings and operations
+  getAutoSyncSettings: publicProcedure
+    .query(async () => {
+      try {
+        const autoSyncService = new AutoSyncService();
+        const settings = autoSyncService.loadSettings();
+        return { success: true, settings };
+      } catch (error) {
+        console.error('Error getting auto-sync settings:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get auto-sync settings',
+          settings: null
+        };
+      }
+    }),
+
+  saveAutoSyncSettings: publicProcedure
+    .input(z.object({
+      autoSyncEnabled: z.boolean(),
+      syncIntervalType: z.enum(['predefined', 'custom']),
+      syncIntervalPredefined: z.string().optional(),
+      syncIntervalCron: z.string().optional(),
+      autoDownloadNew: z.boolean(),
+      autoUpdateExisting: z.boolean(),
+      notificationEnabled: z.boolean(),
+      appriseUrls: z.array(z.string()).optional()
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const autoSyncService = new AutoSyncService();
+        autoSyncService.saveSettings(input);
+        
+        // Reschedule auto-sync if enabled
+        if (input.autoSyncEnabled) {
+          autoSyncService.scheduleAutoSync();
+        } else {
+          autoSyncService.stopAutoSync();
+        }
+        
+        return { success: true, message: 'Auto-sync settings saved successfully' };
+      } catch (error) {
+        console.error('Error saving auto-sync settings:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save auto-sync settings'
+        };
+      }
+    }),
+
+  testNotification: publicProcedure
+    .mutation(async () => {
+      try {
+        const autoSyncService = new AutoSyncService();
+        const result = await autoSyncService.testNotification();
+        return result;
+      } catch (error) {
+        console.error('Error testing notification:', error);
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to test notification'
+        };
+      }
+    }),
+
+  triggerManualAutoSync: publicProcedure
+    .mutation(async () => {
+      try {
+        const autoSyncService = new AutoSyncService();
+        const result = await autoSyncService.executeAutoSync();
+        return {
+          success: true,
+          message: 'Manual auto-sync completed successfully',
+          result
+        };
+      } catch (error) {
+        console.error('Error in manual auto-sync:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to execute manual auto-sync',
+          result: null
+        };
+      }
+    }),
+
+  getAutoSyncStatus: publicProcedure
+    .query(async () => {
+      try {
+        const autoSyncService = new AutoSyncService();
+        const status = autoSyncService.getStatus();
+        return { success: true, status };
+      } catch (error) {
+        console.error('Error getting auto-sync status:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get auto-sync status',
+          status: null
         };
       }
     })
