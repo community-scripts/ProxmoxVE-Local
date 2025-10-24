@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
-import { githubJsonService } from "~/server/services/githubJsonService";
-import { localScriptsService } from "~/server/services/localScripts";
-import { scriptDownloaderService } from "~/server/services/scriptDownloader";
+import { githubJsonService } from "~/server/services/githubJsonService.ts";
+import { localScriptsService } from "~/server/services/localScripts.ts";
+import { scriptDownloaderService } from "~/server/services/scriptDownloader.ts";
 import { AutoSyncService } from "~/server/services/autoSyncService";
 import type { ScriptCard } from "~/types/script";
 
@@ -115,6 +115,18 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       try {
+        console.log('getScriptBySlug called with slug:', input.slug);
+        console.log('githubJsonService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(githubJsonService)));
+        console.log('githubJsonService.getScriptBySlug type:', typeof githubJsonService.getScriptBySlug);
+        
+        if (typeof githubJsonService.getScriptBySlug !== 'function') {
+          return {
+            success: false,
+            error: 'getScriptBySlug method is not available on githubJsonService',
+            script: null
+          };
+        }
+        
         const script = await githubJsonService.getScriptBySlug(input.slug);
         if (!script) {
           return {
@@ -125,6 +137,7 @@ export const scriptsRouter = createTRPCRouter({
         }
         return { success: true, script };
       } catch (error) {
+        console.error('Error in getScriptBySlug:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch script',

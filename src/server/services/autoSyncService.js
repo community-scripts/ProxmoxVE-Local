@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { githubJsonService } from './githubJsonService.js';
+import { githubJsonService } from './githubJsonService.ts';
 import { scriptDownloaderService } from './scriptDownloader.js';
 import { appriseService } from './appriseService.js';
 import { readFile, writeFile, readFileSync, writeFileSync } from 'fs';

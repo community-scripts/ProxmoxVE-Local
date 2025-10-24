@@ -356,7 +356,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
     }
   }, [selectedCategory]);
 
-  const handleCardClick = (scriptCard: { slug: string }) => {
+  const handleCardClick = (scriptCard: ScriptCardType) => {
     // All scripts are GitHub scripts, open modal
     setSelectedSlug(scriptCard.slug);
     setIsModalOpen(true);

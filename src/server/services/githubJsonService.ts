@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { env } from '~/env.js';
-import type { Script, ScriptCard, GitHubFile } from '~/types/script';
+import { env } from '../../env.js';
+import type { Script, ScriptCard, GitHubFile } from '../../types/script';
 
 export class GitHubJsonService {
   private baseUrl: string | null = null;
