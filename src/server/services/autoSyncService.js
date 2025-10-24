@@ -48,7 +48,9 @@ export class AutoSyncService {
         autoUpdateExisting: false,
         notificationEnabled: false,
         appriseUrls: [],
-        lastAutoSync: ''
+        lastAutoSync: '',
+        lastAutoSyncError: null,
+        lastAutoSyncErrorTime: null
       };
       const lines = envContent.split('\n');
       
@@ -93,6 +95,12 @@ export class AutoSyncService {
             case 'LAST_AUTO_SYNC':
               settings.lastAutoSync = value;
               break;
+            case 'LAST_AUTO_SYNC_ERROR':
+              settings.lastAutoSyncError = value;
+              break;
+            case 'LAST_AUTO_SYNC_ERROR_TIME':
+              settings.lastAutoSyncErrorTime = value;
+              break;
           }
         }
       }
@@ -109,7 +117,9 @@ export class AutoSyncService {
         autoUpdateExisting: false,
         notificationEnabled: false,
         appriseUrls: [],
-        lastAutoSync: ''
+        lastAutoSync: '',
+        lastAutoSyncError: null,
+        lastAutoSyncErrorTime: null
       };
     }
   }
@@ -149,7 +159,9 @@ export class AutoSyncService {
         'AUTO_UPDATE_EXISTING': settings.autoUpdateExisting.toString(),
         'NOTIFICATION_ENABLED': settings.notificationEnabled.toString(),
         'APPRISE_URLS': JSON.stringify(settings.appriseUrls || []),
-        'LAST_AUTO_SYNC': settings.lastAutoSync || ''
+        'LAST_AUTO_SYNC': settings.lastAutoSync || '',
+        'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError || '',
+        'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime || ''
       };
       
       const existingKeys = new Set();
@@ -426,9 +438,13 @@ export class AutoSyncService {
         await this.sendSyncNotification(results);
       }
       
-      // Step 4: Update last sync time
+      // Step 4: Update last sync time and clear any previous errors
       const lastSyncTime = this.safeToISOString(new Date());
-      const updatedSettings = { ...settings, lastAutoSync: lastSyncTime };
+      const updatedSettings = { 
+        ...settings, 
+        lastAutoSync: lastSyncTime,
+        lastAutoSyncError: null // Clear any previous errors on successful sync
+      };
       this.saveSettings(updatedSettings);
       
       const duration = new Date().getTime() - startTime.getTime();
@@ -444,13 +460,22 @@ export class AutoSyncService {
     } catch (error) {
       console.error('Auto-sync execution failed:', error);
       
+      // Check if it's a rate limit error
+      const isRateLimitError = error instanceof Error && error.name === 'RateLimitError';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       // Send error notification if enabled
       const settings = this.loadSettings();
       if (settings.notificationEnabled && settings.appriseUrls?.length > 0) {
         try {
+          const notificationTitle = isRateLimitError ? 'Auto-Sync Rate Limited' : 'Auto-Sync Failed';
+          const notificationMessage = isRateLimitError 
+            ? `GitHub API rate limit exceeded. Please set a GITHUB_TOKEN in your .env file for higher rate limits. Error: ${errorMessage}`
+            : `Auto-sync failed with error: ${errorMessage}`;
+            
           await appriseService.sendNotification(
-            'Auto-Sync Failed',
-            `Auto-sync failed with error: ${error instanceof Error ? error.message : String(error)}`,
+            notificationTitle,
+            notificationMessage,
             settings.appriseUrls
           );
         } catch (notifError) {
@@ -458,10 +483,24 @@ export class AutoSyncService {
         }
       }
       
+      // Store the error in settings for UI display
+      const errorSettings = this.loadSettings();
+      const errorToStore = isRateLimitError 
+        ? `GitHub API rate limit exceeded. Please set a GITHUB_TOKEN in your .env file for higher rate limits.`
+        : errorMessage;
+      
+      const updatedErrorSettings = { 
+        ...errorSettings, 
+        lastAutoSyncError: errorToStore,
+        lastAutoSyncErrorTime: this.safeToISOString(new Date())
+      };
+      this.saveSettings(updatedErrorSettings);
+      
       return {
         success: false,
-        message: error instanceof Error ? error.message : String(error),
-        error: error instanceof Error ? error.message : String(error)
+        message: errorToStore,
+        error: errorMessage,
+        isRateLimitError
       };
     } finally {
       this.isRunning = false;

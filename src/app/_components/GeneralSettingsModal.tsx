@@ -46,6 +46,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [appriseUrls, setAppriseUrls] = useState<string[]>([]);
   const [appriseUrlsText, setAppriseUrlsText] = useState('');
   const [lastAutoSync, setLastAutoSync] = useState('');
+  const [lastAutoSyncError, setLastAutoSyncError] = useState<string | null>(null);
+  const [lastAutoSyncErrorTime, setLastAutoSyncErrorTime] = useState<string | null>(null);
   const [cronValidationError, setCronValidationError] = useState('');
 
   // Load existing settings when modal opens
@@ -311,6 +313,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
           setAppriseUrls(settings.appriseUrls ?? []);
           setAppriseUrlsText((settings.appriseUrls ?? []).join('\n'));
           setLastAutoSync(settings.lastAutoSync ?? '');
+          setLastAutoSyncError(settings.lastAutoSyncError ?? null);
+          setLastAutoSyncErrorTime(settings.lastAutoSyncErrorTime ?? null);
         }
       }
     } catch (error) {
@@ -321,17 +325,6 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const saveAutoSyncSettings = async () => {
     setIsSaving(true);
     setMessage(null);
-    
-    console.log('Saving auto-sync settings:', {
-      autoSyncEnabled,
-      syncIntervalType,
-      syncIntervalPredefined,
-      syncIntervalCron,
-      autoDownloadNew,
-      autoUpdateExisting,
-      notificationEnabled,
-      appriseUrls
-    });
     
     try {
       const response = await fetch('/api/settings/auto-sync', {
@@ -348,17 +341,12 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
           appriseUrls: appriseUrls
         })
       });
-
-      console.log('API response status:', response.status);
       
       if (response.ok) {
-        const result = await response.json();
-        console.log('API response data:', result);
         setMessage({ type: 'success', text: 'Auto-sync settings saved successfully!' });
         setTimeout(() => setMessage(null), 3000);
       } else {
         const errorData = await response.json();
-        console.error('API error:', errorData);
         setMessage({ type: 'error', text: errorData.error ?? 'Failed to save auto-sync settings' });
       }
     } catch (error) {
@@ -817,7 +805,6 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                     <Toggle
                       checked={autoSyncEnabled}
                       onCheckedChange={async (checked) => {
-                        console.log('Toggle changed to:', checked);
                         setAutoSyncEnabled(checked);
                         
                         // Auto-save when toggle changes
@@ -843,14 +830,10 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                           });
                           
                           if (response.ok) {
-                            console.log('Auto-sync toggle saved successfully');
                             // Update local state to reflect the effective sync interval type
                             if (effectiveSyncIntervalType !== syncIntervalType) {
                               setSyncIntervalType(effectiveSyncIntervalType);
                             }
-                          } else {
-                            const errorData = await response.json();
-                            console.error('Failed to save auto-sync toggle:', errorData);
                           }
                         } catch (error) {
                           console.error('Error saving auto-sync toggle:', error);
@@ -1044,6 +1027,25 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                           <p className="text-sm text-muted-foreground">
                             Last sync: {new Date(lastAutoSync).toLocaleString()}
                           </p>
+                        </div>
+                      )}
+
+                      {lastAutoSyncError && (
+                        <div className="p-3 bg-error/10 text-error-foreground border border-error/20 rounded-md">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-medium">Last sync error:</p>
+                              <p className="text-sm mt-1">{lastAutoSyncError}</p>
+                              {lastAutoSyncErrorTime && (
+                                <p className="text-xs mt-1 opacity-75">
+                                  {new Date(lastAutoSyncErrorTime).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
 

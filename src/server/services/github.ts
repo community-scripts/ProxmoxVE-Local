@@ -37,16 +37,15 @@ export class GitHubService {
     // Add GitHub token authentication if available
     if (env.GITHUB_TOKEN) {
       headers.Authorization = `token ${env.GITHUB_TOKEN}`;
-      console.log('Using GitHub token for API authentication');
-    } else {
-      console.log('No GitHub token found, using unauthenticated requests (lower rate limits)');
     }
     
     const response = await fetch(`${this.baseUrl}${endpoint}`, { headers });
 
     if (!response.ok) {
       if (response.status === 403) {
-        throw new Error(`GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
+        const error = new Error(`GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
+        error.name = 'RateLimitError';
+        throw error;
       }
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }

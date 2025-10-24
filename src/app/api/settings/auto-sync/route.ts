@@ -136,7 +136,9 @@ export async function POST(request: NextRequest) {
       'AUTO_UPDATE_EXISTING': settings.autoUpdateExisting ? 'true' : 'false',
       'NOTIFICATION_ENABLED': settings.notificationEnabled ? 'true' : 'false',
       'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (settings.appriseUrls || '[]'),
-      'LAST_AUTO_SYNC': settings.lastAutoSync || ''
+      'LAST_AUTO_SYNC': settings.lastAutoSync || '',
+      'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError || '',
+      'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime || ''
     };
 
     // Update or add each setting
@@ -177,6 +179,9 @@ export async function POST(request: NextRequest) {
         autoSyncService.stopAutoSync();
         // Ensure the service is completely stopped and won't restart
         autoSyncService.isRunning = false;
+        // Also stop the global service instance if it exists
+        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit.js');
+        stopGlobalAutoSync();
       }
     } catch (error) {
       console.error('Error rescheduling auto-sync service:', error);
@@ -212,7 +217,9 @@ export async function GET() {
           autoUpdateExisting: false,
           notificationEnabled: false,
           appriseUrls: [],
-          lastAutoSync: ''
+          lastAutoSync: '',
+          lastAutoSyncError: null,
+          lastAutoSyncErrorTime: null
         }
       });
     }
@@ -236,7 +243,9 @@ export async function GET() {
           return [];
         }
       })(),
-      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') || ''
+      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') || '',
+      lastAutoSyncError: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR') || null,
+      lastAutoSyncErrorTime: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR_TIME') || null
     };
     
     return NextResponse.json({ settings });
