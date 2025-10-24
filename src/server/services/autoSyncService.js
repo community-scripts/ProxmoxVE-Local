@@ -343,7 +343,7 @@ export class AutoSyncService {
               try {
                 const result = await scriptDownloaderService.loadScript(script);
                 if (result.success) {
-                  downloaded.push(script.name || script.slug);
+                  downloaded.push(script); // Store full script object for category grouping
                   console.log(`Downloaded script: ${script.name || script.slug}`);
                 } else {
                   errors.push(`${script.name || script.slug}: ${result.message}`);
@@ -370,7 +370,7 @@ export class AutoSyncService {
                 // Always update existing scripts when auto-update is enabled
                 const result = await scriptDownloaderService.loadScript(script);
                 if (result.success) {
-                  updated.push(script.name || script.slug);
+                  updated.push(script); // Store full script object for category grouping
                   console.log(`Updated script: ${script.name || script.slug}`);
                 } else {
                   errors.push(`${script.name || script.slug}: ${result.message}`);
@@ -504,7 +504,18 @@ export class AutoSyncService {
     // @ts-ignore - Dynamic property access
     if (results.jsonSync) {
       // @ts-ignore - Dynamic property access
-      body += `JSON Files: ${results.jsonSync.syncedCount} synced, ${results.jsonSync.skippedCount} up-to-date\n`;
+      const syncedCount = results.jsonSync.count || 0;
+      // @ts-ignore - Dynamic property access
+      const syncedFiles = results.jsonSync.syncedFiles || [];
+      
+      // Calculate up-to-date count (total files - synced files)
+      // We can't easily get total file count from the sync result, so just show synced count
+      if (syncedCount > 0) {
+        body += `JSON Files: ${syncedCount} synced\n`;
+      } else {
+        body += `JSON Files: All up-to-date\n`;
+      }
+      
       // @ts-ignore - Dynamic property access
       if (results.jsonSync.errors?.length > 0) {
         // @ts-ignore - Dynamic property access
