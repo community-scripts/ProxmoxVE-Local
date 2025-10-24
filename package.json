@@ -78,7 +78,7 @@
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.7.1",
     "prisma": "^6.18.0",
-    "tailwindcss": "^4.1.15",
+    "tailwindcss": "^4.1.16",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.46.2",
     "vitest": "^3.2.4"
