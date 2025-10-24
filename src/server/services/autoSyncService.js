@@ -271,6 +271,7 @@ export class AutoSyncService {
           const allSyncedScripts = await githubJsonService.getScriptsForFiles(syncResult.syncedFiles);
           
           // Initialize script downloader service
+          // @ts-ignore - initializeConfig is public in the JS version
           scriptDownloaderService.initializeConfig();
           
           // Filter to only truly NEW scripts (not previously downloaded)
@@ -373,8 +374,8 @@ export class AutoSyncService {
 
   /**
    * Group scripts by category
-   * @param {Array} scripts - Array of script objects
-   * @param {Array} categories - Array of category objects
+   * @param {Array<any>} scripts - Array of script objects
+   * @param {Array<any>} categories - Array of category objects
    */
   groupScriptsByCategory(scripts, categories) {
     const categoryMap = new Map();
@@ -384,7 +385,7 @@ export class AutoSyncService {
     
     scripts.forEach(script => {
       const scriptCategories = script.categories || [0]; // Default to Miscellaneous (id: 0)
-      scriptCategories.forEach(catId => {
+      scriptCategories.forEach((/** @type {number} */ catId) => {
         const categoryName = categoryMap.get(catId) || 'Miscellaneous';
         if (!grouped.has(categoryName)) {
           grouped.set(categoryName, []);
@@ -441,7 +442,7 @@ export class AutoSyncService {
       sortedCategories.forEach(categoryName => {
         const scripts = newScriptsGrouped.get(categoryName);
         body += `\n**${categoryName}:**\n`;
-        scripts.forEach(scriptName => {
+        scripts.forEach((/** @type {string} */ scriptName) => {
           body += `• ${scriptName}\n`;
         });
       });
@@ -463,7 +464,7 @@ export class AutoSyncService {
       sortedCategories.forEach(categoryName => {
         const scripts = updatedScriptsGrouped.get(categoryName);
         body += `\n**${categoryName}:**\n`;
-        scripts.forEach(scriptName => {
+        scripts.forEach((/** @type {string} */ scriptName) => {
           body += `• ${scriptName}\n`;
         });
       });
