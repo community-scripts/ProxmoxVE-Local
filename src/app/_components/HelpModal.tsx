@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { HelpCircle, Server, Settings, RefreshCw, Package, HardDrive, FolderOpen, Search, Download } from 'lucide-react';
+import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface HelpModalProps {
@@ -11,7 +11,7 @@ interface HelpModalProps {
   initialSection?: string;
 }
 
-type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
+type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
   useRegisterModal(isOpen, { id: 'help-modal', allowEscape: true, onClose });
@@ -23,6 +23,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
     { id: 'server-settings' as HelpSection, label: 'Server Settings', icon: Server },
     { id: 'general-settings' as HelpSection, label: 'General Settings', icon: Settings },
     { id: 'sync-button' as HelpSection, label: 'Sync Button', icon: RefreshCw },
+    { id: 'auto-sync' as HelpSection, label: 'Auto-Sync', icon: Clock },
     { id: 'available-scripts' as HelpSection, label: 'Available Scripts', icon: Package },
     { id: 'downloaded-scripts' as HelpSection, label: 'Downloaded Scripts', icon: HardDrive },
     { id: 'installed-scripts' as HelpSection, label: 'Installed Scripts', icon: FolderOpen },
@@ -180,6 +181,101 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• If you notice scripts are missing or outdated</li>
                   <li>• After the ProxmoxVE repository has been updated</li>
                 </ul>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'auto-sync':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-4">Auto-Sync</h3>
+              <p className="text-muted-foreground mb-6">
+                Configure automatic synchronization of scripts with configurable intervals and notifications.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">What Is Auto-Sync?</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Auto-sync automatically synchronizes script metadata from the ProxmoxVE GitHub repository at specified intervals, 
+                  and optionally downloads/updates scripts and sends notifications.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Automatic JSON Sync:</strong> Downloads latest script metadata periodically</li>
+                  <li>• <strong>Auto-Download:</strong> Automatically download new scripts when available</li>
+                  <li>• <strong>Auto-Update:</strong> Automatically update existing scripts to newer versions</li>
+                  <li>• <strong>Notifications:</strong> Send notifications when sync completes</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Sync Intervals</h4>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Predefined:</strong> Choose from common intervals (15min, 30min, 1hour, 6hours, 12hours, 24hours)</li>
+                  <li>• <strong>Custom Cron:</strong> Use cron expressions for advanced scheduling</li>
+                  <li>• <strong>Examples:</strong>
+                    <ul className="ml-4 mt-1 space-y-1">
+                      <li>• <code>0 */6 * * *</code> - Every 6 hours</li>
+                      <li>• <code>0 0 * * *</code> - Daily at midnight</li>
+                      <li>• <code>0 9 * * 1</code> - Every Monday at 9 AM</li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Auto-Download Options</h4>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Auto-download new scripts:</strong> Automatically download scripts that haven't been downloaded yet</li>
+                  <li>• <strong>Auto-update existing scripts:</strong> Automatically update scripts that have newer versions available</li>
+                  <li>• <strong>Selective Control:</strong> Enable/disable each option independently</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Notifications (Apprise)</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Send notifications when sync completes using Apprise, which supports 80+ notification services.
+                  If you want any other notification service, please open an issue on the GitHub repository.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Apprise Server:</strong> <code>http://YOUR_APPRISE_SERVER/notify/apprise</code></li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  See the <a href="https://github.com/caronc/apprise" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Apprise documentation</a> for more supported services.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Setup Guide</h4>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Enable auto-sync in the General Settings → Auto-Sync tab</li>
+                  <li>Choose your sync interval (predefined or custom cron)</li>
+                  <li>Configure auto-download options if desired</li>
+                  <li>Set up notifications by adding Apprise URLs</li>
+                  <li>Test your notification setup using the "Test Notification" button</li>
+                  <li>Save your settings to activate auto-sync</li>
+                </ol>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Cron Expression Help</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Cron expressions have 5 fields: minute hour day month weekday
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Minute:</strong> 0-59 or *</li>
+                  <li>• <strong>Hour:</strong> 0-23 or *</li>
+                  <li>• <strong>Day:</strong> 1-31 or *</li>
+                  <li>• <strong>Month:</strong> 1-12 or *</li>
+                  <li>• <strong>Weekday:</strong> 0-6 (Sunday=0) or *</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Use <a href="https://crontab.guru" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">crontab.guru</a> to test and learn cron expressions.
+                </p>
               </div>
             </div>
           </div>

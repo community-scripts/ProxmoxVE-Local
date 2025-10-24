@@ -7,6 +7,7 @@ import { Toggle } from './ui/toggle';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { useTheme } from './ThemeProvider';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { api } from '~/trpc/react';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface GeneralSettingsModalProps {
 export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
   useRegisterModal(isOpen, { id: 'general-settings-modal', allowEscape: true, onClose });
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth' | 'auto-sync'>('general');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<any>(null);
@@ -34,6 +35,19 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [authSetupCompleted, setAuthSetupCompleted] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Auto-sync state
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [syncIntervalType, setSyncIntervalType] = useState<'predefined' | 'custom'>('predefined');
+  const [syncIntervalPredefined, setSyncIntervalPredefined] = useState('1hour');
+  const [syncIntervalCron, setSyncIntervalCron] = useState('');
+  const [autoDownloadNew, setAutoDownloadNew] = useState(false);
+  const [autoUpdateExisting, setAutoUpdateExisting] = useState(false);
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
+  const [appriseUrls, setAppriseUrls] = useState<string[]>([]);
+  const [appriseUrlsText, setAppriseUrlsText] = useState('');
+  const [lastAutoSync, setLastAutoSync] = useState('');
+  const [cronValidationError, setCronValidationError] = useState('');
+
   // Load existing settings when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -42,6 +56,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       void loadSavedFilters();
       void loadAuthCredentials();
       void loadColorCodingSetting();
+      void loadAutoSyncSettings();
     }
   }, [isOpen]);
 
@@ -278,6 +293,162 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     }
   };
 
+  // Auto-sync functions
+  const loadAutoSyncSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/auto-sync');
+      if (response.ok) {
+        const data = await response.json() as { settings: any };
+        const settings = data.settings;
+        if (settings) {
+          setAutoSyncEnabled(settings.autoSyncEnabled ?? false);
+          setSyncIntervalType(settings.syncIntervalType ?? 'predefined');
+          setSyncIntervalPredefined(settings.syncIntervalPredefined ?? '1hour');
+          setSyncIntervalCron(settings.syncIntervalCron ?? '');
+          setAutoDownloadNew(settings.autoDownloadNew ?? false);
+          setAutoUpdateExisting(settings.autoUpdateExisting ?? false);
+          setNotificationEnabled(settings.notificationEnabled ?? false);
+          setAppriseUrls(settings.appriseUrls ?? []);
+          setAppriseUrlsText((settings.appriseUrls ?? []).join('\n'));
+          setLastAutoSync(settings.lastAutoSync ?? '');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading auto-sync settings:', error);
+    }
+  };
+
+  const saveAutoSyncSettings = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    
+    try {
+      // Validate cron expression if custom
+      if (syncIntervalType === 'custom' && syncIntervalCron) {
+        const response = await fetch('/api/settings/auto-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            autoSyncEnabled,
+            syncIntervalType,
+            syncIntervalPredefined,
+            syncIntervalCron,
+            autoDownloadNew,
+            autoUpdateExisting,
+            notificationEnabled,
+            appriseUrls: appriseUrls
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          setMessage({ type: 'error', text: errorData.error ?? 'Failed to save auto-sync settings' });
+          return;
+        }
+      }
+
+      const response = await fetch('/api/settings/auto-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoSyncEnabled,
+          syncIntervalType,
+          syncIntervalPredefined,
+          syncIntervalCron,
+          autoDownloadNew,
+          autoUpdateExisting,
+          notificationEnabled,
+          appriseUrls: appriseUrls
+        })
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Auto-sync settings saved successfully!' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to save auto-sync settings' });
+      }
+    } catch (error) {
+      console.error('Error saving auto-sync settings:', error);
+      setMessage({ type: 'error', text: 'Failed to save auto-sync settings' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAppriseUrlsChange = (text: string) => {
+    setAppriseUrlsText(text);
+    const urls = text.split('\n').filter(url => url.trim() !== '');
+    setAppriseUrls(urls);
+  };
+
+  const validateCronExpression = (cron: string) => {
+    if (!cron.trim()) {
+      setCronValidationError('');
+      return true;
+    }
+    
+    // Basic cron validation - you might want to use a library like cron-validator
+    const cronRegex = /^(\*|([0-5]?\d)) (\*|([01]?\d|2[0-3])) (\*|([012]?\d|3[01])) (\*|([0]?\d|1[0-2])) (\*|([0-6]))$/;
+    const isValid = cronRegex.test(cron);
+    
+    if (!isValid) {
+      setCronValidationError('Invalid cron expression format');
+      return false;
+    }
+    
+    setCronValidationError('');
+    return true;
+  };
+
+  const handleCronChange = (cron: string) => {
+    setSyncIntervalCron(cron);
+    validateCronExpression(cron);
+  };
+
+  const testNotification = async () => {
+    try {
+      const response = await fetch('/api/settings/auto-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testNotification: true })
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Test notification sent successfully!' });
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to send test notification' });
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      setMessage({ type: 'error', text: 'Failed to send test notification' });
+    }
+  };
+
+  const triggerManualSync = async () => {
+    try {
+      const response = await fetch('/api/settings/auto-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggerManualSync: true })
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Manual sync triggered successfully!' });
+        // Reload settings to get updated last sync time
+        await loadAutoSyncSettings();
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to trigger manual sync' });
+      }
+    } catch (error) {
+      console.error('Error triggering manual sync:', error);
+      setMessage({ type: 'error', text: 'Failed to trigger manual sync' });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -339,6 +510,18 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
               }`}
             >
               Authentication
+            </Button>
+            <Button
+              onClick={() => setActiveTab('auto-sync')}
+              variant="ghost"
+              size="null"
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
+                activeTab === 'auto-sync'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              Auto-Sync
             </Button>
           </nav>
         </div>
@@ -620,6 +803,237 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'auto-sync' && (
+            <div className="space-y-4 sm:space-y-6">
+              <div>
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Auto-Sync Settings</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  Configure automatic synchronization of scripts with configurable intervals and notifications.
+                </p>
+                
+                {/* Enable Auto-Sync */}
+                <div className="p-4 border border-border rounded-lg mb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-foreground mb-1">Enable Auto-Sync</h4>
+                      <p className="text-sm text-muted-foreground">Automatically sync JSON files from GitHub at specified intervals</p>
+                    </div>
+                    <Toggle
+                      checked={autoSyncEnabled}
+                      onCheckedChange={setAutoSyncEnabled}
+                      disabled={isSaving}
+                    />
+                  </div>
+                </div>
+
+                {/* Sync Interval */}
+                {autoSyncEnabled && (
+                  <div className="p-4 border border-border rounded-lg mb-4">
+                    <h4 className="font-medium text-foreground mb-3">Sync Interval</h4>
+                    
+                    <div className="space-y-3">
+                      <div className="flex space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="syncIntervalType"
+                            value="predefined"
+                            checked={syncIntervalType === 'predefined'}
+                            onChange={(e) => setSyncIntervalType(e.target.value as 'predefined' | 'custom')}
+                            className="mr-2"
+                          />
+                          Predefined
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="syncIntervalType"
+                            value="custom"
+                            checked={syncIntervalType === 'custom'}
+                            onChange={(e) => setSyncIntervalType(e.target.value as 'predefined' | 'custom')}
+                            className="mr-2"
+                          />
+                          Custom Cron
+                        </label>
+                      </div>
+
+                      {syncIntervalType === 'predefined' && (
+                        <div>
+                          <select
+                            value={syncIntervalPredefined}
+                            onChange={(e) => setSyncIntervalPredefined(e.target.value)}
+                            className="w-full p-2 border border-border rounded-md bg-background"
+                          >
+                            <option value="15min">Every 15 minutes</option>
+                            <option value="30min">Every 30 minutes</option>
+                            <option value="1hour">Every hour</option>
+                            <option value="6hours">Every 6 hours</option>
+                            <option value="12hours">Every 12 hours</option>
+                            <option value="24hours">Every 24 hours</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {syncIntervalType === 'custom' && (
+                        <div>
+                          <Input
+                            placeholder="0 */6 * * * (every 6 hours)"
+                            value={syncIntervalCron}
+                            onChange={(e) => handleCronChange(e.target.value)}
+                            className="w-full"
+                          />
+                          {cronValidationError && (
+                            <p className="text-sm text-red-500 mt-1">{cronValidationError}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Format: minute hour day month weekday. See{' '}
+                            <a href="https://crontab.guru" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                              crontab.guru
+                            </a>{' '}
+                            for examples
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-Download Options */}
+                {autoSyncEnabled && (
+                  <div className="p-4 border border-border rounded-lg mb-4">
+                    <h4 className="font-medium text-foreground mb-3">Auto-Download Options</h4>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium text-foreground">Auto-download new scripts</h5>
+                          <p className="text-sm text-muted-foreground">Automatically download scripts that haven't been downloaded yet</p>
+                        </div>
+                        <Toggle
+                          checked={autoDownloadNew}
+                          onCheckedChange={setAutoDownloadNew}
+                          disabled={isSaving}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium text-foreground">Auto-update existing scripts</h5>
+                          <p className="text-sm text-muted-foreground">Automatically update scripts that have newer versions available</p>
+                        </div>
+                        <Toggle
+                          checked={autoUpdateExisting}
+                          onCheckedChange={setAutoUpdateExisting}
+                          disabled={isSaving}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notifications */}
+                {autoSyncEnabled && (
+                  <div className="p-4 border border-border rounded-lg mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-foreground">Enable Notifications</h4>
+                        <p className="text-sm text-muted-foreground">Send notifications when sync completes</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          If you want any other notification service, please open an issue on the GitHub repository.
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={notificationEnabled}
+                        onCheckedChange={setNotificationEnabled}
+                        disabled={isSaving}
+                      />
+                    </div>
+
+                    {notificationEnabled && (
+                      <div className="space-y-3">
+                        <div>
+                          <label htmlFor="apprise-urls" className="block text-sm font-medium text-foreground mb-1">
+                            Apprise URLs
+                          </label>
+                          <textarea
+                            id="apprise-urls"
+                            placeholder="http://YOUR_APPRISE_SERVER/notify/apprise&#10;"
+                            value={appriseUrlsText}
+                            onChange={(e) => handleAppriseUrlsChange(e.target.value)}
+                            className="w-full p-2 border border-border rounded-md bg-background h-24 resize-none"
+                            rows={3}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            One URL per line. Supports Discord, Telegram, Email, Slack, and more via{' '}
+                            <a href="https://github.com/caronc/apprise" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                              Apprise
+                            </a>
+                          </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={testNotification}
+                            variant="outline"
+                            size="sm"
+                            disabled={appriseUrls.length === 0}
+                          >
+                            Test Notification
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Status and Actions */}
+                {autoSyncEnabled && (
+                  <div className="p-4 border border-border rounded-lg mb-4">
+                    <h4 className="font-medium text-foreground mb-3">Status & Actions</h4>
+                    
+                    <div className="space-y-3">
+                      {lastAutoSync && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Last sync: {new Date(lastAutoSync).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={triggerManualSync}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Trigger Sync Now
+                        </Button>
+                        <Button
+                          onClick={saveAutoSyncSettings}
+                          disabled={isSaving || (syncIntervalType === 'custom' && !!cronValidationError)}
+                          size="sm"
+                        >
+                          {isSaving ? 'Saving...' : 'Save Settings'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Message Display */}
+                {message && (
+                  <div className={`p-3 rounded-md text-sm ${
+                    message.type === 'success' 
+                      ? 'bg-success/10 text-success-foreground border border-success/20' 
+                      : 'bg-error/10 text-error-foreground border border-error/20'
+                  }`}>
+                    {message.text}
+                  </div>
+                )}
               </div>
             </div>
           )}

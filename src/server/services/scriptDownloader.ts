@@ -167,6 +167,200 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Auto-download new scripts that haven't been downloaded yet
+   */
+  async autoDownloadNewScripts(allScripts: Script[]): Promise<{ downloaded: string[]; errors: string[] }> {
+    this.initializeConfig();
+    const downloaded: string[] = [];
+    const errors: string[] = [];
+
+    for (const script of allScripts) {
+      try {
+        // Check if script is already downloaded
+        const isDownloaded = await this.isScriptDownloaded(script);
+        
+        if (!isDownloaded) {
+          const result = await this.loadScript(script);
+          if (result.success) {
+            downloaded.push(script.name || script.slug);
+            console.log(`Auto-downloaded new script: ${script.name || script.slug}`);
+          } else {
+            errors.push(`${script.name || script.slug}: ${result.message}`);
+          }
+        }
+      } catch (error) {
+        const errorMsg = `${script.name || script.slug}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMsg);
+        console.error(`Failed to auto-download script ${script.slug}:`, error);
+      }
+    }
+
+    return { downloaded, errors };
+  }
+
+  /**
+   * Auto-update existing scripts to newer versions
+   */
+  async autoUpdateExistingScripts(allScripts: Script[]): Promise<{ updated: string[]; errors: string[] }> {
+    this.initializeConfig();
+    const updated: string[] = [];
+    const errors: string[] = [];
+
+    for (const script of allScripts) {
+      try {
+        // Check if script is downloaded
+        const isDownloaded = await this.isScriptDownloaded(script);
+        
+        if (isDownloaded) {
+          // Check if update is needed by comparing content
+          const needsUpdate = await this.scriptNeedsUpdate(script);
+          
+          if (needsUpdate) {
+            const result = await this.loadScript(script);
+            if (result.success) {
+              updated.push(script.name || script.slug);
+              console.log(`Auto-updated script: ${script.name || script.slug}`);
+            } else {
+              errors.push(`${script.name || script.slug}: ${result.message}`);
+            }
+          }
+        }
+      } catch (error) {
+        const errorMsg = `${script.name || script.slug}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMsg);
+        console.error(`Failed to auto-update script ${script.slug}:`, error);
+      }
+    }
+
+    return { updated, errors };
+  }
+
+  /**
+   * Check if a script is already downloaded
+   */
+  private async isScriptDownloaded(script: Script): Promise<boolean> {
+    if (!script.install_methods?.length) return false;
+
+    for (const method of script.install_methods) {
+      if (method.script) {
+        const scriptPath = method.script;
+        const fileName = scriptPath.split('/').pop();
+        
+        if (fileName) {
+          // Determine target directory based on script path
+          let targetDir: string;
+          let finalTargetDir: string;
+          let filePath: string;
+          
+          if (scriptPath.startsWith('ct/')) {
+            targetDir = 'ct';
+            finalTargetDir = targetDir;
+            filePath = join(this.scriptsDirectory!, targetDir, fileName);
+          } else if (scriptPath.startsWith('tools/')) {
+            targetDir = 'tools';
+            const subPath = scriptPath.replace('tools/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else if (scriptPath.startsWith('vm/')) {
+            targetDir = 'vm';
+            const subPath = scriptPath.replace('vm/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else if (scriptPath.startsWith('vw/')) {
+            targetDir = 'vw';
+            const subPath = scriptPath.replace('vw/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else {
+            targetDir = 'ct';
+            finalTargetDir = targetDir;
+            filePath = join(this.scriptsDirectory!, targetDir, fileName);
+          }
+          
+          try {
+            await readFile(filePath, 'utf8');
+            return true; // File exists
+          } catch {
+            // File doesn't exist, continue checking other methods
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a script needs updating by comparing local and remote content
+   */
+  private async scriptNeedsUpdate(script: Script): Promise<boolean> {
+    if (!script.install_methods?.length) return false;
+
+    for (const method of script.install_methods) {
+      if (method.script) {
+        const scriptPath = method.script;
+        const fileName = scriptPath.split('/').pop();
+        
+        if (fileName) {
+          // Determine target directory based on script path
+          let targetDir: string;
+          let finalTargetDir: string;
+          let filePath: string;
+          
+          if (scriptPath.startsWith('ct/')) {
+            targetDir = 'ct';
+            finalTargetDir = targetDir;
+            filePath = join(this.scriptsDirectory!, targetDir, fileName);
+          } else if (scriptPath.startsWith('tools/')) {
+            targetDir = 'tools';
+            const subPath = scriptPath.replace('tools/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else if (scriptPath.startsWith('vm/')) {
+            targetDir = 'vm';
+            const subPath = scriptPath.replace('vm/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else if (scriptPath.startsWith('vw/')) {
+            targetDir = 'vw';
+            const subPath = scriptPath.replace('vw/', '');
+            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+            filePath = join(this.scriptsDirectory!, finalTargetDir, fileName);
+          } else {
+            targetDir = 'ct';
+            finalTargetDir = targetDir;
+            filePath = join(this.scriptsDirectory!, targetDir, fileName);
+          }
+          
+          try {
+            // Read local content
+            const localContent = await readFile(filePath, 'utf8');
+            
+            // Download remote content
+            const remoteContent = await this.downloadFileFromGitHub(scriptPath);
+            
+            // Compare content (simple string comparison for now)
+            // In a more sophisticated implementation, you might want to compare
+            // file modification times or use content hashing
+            return localContent !== remoteContent;
+          } catch {
+            // If we can't read local or download remote, assume update needed
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   async checkScriptExists(script: Script): Promise<{ ctExists: boolean; installExists: boolean; files: string[] }> {
     this.initializeConfig();
     const files: string[] = [];
