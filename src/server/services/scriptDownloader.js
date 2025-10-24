@@ -1,6 +1,6 @@
 // Real JavaScript implementation for script downloading
 import { join } from 'path';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, access } from 'fs/promises';
 
 export class ScriptDownloaderService {
   constructor() {
