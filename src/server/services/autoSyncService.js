@@ -173,6 +173,7 @@ export class AutoSyncService {
         const key = trimmedLine.substring(0, equalIndex).trim();
         if (key && key in settingsMap) {
           // Replace existing setting
+          // @ts-ignore - Dynamic property access is safe here
           newLines.push(`${key}=${settingsMap[key]}`);
           existingKeys.add(key);
         } else {
@@ -256,7 +257,10 @@ export class AutoSyncService {
     if (this.cronJob) {
       this.cronJob.stop();
       this.cronJob = null;
+      this.isRunning = false;
       console.log('Auto-sync cron job stopped');
+    } else {
+      console.log('No active cron job to stop');
     }
   }
 
@@ -285,8 +289,8 @@ export class AutoSyncService {
       
       const results = {
         jsonSync: syncResult,
-        newScripts: /** @type {string[]} */ ([]),
-        updatedScripts: /** @type {string[]} */ ([]),
+        newScripts: /** @type {any[]} */ ([]),
+        updatedScripts: /** @type {any[]} */ ([]),
         errors: /** @type {string[]} */ ([])
       };
       

@@ -7,6 +7,7 @@ import { isValidCron } from 'cron-validator';
 export async function POST(request: NextRequest) {
   try {
     const settings = await request.json();
+    console.log('Received auto-sync settings:', settings);
 
     if (!settings || typeof settings !== 'object') {
       return NextResponse.json(
@@ -45,11 +46,14 @@ export async function POST(request: NextRequest) {
 
     // Validate sync interval type
     if (!['predefined', 'custom'].includes(settings.syncIntervalType)) {
+      console.log('Invalid syncIntervalType:', settings.syncIntervalType);
       return NextResponse.json(
         { error: 'syncIntervalType must be "predefined" or "custom"' },
         { status: 400 }
       );
     }
+    
+    console.log('Sync interval validation - type:', settings.syncIntervalType, 'cron:', settings.syncIntervalCron);
 
     // Validate predefined interval
     if (settings.syncIntervalType === 'predefined') {
@@ -64,14 +68,13 @@ export async function POST(request: NextRequest) {
 
     // Validate custom cron expression
     if (settings.syncIntervalType === 'custom') {
-      if (!settings.syncIntervalCron || typeof settings.syncIntervalCron !== 'string') {
-        return NextResponse.json(
-          { error: 'Custom cron expression is required when syncIntervalType is "custom"' },
-          { status: 400 }
-        );
-      }
-
-      if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
+      if (!settings.syncIntervalCron || typeof settings.syncIntervalCron !== 'string' || settings.syncIntervalCron.trim() === '') {
+        console.log('Custom sync interval type but no cron expression provided, falling back to predefined');
+        // Fallback to predefined if custom is selected but no cron expression
+        settings.syncIntervalType = 'predefined';
+        settings.syncIntervalPredefined = settings.syncIntervalPredefined || '1hour';
+        settings.syncIntervalCron = '';
+      } else if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
         return NextResponse.json(
           { error: 'Invalid cron expression' },
           { status: 400 }
@@ -156,23 +159,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Write back to .env file
+    console.log('Writing to .env file:', envPath);
+    console.log('New .env content:', envContent);
     fs.writeFileSync(envPath, envContent);
+    console.log('Successfully wrote to .env file');
 
     // Reschedule auto-sync service with new settings
     try {
-      const { getAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
+      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
       let autoSyncService = getAutoSyncService();
       
       // If no global instance exists, create one
       if (!autoSyncService) {
         const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
         autoSyncService = new AutoSyncService();
+        setAutoSyncService(autoSyncService);
       }
       
+      // Update the global service instance with new settings
+      console.log('Updating global service instance with settings:', settings);
+      autoSyncService.saveSettings(settings);
+      
       if (settings.autoSyncEnabled) {
+        console.log('Enabling auto-sync...');
         autoSyncService.scheduleAutoSync();
         console.log('Auto-sync rescheduled with new settings');
       } else {
+        console.log('Disabling auto-sync...');
         autoSyncService.stopAutoSync();
         console.log('Auto-sync stopped');
       }

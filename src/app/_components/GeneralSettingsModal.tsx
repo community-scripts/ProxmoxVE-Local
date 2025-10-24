@@ -322,31 +322,18 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     setIsSaving(true);
     setMessage(null);
     
+    console.log('Saving auto-sync settings:', {
+      autoSyncEnabled,
+      syncIntervalType,
+      syncIntervalPredefined,
+      syncIntervalCron,
+      autoDownloadNew,
+      autoUpdateExisting,
+      notificationEnabled,
+      appriseUrls
+    });
+    
     try {
-      // Validate cron expression if custom
-      if (syncIntervalType === 'custom' && syncIntervalCron) {
-        const response = await fetch('/api/settings/auto-sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            autoSyncEnabled,
-            syncIntervalType,
-            syncIntervalPredefined,
-            syncIntervalCron,
-            autoDownloadNew,
-            autoUpdateExisting,
-            notificationEnabled,
-            appriseUrls: appriseUrls
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          setMessage({ type: 'error', text: errorData.error ?? 'Failed to save auto-sync settings' });
-          return;
-        }
-      }
-
       const response = await fetch('/api/settings/auto-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -362,11 +349,16 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
         })
       });
 
+      console.log('API response status:', response.status);
+      
       if (response.ok) {
+        const result = await response.json();
+        console.log('API response data:', result);
         setMessage({ type: 'success', text: 'Auto-sync settings saved successfully!' });
         setTimeout(() => setMessage(null), 3000);
       } else {
         const errorData = await response.json();
+        console.error('API error:', errorData);
         setMessage({ type: 'error', text: errorData.error ?? 'Failed to save auto-sync settings' });
       }
     } catch (error) {
@@ -824,7 +816,46 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                     </div>
                     <Toggle
                       checked={autoSyncEnabled}
-                      onCheckedChange={setAutoSyncEnabled}
+                      onCheckedChange={async (checked) => {
+                        console.log('Toggle changed to:', checked);
+                        setAutoSyncEnabled(checked);
+                        
+                        // Auto-save when toggle changes
+                        try {
+                          // If syncIntervalType is custom but no cron expression, fallback to predefined
+                          const effectiveSyncIntervalType = (syncIntervalType === 'custom' && !syncIntervalCron) 
+                            ? 'predefined' 
+                            : syncIntervalType;
+                          
+                          const response = await fetch('/api/settings/auto-sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              autoSyncEnabled: checked,
+                              syncIntervalType: effectiveSyncIntervalType,
+                              syncIntervalPredefined: effectiveSyncIntervalType === 'predefined' ? syncIntervalPredefined : undefined,
+                              syncIntervalCron: effectiveSyncIntervalType === 'custom' ? syncIntervalCron : undefined,
+                              autoDownloadNew,
+                              autoUpdateExisting,
+                              notificationEnabled,
+                              appriseUrls: appriseUrls
+                            })
+                          });
+                          
+                          if (response.ok) {
+                            console.log('Auto-sync toggle saved successfully');
+                            // Update local state to reflect the effective sync interval type
+                            if (effectiveSyncIntervalType !== syncIntervalType) {
+                              setSyncIntervalType(effectiveSyncIntervalType);
+                            }
+                          } else {
+                            const errorData = await response.json();
+                            console.error('Failed to save auto-sync toggle:', errorData);
+                          }
+                        } catch (error) {
+                          console.error('Error saving auto-sync toggle:', error);
+                        }
+                      }}
                       disabled={isSaving}
                     />
                   </div>
