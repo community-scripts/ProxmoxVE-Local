@@ -50,6 +50,13 @@ export function getAutoSyncService(): AutoSyncService | null {
 }
 
 /**
+ * Set the auto-sync service instance (for external management)
+ */
+export function setAutoSyncService(service: AutoSyncService | null): void {
+  autoSyncService = service;
+}
+
+/**
  * Graceful shutdown handler
  */
 export function setupGracefulShutdown(): void {

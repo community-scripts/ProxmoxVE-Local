@@ -1,14 +1,18 @@
-import { writeFile, readFile, mkdir } from 'fs/promises';
+// Real JavaScript implementation for script downloading
 import { join } from 'path';
+import { writeFile, mkdir, access } from 'fs/promises';
 
 export class ScriptDownloaderService {
   constructor() {
     this.scriptsDirectory = null;
+    this.repoUrl = null;
   }
 
   initializeConfig() {
     if (this.scriptsDirectory === null) {
       this.scriptsDirectory = join(process.cwd(), 'scripts');
+      // Get REPO_URL from environment or use default
+      this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
     }
   }
 
@@ -23,19 +27,35 @@ export class ScriptDownloaderService {
   }
 
   async downloadFileFromGitHub(filePath) {
-    // This is a simplified version - in a real implementation,
-    // you would fetch the file content from GitHub
-    // For now, we'll return a placeholder
-    return `#!/bin/bash
-# Downloaded script: ${filePath}
-# This is a placeholder - implement actual GitHub file download
-echo "Script downloaded: ${filePath}"
-`;
+    this.initializeConfig();
+    if (!this.repoUrl) {
+      throw new Error('REPO_URL environment variable is not set');
+    }
+
+    // Extract repo path from URL
+    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(this.repoUrl);
+    if (!match) {
+      throw new Error('Invalid GitHub repository URL');
+    }
+    const [, owner, repo] = match;
+    
+    const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/${filePath}`;
+    
+    console.log(`Downloading from GitHub: ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
+    }
+
+    return response.text();
   }
 
   modifyScriptContent(content) {
-    // Modify script content for CT scripts if needed
-    return content;
+    // Replace the build.func source line
+    const oldPattern = /source <\(curl -fsSL https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\/main\/misc\/build\.func\)/g;
+    const newPattern = 'SCRIPT_DIR="$(dirname "$0")" \nsource "$SCRIPT_DIR/../core/build.func"';
+    
+    return content.replace(oldPattern, newPattern);
   }
 
   async loadScript(script) {
@@ -57,6 +77,7 @@ echo "Script downloaded: ${filePath}"
             
             if (fileName) {
               // Download from GitHub
+              console.log(`Downloading script file: ${scriptPath}`);
               const content = await this.downloadFileFromGitHub(scriptPath);
               
               // Determine target directory based on script path
@@ -111,6 +132,7 @@ echo "Script downloaded: ${filePath}"
               }
               
               files.push(`${finalTargetDir}/${fileName}`);
+              console.log(`Successfully downloaded: ${finalTargetDir}/${fileName}`);
             }
           }
         }
@@ -121,12 +143,15 @@ echo "Script downloaded: ${filePath}"
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         try {
+          console.log(`Downloading install script: install/${installScriptName}`);
           const installContent = await this.downloadFileFromGitHub(`install/${installScriptName}`);
           const localInstallPath = join(this.scriptsDirectory, 'install', installScriptName);
           await writeFile(localInstallPath, installContent, 'utf-8');
           files.push(`install/${installScriptName}`);
-        } catch {
+          console.log(`Successfully downloaded: install/${installScriptName}`);
+        } catch (error) {
           // Install script might not exist, that's okay
+          console.log(`Install script not found: install/${installScriptName}`);
         }
       }
 
@@ -145,78 +170,6 @@ echo "Script downloaded: ${filePath}"
     }
   }
 
-  /**
-   * Auto-download new scripts that haven't been downloaded yet
-   */
-  async autoDownloadNewScripts(allScripts) {
-    this.initializeConfig();
-    const downloaded = [];
-    const errors = [];
-
-    for (const script of allScripts) {
-      try {
-        // Check if script is already downloaded
-        const isDownloaded = await this.isScriptDownloaded(script);
-        
-        if (!isDownloaded) {
-          const result = await this.loadScript(script);
-          if (result.success) {
-            downloaded.push(script); // Return full script object instead of just name
-            console.log(`Auto-downloaded new script: ${script.name || script.slug}`);
-          } else {
-            errors.push(`${script.name || script.slug}: ${result.message}`);
-          }
-        }
-      } catch (error) {
-        const errorMsg = `${script.name || script.slug}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        errors.push(errorMsg);
-        console.error(`Failed to auto-download script ${script.slug}:`, error);
-      }
-    }
-
-    return { downloaded, errors };
-  }
-
-  /**
-   * Auto-update existing scripts to newer versions
-   */
-  async autoUpdateExistingScripts(allScripts) {
-    this.initializeConfig();
-    const updated = [];
-    const errors = [];
-
-    for (const script of allScripts) {
-      try {
-        // Check if script is downloaded
-        const isDownloaded = await this.isScriptDownloaded(script);
-        
-        if (isDownloaded) {
-          // Check if update is needed by comparing content
-          const needsUpdate = await this.scriptNeedsUpdate(script);
-          
-          if (needsUpdate) {
-            const result = await this.loadScript(script);
-            if (result.success) {
-              updated.push(script); // Return full script object instead of just name
-              console.log(`Auto-updated script: ${script.name || script.slug}`);
-            } else {
-              errors.push(`${script.name || script.slug}: ${result.message}`);
-            }
-          }
-        }
-      } catch (error) {
-        const errorMsg = `${script.name || script.slug}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        errors.push(errorMsg);
-        console.error(`Failed to auto-update script ${script.slug}:`, error);
-      }
-    }
-
-    return { updated, errors };
-  }
-
-  /**
-   * Check if a script is already downloaded
-   */
   async isScriptDownloaded(script) {
     if (!script.install_methods?.length) return false;
 
@@ -261,7 +214,7 @@ echo "Script downloaded: ${filePath}"
           }
           
           try {
-            await readFile(filePath, 'utf8');
+            await import('fs/promises').then(fs => fs.readFile(filePath, 'utf8'));
             // File exists, continue checking other methods
           } catch {
             // File doesn't exist, script is not fully downloaded
@@ -275,71 +228,69 @@ echo "Script downloaded: ${filePath}"
     return true;
   }
 
-  /**
-   * Check if a script needs updating by comparing local and remote content
-   */
-  async scriptNeedsUpdate(script) {
-    if (!script.install_methods?.length) return false;
+  async checkScriptExists(script) {
+    this.initializeConfig();
+    const files = [];
+    let ctExists = false;
+    let installExists = false;
 
-    for (const method of script.install_methods) {
-      if (method.script) {
-        const scriptPath = method.script;
-        const fileName = scriptPath.split('/').pop();
-        
-        if (fileName) {
-          // Determine target directory based on script path
-          let targetDir;
-          let finalTargetDir;
-          let filePath;
-          
-          if (scriptPath.startsWith('ct/')) {
-            targetDir = 'ct';
-            finalTargetDir = targetDir;
-            filePath = join(this.scriptsDirectory, targetDir, fileName);
-          } else if (scriptPath.startsWith('tools/')) {
-            targetDir = 'tools';
-            const subPath = scriptPath.replace('tools/', '');
-            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
-            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-            filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
-          } else if (scriptPath.startsWith('vm/')) {
-            targetDir = 'vm';
-            const subPath = scriptPath.replace('vm/', '');
-            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
-            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-            filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
-          } else if (scriptPath.startsWith('vw/')) {
-            targetDir = 'vw';
-            const subPath = scriptPath.replace('vw/', '');
-            const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
-            finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-            filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
-          } else {
-            targetDir = 'ct';
-            finalTargetDir = targetDir;
-            filePath = join(this.scriptsDirectory, targetDir, fileName);
-          }
-          
-          try {
-            // Read local content
-            const localContent = await readFile(filePath, 'utf8');
+    try {
+      // Check scripts based on their install methods
+      if (script.install_methods?.length) {
+        for (const method of script.install_methods) {
+          if (method.script) {
+            const scriptPath = method.script;
+            const fileName = scriptPath.split('/').pop();
             
-            // Download remote content
-            const remoteContent = await this.downloadFileFromGitHub(scriptPath);
-            
-            // Compare content (simple string comparison for now)
-            // In a more sophisticated implementation, you might want to compare
-            // file modification times or use content hashing
-            return localContent !== remoteContent;
-          } catch {
-            // If we can't read local or download remote, assume update needed
-            return true;
+            if (fileName) {
+              let targetDir;
+              if (scriptPath.startsWith('ct/')) {
+                targetDir = 'ct';
+              } else if (scriptPath.startsWith('tools/')) {
+                targetDir = 'tools';
+              } else if (scriptPath.startsWith('vm/')) {
+                targetDir = 'vm';
+              } else {
+                targetDir = 'ct'; // Default fallback
+              }
+              
+              const filePath = join(this.scriptsDirectory, targetDir, fileName);
+              
+              try {
+                await access(filePath);
+                files.push(`${targetDir}/${fileName}`);
+                
+                if (scriptPath.startsWith('ct/')) {
+                  ctExists = true;
+                }
+              } catch {
+                // File doesn't exist
+              }
+            }
           }
         }
       }
-    }
 
-    return false;
+      // Check for install script for CT scripts
+      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
+      if (hasCtScript) {
+        const installScriptName = `${script.slug}-install.sh`;
+        const installPath = join(this.scriptsDirectory, 'install', installScriptName);
+        
+        try {
+          await access(installPath);
+          files.push(`install/${installScriptName}`);
+          installExists = true;
+        } catch {
+          // Install script doesn't exist
+        }
+      }
+
+      return { ctExists, installExists, files };
+    } catch (error) {
+      console.error('Error checking script existence:', error);
+      return { ctExists: false, installExists: false, files: [] };
+    }
   }
 }
 

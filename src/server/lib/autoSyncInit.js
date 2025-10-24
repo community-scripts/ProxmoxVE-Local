@@ -1,21 +1,31 @@
 import { AutoSyncService } from '../services/autoSyncService.js';
 
 let autoSyncService = null;
+let isInitialized = false;
 
 /**
  * Initialize auto-sync service and schedule cron job if enabled
  */
 export function initializeAutoSync() {
+  if (isInitialized) {
+    console.log('Auto-sync service already initialized, skipping...');
+    return;
+  }
+  
   try {
     console.log('Initializing auto-sync service...');
     autoSyncService = new AutoSyncService();
+    isInitialized = true;
+    console.log('AutoSyncService instance created');
     
     // Load settings and schedule if enabled
     const settings = autoSyncService.loadSettings();
+    console.log('Settings loaded:', settings);
     
     if (settings.autoSyncEnabled) {
       console.log('Auto-sync is enabled, scheduling cron job...');
       autoSyncService.scheduleAutoSync();
+      console.log('Cron job scheduled');
     } else {
       console.log('Auto-sync is disabled');
     }
@@ -23,6 +33,7 @@ export function initializeAutoSync() {
     console.log('Auto-sync service initialized successfully');
   } catch (error) {
     console.error('Failed to initialize auto-sync service:', error);
+    console.error('Error stack:', error.stack);
   }
 }
 
@@ -35,6 +46,7 @@ export function stopAutoSync() {
       console.log('Stopping auto-sync service...');
       autoSyncService.stopAutoSync();
       autoSyncService = null;
+      isInitialized = false;
       console.log('Auto-sync service stopped');
     }
   } catch (error) {
@@ -47,6 +59,13 @@ export function stopAutoSync() {
  */
 export function getAutoSyncService() {
   return autoSyncService;
+}
+
+/**
+ * Set the auto-sync service instance (for external management)
+ */
+export function setAutoSyncService(service) {
+  autoSyncService = service;
 }
 
 /**

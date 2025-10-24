@@ -115,6 +115,18 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       try {
+        console.log('getScriptBySlug called with slug:', input.slug);
+        console.log('githubJsonService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(githubJsonService)));
+        console.log('githubJsonService.getScriptBySlug type:', typeof githubJsonService.getScriptBySlug);
+        
+        if (typeof githubJsonService.getScriptBySlug !== 'function') {
+          return {
+            success: false,
+            error: 'getScriptBySlug method is not available on githubJsonService',
+            script: null
+          };
+        }
+        
         const script = await githubJsonService.getScriptBySlug(input.slug);
         if (!script) {
           return {
@@ -125,6 +137,7 @@ export const scriptsRouter = createTRPCRouter({
         }
         return { success: true, script };
       } catch (error) {
+        console.error('Error in getScriptBySlug:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch script',
@@ -490,14 +503,29 @@ export const scriptsRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       try {
-        const autoSyncService = new AutoSyncService();
+        // Use the global auto-sync service instance
+        const { getAutoSyncService, setAutoSyncService } = await import('~/server/lib/autoSyncInit');
+        let autoSyncService = getAutoSyncService();
+        
+        // If no global instance exists, create one
+        if (!autoSyncService) {
+          const { AutoSyncService } = await import('~/server/services/autoSyncService');
+          autoSyncService = new AutoSyncService();
+          setAutoSyncService(autoSyncService);
+        }
+        
+        // Save settings to both .env file and service instance
         autoSyncService.saveSettings(input);
         
         // Reschedule auto-sync if enabled
         if (input.autoSyncEnabled) {
           autoSyncService.scheduleAutoSync();
+          console.log('Auto-sync rescheduled with new settings');
         } else {
           autoSyncService.stopAutoSync();
+          // Ensure the service is completely stopped and won't restart
+          autoSyncService.isRunning = false;
+          console.log('Auto-sync stopped');
         }
         
         return { success: true, message: 'Auto-sync settings saved successfully' };

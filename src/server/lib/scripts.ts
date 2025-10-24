@@ -25,6 +25,25 @@ export class ScriptManager {
     // Initialize lazily to avoid accessing env vars during module load
   }
 
+  /**
+   * Safely handle file modification time, providing fallback for invalid dates
+   * @param mtime - The file modification time from fs.stat
+   * @returns Date - Valid date or current date as fallback
+   */
+  private safeMtime(mtime: Date): Date {
+    try {
+      // Check if the date is valid
+      if (!mtime || isNaN(mtime.getTime())) {
+        console.warn('Invalid mtime detected, using current time as fallback');
+        return new Date();
+      }
+      return mtime;
+    } catch (error) {
+      console.warn('Error processing mtime:', error);
+      return new Date();
+    }
+  }
+
   private initializeConfig() {
     if (this.scriptsDir === null) {
       // Handle both absolute and relative paths for testing
@@ -63,7 +82,7 @@ export class ScriptManager {
               path: filePath,
               extension,
               size: stats.size,
-              lastModified: stats.mtime,
+              lastModified: this.safeMtime(stats.mtime),
               executable
             });
           }
@@ -125,7 +144,7 @@ export class ScriptManager {
               path: filePath,
               extension,
               size: stats.size,
-              lastModified: stats.mtime,
+              lastModified: this.safeMtime(stats.mtime),
               executable,
               logo,
               slug
@@ -212,7 +231,7 @@ export class ScriptManager {
               path: filePath,
               extension,
               size: stats.size,
-              lastModified: stats.mtime,
+              lastModified: this.safeMtime(stats.mtime),
               executable,
               logo,
               slug

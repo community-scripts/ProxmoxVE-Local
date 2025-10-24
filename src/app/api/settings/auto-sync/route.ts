@@ -64,14 +64,12 @@ export async function POST(request: NextRequest) {
 
     // Validate custom cron expression
     if (settings.syncIntervalType === 'custom') {
-      if (!settings.syncIntervalCron || typeof settings.syncIntervalCron !== 'string') {
-        return NextResponse.json(
-          { error: 'Custom cron expression is required when syncIntervalType is "custom"' },
-          { status: 400 }
-        );
-      }
-
-      if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
+      if (!settings.syncIntervalCron || typeof settings.syncIntervalCron !== 'string' || settings.syncIntervalCron.trim() === '') {
+        // Fallback to predefined if custom is selected but no cron expression
+        settings.syncIntervalType = 'predefined';
+        settings.syncIntervalPredefined = settings.syncIntervalPredefined || '1hour';
+        settings.syncIntervalCron = '';
+      } else if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
         return NextResponse.json(
           { error: 'Invalid cron expression' },
           { status: 400 }
@@ -138,7 +136,9 @@ export async function POST(request: NextRequest) {
       'AUTO_UPDATE_EXISTING': settings.autoUpdateExisting ? 'true' : 'false',
       'NOTIFICATION_ENABLED': settings.notificationEnabled ? 'true' : 'false',
       'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (settings.appriseUrls || '[]'),
-      'LAST_AUTO_SYNC': settings.lastAutoSync || ''
+      'LAST_AUTO_SYNC': settings.lastAutoSync || '',
+      'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError || '',
+      'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime || ''
     };
 
     // Update or add each setting
@@ -160,15 +160,28 @@ export async function POST(request: NextRequest) {
 
     // Reschedule auto-sync service with new settings
     try {
-      const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
-      const autoSyncService = new AutoSyncService();
+      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
+      let autoSyncService = getAutoSyncService();
+      
+      // If no global instance exists, create one
+      if (!autoSyncService) {
+        const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+        autoSyncService = new AutoSyncService();
+        setAutoSyncService(autoSyncService);
+      }
+      
+      // Update the global service instance with new settings
+      autoSyncService.saveSettings(settings);
       
       if (settings.autoSyncEnabled) {
         autoSyncService.scheduleAutoSync();
-        console.log('Auto-sync rescheduled with new settings');
       } else {
         autoSyncService.stopAutoSync();
-        console.log('Auto-sync stopped');
+        // Ensure the service is completely stopped and won't restart
+        autoSyncService.isRunning = false;
+        // Also stop the global service instance if it exists
+        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit.js');
+        stopGlobalAutoSync();
       }
     } catch (error) {
       console.error('Error rescheduling auto-sync service:', error);
@@ -204,7 +217,9 @@ export async function GET() {
           autoUpdateExisting: false,
           notificationEnabled: false,
           appriseUrls: [],
-          lastAutoSync: ''
+          lastAutoSync: '',
+          lastAutoSyncError: null,
+          lastAutoSyncErrorTime: null
         }
       });
     }
@@ -228,7 +243,9 @@ export async function GET() {
           return [];
         }
       })(),
-      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') || ''
+      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') || '',
+      lastAutoSyncError: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR') || null,
+      lastAutoSyncErrorTime: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR_TIME') || null
     };
     
     return NextResponse.json({ settings });
