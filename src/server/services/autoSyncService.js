@@ -357,6 +357,46 @@ export class AutoSyncService {
   }
 
   /**
+   * Load categories from metadata.json
+   */
+  loadCategories() {
+    try {
+      const metadataPath = join(process.cwd(), 'scripts', 'json', 'metadata.json');
+      const metadataContent = readFileSync(metadataPath, 'utf8');
+      const metadata = JSON.parse(metadataContent);
+      return metadata.categories || [];
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Group scripts by category
+   * @param {Array} scripts - Array of script objects
+   * @param {Array} categories - Array of category objects
+   */
+  groupScriptsByCategory(scripts, categories) {
+    const categoryMap = new Map();
+    categories.forEach(cat => categoryMap.set(cat.id, cat.name));
+    
+    const grouped = new Map();
+    
+    scripts.forEach(script => {
+      const scriptCategories = script.categories || [0]; // Default to Miscellaneous (id: 0)
+      scriptCategories.forEach(catId => {
+        const categoryName = categoryMap.get(catId) || 'Miscellaneous';
+        if (!grouped.has(categoryName)) {
+          grouped.set(categoryName, []);
+        }
+        grouped.get(categoryName).push(script.name);
+      });
+    });
+    
+    return grouped;
+  }
+
+  /**
    * Send notification about sync results
    * @param {Object} results - Sync results object
    */
@@ -383,20 +423,51 @@ export class AutoSyncService {
       body += '\n';
     }
     
+    // Load categories for grouping
+    const categories = this.loadCategories();
+    
     // @ts-ignore - Dynamic property access
     if (results.newScripts?.length > 0) {
       // @ts-ignore - Dynamic property access
       body += `New scripts downloaded: ${results.newScripts.length}\n`;
+      
+      // Group new scripts by category
       // @ts-ignore - Dynamic property access
-      body += `• ${results.newScripts.join('\n• ')}\n\n`;
+      const newScriptsGrouped = this.groupScriptsByCategory(results.newScripts, categories);
+      
+      // Sort categories by name for consistent ordering
+      const sortedCategories = Array.from(newScriptsGrouped.keys()).sort();
+      
+      sortedCategories.forEach(categoryName => {
+        const scripts = newScriptsGrouped.get(categoryName);
+        body += `\n**${categoryName}:**\n`;
+        scripts.forEach(scriptName => {
+          body += `• ${scriptName}\n`;
+        });
+      });
+      body += '\n';
     }
     
     // @ts-ignore - Dynamic property access
     if (results.updatedScripts?.length > 0) {
       // @ts-ignore - Dynamic property access
       body += `Scripts updated: ${results.updatedScripts.length}\n`;
+      
+      // Group updated scripts by category
       // @ts-ignore - Dynamic property access
-      body += `• ${results.updatedScripts.join('\n• ')}\n\n`;
+      const updatedScriptsGrouped = this.groupScriptsByCategory(results.updatedScripts, categories);
+      
+      // Sort categories by name for consistent ordering
+      const sortedCategories = Array.from(updatedScriptsGrouped.keys()).sort();
+      
+      sortedCategories.forEach(categoryName => {
+        const scripts = updatedScriptsGrouped.get(categoryName);
+        body += `\n**${categoryName}:**\n`;
+        scripts.forEach(scriptName => {
+          body += `• ${scriptName}\n`;
+        });
+      });
+      body += '\n';
     }
     
     // @ts-ignore - Dynamic property access

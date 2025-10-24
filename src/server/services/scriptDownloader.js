@@ -161,7 +161,7 @@ echo "Script downloaded: ${filePath}"
         if (!isDownloaded) {
           const result = await this.loadScript(script);
           if (result.success) {
-            downloaded.push(script.name || script.slug);
+            downloaded.push(script); // Return full script object instead of just name
             console.log(`Auto-downloaded new script: ${script.name || script.slug}`);
           } else {
             errors.push(`${script.name || script.slug}: ${result.message}`);
@@ -197,7 +197,7 @@ echo "Script downloaded: ${filePath}"
           if (needsUpdate) {
             const result = await this.loadScript(script);
             if (result.success) {
-              updated.push(script.name || script.slug);
+              updated.push(script); // Return full script object instead of just name
               console.log(`Auto-updated script: ${script.name || script.slug}`);
             } else {
               errors.push(`${script.name || script.slug}: ${result.message}`);
