@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
-import { githubJsonService } from "~/server/services/githubJsonService.ts";
-import { localScriptsService } from "~/server/services/localScripts.ts";
-import { scriptDownloaderService } from "~/server/services/scriptDownloader.ts";
+import { githubJsonService } from "~/server/services/githubJsonService";
+import { localScriptsService } from "~/server/services/localScripts";
+import { scriptDownloaderService } from "~/server/services/scriptDownloader";
 import { AutoSyncService } from "~/server/services/autoSyncService";
 import type { ScriptCard } from "~/types/script";
 

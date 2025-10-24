@@ -1,4 +1,4 @@
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 import { env } from '../../env.js';
 import type { Script, ScriptCard, GitHubFile } from '../../types/script';
@@ -185,48 +185,90 @@ export class GitHubJsonService {
     }
   }
 
-  async syncJsonFiles(): Promise<{ success: boolean; message: string; count: number }> {
+  async syncJsonFiles(): Promise<{ success: boolean; message: string; count: number; syncedFiles: string[] }> {
     try {
-      // Get all scripts from GitHub (1 API call + raw downloads)
-      const scripts = await this.getAllScripts();
+      console.log('Starting fast incremental JSON sync...');
       
-      // Save scripts to local directory
-      await this.saveScriptsLocally(scripts);
+      // Get file list from GitHub
+      console.log('Fetching file list from GitHub...');
+      const githubFiles = await this.getJsonFiles();
+      console.log(`Found ${githubFiles.length} JSON files in repository`);
+      
+      // Get local files
+      const localFiles = await this.getLocalJsonFiles();
+      console.log(`Found ${localFiles.length} files in local directory`);
+      console.log(`Found ${localFiles.filter(f => f.endsWith('.json')).length} local JSON files`);
+      
+      // Compare and find files that need syncing
+      const filesToSync = this.findFilesToSync(githubFiles, localFiles);
+      console.log(`Found ${filesToSync.length} files that need syncing`);
+      
+      if (filesToSync.length === 0) {
+        return {
+          success: true,
+          message: 'All JSON files are up to date',
+          count: 0,
+          syncedFiles: []
+        };
+      }
+      
+      // Download and save only the files that need syncing
+      const syncedFiles = await this.syncSpecificFiles(filesToSync);
       
       return {
         success: true,
-        message: `Successfully synced ${scripts.length} scripts from GitHub using 1 API call + raw downloads`,
-        count: scripts.length
+        message: `Successfully synced ${syncedFiles.length} JSON files from GitHub`,
+        count: syncedFiles.length,
+        syncedFiles
       };
     } catch (error) {
-      console.error('Error syncing JSON files:', error);
+      console.error('JSON sync failed:', error);
       return {
         success: false,
         message: `Failed to sync JSON files: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        count: 0
+        count: 0,
+        syncedFiles: []
       };
     }
   }
 
-  private async saveScriptsLocally(scripts: Script[]): Promise<void> {
+  private async getLocalJsonFiles(): Promise<string[]> {
     this.initializeConfig();
     try {
-      // Ensure the directory exists
-      await mkdir(this.localJsonDirectory!, { recursive: true });
-
-      // Save each script as a JSON file
-      for (const script of scripts) {
-        const filename = `${script.slug}.json`;
-        const filePath = join(this.localJsonDirectory!, filename);
-        const content = JSON.stringify(script, null, 2);
-        await writeFile(filePath, content, 'utf-8');
-      }
-
-    } catch (error) {
-      console.error('Error saving scripts locally:', error);
-      throw new Error('Failed to save scripts locally');
+      const files = await readdir(this.localJsonDirectory!);
+      return files.filter(f => f.endsWith('.json'));
+    } catch {
+      return [];
     }
   }
+
+  private findFilesToSync(githubFiles: GitHubFile[], localFiles: string[]): GitHubFile[] {
+    const localFileSet = new Set(localFiles);
+    // Return only files that don't exist locally
+    return githubFiles.filter(ghFile => !localFileSet.has(ghFile.name));
+  }
+
+  private async syncSpecificFiles(filesToSync: GitHubFile[]): Promise<string[]> {
+    this.initializeConfig();
+    const syncedFiles: string[] = [];
+    
+    await mkdir(this.localJsonDirectory!, { recursive: true });
+    
+    for (const file of filesToSync) {
+      try {
+        const script = await this.downloadJsonFile(file.path);
+        const filename = `${script.slug}.json`;
+        const filePath = join(this.localJsonDirectory!, filename);
+        await writeFile(filePath, JSON.stringify(script, null, 2), 'utf-8');
+        syncedFiles.push(filename);
+      } catch (error) {
+        console.error(`Failed to sync ${file.name}:`, error);
+      }
+    }
+    
+    return syncedFiles;
+  }
+
 }
 
 // Singleton instance

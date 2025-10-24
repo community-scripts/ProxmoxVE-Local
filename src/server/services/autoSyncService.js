@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { githubJsonService } from './githubJsonService.ts';
+import { githubJsonService } from './githubJsonService.js';
 import { scriptDownloaderService } from './scriptDownloader.js';
 import { appriseService } from './appriseService.js';
 import { readFile, writeFile, readFileSync, writeFileSync } from 'fs';
@@ -10,6 +10,25 @@ export class AutoSyncService {
   constructor() {
     this.cronJob = null;
     this.isRunning = false;
+  }
+
+  /**
+   * Safely convert a date to ISO string, handling invalid dates
+   * @param {Date} date - The date to convert
+   * @returns {string} - ISO string or fallback timestamp
+   */
+  safeToISOString(date) {
+    try {
+      // Check if the date is valid
+      if (!date || isNaN(date.getTime())) {
+        console.warn('Invalid date provided to safeToISOString, using current time as fallback');
+        return new Date().toISOString();
+      }
+      return date.toISOString();
+    } catch (error) {
+      console.warn('Error converting date to ISO string:', error instanceof Error ? error.message : String(error));
+      return new Date().toISOString();
+    }
   }
 
   /**
@@ -251,56 +270,120 @@ export class AutoSyncService {
       
       const results = {
         jsonSync: syncResult,
-        newScripts: [],
-        updatedScripts: [],
-        errors: []
+        newScripts: /** @type {string[]} */ ([]),
+        updatedScripts: /** @type {string[]} */ ([]),
+        errors: /** @type {string[]} */ ([])
       };
       
       // Step 2: Auto-download/update scripts if enabled
       const settings = this.loadSettings();
       
       if (settings.autoDownloadNew || settings.autoUpdateExisting) {
+        console.log('Processing synced JSON files for script downloads...');
+        
         // Only process scripts for files that were actually synced
-        // @ts-ignore - syncedFiles exists in the JavaScript version
         if (syncResult.syncedFiles && syncResult.syncedFiles.length > 0) {
-          // @ts-ignore - syncedFiles exists in the JavaScript version
-          console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for new scripts...`);
+          console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for script downloads...`);
           
-          // Get all scripts from synced files
-          // @ts-ignore - syncedFiles exists in the JavaScript version
-          const allSyncedScripts = await githubJsonService.getScriptsForFiles(syncResult.syncedFiles);
+          // Get scripts only for the synced files
+          const localScriptsService = await import('./localScripts.js');
+          const syncedScripts = [];
           
-          // Initialize script downloader service
-          // @ts-ignore - initializeConfig is public in the JS version
-          scriptDownloaderService.initializeConfig();
-          
-          // Filter to only truly NEW scripts (not previously downloaded)
-          const newScripts = [];
-          for (const script of allSyncedScripts) {
-            const isDownloaded = await scriptDownloaderService.isScriptDownloaded(script);
-            if (!isDownloaded) {
-              newScripts.push(script);
+          for (const filename of syncResult.syncedFiles) {
+            try {
+              // Extract slug from filename (remove .json extension)
+              const slug = filename.replace('.json', '');
+              const script = await localScriptsService.localScriptsService.getScriptBySlug(slug);
+              if (script) {
+                syncedScripts.push(script);
+              }
+            } catch (error) {
+              console.warn(`Error loading script from ${filename}:`, error);
             }
           }
           
-          console.log(`Found ${newScripts.length} new scripts out of ${allSyncedScripts.length} total scripts`);
+          console.log(`Found ${syncedScripts.length} scripts from synced JSON files`);
           
-          if (settings.autoDownloadNew && newScripts.length > 0) {
-            console.log(`Auto-downloading ${newScripts.length} new scripts...`);
-            const downloadResult = await scriptDownloaderService.autoDownloadNewScripts(newScripts);
-            // @ts-ignore - Type assertion needed for dynamic assignment
-            results.newScripts = downloadResult.downloaded;
-            // @ts-ignore - Type assertion needed for dynamic assignment
-            results.errors.push(...downloadResult.errors);
+          // Filter to only truly NEW scripts (not previously downloaded)
+          const newScripts = [];
+          const existingScripts = [];
+          
+          for (const script of syncedScripts) {
+            try {
+              // Validate script object
+              if (!script || !script.slug) {
+                console.warn('Invalid script object found, skipping:', script);
+                continue;
+              }
+              
+              const isDownloaded = await scriptDownloaderService.isScriptDownloaded(script);
+              if (!isDownloaded) {
+                newScripts.push(script);
+              } else {
+                existingScripts.push(script);
+              }
+            } catch (error) {
+              console.warn(`Error checking script ${script?.slug || 'unknown'}:`, error);
+              // Treat as new script if we can't check
+              if (script && script.slug) {
+                newScripts.push(script);
+              }
+            }
           }
           
-          if (settings.autoUpdateExisting) {
-            console.log('Auto-updating existing scripts from synced files...');
-            const updateResult = await scriptDownloaderService.autoUpdateExistingScripts(allSyncedScripts);
-            // @ts-ignore - Type assertion needed for dynamic assignment
-            results.updatedScripts = updateResult.updated;
-            // @ts-ignore - Type assertion needed for dynamic assignment
-            results.errors.push(...updateResult.errors);
+          console.log(`Found ${newScripts.length} new scripts and ${existingScripts.length} existing scripts from synced files`);
+          
+          // Download new scripts
+          if (settings.autoDownloadNew && newScripts.length > 0) {
+            console.log(`Auto-downloading ${newScripts.length} new scripts...`);
+            const downloaded = [];
+            const errors = [];
+            
+            for (const script of newScripts) {
+              try {
+                const result = await scriptDownloaderService.loadScript(script);
+                if (result.success) {
+                  downloaded.push(script.name || script.slug);
+                  console.log(`Downloaded script: ${script.name || script.slug}`);
+                } else {
+                  errors.push(`${script.name || script.slug}: ${result.message}`);
+                }
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                errors.push(`${script.name || script.slug}: ${errorMsg}`);
+                console.error(`Failed to download script ${script.slug}:`, error);
+              }
+            }
+            
+            results.newScripts = downloaded;
+            results.errors.push(...errors);
+          }
+          
+          // Update existing scripts
+          if (settings.autoUpdateExisting && existingScripts.length > 0) {
+            console.log(`Auto-updating ${existingScripts.length} existing scripts...`);
+            const updated = [];
+            const errors = [];
+            
+            for (const script of existingScripts) {
+              try {
+                // Always update existing scripts when auto-update is enabled
+                const result = await scriptDownloaderService.loadScript(script);
+                if (result.success) {
+                  updated.push(script.name || script.slug);
+                  console.log(`Updated script: ${script.name || script.slug}`);
+                } else {
+                  errors.push(`${script.name || script.slug}: ${result.message}`);
+                }
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                errors.push(`${script.name || script.slug}: ${errorMsg}`);
+                console.error(`Failed to update script ${script.slug}:`, error);
+              }
+            }
+            
+            results.updatedScripts = updated;
+            results.errors.push(...errors);
           }
         } else {
           console.log('No JSON files were synced, skipping script download/update');
@@ -316,7 +399,7 @@ export class AutoSyncService {
       }
       
       // Step 4: Update last sync time
-      const lastSyncTime = new Date().toISOString();
+      const lastSyncTime = this.safeToISOString(new Date());
       const updatedSettings = { ...settings, lastAutoSync: lastSyncTime };
       this.saveSettings(updatedSettings);
       
@@ -384,6 +467,12 @@ export class AutoSyncService {
     const grouped = new Map();
     
     scripts.forEach(script => {
+      // Validate script object
+      if (!script || !script.name) {
+        console.warn('Invalid script object in groupScriptsByCategory, skipping:', script);
+        return;
+      }
+      
       const scriptCategories = script.categories || [0]; // Default to Miscellaneous (id: 0)
       scriptCategories.forEach((/** @type {number} */ catId) => {
         const categoryName = categoryMap.get(catId) || 'Miscellaneous';
