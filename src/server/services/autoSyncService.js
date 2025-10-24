@@ -264,13 +264,26 @@ export class AutoSyncService {
         // @ts-ignore - syncedFiles exists in the JavaScript version
         if (syncResult.syncedFiles && syncResult.syncedFiles.length > 0) {
           // @ts-ignore - syncedFiles exists in the JavaScript version
-          console.log(`Loading scripts for ${syncResult.syncedFiles.length} synced JSON files...`);
-          // @ts-ignore - syncedFiles exists in the JavaScript version
-          const syncedScripts = await githubJsonService.getScriptsForFiles(syncResult.syncedFiles);
+          console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for new scripts...`);
           
-          if (settings.autoDownloadNew) {
-            console.log('Auto-downloading new scripts from synced files...');
-            const downloadResult = await scriptDownloaderService.autoDownloadNewScripts(syncedScripts);
+          // Get all scripts from synced files
+          // @ts-ignore - syncedFiles exists in the JavaScript version
+          const allSyncedScripts = await githubJsonService.getScriptsForFiles(syncResult.syncedFiles);
+          
+          // Filter to only truly NEW scripts (not previously downloaded)
+          const newScripts = [];
+          for (const script of allSyncedScripts) {
+            const isDownloaded = await scriptDownloaderService.isScriptDownloaded(script);
+            if (!isDownloaded) {
+              newScripts.push(script);
+            }
+          }
+          
+          console.log(`Found ${newScripts.length} new scripts out of ${allSyncedScripts.length} total scripts`);
+          
+          if (settings.autoDownloadNew && newScripts.length > 0) {
+            console.log(`Auto-downloading ${newScripts.length} new scripts...`);
+            const downloadResult = await scriptDownloaderService.autoDownloadNewScripts(newScripts);
             // @ts-ignore - Type assertion needed for dynamic assignment
             results.newScripts = downloadResult.downloaded;
             // @ts-ignore - Type assertion needed for dynamic assignment
@@ -279,7 +292,7 @@ export class AutoSyncService {
           
           if (settings.autoUpdateExisting) {
             console.log('Auto-updating existing scripts from synced files...');
-            const updateResult = await scriptDownloaderService.autoUpdateExistingScripts(syncedScripts);
+            const updateResult = await scriptDownloaderService.autoUpdateExistingScripts(allSyncedScripts);
             // @ts-ignore - Type assertion needed for dynamic assignment
             results.updatedScripts = updateResult.updated;
             // @ts-ignore - Type assertion needed for dynamic assignment

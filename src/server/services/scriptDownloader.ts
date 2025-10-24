@@ -239,9 +239,10 @@ export class ScriptDownloaderService {
   /**
    * Check if a script is already downloaded
    */
-  private async isScriptDownloaded(script: Script): Promise<boolean> {
+  async isScriptDownloaded(script: Script): Promise<boolean> {
     if (!script.install_methods?.length) return false;
 
+    // Check if ALL script files are downloaded
     for (const method of script.install_methods) {
       if (method.script) {
         const scriptPath = method.script;
@@ -283,15 +284,17 @@ export class ScriptDownloaderService {
           
           try {
             await readFile(filePath, 'utf8');
-            return true; // File exists
+            // File exists, continue checking other methods
           } catch {
-            // File doesn't exist, continue checking other methods
+            // File doesn't exist, script is not fully downloaded
+            return false;
           }
         }
       }
     }
 
-    return false;
+    // All files exist, script is downloaded
+    return true;
   }
 
   /**
