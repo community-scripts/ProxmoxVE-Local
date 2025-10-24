@@ -42,6 +42,19 @@ export class AutoSyncService {
       const envPath = join(process.cwd(), '.env');
       const envContent = readFileSync(envPath, 'utf8');
       
+      /** @type {{
+       *   autoSyncEnabled: boolean;
+       *   syncIntervalType: string;
+       *   syncIntervalPredefined?: string;
+       *   syncIntervalCron?: string;
+       *   autoDownloadNew: boolean;
+       *   autoUpdateExisting: boolean;
+       *   notificationEnabled: boolean;
+       *   appriseUrls?: string[];
+       *   lastAutoSync?: string;
+       *   lastAutoSyncError?: string;
+       *   lastAutoSyncErrorTime?: string;
+       * }} */
       const settings = {
         autoSyncEnabled: false,
         syncIntervalType: 'predefined',
@@ -139,6 +152,8 @@ export class AutoSyncService {
    * @param {boolean} settings.notificationEnabled
    * @param {Array<string>} [settings.appriseUrls]
    * @param {string} [settings.lastAutoSync]
+   * @param {string} [settings.lastAutoSyncError]
+   * @param {string} [settings.lastAutoSyncErrorTime]
    */
   saveSettings(settings) {
     try {
@@ -470,7 +485,7 @@ export class AutoSyncService {
       }
       
       // Step 3: Send notifications if enabled
-      if (settings.notificationEnabled && settings.appriseUrls?.length > 0) {
+      if (settings.notificationEnabled && settings.appriseUrls && settings.appriseUrls.length > 0) {
         console.log('Sending success notifications...');
         await this.sendSyncNotification(results);
         console.log('Success notifications sent');
@@ -481,7 +496,7 @@ export class AutoSyncService {
       const updatedSettings = { 
         ...settings, 
         lastAutoSync: lastSyncTime,
-        lastAutoSyncError: null // Clear any previous errors on successful sync
+        lastAutoSyncError: '' // Clear any previous errors on successful sync
       };
       this.saveSettings(updatedSettings);
       
@@ -504,7 +519,7 @@ export class AutoSyncService {
       
       // Send error notification if enabled
       const settings = this.loadSettings();
-      if (settings.notificationEnabled && settings.appriseUrls?.length > 0) {
+      if (settings.notificationEnabled && settings.appriseUrls && settings.appriseUrls.length > 0) {
         try {
           const notificationTitle = isRateLimitError ? 'Auto-Sync Rate Limited' : 'Auto-Sync Failed';
           const notificationMessage = isRateLimitError 
@@ -514,7 +529,7 @@ export class AutoSyncService {
           await appriseService.sendNotification(
             notificationTitle,
             notificationMessage,
-            settings.appriseUrls
+            settings.appriseUrls || []
           );
         } catch (notifError) {
           console.error('Failed to send error notification:', notifError);
