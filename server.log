@@ -1,6 +1,0 @@
-
-> pve-scripts-local@0.1.0 start
-> node server.js
-
-> Ready on http://0.0.0.0:3000
-> WebSocket server running on ws://0.0.0.0:3000/ws/script-execution
