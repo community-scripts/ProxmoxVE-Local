@@ -6,6 +6,9 @@ import { readFile, writeFile, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import cronValidator from 'cron-validator';
 
+// Global lock to prevent multiple autosync instances from running simultaneously
+let globalAutoSyncLock = false;
+
 export class AutoSyncService {
   constructor() {
     this.cronJob = null;
@@ -49,8 +52,8 @@ export class AutoSyncService {
         notificationEnabled: false,
         appriseUrls: [],
         lastAutoSync: '',
-        lastAutoSyncError: null,
-        lastAutoSyncErrorTime: null
+        lastAutoSyncError: '',
+        lastAutoSyncErrorTime: ''
       };
       const lines = envContent.split('\n');
       
@@ -118,8 +121,8 @@ export class AutoSyncService {
         notificationEnabled: false,
         appriseUrls: [],
         lastAutoSync: '',
-        lastAutoSyncError: null,
-        lastAutoSyncErrorTime: null
+        lastAutoSyncError: '',
+        lastAutoSyncErrorTime: ''
       };
     }
   }
@@ -221,6 +224,12 @@ export class AutoSyncService {
       return;
     }
     
+    // Check if there's already a global autosync running
+    if (globalAutoSyncLock) {
+      console.log('Auto-sync is already running globally, not scheduling new cron job');
+      return;
+    }
+    
     let cronExpression;
     
     if (settings.syncIntervalType === 'custom') {
@@ -248,8 +257,14 @@ export class AutoSyncService {
     console.log(`Scheduling auto-sync with cron expression: ${cronExpression}`);
     
     this.cronJob = cron.schedule(cronExpression, async () => {
+      // Check global lock first
+      if (globalAutoSyncLock) {
+        console.log('Auto-sync already running globally, skipping cron execution...');
+        return;
+      }
+      
       if (this.isRunning) {
-        console.log('Auto-sync already running, skipping...');
+        console.log('Auto-sync already running locally, skipping...');
         return;
       }
       
@@ -289,11 +304,19 @@ export class AutoSyncService {
    * Execute auto-sync process
    */
   async executeAutoSync() {
-    if (this.isRunning) {
-      console.log('Auto-sync already running, skipping...');
-      return { success: false, message: 'Auto-sync already running' };
+    // Check global lock first
+    if (globalAutoSyncLock) {
+      console.log('Auto-sync already running globally, skipping...');
+      return { success: false, message: 'Auto-sync already running globally' };
     }
     
+    if (this.isRunning) {
+      console.log('Auto-sync already running locally, skipping...');
+      return { success: false, message: 'Auto-sync already running locally' };
+    }
+    
+    // Set global lock
+    globalAutoSyncLock = true;
     this.isRunning = true;
     const startTime = new Date();
     
@@ -434,8 +457,9 @@ export class AutoSyncService {
       
       // Step 3: Send notifications if enabled
       if (settings.notificationEnabled && settings.appriseUrls?.length > 0) {
-        console.log('Sending notifications...');
+        console.log('Sending success notifications...');
         await this.sendSyncNotification(results);
+        console.log('Success notifications sent');
       }
       
       // Step 4: Update last sync time and clear any previous errors
@@ -504,6 +528,7 @@ export class AutoSyncService {
       };
     } finally {
       this.isRunning = false;
+      globalAutoSyncLock = false; // Release global lock
     }
   }
 

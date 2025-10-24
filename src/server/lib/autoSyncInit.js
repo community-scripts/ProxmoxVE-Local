@@ -1,14 +1,21 @@
 import { AutoSyncService } from '../services/autoSyncService.js';
 
 let autoSyncService = null;
+let isInitialized = false;
 
 /**
  * Initialize auto-sync service and schedule cron job if enabled
  */
 export function initializeAutoSync() {
+  if (isInitialized) {
+    console.log('Auto-sync service already initialized, skipping...');
+    return;
+  }
+  
   try {
     console.log('Initializing auto-sync service...');
     autoSyncService = new AutoSyncService();
+    isInitialized = true;
     console.log('AutoSyncService instance created');
     
     // Load settings and schedule if enabled
@@ -39,6 +46,7 @@ export function stopAutoSync() {
       console.log('Stopping auto-sync service...');
       autoSyncService.stopAutoSync();
       autoSyncService = null;
+      isInitialized = false;
       console.log('Auto-sync service stopped');
     }
   } catch (error) {
