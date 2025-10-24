@@ -231,12 +231,9 @@ export class AutoSyncService {
    * Schedule auto-sync cron job
    */
   scheduleAutoSync() {
-    console.log('scheduleAutoSync called - stopping any existing job first');
     this.stopAutoSync(); // Stop any existing job
     
     const settings = this.loadSettings();
-    console.log('Current settings loaded:', { autoSyncEnabled: settings.autoSyncEnabled });
-    
     if (!settings.autoSyncEnabled) {
       console.log('Auto-sync is disabled, not scheduling cron job');
       this.isRunning = false; // Ensure we're completely stopped
@@ -315,9 +312,7 @@ export class AutoSyncService {
    * Stop auto-sync cron job
    */
   stopAutoSync() {
-    console.log('stopAutoSync called - cronJob exists:', !!this.cronJob);
     if (this.cronJob) {
-      console.log('Stopping and destroying cron job...');
       this.cronJob.stop();
       this.cronJob.destroy();
       this.cronJob = null;
