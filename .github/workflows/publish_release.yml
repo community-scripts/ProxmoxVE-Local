@@ -46,35 +46,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: add VERSION $version" --allow-empty
 
-
-      - name: Sync upstream JSONs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          tmp_dir=$(mktemp -d)
-          api_url="https://api.github.com/repos/community-scripts/ProxmoxVE/contents/frontend/public/json"
-          # Fetch file list (no subfolders)
-          curl -sSL -H "Authorization: token $GH_TOKEN" "$api_url" \
-            | jq -r '.[] | select(.type=="file") | .name' > "$tmp_dir/files.txt"
-
-          # Download each file
-          while IFS= read -r name; do
-            curl -sSL -H "Authorization: token $GH_TOKEN" \
-              "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/frontend/public/json/$name" \
-              -o "$tmp_dir/$name"
-          done < "$tmp_dir/files.txt"
-
-          mkdir -p json
-          rsync -a --delete "$tmp_dir/" json/
-
-          # Stage and amend commit to include JSON updates (and VERSION)
-          git add json VERSION
-          if ! git diff --cached --quiet; then
-            git commit --amend --no-edit
-          fi
-
-
       - name: Push changes
         run: |
           git push --force-with-lease --set-upstream origin "update-version-${{ steps.draft.outputs.tag_name }}"
