@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (!isValidCron(settings.syncIntervalCron)) {
+      if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
         return NextResponse.json(
           { error: 'Invalid cron expression' },
           { status: 400 }
@@ -157,6 +157,23 @@ export async function POST(request: NextRequest) {
 
     // Write back to .env file
     fs.writeFileSync(envPath, envContent);
+
+    // Reschedule auto-sync service with new settings
+    try {
+      const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+      const autoSyncService = new AutoSyncService();
+      
+      if (settings.autoSyncEnabled) {
+        autoSyncService.scheduleAutoSync();
+        console.log('Auto-sync rescheduled with new settings');
+      } else {
+        autoSyncService.stopAutoSync();
+        console.log('Auto-sync stopped');
+      }
+    } catch (error) {
+      console.error('Error rescheduling auto-sync service:', error);
+      // Don't fail the request if rescheduling fails
+    }
 
     return NextResponse.json({ 
       success: true, 

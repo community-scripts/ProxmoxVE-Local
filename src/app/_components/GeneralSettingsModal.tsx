@@ -885,6 +885,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                             value={syncIntervalCron}
                             onChange={(e) => handleCronChange(e.target.value)}
                             className="w-full"
+                            autoFocus
+                            onFocus={() => setCronValidationError('')}
                           />
                           {cronValidationError && (
                             <p className="text-sm text-red-500 mt-1">{cronValidationError}</p>
@@ -896,6 +898,16 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                             </a>{' '}
                             for examples
                           </p>
+                          <div className="mt-2 p-2 bg-muted rounded text-xs">
+                            <p className="font-medium mb-1">Common examples:</p>
+                            <ul className="space-y-1 text-muted-foreground">
+                              <li>• <code>* * * * *</code> - Every minute</li>
+                              <li>• <code>0 * * * *</code> - Every hour</li>
+                              <li>• <code>0 */6 * * *</code> - Every 6 hours</li>
+                              <li>• <code>0 0 * * *</code> - Every day at midnight</li>
+                              <li>• <code>0 0 * * 0</code> - Every Sunday at midnight</li>
+                            </ul>
+                          </div>
                         </div>
                       )}
                     </div>

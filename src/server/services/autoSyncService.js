@@ -191,8 +191,8 @@ export class AutoSyncService {
       cronExpression = intervalMap[settings.syncIntervalPredefined] || '0 * * * *';
     }
     
-    // Validate cron expression
-    if (!cronValidator.isValidCron(cronExpression)) {
+    // Validate cron expression (5-field format for node-cron)
+    if (!cronValidator.isValidCron(cronExpression, { seconds: false })) {
       console.error('Invalid cron expression:', cronExpression);
       return;
     }
