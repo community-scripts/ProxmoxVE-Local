@@ -523,6 +523,8 @@ export const scriptsRouter = createTRPCRouter({
           console.log('Auto-sync rescheduled with new settings');
         } else {
           autoSyncService.stopAutoSync();
+          // Ensure the service is completely stopped and won't restart
+          autoSyncService.isRunning = false;
           console.log('Auto-sync stopped');
         }
         

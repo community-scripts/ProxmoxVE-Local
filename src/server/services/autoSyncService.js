@@ -205,6 +205,7 @@ export class AutoSyncService {
     
     const settings = this.loadSettings();
     if (!settings.autoSyncEnabled) {
+      console.log('Auto-sync is disabled, not scheduling cron job');
       return;
     }
     
@@ -237,6 +238,14 @@ export class AutoSyncService {
     this.cronJob = cron.schedule(cronExpression, async () => {
       if (this.isRunning) {
         console.log('Auto-sync already running, skipping...');
+        return;
+      }
+      
+      // Double-check that autosync is still enabled before executing
+      const currentSettings = this.loadSettings();
+      if (!currentSettings.autoSyncEnabled) {
+        console.log('Auto-sync has been disabled, stopping cron job');
+        this.stopAutoSync();
         return;
       }
       
