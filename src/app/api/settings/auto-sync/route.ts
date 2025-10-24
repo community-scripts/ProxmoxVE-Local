@@ -160,8 +160,14 @@ export async function POST(request: NextRequest) {
 
     // Reschedule auto-sync service with new settings
     try {
-      const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
-      const autoSyncService = new AutoSyncService();
+      const { getAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
+      let autoSyncService = getAutoSyncService();
+      
+      // If no global instance exists, create one
+      if (!autoSyncService) {
+        const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+        autoSyncService = new AutoSyncService();
+      }
       
       if (settings.autoSyncEnabled) {
         autoSyncService.scheduleAutoSync();

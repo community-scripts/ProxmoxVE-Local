@@ -155,13 +155,28 @@ export class AutoSyncService {
       const existingKeys = new Set();
       
       for (const line of lines) {
-        const [key] = line.split('=');
-        const trimmedKey = key?.trim();
-        if (trimmedKey && trimmedKey in settingsMap) {
-          // @ts-ignore - Dynamic key access is safe here
-          newLines.push(`${trimmedKey}=${settingsMap[trimmedKey]}`);
-          existingKeys.add(trimmedKey);
-        } else if (trimmedKey && !(trimmedKey in settingsMap)) {
+        const trimmedLine = line.trim();
+        
+        // Skip empty lines and comments
+        if (!trimmedLine || trimmedLine.startsWith('#')) {
+          newLines.push(line);
+          continue;
+        }
+        
+        const equalIndex = trimmedLine.indexOf('=');
+        if (equalIndex === -1) {
+          // Line doesn't contain '=', keep as is
+          newLines.push(line);
+          continue;
+        }
+        
+        const key = trimmedLine.substring(0, equalIndex).trim();
+        if (key && key in settingsMap) {
+          // Replace existing setting
+          newLines.push(`${key}=${settingsMap[key]}`);
+          existingKeys.add(key);
+        } else {
+          // Keep other settings as is
           newLines.push(line);
         }
       }

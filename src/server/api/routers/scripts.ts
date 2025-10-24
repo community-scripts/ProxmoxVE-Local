@@ -503,7 +503,16 @@ export const scriptsRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       try {
-        const autoSyncService = new AutoSyncService();
+        // Use the global auto-sync service instance
+        const { getAutoSyncService } = await import('~/server/lib/autoSyncInit');
+        let autoSyncService = getAutoSyncService();
+        
+        // If no global instance exists, create one
+        if (!autoSyncService) {
+          const { AutoSyncService } = await import('~/server/services/autoSyncService');
+          autoSyncService = new AutoSyncService();
+        }
+        
         autoSyncService.saveSettings(input);
         
         // Reschedule auto-sync if enabled
