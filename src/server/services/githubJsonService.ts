@@ -41,14 +41,26 @@ export class GitHubJsonService {
 
   private async fetchFromGitHub<T>(endpoint: string): Promise<T> {
     this.initializeConfig();
-    const response = await fetch(`${this.baseUrl!}${endpoint}`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'PVEScripts-Local/1.0',
-      },
-    });
+    
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'PVEScripts-Local/1.0',
+    };
+    
+    // Add GitHub token authentication if available
+    if (env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+      console.log('Using GitHub token for API authentication');
+    } else {
+      console.log('No GitHub token found, using unauthenticated requests (lower rate limits)');
+    }
+    
+    const response = await fetch(`${this.baseUrl!}${endpoint}`, { headers });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(`GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
+      }
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
 
@@ -59,8 +71,20 @@ export class GitHubJsonService {
     this.initializeConfig();
     const rawUrl = `https://raw.githubusercontent.com/${this.extractRepoPath()}/${this.branch!}/${filePath}`;
     
-    const response = await fetch(rawUrl);
+    const headers: HeadersInit = {
+      'User-Agent': 'PVEScripts-Local/1.0',
+    };
+    
+    // Add GitHub token authentication if available (for raw files, use token in URL or header)
+    if (env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+    }
+    
+    const response = await fetch(rawUrl, { headers });
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(`GitHub rate limit exceeded while downloading ${filePath}. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
+      }
       throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
     }
 

@@ -29,14 +29,25 @@ export class GitHubService {
   }
 
   private async fetchFromGitHub<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'PVEScripts-Local/1.0',
-      },
-    });
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'PVEScripts-Local/1.0',
+    };
+    
+    // Add GitHub token authentication if available
+    if (env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+      console.log('Using GitHub token for API authentication');
+    } else {
+      console.log('No GitHub token found, using unauthenticated requests (lower rate limits)');
+    }
+    
+    const response = await fetch(`${this.baseUrl}${endpoint}`, { headers });
 
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(`GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
+      }
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
 
