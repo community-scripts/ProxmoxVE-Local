@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { readFileSync, readdirSync, statSync, utimesSync } from 'fs';
 import { join } from 'path';
+import { Buffer } from 'buffer';
 
 export class GitHubJsonService {
   constructor() {
