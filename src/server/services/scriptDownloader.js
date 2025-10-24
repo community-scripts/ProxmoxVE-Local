@@ -227,6 +227,71 @@ export class ScriptDownloaderService {
     // All files exist, script is downloaded
     return true;
   }
+
+  async checkScriptExists(script) {
+    this.initializeConfig();
+    const files = [];
+    let ctExists = false;
+    let installExists = false;
+
+    try {
+      // Check scripts based on their install methods
+      if (script.install_methods?.length) {
+        for (const method of script.install_methods) {
+          if (method.script) {
+            const scriptPath = method.script;
+            const fileName = scriptPath.split('/').pop();
+            
+            if (fileName) {
+              let targetDir;
+              if (scriptPath.startsWith('ct/')) {
+                targetDir = 'ct';
+              } else if (scriptPath.startsWith('tools/')) {
+                targetDir = 'tools';
+              } else if (scriptPath.startsWith('vm/')) {
+                targetDir = 'vm';
+              } else {
+                targetDir = 'ct'; // Default fallback
+              }
+              
+              const filePath = join(this.scriptsDirectory, targetDir, fileName);
+              
+              try {
+                await access(filePath);
+                files.push(`${targetDir}/${fileName}`);
+                
+                if (scriptPath.startsWith('ct/')) {
+                  ctExists = true;
+                }
+              } catch {
+                // File doesn't exist
+              }
+            }
+          }
+        }
+      }
+
+      // Check for install script for CT scripts
+      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
+      if (hasCtScript) {
+        const installScriptName = `${script.slug}-install.sh`;
+        const installPath = join(this.scriptsDirectory, 'install', installScriptName);
+        
+        try {
+          await access(installPath);
+          files.push(`install/${installScriptName}`);
+          installExists = true;
+        } catch {
+          // Install script doesn't exist
+        }
+      }
+
+      return { ctExists, installExists, files };
+    } catch (error) {
+      console.error('Error checking script existence:', error);
+      return { ctExists: false, installExists: false, files: [] };
+    }
+  }
 }
 
 export const scriptDownloaderService = new ScriptDownloaderService();
