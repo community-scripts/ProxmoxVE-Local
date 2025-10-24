@@ -1,5 +1,5 @@
 import { writeFile, mkdir } from 'fs/promises';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, utimesSync } from 'fs';
 import { join } from 'path';
 
 export class GitHubJsonService {
@@ -161,7 +161,7 @@ export class GitHubJsonService {
               
               // Update file modification time to match remote
               const remoteMtime = new Date(file.updated_at);
-              require('fs').utimesSync(localPath, remoteMtime, remoteMtime);
+              utimesSync(localPath, remoteMtime, remoteMtime);
               
               syncedCount++;
               syncedFiles.push(file.name);
