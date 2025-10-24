@@ -1,5 +1,5 @@
 import { writeFile, mkdir } from 'fs/promises';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 export class GitHubJsonService {
@@ -84,11 +84,13 @@ export class GitHubJsonService {
       // Step 2: Get local file list (fast local operation)
       const localFiles = new Map();
       try {
+        console.log(`Looking for local files in: ${this.localJsonDirectory}`);
         const localFileList = readdirSync(this.localJsonDirectory);
+        console.log(`Found ${localFileList.length} files in local directory`);
         for (const fileName of localFileList) {
           if (fileName.endsWith('.json')) {
             const filePath = join(this.localJsonDirectory, fileName);
-            const stats = require('fs').statSync(filePath);
+            const stats = statSync(filePath);
             localFiles.set(fileName, {
               mtime: stats.mtime,
               size: stats.size
@@ -96,6 +98,8 @@ export class GitHubJsonService {
           }
         }
       } catch (error) {
+        console.log('Error reading local directory:', error.message);
+        console.log('Directory path:', this.localJsonDirectory);
         console.log('No local files found, will download all');
       }
       

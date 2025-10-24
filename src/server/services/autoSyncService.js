@@ -270,6 +270,9 @@ export class AutoSyncService {
           // @ts-ignore - syncedFiles exists in the JavaScript version
           const allSyncedScripts = await githubJsonService.getScriptsForFiles(syncResult.syncedFiles);
           
+          // Initialize script downloader service
+          scriptDownloaderService.initializeConfig();
+          
           // Filter to only truly NEW scripts (not previously downloaded)
           const newScripts = [];
           for (const script of allSyncedScripts) {
