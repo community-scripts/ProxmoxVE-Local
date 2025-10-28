@@ -29,7 +29,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.90.5",
     "@trpc/client": "^11.6.0",
-    "@trpc/react-query": "^11.6.0",
+    "@trpc/react-query": "^11.7.1",
     "@trpc/server": "^11.6.0",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/ws": "^8.18.1",
