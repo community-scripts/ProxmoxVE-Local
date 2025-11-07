@@ -829,6 +829,7 @@ export function ScriptDetailModal({
               ?.script?.split("/")
               .pop() ?? `${script.slug}.sh`
           }
+          script={script}
           isOpen={textViewerOpen}
           onClose={() => setTextViewerOpen(false)}
         />
