@@ -165,6 +165,20 @@ export function ScriptDetailModal({
                 {script.privileged && <PrivilegedBadge />}
               </div>
             </div>
+            
+            {/* Interface Port*/}
+            {script.interface_port && (
+              <div className="ml-3 sm:ml-4 flex-shrink-0">
+                <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground mr-2">
+                    Port:
+                  </span>
+                  <span className="text-sm sm:text-base font-semibold text-foreground font-mono">
+                    {script.interface_port}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Close Button */}
