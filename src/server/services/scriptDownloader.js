@@ -145,6 +145,35 @@ export class ScriptDownloaderService {
         }
       }
 
+      // Download alpine install script if alpine variant exists (only for CT scripts)
+      const hasAlpineCtVariant = script.install_methods?.some(
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
+      );
+      console.log(`[${script.slug}] Checking for alpine variant:`, {
+        hasAlpineCtVariant,
+        installMethods: script.install_methods?.map(m => ({ type: m.type, script: m.script }))
+      });
+      
+      if (hasAlpineCtVariant) {
+        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        try {
+          console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName}`);
+          const alpineInstallContent = await this.downloadFileFromGitHub(`install/${alpineInstallScriptName}`);
+          const localAlpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
+          await writeFile(localAlpineInstallPath, alpineInstallContent, 'utf-8');
+          files.push(`install/${alpineInstallScriptName}`);
+          console.log(`[${script.slug}] Successfully downloaded: install/${alpineInstallScriptName}`);
+        } catch (error) {
+          // Alpine install script might not exist, that's okay
+          console.error(`[${script.slug}] Alpine install script not found or error: install/${alpineInstallScriptName}`, error);
+          if (error instanceof Error) {
+            console.error(`[${script.slug}] Error details:`, error.message, error.stack);
+          }
+        }
+      } else {
+        console.log(`[${script.slug}] No alpine CT variant found, skipping alpine install script download`);
+      }
+
       return {
         success: true,
         message: `Successfully loaded ${files.length} script(s) for ${script.name}`,
@@ -283,6 +312,23 @@ export class ScriptDownloaderService {
           installExists = true;
         } catch {
           // Install script doesn't exist
+        }
+      }
+
+      // Check alpine install script if alpine variant exists (only for CT scripts)
+      const hasAlpineCtVariant = script.install_methods?.some(
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
+      );
+      if (hasAlpineCtVariant) {
+        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
+        
+        try {
+          await access(alpineInstallPath);
+          files.push(`install/${alpineInstallScriptName}`);
+          installExists = true; // Mark as exists if alpine install script exists
+        } catch {
+          // File doesn't exist
         }
       }
 
@@ -425,6 +471,35 @@ export class ScriptDownloaderService {
               // Don't add to differences if there's an error reading files
             })
         );
+      }
+
+      // Compare alpine install script if alpine variant exists (only for CT scripts)
+      const hasAlpineCtVariant = script.install_methods?.some(
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
+      );
+      if (hasAlpineCtVariant) {
+        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptPath = `install/${alpineInstallScriptName}`;
+        const localAlpineInstallPath = join(this.scriptsDirectory, alpineInstallScriptPath);
+        
+        // Check if alpine install script exists locally
+        try {
+          await access(localAlpineInstallPath);
+          comparisonPromises.push(
+            this.compareSingleFile(alpineInstallScriptPath, alpineInstallScriptPath)
+              .then(result => {
+                if (result.hasDifferences) {
+                  hasDifferences = true;
+                  differences.push(result.filePath);
+                }
+              })
+              .catch(() => {
+                // Don't add to differences if there's an error reading files
+              })
+          );
+        } catch {
+          // Alpine install script doesn't exist locally, skip comparison
+        }
       }
 
       // Wait for all comparisons to complete
