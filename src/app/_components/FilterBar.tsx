@@ -158,8 +158,7 @@ export function FilterBar({
                 <Button
                   onClick={() => updateFilters({ searchQuery: "" })}
                   variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 pr-3 text-muted-foreground hover:text-foreground"
+                  className="absolute inset-y-0 right-0 flex items-center justify-center pr-3 h-full text-muted-foreground hover:text-foreground"
                 >
                   <svg
                     className="h-5 w-5"
