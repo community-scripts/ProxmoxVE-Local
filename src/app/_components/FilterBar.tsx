@@ -41,6 +41,7 @@ export function FilterBar({
 }: FilterBarProps) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const updateFilters = (updates: Partial<FilterState>) => {
     onFiltersChange({ ...filters, ...updates });
@@ -98,44 +99,17 @@ export function FilterBar({
       {!isLoadingFilters && (
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-medium text-foreground">Filter Scripts</h3>
-          <ContextualHelpIcon section="available-scripts" tooltip="Help with filtering and searching" />
-        </div>
-      )}
-
-      {/* Search Bar */}
-      <div className="mb-4">
-        <div className="relative max-w-md w-full">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <svg
-              className="h-5 w-5 text-muted-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Search scripts..."
-            value={filters.searchQuery}
-            onChange={(e) => updateFilters({ searchQuery: e.target.value })}
-            className="block w-full rounded-lg border border-input bg-background py-3 pr-10 pl-10 text-sm leading-5 text-foreground placeholder-muted-foreground focus:border-primary focus:placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-          />
-          {filters.searchQuery && (
+          <div className="flex items-center gap-2">
+            <ContextualHelpIcon section="available-scripts" tooltip="Help with filtering and searching" />
             <Button
-              onClick={() => updateFilters({ searchQuery: "" })}
+              onClick={() => setIsMinimized(!isMinimized)}
               variant="ghost"
               size="icon"
-              className="absolute inset-y-0 right-0 pr-3 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              title={isMinimized ? "Expand filters" : "Minimize filters"}
             >
               <svg
-                className="h-5 w-5"
+                className={`h-4 w-4 transition-transform ${isMinimized ? "" : "rotate-180"}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -144,16 +118,69 @@ export function FilterBar({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M5 15l7-7 7 7"
                 />
               </svg>
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Filter Buttons */}
-      <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+      {/* Filter Content - Conditionally rendered based on minimized state */}
+      {!isMinimized && !isLoadingFilters && (
+        <>
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="relative max-w-md w-full">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg
+                  className="h-5 w-5 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search scripts..."
+                value={filters.searchQuery}
+                onChange={(e) => updateFilters({ searchQuery: e.target.value })}
+                className="block w-full rounded-lg border border-input bg-background py-3 pr-10 pl-10 text-sm leading-5 text-foreground placeholder-muted-foreground focus:border-primary focus:placeholder-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+              {filters.searchQuery && (
+                <Button
+                  onClick={() => updateFilters({ searchQuery: "" })}
+                  variant="ghost"
+                  size="icon"
+                  className="absolute inset-y-0 right-0 pr-3 text-muted-foreground hover:text-foreground"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
         {/* Updateable Filter */}
         <Button
           onClick={() => {
@@ -431,6 +458,8 @@ export function FilterBar({
           </Button>
         )}
       </div>
+        </>
+      )}
 
       {/* Click outside to close dropdowns */}
       {(isTypeDropdownOpen || isSortDropdownOpen) && (
