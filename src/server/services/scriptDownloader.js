@@ -1,6 +1,6 @@
 // Real JavaScript implementation for script downloading
 import { join } from 'path';
-import { writeFile, mkdir, access, readFile } from 'fs/promises';
+import { writeFile, mkdir, access, readFile, unlink } from 'fs/promises';
 
 export class ScriptDownloaderService {
   constructor() {
@@ -290,6 +290,57 @@ export class ScriptDownloaderService {
     } catch (error) {
       console.error('Error checking script existence:', error);
       return { ctExists: false, installExists: false, files: [] };
+    }
+  }
+
+  async deleteScript(script) {
+    this.initializeConfig();
+    const deletedFiles = [];
+    
+    try {
+      // Get the list of files that exist for this script
+      const fileCheck = await this.checkScriptExists(script);
+      
+      if (fileCheck.files.length === 0) {
+        return {
+          success: false,
+          message: 'No script files found to delete',
+          deletedFiles: []
+        };
+      }
+
+      // Delete all files
+      for (const filePath of fileCheck.files) {
+        try {
+          const fullPath = join(this.scriptsDirectory, filePath);
+          await unlink(fullPath);
+          deletedFiles.push(filePath);
+        } catch (error) {
+          // Log error but continue deleting other files
+          console.error(`Error deleting file ${filePath}:`, error);
+        }
+      }
+
+      if (deletedFiles.length === 0) {
+        return {
+          success: false,
+          message: 'Failed to delete any script files',
+          deletedFiles: []
+        };
+      }
+
+      return {
+        success: true,
+        message: `Successfully deleted ${deletedFiles.length} file(s) for ${script.name}`,
+        deletedFiles
+      };
+    } catch (error) {
+      console.error('Error deleting script:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to delete script',
+        deletedFiles
+      };
     }
   }
 

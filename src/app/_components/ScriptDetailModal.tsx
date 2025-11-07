@@ -7,6 +7,7 @@ import type { Script } from "~/types/script";
 import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
 import { ExecutionModeModal } from "./ExecutionModeModal";
+import { ConfirmationModal } from "./ConfirmationModal";
 import { TypeBadge, UpdateableBadge, PrivilegedBadge, NoteBadge } from "./Badge";
 import { Button } from "./ui/button";
 import { useRegisterModal } from './modal/ModalStackProvider';
@@ -37,6 +38,8 @@ export function ScriptDetailModal({
   const [selectedDiffFile, setSelectedDiffFile] = useState<string | null>(null);
   const [textViewerOpen, setTextViewerOpen] = useState(false);
   const [executionModeOpen, setExecutionModeOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Check if script files exist locally
   const {
@@ -78,6 +81,31 @@ export function ScriptDetailModal({
     },
     onError: (error) => {
       setIsLoading(false);
+      setLoadMessage(`[ERROR] ${error.message}`);
+      setTimeout(() => setLoadMessage(null), 5000);
+    },
+  });
+
+  // Delete script mutation
+  const deleteScriptMutation = api.scripts.deleteScript.useMutation({
+    onSuccess: (data) => {
+      setIsDeleting(false);
+      if (data.success) {
+        const message =
+          "message" in data ? data.message : "Script deleted successfully";
+        setLoadMessage(`[SUCCESS] ${message}`);
+        // Refetch script files status and comparison data to update the UI
+        void refetchScriptFiles();
+        void refetchComparison();
+      } else {
+        const error = "error" in data ? data.error : "Failed to delete script";
+        setLoadMessage(`[ERROR] ${error}`);
+      }
+      // Clear message after 5 seconds
+      setTimeout(() => setLoadMessage(null), 5000);
+    },
+    onError: (error) => {
+      setIsDeleting(false);
       setLoadMessage(`[ERROR] ${error.message}`);
       setTimeout(() => setLoadMessage(null), 5000);
     },
@@ -128,6 +156,19 @@ export function ScriptDetailModal({
 
   const handleViewScript = () => {
     setTextViewerOpen(true);
+  };
+
+  const handleDeleteScript = () => {
+    if (!script) return;
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!script) return;
+    setDeleteConfirmOpen(false);
+    setIsDeleting(true);
+    setLoadMessage(null);
+    deleteScriptMutation.mutate({ slug: script.slug });
   };
 
   return (
@@ -373,6 +414,42 @@ export function ScriptDetailModal({
                 );
               }
             })()}
+
+            {/* Delete Button - only show if script files exist */}
+            {scriptFilesData?.success &&
+              (scriptFilesData.ctExists || scriptFilesData.installExists) && (
+                <Button
+                  onClick={handleDeleteScript}
+                  disabled={isDeleting}
+                  variant="destructive"
+                  size="default"
+                  className="w-full sm:w-auto flex items-center justify-center space-x-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      <span>Delete Script</span>
+                    </>
+                  )}
+                </Button>
+              )}
         </div>
 
         {/* Content */}
@@ -734,6 +811,20 @@ export function ScriptDetailModal({
           isOpen={executionModeOpen}
           onClose={() => setExecutionModeOpen(false)}
           onExecute={handleExecuteScript}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {script && (
+        <ConfirmationModal
+          isOpen={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Script"
+          message={`Are you sure you want to delete all downloaded files for "${script.name}"? This action cannot be undone.`}
+          variant="simple"
+          confirmButtonText="Delete"
+          cancelButtonText="Cancel"
         />
       )}
     </div>

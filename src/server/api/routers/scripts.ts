@@ -363,6 +363,34 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
+  // Delete script files
+  deleteScript: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        // Get the script details
+        const script = await localScriptsService.getScriptBySlug(input.slug);
+        if (!script) {
+          return {
+            success: false,
+            error: 'Script not found',
+            deletedFiles: []
+          };
+        }
+
+        // Delete the script files
+        const result = await scriptDownloaderService.deleteScript(script);
+        return result;
+      } catch (error) {
+        console.error('Error in deleteScript:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete script',
+          deletedFiles: []
+        };
+      }
+    }),
+
   // Compare local and remote script content
   compareScriptContent: publicProcedure
     .input(z.object({ slug: z.string() }))
