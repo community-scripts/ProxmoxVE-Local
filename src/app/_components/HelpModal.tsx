@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download } from 'lucide-react';
+import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download, Lock } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface HelpModalProps {
@@ -11,7 +11,7 @@ interface HelpModalProps {
   initialSection?: string;
 }
 
-type HelpSection = 'server-settings' | 'general-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
+type HelpSection = 'server-settings' | 'general-settings' | 'auth-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
   useRegisterModal(isOpen, { id: 'help-modal', allowEscape: true, onClose });
@@ -22,6 +22,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
   const sections = [
     { id: 'server-settings' as HelpSection, label: 'Server Settings', icon: Server },
     { id: 'general-settings' as HelpSection, label: 'General Settings', icon: Settings },
+    { id: 'auth-settings' as HelpSection, label: 'Authentication Settings', icon: Lock },
     { id: 'sync-button' as HelpSection, label: 'Sync Button', icon: RefreshCw },
     { id: 'auto-sync' as HelpSection, label: 'Auto-Sync', icon: Clock },
     { id: 'available-scripts' as HelpSection, label: 'Available Scripts', icon: Package },
@@ -126,16 +127,113 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• Token is stored securely and only used for API calls</li>
                 </ul>
               </div>
+            </div>
+          </div>
+        );
 
+      case 'auth-settings':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-4">Authentication Settings</h3>
+              <p className="text-muted-foreground mb-6">
+                Secure your application with username and password authentication and configure session management.
+              </p>
+            </div>
+
+            <div className="space-y-4">
               <div className="p-4 border border-border rounded-lg">
-                <h4 className="font-medium text-foreground mb-2">Authentication</h4>
+                <h4 className="font-medium text-foreground mb-2">Overview</h4>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Secure your application with username and password authentication.
+                  Authentication settings allow you to secure access to your application with username and password protection. 
+                  Sessions persist across page refreshes, so users don&apos;t need to log in repeatedly.
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Set up username and password for app access</li>
                   <li>• Enable/disable authentication as needed</li>
-                  <li>• Credentials are stored securely</li>
+                  <li>• Credentials are stored securely using bcrypt hashing</li>
+                  <li>• Sessions use secure httpOnly cookies</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Setting Up Authentication</h4>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Navigate to General Settings → Authentication tab</li>
+                  <li>Enter a username (minimum 3 characters)</li>
+                  <li>Enter a password (minimum 6 characters)</li>
+                  <li>Confirm your password</li>
+                  <li>Click &quot;Save Credentials&quot; to save your authentication settings</li>
+                  <li>Toggle &quot;Enable Authentication&quot; to activate authentication</li>
+                </ol>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Session Duration</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Configure how long user sessions should last before requiring re-authentication.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Configurable Duration:</strong> Set session duration from 1 to 365 days</li>
+                  <li>• <strong>Default Duration:</strong> Sessions default to 7 days if not configured</li>
+                  <li>• <strong>Session Persistence:</strong> Sessions persist across page refreshes and browser restarts</li>
+                  <li>• <strong>New Logins Only:</strong> Duration changes apply to new logins, not existing sessions</li>
+                </ul>
+                <div className="mt-3 p-3 bg-info/10 rounded-md">
+                  <h5 className="font-medium text-info-foreground mb-2">How to Configure:</h5>
+                  <ol className="text-xs text-info/80 space-y-1 list-decimal list-inside">
+                    <li>Go to General Settings → Authentication tab</li>
+                    <li>Find the &quot;Session Duration&quot; section</li>
+                    <li>Enter the number of days (1-365)</li>
+                    <li>Click &quot;Save&quot; to apply the setting</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Session Information</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  When authenticated, you can view your current session information in the Authentication tab.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Time Until Expiration:</strong> See how much time remains before your session expires</li>
+                  <li>• <strong>Expiration Date:</strong> View the exact date and time your session will expire</li>
+                  <li>• <strong>Auto-Update:</strong> The expiration display updates every minute</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Updating Credentials</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  You can change your username and password at any time from the Authentication tab.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Update username without changing password (leave password fields empty)</li>
+                  <li>• Change password by entering a new password and confirmation</li>
+                  <li>• Both username and password can be updated together</li>
+                  <li>• Changes take effect immediately after saving</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg bg-muted/50">
+                <h4 className="font-medium text-foreground mb-2">Security Features</h4>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Password Hashing:</strong> Passwords are hashed using bcrypt before storage</li>
+                  <li>• <strong>Secure Cookies:</strong> Authentication tokens stored in httpOnly cookies</li>
+                  <li>• <strong>HTTPS in Production:</strong> Cookies are secure (HTTPS-only) in production mode</li>
+                  <li>• <strong>SameSite Protection:</strong> Cookies use strict SameSite policy to prevent CSRF attacks</li>
+                  <li>• <strong>JWT Tokens:</strong> Sessions use JSON Web Tokens with expiration</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg bg-warning/10 border-warning/20">
+                <h4 className="font-medium text-warning-foreground mb-2">⚠️ Important Notes</h4>
+                <ul className="text-sm text-warning/80 space-y-2">
+                  <li>• <strong>First-Time Setup:</strong> You must complete the initial setup before enabling authentication</li>
+                  <li>• <strong>Session Duration:</strong> Changes to session duration only affect new logins</li>
+                  <li>• <strong>Logout:</strong> You can log out manually, which immediately invalidates your session</li>
+                  <li>• <strong>Lost Credentials:</strong> If you forget your password, you&apos;ll need to reset it manually in the .env file</li>
+                  <li>• <strong>Disabling Auth:</strong> Disabling authentication clears all credentials and allows unrestricted access</li>
                 </ul>
               </div>
             </div>

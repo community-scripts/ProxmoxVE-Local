@@ -16,10 +16,12 @@ import { Button } from './_components/ui/button';
 import { ContextualHelpIcon } from './_components/ContextualHelpIcon';
 import { ReleaseNotesModal, getLastSeenVersion } from './_components/ReleaseNotesModal';
 import { Footer } from './_components/Footer';
-import { Package, HardDrive, FolderOpen } from 'lucide-react';
+import { Package, HardDrive, FolderOpen, LogOut } from 'lucide-react';
 import { api } from '~/trpc/react';
+import { useAuth } from './_components/AuthProvider';
 
 export default function Home() {
+  const { isAuthenticated, logout } = useAuth();
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
   const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>(() => {
     if (typeof window !== 'undefined') {
@@ -152,7 +154,19 @@ export default function Home() {
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground flex items-center justify-center gap-2 sm:gap-3 flex-1">
               <span className="break-words">PVE Scripts Management</span>
             </h1>
-            <div className="flex-1 flex justify-end">
+            <div className="flex-1 flex justify-end items-center gap-2">
+              {isAuthenticated && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={logout}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Logout"
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
               <ThemeToggle />
             </div>
           </div>

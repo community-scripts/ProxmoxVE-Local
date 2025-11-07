@@ -22,10 +22,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Calculate expiration time in milliseconds
+    const expirationTime = decoded.exp ? decoded.exp * 1000 : null;
+    const currentTime = Date.now();
+    const timeUntilExpiration = expirationTime ? expirationTime - currentTime : null;
+
     return NextResponse.json({ 
       success: true, 
       username: decoded.username,
-      authenticated: true 
+      authenticated: true,
+      expirationTime,
+      timeUntilExpiration
     });
   } catch (error) {
     console.error('Error verifying token:', error);

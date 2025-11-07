@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getAuthConfig, updateAuthCredentials, updateAuthEnabled } from '~/lib/auth';
+import { getAuthConfig, updateAuthCredentials, updateAuthEnabled, updateSessionDuration } from '~/lib/auth';
 import fs from 'fs';
 import path from 'path';
 import { withApiLogging } from '../../../../server/logging/withApiLogging';
@@ -14,6 +14,7 @@ export const GET = withApiLogging(async function GET() {
       enabled: authConfig.enabled,
       hasCredentials: authConfig.hasCredentials,
       setupCompleted: authConfig.setupCompleted,
+      sessionDurationDays: authConfig.sessionDurationDays,
     });
   } catch {
     // Error handled by withApiLogging
@@ -66,48 +67,75 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
 export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
   try {
-    const { enabled } = await request.json() as { enabled: boolean };
+    const body = await request.json() as { enabled?: boolean; sessionDurationDays?: number };
 
-    if (typeof enabled !== 'boolean') {
-      return NextResponse.json(
-        { error: 'Enabled flag must be a boolean' },
-        { status: 400 }
-      );
-    }
-
-    if (enabled) {
-      // When enabling, just update the flag
-      updateAuthEnabled(enabled);
-    } else {
-      // When disabling, clear all credentials and set flag to false
-      const envPath = path.join(process.cwd(), '.env');
-      let envContent = '';
-      if (fs.existsSync(envPath)) {
-        envContent = fs.readFileSync(envPath, 'utf8');
+    if (body.enabled !== undefined) {
+      const { enabled } = body;
+      
+      if (typeof enabled !== 'boolean') {
+        return NextResponse.json(
+          { error: 'Enabled flag must be a boolean' },
+          { status: 400 }
+        );
       }
 
-      // Remove AUTH_USERNAME and AUTH_PASSWORD_HASH
-      envContent = envContent.replace(/^AUTH_USERNAME=.*$/m, '');
-      envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, '');
-      
-      // Update or add AUTH_ENABLED
-      const enabledRegex = /^AUTH_ENABLED=.*$/m;
-      if (enabledRegex.test(envContent)) {
-        envContent = envContent.replace(enabledRegex, 'AUTH_ENABLED=false');
+      if (enabled) {
+        // When enabling, just update the flag
+        updateAuthEnabled(enabled);
       } else {
-        envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_ENABLED=false\n';
+        // When disabling, clear all credentials and set flag to false
+        const envPath = path.join(process.cwd(), '.env');
+        let envContent = '';
+        if (fs.existsSync(envPath)) {
+          envContent = fs.readFileSync(envPath, 'utf8');
+        }
+
+        // Remove AUTH_USERNAME and AUTH_PASSWORD_HASH
+        envContent = envContent.replace(/^AUTH_USERNAME=.*$/m, '');
+        envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, '');
+        
+        // Update or add AUTH_ENABLED
+        const enabledRegex = /^AUTH_ENABLED=.*$/m;
+        if (enabledRegex.test(envContent)) {
+          envContent = envContent.replace(enabledRegex, 'AUTH_ENABLED=false');
+        } else {
+          envContent += (envContent.endsWith('\n') ? '' : '\n') + 'AUTH_ENABLED=false\n';
+        }
+
+        // Clean up empty lines
+        envContent = envContent.replace(/\n\n+/g, '\n');
+        
+        fs.writeFileSync(envPath, envContent);
       }
 
-      // Clean up empty lines
-      envContent = envContent.replace(/\n\n+/g, '\n');
-      
-      fs.writeFileSync(envPath, envContent);
+      return NextResponse.json({ 
+        success: true, 
+        message: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully` 
+      });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully` 
-    });
+    if (body.sessionDurationDays !== undefined) {
+      const { sessionDurationDays } = body;
+      
+      if (typeof sessionDurationDays !== 'number' || sessionDurationDays < 1 || sessionDurationDays > 365) {
+        return NextResponse.json(
+          { error: 'Session duration must be a number between 1 and 365 days' },
+          { status: 400 }
+        );
+      }
+
+      updateSessionDuration(sessionDurationDays);
+
+      return NextResponse.json({ 
+        success: true, 
+        message: `Session duration updated to ${sessionDurationDays} days` 
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'No valid field to update' },
+      { status: 400 }
+    );
   } catch {
     // Error handled by withApiLogging
     return NextResponse.json(
