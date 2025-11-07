@@ -8,6 +8,7 @@ import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
 import { ExecutionModeModal } from "./ExecutionModeModal";
 import { ConfirmationModal } from "./ConfirmationModal";
+import { ScriptVersionModal } from "./ScriptVersionModal";
 import { TypeBadge, UpdateableBadge, PrivilegedBadge, NoteBadge } from "./Badge";
 import { Button } from "./ui/button";
 import { useRegisterModal } from './modal/ModalStackProvider';
@@ -38,6 +39,8 @@ export function ScriptDetailModal({
   const [selectedDiffFile, setSelectedDiffFile] = useState<string | null>(null);
   const [textViewerOpen, setTextViewerOpen] = useState(false);
   const [executionModeOpen, setExecutionModeOpen] = useState(false);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [selectedVersionType, setSelectedVersionType] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -133,16 +136,43 @@ export function ScriptDetailModal({
 
   const handleInstallScript = () => {
     if (!script) return;
+    
+    // Check if script has multiple variants (default and alpine)
+    const installMethods = script.install_methods || [];
+    const hasMultipleVariants = installMethods.filter(method => 
+      method.type === 'default' || method.type === 'alpine'
+    ).length > 1;
+    
+    if (hasMultipleVariants) {
+      // Show version selection modal first
+      setVersionModalOpen(true);
+    } else {
+      // Only one variant, proceed directly to execution mode
+      // Use the first available method or default to 'default' type
+      const defaultMethod = installMethods.find(method => method.type === 'default');
+      const firstMethod = installMethods[0];
+      setSelectedVersionType(defaultMethod?.type || firstMethod?.type || 'default');
+      setExecutionModeOpen(true);
+    }
+  };
+
+  const handleVersionSelect = (versionType: string) => {
+    setSelectedVersionType(versionType);
+    setVersionModalOpen(false);
     setExecutionModeOpen(true);
   };
 
   const handleExecuteScript = (mode: "local" | "ssh", server?: any) => {
     if (!script || !onInstallScript) return;
 
-    // Find the script path (CT or tools)
+    // Find the script path based on selected version type
+    const versionType = selectedVersionType || 'default';
     const scriptMethod = script.install_methods?.find(
+      (method) => method.type === versionType && method.script,
+    ) || script.install_methods?.find(
       (method) => method.script,
     );
+    
     if (scriptMethod?.script) {
       const scriptPath = `scripts/${scriptMethod.script}`;
       const scriptName = script.name;
@@ -799,8 +829,19 @@ export function ScriptDetailModal({
               ?.script?.split("/")
               .pop() ?? `${script.slug}.sh`
           }
+          script={script}
           isOpen={textViewerOpen}
           onClose={() => setTextViewerOpen(false)}
+        />
+      )}
+
+      {/* Version Selection Modal */}
+      {script && (
+        <ScriptVersionModal
+          script={script}
+          isOpen={versionModalOpen}
+          onClose={() => setVersionModalOpen(false)}
+          onSelectVersion={handleVersionSelect}
         />
       )}
 
