@@ -8,6 +8,7 @@ import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { useTheme } from './ThemeProvider';
 import { useRegisterModal } from './modal/ModalStackProvider';
 import { api } from '~/trpc/react';
+import { useAuth } from './AuthProvider';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -17,7 +18,9 @@ interface GeneralSettingsModalProps {
 export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalProps) {
   useRegisterModal(isOpen, { id: 'general-settings-modal', allowEscape: true, onClose });
   const { theme, setTheme } = useTheme();
+  const { isAuthenticated, expirationTime, checkAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth' | 'auto-sync'>('general');
+  const [sessionExpirationDisplay, setSessionExpirationDisplay] = useState<string>('');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<any>(null);
@@ -34,6 +37,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [authHasCredentials, setAuthHasCredentials] = useState(false);
   const [authSetupCompleted, setAuthSetupCompleted] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [sessionDurationDays, setSessionDurationDays] = useState(7);
 
   // Auto-sync state
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
@@ -214,11 +218,12 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     try {
       const response = await fetch('/api/settings/auth-credentials');
       if (response.ok) {
-        const data = await response.json() as { username: string; enabled: boolean; hasCredentials: boolean; setupCompleted: boolean };
+        const data = await response.json() as { username: string; enabled: boolean; hasCredentials: boolean; setupCompleted: boolean; sessionDurationDays?: number };
         setAuthUsername(data.username ?? '');
         setAuthEnabled(data.enabled ?? false);
         setAuthHasCredentials(data.hasCredentials ?? false);
         setAuthSetupCompleted(data.setupCompleted ?? false);
+        setSessionDurationDays(data.sessionDurationDays ?? 7);
       }
     } catch (error) {
       console.error('Error loading auth credentials:', error);
@@ -226,6 +231,64 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       setAuthLoading(false);
     }
   };
+
+  // Format expiration time display
+  const formatExpirationTime = (expTime: number | null): string => {
+    if (!expTime) return 'No active session';
+    
+    const now = Date.now();
+    const timeUntilExpiration = expTime - now;
+    
+    if (timeUntilExpiration <= 0) {
+      return 'Session expired';
+    }
+    
+    const days = Math.floor(timeUntilExpiration / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeUntilExpiration % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeUntilExpiration % (1000 * 60 * 60)) / (1000 * 60));
+    
+    const parts: string[] = [];
+    if (days > 0) {
+      parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+    }
+    if (hours > 0) {
+      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    }
+    if (minutes > 0 && days === 0) {
+      parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+    }
+    
+    if (parts.length === 0) {
+      return 'Less than a minute';
+    }
+    
+    return parts.join(', ');
+  };
+
+  // Update expiration display periodically
+  useEffect(() => {
+    const updateExpirationDisplay = () => {
+      if (expirationTime) {
+        setSessionExpirationDisplay(formatExpirationTime(expirationTime));
+      } else {
+        setSessionExpirationDisplay('');
+      }
+    };
+
+    updateExpirationDisplay();
+    
+    // Update every minute
+    const interval = setInterval(updateExpirationDisplay, 60000);
+    
+    return () => clearInterval(interval);
+  }, [expirationTime]);
+
+  // Refresh auth when tab changes to auth tab
+  useEffect(() => {
+    if (activeTab === 'auth' && isOpen) {
+      void checkAuth();
+    }
+  }, [activeTab, isOpen, checkAuth]);
 
   const saveAuthCredentials = async () => {
     if (authPassword !== authConfirmPassword) {
@@ -260,6 +323,41 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to save credentials' });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const saveSessionDuration = async (days: number) => {
+    if (days < 1 || days > 365) {
+      setMessage({ type: 'error', text: 'Session duration must be between 1 and 365 days' });
+      return;
+    }
+
+    setAuthLoading(true);
+    setMessage(null);
+    
+    try {
+      const response = await fetch('/api/settings/auth-credentials', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionDurationDays: days }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: `Session duration updated to ${days} days` });
+        setSessionDurationDays(days);
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error ?? 'Failed to update session duration' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to update session duration' });
+      setTimeout(() => setMessage(null), 3000);
     } finally {
       setAuthLoading(false);
     }
@@ -662,7 +760,10 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
           {activeTab === 'auth' && (
             <div className="space-y-4 sm:space-y-6">
               <div>
-                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Authentication Settings</h3>
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-medium text-foreground">Authentication Settings</h3>
+                  <ContextualHelpIcon section="auth-settings" tooltip="Help with Authentication Settings" />
+                </div>
                 <p className="text-sm sm:text-base text-muted-foreground mb-4">
                   Configure authentication to secure access to your application.
                 </p>
@@ -695,6 +796,68 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                           disabled={authLoading || !authSetupCompleted}
                           label="Enable authentication"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {isAuthenticated && expirationTime && (
+                    <div className="p-4 border border-border rounded-lg">
+                      <h4 className="font-medium text-foreground mb-2">Session Information</h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Session expires in:</p>
+                          <p className="text-sm font-medium text-foreground">{sessionExpirationDisplay}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Expiration date:</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {new Date(expirationTime).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Session Duration</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure how long user sessions should last before requiring re-authentication.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="session-duration" className="block text-sm font-medium text-foreground mb-1">
+                          Session Duration (days)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            id="session-duration"
+                            type="number"
+                            min="1"
+                            max="365"
+                            placeholder="Enter days"
+                            value={sessionDurationDays}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const value = parseInt(e.target.value, 10);
+                              if (!isNaN(value)) {
+                                setSessionDurationDays(value);
+                              }
+                            }}
+                            disabled={authLoading || !authSetupCompleted}
+                            className="w-32"
+                          />
+                          <span className="text-sm text-muted-foreground">days (1-365)</span>
+                          <Button
+                            onClick={() => saveSessionDuration(sessionDurationDays)}
+                            disabled={authLoading || !authSetupCompleted}
+                            size="sm"
+                          >
+                            Save
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Note: This setting applies to new logins. Current sessions will not be affected.
+                        </p>
                       </div>
                     </div>
                   </div>

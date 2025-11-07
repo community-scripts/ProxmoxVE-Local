@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = generateToken(username);
+    const sessionDurationDays = authConfig.sessionDurationDays;
+    const token = generateToken(username, sessionDurationDays);
 
     const response = NextResponse.json({ 
       success: true, 
@@ -46,12 +47,12 @@ export async function POST(request: NextRequest) {
       username 
     });
 
-    // Set httpOnly cookie
+    // Set httpOnly cookie with configured duration
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: sessionDurationDays * 24 * 60 * 60, // Use configured duration
       path: '/',
     });
 
