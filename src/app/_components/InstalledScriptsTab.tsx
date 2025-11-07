@@ -937,6 +937,18 @@ export function InstalledScriptsTab() {
           </Button>
           <Button
             onClick={() => {
+              cleanupRunRef.current = false; // Allow cleanup to run again
+              void cleanupMutation.mutate();
+            }}
+            disabled={cleanupMutation.isPending}
+            variant="outline"
+            size="default"
+            className="border-warning/30 text-warning hover:bg-warning/10"
+          >
+            {cleanupMutation.isPending ? '🧹 Cleaning up...' : '🧹 Cleanup Orphaned Scripts'}
+          </Button>
+          <Button
+            onClick={() => {
               // Trigger status check by calling the mutation directly
               const serverIds = [...new Set(scripts
                 .filter(script => script.server_id)
