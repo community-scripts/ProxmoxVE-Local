@@ -34,6 +34,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   });
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
+  const [isNewestMinimized, setIsNewestMinimized] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const { data: scriptCardsData, isLoading: githubLoading, error: githubError, refetch } = api.scripts.getScriptCardsWithCategories.useQuery();
@@ -689,8 +690,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           onViewModeChange={setViewMode}
         />
 
-        {/* Newest Scripts Carousel - Always show when there are newest scripts */}
-        {newestScripts.length > 0 && (
+        {/* Newest Scripts Carousel - Only show when no search, filters, or category is active */}
+        {newestScripts.length > 0 && !hasActiveFilters && !selectedCategory && (
           <div className="mb-8">
             <div className="bg-card border-l-4 border-l-primary border border-border rounded-lg p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
@@ -698,39 +699,64 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                   <Clock className="h-6 w-6 text-primary" />
                   Newest Scripts
                 </h2>
-                <span className="text-sm text-muted-foreground">
-                  {newestScripts.length} recently added
-                </span>
-              </div>
-              
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
-                  {newestScripts.map((script, index) => {
-                    if (!script || typeof script !== 'object') {
-                      return null;
-                    }
-                    
-                    const uniqueKey = `newest-${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
-                    
-                    return (
-                      <div key={uniqueKey} className="flex-shrink-0 w-64 sm:w-72 md:w-80">
-                        <div className="relative">
-                          <ScriptCard
-                            script={script}
-                            onClick={handleCardClick}
-                            isSelected={selectedSlugs.has(script.slug ?? '')}
-                            onToggleSelect={toggleScriptSelection}
-                          />
-                          {/* NEW badge */}
-                          <div className="absolute top-2 right-2 bg-success text-success-foreground text-xs font-semibold px-2 py-1 rounded-md shadow-md z-10">
-                            NEW
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {newestScripts.length} recently added
+                  </span>
+                  <Button
+                    onClick={() => setIsNewestMinimized(!isNewestMinimized)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title={isNewestMinimized ? "Expand newest scripts" : "Minimize newest scripts"}
+                  >
+                    <svg
+                      className={`h-4 w-4 transition-transform ${isNewestMinimized ? "" : "rotate-180"}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                  </Button>
                 </div>
               </div>
+              
+              {!isNewestMinimized && (
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                  <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+                    {newestScripts.map((script, index) => {
+                      if (!script || typeof script !== 'object') {
+                        return null;
+                      }
+                      
+                      const uniqueKey = `newest-${script.slug ?? 'unknown'}-${script.name ?? 'unnamed'}-${index}`;
+                      
+                      return (
+                        <div key={uniqueKey} className="flex-shrink-0 w-64 sm:w-72 md:w-80">
+                          <div className="relative">
+                            <ScriptCard
+                              script={script}
+                              onClick={handleCardClick}
+                              isSelected={selectedSlugs.has(script.slug ?? '')}
+                              onToggleSelect={toggleScriptSelection}
+                            />
+                            {/* NEW badge */}
+                            <div className="absolute top-2 right-2 bg-success text-success-foreground text-xs font-semibold px-2 py-1 rounded-md shadow-md z-10">
+                              NEW
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
