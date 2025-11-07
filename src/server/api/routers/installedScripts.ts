@@ -887,77 +887,142 @@ export const installedScriptsRouter = createTRPCRouter({
         );
 
 
+        // Group scripts by server to batch check containers
+        const scriptsByServer = new Map<number, any[]>();
         for (const script of scriptsToCheck) {
+          const scriptData = script as any;
+          if (!scriptData.server_id) continue;
+          
+          if (!scriptsByServer.has(scriptData.server_id)) {
+            scriptsByServer.set(scriptData.server_id, []);
+          }
+          scriptsByServer.get(scriptData.server_id)!.push(scriptData);
+        }
+
+        // Process each server
+        for (const [serverId, serverScripts] of scriptsByServer.entries()) {
           try {
-            const scriptData = script as any;
-            const server = allServers.find((s: any) => s.id === scriptData.server_id);
+            const server = allServers.find((s: any) => s.id === serverId);
             if (!server) {
-              await db.deleteInstalledScript(Number(scriptData.id));
-              deletedScripts.push(String(scriptData.script_name));
+              // Server doesn't exist, delete all scripts for this server
+              for (const scriptData of serverScripts) {
+                await db.deleteInstalledScript(Number(scriptData.id));
+                deletedScripts.push(String(scriptData.script_name));
+              }
               continue;
             }
-
 
             // Test SSH connection
-             
             const connectionTest = await sshService.testSSHConnection(server as Server);
             if (!(connectionTest as any).success) {
+              console.warn(`cleanupOrphanedScripts: SSH connection failed for server ${String((server as any).name)}, skipping ${serverScripts.length} scripts`);
               continue;
             }
 
-            // Check if the container config file still exists
-            const checkCommand = `test -f "/etc/pve/lxc/${scriptData.container_id}.conf" && echo "exists" || echo "not_found"`;
+            // Get all existing containers from pct list (more reliable than checking config files)
+            const listCommand = 'pct list';
+            let listOutput = '';
             
-            // Await full command completion to avoid early false negatives
-            const containerExists = await new Promise<boolean>((resolve) => {
-              let combinedOutput = '';
-              let resolved = false;
-
-              const finish = () => {
-                if (resolved) return;
-                resolved = true;
-                const out = combinedOutput.trim();
-                if (out.includes('exists')) {
-                  resolve(true);
-                } else if (out.includes('not_found')) {
-                  resolve(false);
-                } else {
-                  // Unknown output; treat as not found but log for diagnostics
-                  console.warn(`cleanupOrphanedScripts: unexpected output for ${String(scriptData.script_name)} (${String(scriptData.container_id)}): ${out}`);
-                  resolve(false);
-                }
-              };
-
-              // Add a guard timeout so we don't hang indefinitely
-              const timer = setTimeout(() => {
-                console.warn(`cleanupOrphanedScripts: timeout while checking ${String(scriptData.script_name)} on server ${String((server as any).name)}`);
-                finish();
-              }, 15000);
+            const existingContainerIds = await new Promise<Set<string>>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                console.warn(`cleanupOrphanedScripts: timeout while getting container list from server ${String((server as any).name)}`);
+                resolve(new Set()); // Treat timeout as no containers found
+              }, 20000);
 
               void sshExecutionService.executeCommand(
                 server as Server,
-                checkCommand,
+                listCommand,
                 (data: string) => {
-                  combinedOutput += data;
+                  listOutput += data;
                 },
                 (error: string) => {
-                  combinedOutput += error;
+                  console.error(`cleanupOrphanedScripts: error getting container list from server ${String((server as any).name)}:`, error);
+                  clearTimeout(timeout);
+                  resolve(new Set()); // Treat error as no containers found
                 },
                 (_exitCode: number) => {
-                  clearTimeout(timer);
-                  finish();
+                  clearTimeout(timeout);
+                  
+                  // Parse pct list output to extract container IDs
+                  const containerIds = new Set<string>();
+                  const lines = listOutput.split('\n').filter(line => line.trim());
+                  
+                  for (const line of lines) {
+                    // pct list format: CTID     Status       Name
+                    // Skip header line if present
+                    if (line.includes('CTID') || line.includes('VMID')) continue;
+                    
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length > 0) {
+                      const containerId = parts[0]?.trim();
+                      if (containerId && /^\d{3,4}$/.test(containerId)) {
+                        containerIds.add(containerId);
+                      }
+                    }
+                  }
+                  
+                  resolve(containerIds);
                 }
               );
             });
 
-            if (!containerExists) {
-              await db.deleteInstalledScript(Number(scriptData.id));
-              deletedScripts.push(String(scriptData.script_name));
-            } else {
-            }
+            // Check each script against the list of existing containers
+            for (const scriptData of serverScripts) {
+              try {
+                const containerId = String(scriptData.container_id).trim();
+                
+                // Check if container exists in pct list
+                if (!existingContainerIds.has(containerId)) {
+                  // Also verify config file doesn't exist as a double-check
+                  const checkCommand = `test -f "/etc/pve/lxc/${containerId}.conf" && echo "exists" || echo "not_found"`;
+                  
+                  const configExists = await new Promise<boolean>((resolve) => {
+                    let combinedOutput = '';
+                    let resolved = false;
 
+                    const finish = () => {
+                      if (resolved) return;
+                      resolved = true;
+                      const out = combinedOutput.trim();
+                      resolve(out.includes('exists'));
+                    };
+
+                    const timer = setTimeout(() => {
+                      finish();
+                    }, 10000);
+
+                    void sshExecutionService.executeCommand(
+                      server as Server,
+                      checkCommand,
+                      (data: string) => {
+                        combinedOutput += data;
+                      },
+                      (_error: string) => {
+                        // Ignore errors, just check output
+                      },
+                      (_exitCode: number) => {
+                        clearTimeout(timer);
+                        finish();
+                      }
+                    );
+                  });
+
+                  // If container is not in pct list AND config file doesn't exist, it's orphaned
+                  if (!configExists) {
+                    console.log(`cleanupOrphanedScripts: Removing orphaned script ${String(scriptData.script_name)} (container ${containerId}) from server ${String((server as any).name)}`);
+                    await db.deleteInstalledScript(Number(scriptData.id));
+                    deletedScripts.push(String(scriptData.script_name));
+                  } else {
+                    // Config exists but not in pct list - might be in a transitional state, log but don't delete
+                    console.warn(`cleanupOrphanedScripts: Container ${containerId} (${String(scriptData.script_name)}) config exists but not in pct list - may be in transitional state`);
+                  }
+                }
+              } catch (error) {
+                console.error(`cleanupOrphanedScripts: Error checking script ${String((scriptData as any).script_name)}:`, error);
+              }
+            }
           } catch (error) {
-            console.error(`Error checking script ${(script as any).script_name}:`, error);
+            console.error(`cleanupOrphanedScripts: Error processing server ${serverId}:`, error);
           }
         }
 
