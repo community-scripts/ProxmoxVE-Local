@@ -535,7 +535,30 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   };
 
   const handleDownloadAllFiltered = () => {
-    const slugsToDownload = filteredScripts.map(script => script.slug).filter(Boolean);
+
+    let scriptsToDownload: ScriptCardType[] = filteredScripts;
+    
+    if (!hasActiveFilters) {
+ 
+      const scriptMap = new Map<string, ScriptCardType>();
+
+      filteredScripts.forEach(script => {
+        if (script?.slug) {
+          scriptMap.set(script.slug, script);
+        }
+      });
+      
+
+      newestScripts.forEach(script => {
+        if (script?.slug && !scriptMap.has(script.slug)) {
+          scriptMap.set(script.slug, script);
+        }
+      });
+      
+      scriptsToDownload = Array.from(scriptMap.values());
+    }
+    
+    const slugsToDownload = scriptsToDownload.map(script => script.slug).filter(Boolean);
     if (slugsToDownload.length > 0) {
       void downloadScriptsIndividually(slugsToDownload);
     }
