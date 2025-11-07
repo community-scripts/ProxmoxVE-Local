@@ -53,6 +53,50 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     void loadColorCodingSetting();
   }, []);
 
+  const validateServerAddress = (address: string): boolean => {
+    const trimmed = address.trim();
+    if (!trimmed) return false;
+
+    // IPv4 validation
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (ipv4Regex.test(trimmed)) {
+      return true;
+    }
+
+    // IPv6 validation (supports compressed format like ::1 and full format)
+    // Matches: 2001:0db8:85a3:0000:0000:8a2e:0370:7334, ::1, 2001:db8::1, etc.
+    // Also supports IPv4-mapped IPv6 addresses like ::ffff:192.168.1.1
+    // Simplified validation: check for valid hex segments separated by colons
+    const ipv6Pattern = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:)+[0-9a-fA-F]{1,4}$|^::ffff:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (ipv6Pattern.test(trimmed)) {
+      // Additional validation: ensure only one :: compression exists
+      const compressionCount = (trimmed.match(/::/g) || []).length;
+      if (compressionCount <= 1) {
+        return true;
+      }
+    }
+
+    // FQDN/hostname validation (RFC 1123 compliant)
+    // Allows letters, numbers, hyphens, dots; must start and end with alphanumeric
+    // Max length 253 characters, each label max 63 characters
+    const hostnameRegex = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+    if (hostnameRegex.test(trimmed) && trimmed.length <= 253) {
+      // Additional check: each label (between dots) must be max 63 chars
+      const labels = trimmed.split('.');
+      if (labels.every(label => label.length > 0 && label.length <= 63)) {
+        return true;
+      }
+    }
+
+    // Also allow simple hostnames without dots (like 'localhost')
+    const simpleHostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+    if (simpleHostnameRegex.test(trimmed) && trimmed.length <= 63) {
+      return true;
+    }
+
+    return false;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateServerData, string>> = {};
 
@@ -61,12 +105,10 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     }
 
     if (!formData.ip.trim()) {
-      newErrors.ip = 'IP address is required';
+      newErrors.ip = 'Server address is required';
     } else {
-      // Basic IP validation
-      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-      if (!ipRegex.test(formData.ip)) {
-        newErrors.ip = 'Please enter a valid IP address';
+      if (!validateServerAddress(formData.ip)) {
+        newErrors.ip = 'Please enter a valid IP address (IPv4/IPv6) or hostname';
       }
     }
 
@@ -221,7 +263,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
 
         <div>
           <label htmlFor="ip" className="block text-sm font-medium text-muted-foreground mb-1">
-            IP Address *
+            Host/IP Address *
           </label>
           <input
             type="text"
@@ -231,7 +273,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
             className={`w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ${
               errors.ip ? 'border-destructive' : 'border-border'
             }`}
-            placeholder="e.g., 192.168.1.100"
+            placeholder="e.g., 192.168.1.100, server.example.com, or 2001:db8::1"
           />
           {errors.ip && <p className="mt-1 text-sm text-destructive">{errors.ip}</p>}
         </div>
