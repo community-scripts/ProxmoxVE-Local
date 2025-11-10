@@ -63,14 +63,26 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
       return true;
     }
 
+    // Check for IPv6 with zone identifier (link-local addresses like fe80::...%eth0)
+    let ipv6Address = trimmed;
+    const zoneIdMatch = trimmed.match(/^(.+)%([a-zA-Z0-9_\-]+)$/);
+    if (zoneIdMatch) {
+      ipv6Address = zoneIdMatch[1];
+      // Zone identifier should be a valid interface name (alphanumeric, underscore, hyphen)
+      const zoneId = zoneIdMatch[2];
+      if (!/^[a-zA-Z0-9_\-]+$/.test(zoneId)) {
+        return false;
+      }
+    }
+
     // IPv6 validation (supports compressed format like ::1 and full format)
     // Matches: 2001:0db8:85a3:0000:0000:8a2e:0370:7334, ::1, 2001:db8::1, etc.
     // Also supports IPv4-mapped IPv6 addresses like ::ffff:192.168.1.1
     // Simplified validation: check for valid hex segments separated by colons
     const ipv6Pattern = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:)+[0-9a-fA-F]{1,4}$|^::ffff:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (ipv6Pattern.test(trimmed)) {
+    if (ipv6Pattern.test(ipv6Address)) {
       // Additional validation: ensure only one :: compression exists
-      const compressionCount = (trimmed.match(/::/g) || []).length;
+      const compressionCount = (ipv6Address.match(/::/g) || []).length;
       if (compressionCount <= 1) {
         return true;
       }
@@ -273,7 +285,7 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
             className={`w-full px-3 py-2 border rounded-md shadow-sm bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ${
               errors.ip ? 'border-destructive' : 'border-border'
             }`}
-            placeholder="e.g., 192.168.1.100, server.example.com, or 2001:db8::1"
+            placeholder="e.g., 192.168.1.100, server.example.com, 2001:db8::1, or fe80::...%eth0"
           />
           {errors.ip && <p className="mt-1 text-sm text-destructive">{errors.ip}</p>}
         </div>
