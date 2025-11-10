@@ -17,9 +17,9 @@ variables() {
 
 # Get absolute path to core directory
 CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$CORE_DIR/api.func"
 source "$CORE_DIR/core.func"
-
-
+load_functions
 # This function enables error handling in the script by setting options and defining a trap for the ERR signal.
 catch_errors() {
   set -Eeo pipefail
@@ -33,15 +33,15 @@ error_handler() {
   local line_number="$1"
   local command="$2"
   local error_message="${RD}[ERROR]${CL} in line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing command ${YW}$command${CL}"
-  
+  post_update_to_api "failed" "${command}"
   echo -e "\n$error_message\n"
 }
 
-# Check if the shell is using bash
+# Check if the current shell is using bash
 shell_check() {
-  if [[ "$(basename "$SHELL")" != "bash" ]]; then
+  if [[ "$(ps -p $$ -o comm=)" != "bash" ]]; then
     clear
-    msg_error "Your default shell is currently not set to Bash. To use these scripts, please switch to the Bash shell."
+    msg_error "Your default shell is not bash. Please report this to our github issues or discord."
     echo -e "\nExiting..."
     sleep 2
     exit
@@ -439,14 +439,17 @@ advanced_settings() {
       exit_script
     fi
   done
+
   if CT_ID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Set Container ID" 8 58 "$NEXTID" --title "CONTAINER ID" 3>&1 1>&2 2>&3); then
     if [ -z "$CT_ID" ]; then
       CT_ID="$NEXTID"
+      echo -e "${CONTAINERID}${BOLD}${DGN}Container ID: ${BGN}$CT_ID${CL}"
+    else
+      echo -e "${CONTAINERID}${BOLD}${DGN}Container ID: ${BGN}$CT_ID${CL}"
     fi
   else
     exit_script
   fi
-  echo -e "${CONTAINERID}${BOLD}${DGN}Container ID: ${BGN}$CT_ID${CL}"
 
   while true; do
     if CT_NAME=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Set Hostname" 8 58 "$NSAPP" --title "HOSTNAME" 3>&1 1>&2 2>&3); then
@@ -911,6 +914,7 @@ install_script() {
   shell_check
   root_check
   arch_check
+  #ssh_check
   maxkeys_check
   diagnostics_check
 
@@ -1045,7 +1049,6 @@ start() {
   source "$CORE_DIR/tools.func"
   if command -v pveversion >/dev/null 2>&1; then
     install_script
-    
   else
     CHOICE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "${APP} LXC Update/Setting" --menu \
       "Support/Update functions for ${APP} LXC. Choose an option:" \
@@ -1075,7 +1078,6 @@ start() {
 
 # This function collects user settings and integrates all the collected information.
 build_container() {
-  
   #  if [ "$VERBOSE" == "yes" ]; then set -x; fi
 
   NET_STRING="-net0 name=eth0,bridge=$BRG$MAC,ip=$NET$GATE$VLAN$MTU"
@@ -1099,18 +1101,12 @@ build_container() {
   fi
 
   if [[ $DIAGNOSTICS == "yes" ]]; then
-    echo "Diagnostics enabled (post_to_api function not available)"
+    post_to_api
   fi
 
   TEMP_DIR=$(mktemp -d)
   pushd "$TEMP_DIR" >/dev/null
-  # CORE_DIR is already defined at the top of the file
-  
-  if [ "$var_os" == "alpine" ]; then
-    export FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/alpine-install.func")"
-  else
-    export FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/install.func")"
-  fi
+
 
   export DIAGNOSTICS="$DIAGNOSTICS"
   export RANDOM_UUID="$RANDOM_UUID"
@@ -1130,21 +1126,10 @@ build_container() {
   export PCT_OSTYPE="$var_os"
   export PCT_OSVERSION="$var_version"
   export PCT_DISK_SIZE="$DISK_SIZE"
-  export PCT_OPTIONS="
-    -features $FEATURES
-    -hostname $HN
-    -tags $TAGS
-    $SD
-    $NS
-    $NET_STRING
-    -onboot 1
-    -cores $CORE_COUNT
-    -memory $RAM_SIZE
-    -unprivileged $CT_TYPE
-    $PW
-  "
+  export PCT_OPTIONS="-features $FEATURES -hostname $HN -tags $TAGS $SD $NS $NET_STRING -onboot 1 -cores $CORE_COUNT -memory $RAM_SIZE -unprivileged $CT_TYPE $PW"
   # This executes create_lxc.sh and creates the container and .conf file
-  bash "$CORE_DIR/create_lxc.sh" $?
+  bash "$CORE_DIR/create_lxc.sh"
+
 
   LXC_CONFIG="/etc/pve/lxc/${CTID}.conf"
 
@@ -1337,8 +1322,64 @@ EOF'
   fi
   msg_ok "Customized LXC Container"
 
+  if [ "$var_os" == "alpine" ]; then
+    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/alpine-install.func")"
+  else
+    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/install.func")"
+  fi
   
-  lxc-attach -n "$CTID" -- bash -c "$(cat "$(dirname "$CORE_DIR")/install/${var_install}.sh")"
+  FUNCTIONS_FILE="/tmp/functions.sh"
+  echo "$FUNCTIONS_FILE_PATH" | pct exec "$CTID" -- bash -c "cat > $FUNCTIONS_FILE"
+  
+  pct exec "$CTID" -- test -f "$FUNCTIONS_FILE" || {
+    msg_error "Failed to write functions file to container"
+    exit 1
+  }  
+ 
+  INSTALL_SCRIPT_PATH="$(dirname "$CORE_DIR")/install/${var_install}.sh"
+  INSTALL_SCRIPT_CONTENT=$(cat "$INSTALL_SCRIPT_PATH")
+  
+  # Replace the old pattern: source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
+  # with direct file source: source "/tmp/functions.sh"
+  # Use sed with a simpler pattern that matches the exact line
+  MODIFIED_INSTALL_SCRIPT=$(echo "$INSTALL_SCRIPT_CONTENT" | \
+    sed "s|source /dev/stdin <<<\"\$FUNCTIONS_FILE_PATH\"|source \"$FUNCTIONS_FILE\"|")
+  
+  # Verify replacement worked - if not, force add the source line
+  if ! echo "$MODIFIED_INSTALL_SCRIPT" | grep -q "source \"$FUNCTIONS_FILE\""; then
+    # If replacement didn't work, add source line after the last comment
+    MODIFIED_INSTALL_SCRIPT=$(echo "$MODIFIED_INSTALL_SCRIPT" | \
+      awk -v func_file="$FUNCTIONS_FILE" '
+      BEGIN { replaced = 0 }
+      {
+        if (/source.*dev\/stdin/ || /source.*FUNCTIONS_FILE_PATH/) {
+          print "source \"" func_file "\""
+          replaced = 1
+          next
+        }
+        if (!replaced && /^#/ && !/^#!/) {
+          print
+          next
+        }
+        if (!replaced && !/^#!/ && !/^#/) {
+          print "source \"" func_file "\""
+          replaced = 1
+        }
+        print
+      }
+      END {
+        if (!replaced) {
+          print "source \"" func_file "\""
+        }
+      }')
+  fi
+  
+  # Write the modified script to a file in the container and execute it
+  INSTALL_SCRIPT_FILE="/tmp/install_script.sh"
+  echo "$MODIFIED_INSTALL_SCRIPT" | pct exec "$CTID" -- bash -c "cat > $INSTALL_SCRIPT_FILE"
+  pct exec "$CTID" -- chmod +x "$INSTALL_SCRIPT_FILE"
+  
+  lxc-attach -n "$CTID" -- bash "$INSTALL_SCRIPT_FILE"
 }
 
 # This function sets the description of the container.
@@ -1383,6 +1424,37 @@ EOF
   if [[ -f /etc/systemd/system/ping-instances.service ]]; then
     systemctl start ping-instances.service
   fi
+
+  post_update_to_api "done" "none"
 }
 
+api_exit_script() {
+  exit_code=$? # Capture the exit status of the last executed command
+  #200 exit codes indicate error in create_lxc.sh
+  #100 exit codes indicate error in install.func
 
+  if [ $exit_code -ne 0 ]; then
+    case $exit_code in
+    100) post_update_to_api "failed" "100: Unexpected error in create_lxc.sh" ;;
+    101) post_update_to_api "failed" "101: No network connection detected in create_lxc.sh" ;;
+    200) post_update_to_api "failed" "200: LXC creation failed in create_lxc.sh" ;;
+    201) post_update_to_api "failed" "201: Invalid Storage class in create_lxc.sh" ;;
+    202) post_update_to_api "failed" "202: User aborted menu in create_lxc.sh" ;;
+    203) post_update_to_api "failed" "203: CTID not set in create_lxc.sh" ;;
+    204) post_update_to_api "failed" "204: PCT_OSTYPE not set in create_lxc.sh" ;;
+    205) post_update_to_api "failed" "205: CTID cannot be less than 100 in create_lxc.sh" ;;
+    206) post_update_to_api "failed" "206: CTID already in use in create_lxc.sh" ;;
+    207) post_update_to_api "failed" "207: Template not found in create_lxc.sh" ;;
+    208) post_update_to_api "failed" "208: Error downloading template in create_lxc.sh" ;;
+    209) post_update_to_api "failed" "209: Container creation failed, but template is intact in create_lxc.sh" ;;
+    *) post_update_to_api "failed" "Unknown error, exit code: $exit_code in create_lxc.sh" ;;
+    esac
+  fi
+}
+
+if command -v pveversion >/dev/null 2>&1; then
+  trap 'api_exit_script' EXIT
+fi
+trap 'post_update_to_api "failed" "$BASH_COMMAND"' ERR
+trap 'post_update_to_api "failed" "INTERRUPTED"' SIGINT
+trap 'post_update_to_api "failed" "TERMINATED"' SIGTERM
