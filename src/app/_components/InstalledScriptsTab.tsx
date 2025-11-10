@@ -517,9 +517,26 @@ export function InstalledScriptsTab() {
     }
   }
 
-  const handleDeleteScript = (id: number) => {
-    if (confirm('Are you sure you want to delete this installation record?')) {
-      void deleteScriptMutation.mutate({ id });
+  const handleDeleteScript = (id: number, script?: InstalledScript) => {
+    const scriptToDelete = script ?? scripts.find(s => s.id === id);
+    
+    if (scriptToDelete && scriptToDelete.container_id && scriptToDelete.execution_mode === 'ssh') {
+      // For SSH scripts with container_id, use confirmation modal
+      setConfirmationModal({
+        isOpen: true,
+        variant: 'simple',
+        title: 'Delete Database Record Only',
+        message: `This will only delete the database record for "${scriptToDelete.script_name}" (Container ID: ${scriptToDelete.container_id}).\n\nThe container will remain intact and can be re-detected later via auto-detect.`,
+        onConfirm: () => {
+          void deleteScriptMutation.mutate({ id });
+          setConfirmationModal(null);
+        }
+      });
+    } else {
+      // For non-SSH scripts or scripts without container_id, use simple confirm
+      if (confirm('Are you sure you want to delete this installation record?')) {
+        void deleteScriptMutation.mutate({ id });
+      }
     }
   };
 
@@ -1567,6 +1584,14 @@ export function InstalledScriptsTab() {
                                           className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
                                         >
                                           {controllingScriptId === script.id ? 'Working...' : 'Destroy'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-border" />
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteScript(script.id, script)}
+                                          disabled={deleteScriptMutation.isPending}
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                        >
+                                          {deleteScriptMutation.isPending ? 'Deleting...' : 'Delete only from DB'}
                                         </DropdownMenuItem>
                                       </>
                                     )}
