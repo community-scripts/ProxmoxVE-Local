@@ -47,10 +47,13 @@ export async function POST(request: NextRequest) {
       username 
     });
 
+    // Determine if request is over HTTPS
+    const isSecure = request.url.startsWith('https://');
+
     // Set httpOnly cookie with configured duration
     response.cookies.set('auth-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure, // Only secure if actually over HTTPS
       sameSite: 'strict',
       maxAge: sessionDurationDays * 24 * 60 * 60, // Use configured duration
       path: '/',
