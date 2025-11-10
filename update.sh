@@ -550,7 +550,10 @@ update_files() {
         "update.log"
         "*.backup"
         "*.bak"
-        "scripts"
+        "scripts/ct"
+        "scripts/install"
+        "scripts/tools"
+        "scripts/vm"
     )
     
     # Find the actual source directory (strip the top-level directory)
