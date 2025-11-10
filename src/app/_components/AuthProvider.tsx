@@ -106,7 +106,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUsername(data.username);
         
         // Check auth again to get expiration time
-        await checkAuth();
+        // Add a small delay to ensure the httpOnly cookie is available
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            void checkAuth().then(() => resolve());
+          }, 150);
+        });
         return true;
       } else {
         const errorData = await response.json();
