@@ -407,7 +407,58 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Update Status:</strong> Show only scripts with available updates</li>
                   <li>• <strong>Search Query:</strong> Search within script names and descriptions</li>
                   <li>• <strong>Categories:</strong> Filter by specific script categories</li>
+                  <li>• <strong>Repositories:</strong> Filter scripts by repository source (only shown when multiple repositories are enabled). Click repository buttons to toggle visibility of scripts from that repository.</li>
                 </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Repository Management</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Scripts are organized by repositories (GitHub repositories). You can add custom repositories or manage existing ones in General Settings.
+                </p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <h5 className="font-medium text-foreground mb-1 text-sm">Repository Structure</h5>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      For a repository to work with this system, it must follow this structure:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                      <li><strong>JSON files:</strong> Must be located in a <code className="bg-muted px-1 rounded">frontend/public/json/</code> folder at the repository root</li>
+                      <li><strong>Script files:</strong> Must be organized in subdirectories:
+                        <ul className="ml-4 mt-1 space-y-0.5 list-disc">
+                          <li><code className="bg-muted px-1 rounded">ct/</code> - Container scripts</li>
+                          <li><code className="bg-muted px-1 rounded">install/</code> - Installation scripts</li>
+                          <li><code className="bg-muted px-1 rounded">tools/</code> - Tool scripts</li>
+                          <li><code className="bg-muted px-1 rounded">vm/</code> - Virtual machine scripts</li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h5 className="font-medium text-foreground mb-1 text-sm">Default Repositories</h5>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                      <li><strong>Main Repository (ProxmoxVE):</strong> The primary repository, enabled by default. This repository cannot be deleted.</li>
+                      <li><strong>Dev Repository (ProxmoxVED):</strong> Development/testing repository, disabled by default. This repository cannot be deleted.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h5 className="font-medium text-foreground mb-1 text-sm">Enable vs Disable</h5>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                      <li><strong>Enabled:</strong> Scripts from this repository are included in the Available Scripts tab and will be synced when you sync repositories.</li>
+                      <li><strong>Disabled:</strong> Scripts from this repository are excluded from the Available Scripts tab and will not be synced. Scripts already downloaded from a disabled repository remain on your system but won&apos;t appear in the list.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h5 className="font-medium text-foreground mb-1 text-sm">Repository Filter Buttons</h5>
+                    <p className="text-xs text-muted-foreground">
+                      When multiple repositories are enabled, filter buttons appear in the filter bar. Click a repository button to toggle showing/hiding scripts from that repository. Active buttons are highlighted. This allows you to quickly focus on scripts from specific repositories.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="p-4 border border-border rounded-lg">
