@@ -455,3 +455,6 @@ check_or_create_swap() {
 }
 
 trap 'stop_spinner' EXIT INT TERM
+
+# Initialize functions when core.func is sourced
+load_functions
