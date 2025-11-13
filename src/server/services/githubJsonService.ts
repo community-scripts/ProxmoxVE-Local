@@ -2,7 +2,7 @@ import { writeFile, mkdir, readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { env } from '../../env.js';
 import type { Script, ScriptCard, GitHubFile } from '../../types/script';
-import { repositoryService } from './repositoryService.js';
+import { repositoryService } from './repositoryService.ts';
 
 export class GitHubJsonService {
   private branch: string | null = null;
