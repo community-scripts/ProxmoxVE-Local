@@ -42,7 +42,7 @@ export function ResyncButton() {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="text-sm text-muted-foreground font-medium">
-        Sync scripts with ProxmoxVE repo
+        Sync scripts with configured repositories
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
