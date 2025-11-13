@@ -64,6 +64,7 @@ export class LocalScriptsService {
         type: script.type,
         updateable: script.updateable,
         website: script.website,
+        repository_url: script.repository_url,
       }));
     } catch (error) {
       console.error('Error creating script cards:', error);

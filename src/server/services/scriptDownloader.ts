@@ -14,7 +14,7 @@ export class ScriptDownloaderService {
   private initializeConfig() {
     if (this.scriptsDirectory === null) {
       this.scriptsDirectory = join(process.cwd(), 'scripts');
-      this.repoUrl = env.REPO_URL ?? '';
+      this.repoUrl = env.REPO_URL ?? 'https://github.com/community-scripts/ProxmoxVE';
     }
   }
 
@@ -26,29 +26,48 @@ export class ScriptDownloaderService {
     }
   }
 
-  private async downloadFileFromGitHub(filePath: string): Promise<string> {
+  private extractRepoPath(repoUrl: string): string {
+    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
+    if (!match) {
+      throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
+    }
+    return `${match[1]}/${match[2]}`;
+  }
+
+  private async downloadFileFromGitHub(repoUrl: string, filePath: string, branch: string = 'main'): Promise<string> {
     this.initializeConfig();
-    if (!this.repoUrl) {
-      throw new Error('REPO_URL environment variable is not set');
+    if (!repoUrl) {
+      throw new Error('Repository URL is not set');
     }
 
-    const url = `https://raw.githubusercontent.com/${this.extractRepoPath()}/main/${filePath}`;
+    const repoPath = this.extractRepoPath(repoUrl);
+    const url = `https://raw.githubusercontent.com/${repoPath}/${branch}/${filePath}`;
     
-    const response = await fetch(url);
+    const headers: HeadersInit = {
+      'User-Agent': 'PVEScripts-Local/1.0',
+    };
+    
+    // Add GitHub token authentication if available
+    const { env } = await import('~/env.js');
+    if (env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+    }
+    
+    const response = await fetch(url, { headers });
     if (!response.ok) {
-      throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to download ${filePath} from ${repoUrl}: ${response.status} ${response.statusText}`);
     }
 
     return response.text();
   }
 
-  private extractRepoPath(): string {
-    this.initializeConfig();
-    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(this.repoUrl!);
-    if (!match) {
-      throw new Error('Invalid GitHub repository URL');
+  private getRepoUrlForScript(script: Script): string {
+    // Use repository_url from script if available, otherwise fallback to env or default
+    if (script.repository_url) {
+      return script.repository_url;
     }
-    return `${match[1]}/${match[2]}`;
+    this.initializeConfig();
+    return this.repoUrl!;
   }
 
   private modifyScriptContent(content: string): string {
@@ -64,6 +83,9 @@ export class ScriptDownloaderService {
     this.initializeConfig();
     try {
       const files: string[] = [];
+      const repoUrl = this.getRepoUrlForScript(script);
+      const { env } = await import('~/env.js');
+      const branch = env.REPO_BRANCH ?? 'main';
       
       // Ensure directories exist
       await this.ensureDirectoryExists(join(this.scriptsDirectory!, 'ct'));
@@ -78,8 +100,8 @@ export class ScriptDownloaderService {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
-              // Download from GitHub
-              const content = await this.downloadFileFromGitHub(scriptPath);
+              // Download from GitHub using the script's repository URL
+              const content = await this.downloadFileFromGitHub(repoUrl, scriptPath, branch);
               
               // Determine target directory based on script path
               let targetDir: string;
@@ -143,7 +165,7 @@ export class ScriptDownloaderService {
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         try {
-          const installContent = await this.downloadFileFromGitHub(`install/${installScriptName}`);
+          const installContent = await this.downloadFileFromGitHub(repoUrl, `install/${installScriptName}`, branch);
           const localInstallPath = join(this.scriptsDirectory!, 'install', installScriptName);
           await writeFile(localInstallPath, installContent, 'utf-8');
           files.push(`install/${installScriptName}`);
@@ -303,6 +325,10 @@ export class ScriptDownloaderService {
   private async scriptNeedsUpdate(script: Script): Promise<boolean> {
     if (!script.install_methods?.length) return false;
 
+    const repoUrl = this.getRepoUrlForScript(script);
+    const { env } = await import('~/env.js');
+    const branch = env.REPO_BRANCH ?? 'main';
+
     for (const method of script.install_methods) {
       if (method.script) {
         const scriptPath = method.script;
@@ -346,8 +372,8 @@ export class ScriptDownloaderService {
             // Read local content
             const localContent = await readFile(filePath, 'utf8');
             
-            // Download remote content
-            const remoteContent = await this.downloadFileFromGitHub(scriptPath);
+            // Download remote content from the script's repository
+            const remoteContent = await this.downloadFileFromGitHub(repoUrl, scriptPath, branch);
             
             // Compare content (simple string comparison for now)
             // In a more sophisticated implementation, you might want to compare
@@ -566,7 +592,7 @@ export class ScriptDownloaderService {
               }
               
               comparisonPromises.push(
-                this.compareSingleFile(scriptPath, `${finalTargetDir}/${fileName}`)
+                this.compareSingleFile(script, scriptPath, `${finalTargetDir}/${fileName}`)
                   .then(result => {
                     if (result.hasDifferences) {
                       hasDifferences = true;
@@ -588,7 +614,7 @@ export class ScriptDownloaderService {
         const installScriptPath = `install/${installScriptName}`;
         
         comparisonPromises.push(
-          this.compareSingleFile(installScriptPath, installScriptPath)
+          this.compareSingleFile(script, installScriptPath, installScriptPath)
             .then(result => {
               if (result.hasDifferences) {
                 hasDifferences = true;
@@ -611,15 +637,18 @@ export class ScriptDownloaderService {
     }
   }
 
-  private async compareSingleFile(remotePath: string, filePath: string): Promise<{ hasDifferences: boolean; filePath: string }> {
+  private async compareSingleFile(script: Script, remotePath: string, filePath: string): Promise<{ hasDifferences: boolean; filePath: string }> {
     try {
       const localPath = join(this.scriptsDirectory!, filePath);
+      const repoUrl = this.getRepoUrlForScript(script);
+      const { env } = await import('~/env.js');
+      const branch = env.REPO_BRANCH ?? 'main';
       
       // Read local content
       const localContent = await readFile(localPath, 'utf-8');
       
-      // Download remote content
-      const remoteContent = await this.downloadFileFromGitHub(remotePath);
+      // Download remote content from the script's repository
+      const remoteContent = await this.downloadFileFromGitHub(repoUrl, remotePath, branch);
       
       // Apply modification only for CT scripts, not for other script types
       let modifiedRemoteContent: string;
@@ -642,6 +671,9 @@ export class ScriptDownloaderService {
   async getScriptDiff(script: Script, filePath: string): Promise<{ diff: string | null; localContent: string | null; remoteContent: string | null }> {
     this.initializeConfig();
     try {
+      const repoUrl = this.getRepoUrlForScript(script);
+      const { env } = await import('~/env.js');
+      const branch = env.REPO_BRANCH ?? 'main';
       let localContent: string | null = null;
       let remoteContent: string | null = null;
 
@@ -660,7 +692,7 @@ export class ScriptDownloaderService {
             // Find the corresponding script path in install_methods
             const method = script.install_methods?.find(m => m.script === filePath);
             if (method?.script) {
-              const downloadedContent = await this.downloadFileFromGitHub(method.script);
+              const downloadedContent = await this.downloadFileFromGitHub(repoUrl, method.script, branch);
               remoteContent = this.modifyScriptContent(downloadedContent);
             }
           } catch {
@@ -677,7 +709,7 @@ export class ScriptDownloaderService {
         }
 
         try {
-          remoteContent = await this.downloadFileFromGitHub(filePath);
+          remoteContent = await this.downloadFileFromGitHub(repoUrl, filePath, branch);
         } catch {
           // Error downloading remote install script
         }

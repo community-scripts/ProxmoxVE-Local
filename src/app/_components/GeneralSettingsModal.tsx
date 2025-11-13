@@ -9,6 +9,7 @@ import { useTheme } from './ThemeProvider';
 import { useRegisterModal } from './modal/ModalStackProvider';
 import { api } from '~/trpc/react';
 import { useAuth } from './AuthProvider';
+import { Trash2, ExternalLink } from 'lucide-react';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   useRegisterModal(isOpen, { id: 'general-settings-modal', allowEscape: true, onClose });
   const { theme, setTheme } = useTheme();
   const { isAuthenticated, expirationTime, checkAuth } = useAuth();
-  const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth' | 'auto-sync'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'github' | 'auth' | 'auto-sync' | 'repositories'>('general');
   const [sessionExpirationDisplay, setSessionExpirationDisplay] = useState<string>('');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
@@ -53,6 +54,20 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [lastAutoSyncError, setLastAutoSyncError] = useState<string | null>(null);
   const [lastAutoSyncErrorTime, setLastAutoSyncErrorTime] = useState<string | null>(null);
   const [cronValidationError, setCronValidationError] = useState('');
+
+  // Repository management state
+  const [newRepoUrl, setNewRepoUrl] = useState('');
+  const [newRepoEnabled, setNewRepoEnabled] = useState(true);
+  const [isAddingRepo, setIsAddingRepo] = useState(false);
+  const [deletingRepoId, setDeletingRepoId] = useState<number | null>(null);
+
+  // Repository queries and mutations
+  const { data: repositoriesData, refetch: refetchRepositories } = api.repositories.getAll.useQuery(undefined, {
+    enabled: isOpen && activeTab === 'repositories'
+  });
+  const createRepoMutation = api.repositories.create.useMutation();
+  const updateRepoMutation = api.repositories.update.useMutation();
+  const deleteRepoMutation = api.repositories.delete.useMutation();
 
   // Load existing settings when modal opens
   useEffect(() => {
@@ -600,6 +615,18 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
               }`}
             >
               Auto-Sync
+            </Button>
+            <Button
+              onClick={() => setActiveTab('repositories')}
+              variant="ghost"
+              size="null"
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-sm w-full sm:w-auto ${
+                activeTab === 'repositories'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              Repositories
             </Button>
           </nav>
         </div>
@@ -1231,6 +1258,191 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                     </div>
                   </div>
                 )}
+
+                {/* Message Display */}
+                {message && (
+                  <div className={`p-3 rounded-md text-sm ${
+                    message.type === 'success' 
+                      ? 'bg-success/10 text-success-foreground border border-success/20' 
+                      : 'bg-error/10 text-error-foreground border border-error/20'
+                  }`}>
+                    {message.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'repositories' && (
+            <div className="space-y-4 sm:space-y-6">
+              <div>
+                <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Repository Management</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                  Manage GitHub repositories for script synchronization. The main repository has priority when enabled.
+                </p>
+                
+                {/* Add New Repository */}
+                <div className="p-4 border border-border rounded-lg mb-4">
+                  <h4 className="font-medium text-foreground mb-3">Add New Repository</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="new-repo-url" className="block text-sm font-medium text-foreground mb-1">
+                        Repository URL
+                      </label>
+                      <Input
+                        id="new-repo-url"
+                        type="url"
+                        placeholder="https://github.com/owner/repo"
+                        value={newRepoUrl}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRepoUrl(e.target.value)}
+                        disabled={isAddingRepo}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enter a GitHub repository URL (e.g., https://github.com/owner/repo)
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Enable after adding</p>
+                        <p className="text-xs text-muted-foreground">Repository will be enabled by default</p>
+                      </div>
+                      <Toggle
+                        checked={newRepoEnabled}
+                        onCheckedChange={setNewRepoEnabled}
+                        disabled={isAddingRepo}
+                        label="Enable repository"
+                      />
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        if (!newRepoUrl.trim()) {
+                          setMessage({ type: 'error', text: 'Please enter a repository URL' });
+                          return;
+                        }
+                        setIsAddingRepo(true);
+                        setMessage(null);
+                        try {
+                          const result = await createRepoMutation.mutateAsync({
+                            url: newRepoUrl.trim(),
+                            enabled: newRepoEnabled
+                          });
+                          if (result.success) {
+                            setMessage({ type: 'success', text: 'Repository added successfully!' });
+                            setNewRepoUrl('');
+                            setNewRepoEnabled(true);
+                            await refetchRepositories();
+                          } else {
+                            setMessage({ type: 'error', text: result.error ?? 'Failed to add repository' });
+                          }
+                        } catch (error) {
+                          setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to add repository' });
+                        } finally {
+                          setIsAddingRepo(false);
+                        }
+                      }}
+                      disabled={isAddingRepo || !newRepoUrl.trim()}
+                      className="w-full"
+                    >
+                      {isAddingRepo ? 'Adding...' : 'Add Repository'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Repository List */}
+                <div className="p-4 border border-border rounded-lg">
+                  <h4 className="font-medium text-foreground mb-3">Repositories</h4>
+                  {repositoriesData?.success && repositoriesData.repositories.length > 0 ? (
+                    <div className="space-y-3">
+                      {repositoriesData.repositories.map((repo) => (
+                        <div
+                          key={repo.id}
+                          className="p-3 border border-border rounded-lg flex items-center justify-between gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <a
+                                href={repo.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-foreground hover:text-primary flex items-center gap-1"
+                              >
+                                {repo.url}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                              {repo.is_default && (
+                                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded">
+                                  {repo.priority === 1 ? 'Main' : 'Dev'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Priority: {repo.priority} {repo.enabled ? '• Enabled' : '• Disabled'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Toggle
+                              checked={repo.enabled}
+                              onCheckedChange={async (enabled) => {
+                                setMessage(null);
+                                try {
+                                  const result = await updateRepoMutation.mutateAsync({
+                                    id: repo.id,
+                                    enabled
+                                  });
+                                  if (result.success) {
+                                    setMessage({ type: 'success', text: `Repository ${enabled ? 'enabled' : 'disabled'} successfully!` });
+                                    await refetchRepositories();
+                                  } else {
+                                    setMessage({ type: 'error', text: result.error ?? 'Failed to update repository' });
+                                  }
+                                } catch (error) {
+                                  setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update repository' });
+                                }
+                              }}
+                              disabled={updateRepoMutation.isPending}
+                              label={repo.enabled ? 'Disable' : 'Enable'}
+                            />
+                            <Button
+                              onClick={async () => {
+                                if (!repo.is_removable) {
+                                  setMessage({ type: 'error', text: 'Default repositories cannot be deleted' });
+                                  return;
+                                }
+                                if (!confirm(`Are you sure you want to delete this repository? All scripts from this repository will be removed.`)) {
+                                  return;
+                                }
+                                setDeletingRepoId(repo.id);
+                                setMessage(null);
+                                try {
+                                  const result = await deleteRepoMutation.mutateAsync({ id: repo.id });
+                                  if (result.success) {
+                                    setMessage({ type: 'success', text: 'Repository deleted successfully!' });
+                                    await refetchRepositories();
+                                  } else {
+                                    setMessage({ type: 'error', text: result.error ?? 'Failed to delete repository' });
+                                  }
+                                } catch (error) {
+                                  setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to delete repository' });
+                                } finally {
+                                  setDeletingRepoId(null);
+                                }
+                              }}
+                              disabled={!repo.is_removable || deletingRepoId === repo.id || deleteRepoMutation.isPending}
+                              variant="ghost"
+                              size="icon"
+                              className="text-error hover:text-error/80 hover:bg-error/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No repositories configured</p>
+                  )}
+                </div>
 
                 {/* Message Display */}
                 {message && (

@@ -213,6 +213,8 @@ export const scriptsRouter = createTRPCRouter({
             // Add interface port
             interface_port: script?.interface_port,
             install_basenames,
+            // Add repository_url from script
+            repository_url: script?.repository_url ?? card.repository_url,
           } as ScriptCard;
         });
 
