@@ -72,15 +72,23 @@ stop_all_services() {
   local service_patterns=("$@")
 
   for pattern in "${service_patterns[@]}"; do
-    # Find all matching services
-    systemctl list-units --type=service --all 2>/dev/null |
-      grep -oE "${pattern}[^ ]*\.service" |
-      sort -u |
-      while read -r service; do
+    # Find all matching services (use || true to avoid pipeline failures)
+    local services
+    services=$(systemctl list-units --type=service --all 2>/dev/null |
+      grep -oE "${pattern}[^ ]*\.service" 2>/dev/null |
+      sort -u 2>/dev/null || true)
+
+    # Only process if we found any services
+    if [[ -n "$services" ]]; then
+      while IFS= read -r service; do
+        [[ -z "$service" ]] && continue
         $STD systemctl stop "$service" 2>/dev/null || true
         $STD systemctl disable "$service" 2>/dev/null || true
-      done
+      done <<<"$services"
+    fi
   done
+
+  return 0
 }
 
 # ------------------------------------------------------------------------------
@@ -1198,65 +1206,49 @@ ensure_apt_working() {
 }
 
 # ------------------------------------------------------------------------------
-# Standardized deb822 repository setup
-# Validates all parameters and fails safely if any are empty
+# Standardized deb822 repository setup (with optional Architectures)
+# Always runs apt update after repo creation to ensure package availability
 # ------------------------------------------------------------------------------
 setup_deb822_repo() {
   local name="$1"
   local gpg_url="$2"
   local repo_url="$3"
   local suite="$4"
-  local component="${5:-main}"
-  local architectures="${6:-$(dpkg --print-architecture)}"
+  local component="${5-main}"
+  local architectures="${6-}" # optional
 
   # Validate required parameters
   if [[ -z "$name" || -z "$gpg_url" || -z "$repo_url" || -z "$suite" ]]; then
-    msg_error "setup_deb822_repo: missing required parameters (name=$name, gpg=$gpg_url, repo=$repo_url, suite=$suite)"
+    msg_error "setup_deb822_repo: missing required parameters (name=$name repo=$repo_url suite=$suite)"
     return 1
   fi
 
-  # Cleanup old configs for this app
+  # Cleanup
   cleanup_old_repo_files "$name"
-
-  # Cleanup any orphaned .sources files from other apps
   cleanup_orphaned_sources
 
-  # Ensure keyring directory exists
   mkdir -p /etc/apt/keyrings || {
-    msg_error "Failed to create /etc/apt/keyrings directory"
+    msg_error "Failed to create /etc/apt/keyrings"
     return 1
   }
 
-  # Download GPG key (with --yes to avoid interactive prompts)
-  curl -fsSL "$gpg_url" | gpg --dearmor --yes -o "/etc/apt/keyrings/${name}.gpg" 2>/dev/null || {
-    msg_error "Failed to download or import GPG key for ${name} from $gpg_url"
+  # Import GPG
+  curl -fsSL "$gpg_url" | gpg --dearmor --yes -o "/etc/apt/keyrings/${name}.gpg" || {
+    msg_error "Failed to import GPG key for ${name}"
     return 1
   }
 
-  # Create deb822 sources file
-  cat <<EOF >/etc/apt/sources.list.d/${name}.sources
-Types: deb
-URIs: $repo_url
-Suites: $suite
-Components: $component
-Architectures: $architectures
-Signed-By: /etc/apt/keyrings/${name}.gpg
-EOF
+  # Write deb822
+  {
+    echo "Types: deb"
+    echo "URIs: $repo_url"
+    echo "Suites: $suite"
+    echo "Components: $component"
+    [[ -n "$architectures" ]] && echo "Architectures: $architectures"
+    echo "Signed-By: /etc/apt/keyrings/${name}.gpg"
+  } >/etc/apt/sources.list.d/${name}.sources
 
-  # Use cached apt update
-  local apt_cache_file="/var/cache/apt-update-timestamp"
-  local current_time=$(date +%s)
-  local last_update=0
-
-  if [[ -f "$apt_cache_file" ]]; then
-    last_update=$(cat "$apt_cache_file" 2>/dev/null || echo 0)
-  fi
-
-  # For repo changes, always update but respect short-term cache (30s)
-  if ((current_time - last_update > 30)); then
-    $STD apt update
-    echo "$current_time" >"$apt_cache_file"
-  fi
+  $STD apt update
 }
 
 # ------------------------------------------------------------------------------
@@ -1415,7 +1407,7 @@ verify_gpg_fingerprint() {
 }
 
 # ==============================================================================
-# EXISTING FUNCTIONS
+# INSTALL FUNCTIONS
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -1517,7 +1509,7 @@ check_for_gh_release() {
       return 0
     fi
 
-    msg_error "No update available: ${app} is not installed!"
+    msg_ok "No update available: ${app} is already on pinned version (${current})"
     return 1
   fi
 
@@ -2795,8 +2787,9 @@ function setup_java() {
   fi
 
   # Validate INSTALLED_VERSION is not empty if matched
-  local JDK_COUNT=$(dpkg -l 2>/dev/null | grep -c "temurin-.*-jdk" || echo "0")
-  if [[ -z "$INSTALLED_VERSION" && "$JDK_COUNT" -gt 0 ]]; then
+  local JDK_COUNT=0
+  JDK_COUNT=$(dpkg -l 2>/dev/null | grep -c "temurin-.*-jdk")
+  if [[ -z "$INSTALLED_VERSION" && "${JDK_COUNT:-0}" -gt 0 ]]; then
     msg_warn "Found Temurin JDK but cannot determine version"
     INSTALLED_VERSION="0"
   fi
@@ -3058,6 +3051,85 @@ setup_mariadb() {
 
   cache_installed_version "mariadb" "$MARIADB_VERSION"
   msg_ok "Setup MariaDB $MARIADB_VERSION"
+}
+
+# ------------------------------------------------------------------------------
+# Creates MariaDB database with user, charset and optional extra grants/modes
+#
+# Description:
+#   - Generates password if empty
+#   - Creates database with utf8mb4_unicode_ci
+#   - Creates local user with password
+#   - Grants full access to this DB
+#   - Optional: apply extra GRANT statements (comma-separated)
+#   - Optional: apply custom GLOBAL sql_mode
+#   - Saves credentials to file
+#   - Exports variables for use in calling script
+#
+# Usage:
+#   MARIADB_DB_NAME="myapp_db" MARIADB_DB_USER="myapp_user" setup_mariadb_db
+#   MARIADB_DB_NAME="domain_monitor" MARIADB_DB_USER="domainmonitor" setup_mariadb_db
+#   MARIADB_DB_NAME="myapp" MARIADB_DB_USER="myapp" MARIADB_DB_EXTRA_GRANTS="GRANT SELECT ON \`mysql\`.\`time_zone_name\`" setup_mariadb_db
+#   MARIADB_DB_NAME="ghostfolio" MARIADB_DB_USER="ghostfolio" MARIADB_DB_SQL_MODE="" setup_mariadb_db
+#
+# Variables:
+#   MARIADB_DB_NAME         - Database name (required)
+#   MARIADB_DB_USER         - Database user (required)
+#   MARIADB_DB_PASS         - User password (optional, auto-generated if empty)
+#   MARIADB_DB_EXTRA_GRANTS - Comma-separated GRANT statements (optional)
+#                             Example: "GRANT SELECT ON \`mysql\`.\`time_zone_name\`"
+#   MARIADB_DB_SQL_MODE     - Optional global sql_mode override (e.g. "", "STRICT_TRANS_TABLES")
+#   MARIADB_DB_CREDS_FILE   - Credentials file path (optional, default: ~/${APPLICATION}.creds)
+#
+# Exports:
+#   MARIADB_DB_NAME, MARIADB_DB_USER, MARIADB_DB_PASS
+# ------------------------------------------------------------------------------
+
+function setup_mariadb_db() {
+  if [[ -z "${MARIADB_DB_NAME:-}" || -z "${MARIADB_DB_USER:-}" ]]; then
+    msg_error "MARIADB_DB_NAME and MARIADB_DB_USER must be set before calling setup_mariadb_db"
+    return 1
+  fi
+
+  if [[ -z "${MARIADB_DB_PASS:-}" ]]; then
+    MARIADB_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c13)
+  fi
+
+  msg_info "Setting up MariaDB Database"
+
+  $STD mariadb -u root -e "CREATE DATABASE \`$MARIADB_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+  $STD mariadb -u root -e "CREATE USER '$MARIADB_DB_USER'@'localhost' IDENTIFIED BY '$MARIADB_DB_PASS';"
+  $STD mariadb -u root -e "GRANT ALL ON \`$MARIADB_DB_NAME\`.* TO '$MARIADB_DB_USER'@'localhost';"
+
+  # Optional extra grants
+  if [[ -n "${MARIADB_DB_EXTRA_GRANTS:-}" ]]; then
+    IFS=',' read -ra G_LIST <<<"${MARIADB_DB_EXTRA_GRANTS:-}"
+    for g in "${G_LIST[@]}"; do
+      g=$(echo "$g" | xargs)
+      $STD mariadb -u root -e "$g TO '$MARIADB_DB_USER'@'localhost';"
+    done
+  fi
+
+  # Optional sql_mode override
+  if [[ -n "${MARIADB_DB_SQL_MODE:-}" ]]; then
+    $STD mariadb -u root -e "SET GLOBAL sql_mode='${MARIADB_DB_SQL_MODE:-}';"
+  fi
+
+  $STD mariadb -u root -e "FLUSH PRIVILEGES;"
+
+  local CREDS_FILE="${MARIADB_DB_CREDS_FILE:-${HOME}/${APPLICATION}.creds}"
+  {
+    echo "MariaDB Credentials"
+    echo "Database: $MARIADB_DB_NAME"
+    echo "User: $MARIADB_DB_USER"
+    echo "Password: $MARIADB_DB_PASS"
+  } >>"$CREDS_FILE"
+
+  msg_ok "Set up MariaDB Database"
+
+  export MARIADB_DB_NAME
+  export MARIADB_DB_USER
+  export MARIADB_DB_PASS
 }
 
 # ------------------------------------------------------------------------------
@@ -3820,6 +3892,103 @@ function setup_postgresql() {
 }
 
 # ------------------------------------------------------------------------------
+# Creates PostgreSQL database with user and optional extensions
+#
+# Description:
+#   - Creates PostgreSQL role with login and password
+#   - Creates database with UTF8 encoding and template0
+#   - Installs optional extensions (postgis, pgvector, etc.)
+#   - Configures ALTER ROLE settings for Django/Rails compatibility
+#   - Saves credentials to file
+#   - Exports variables for use in calling script
+#
+# Usage:
+#   PG_DB_NAME="myapp_db" PG_DB_USER="myapp_user" setup_postgresql_db
+#   PG_DB_NAME="immich" PG_DB_USER="immich" PG_DB_EXTENSIONS="pgvector" setup_postgresql_db
+#   PG_DB_NAME="ghostfolio" PG_DB_USER="ghostfolio" PG_DB_GRANT_SUPERUSER="true" setup_postgresql_db
+#   PG_DB_NAME="adventurelog" PG_DB_USER="adventurelog" PG_DB_EXTENSIONS="postgis" setup_postgresql_db
+#
+# Variables:
+#   PG_DB_NAME             - Database name (required)
+#   PG_DB_USER             - Database user (required)
+#   PG_DB_PASS             - Database password (optional, auto-generated if empty)
+#   PG_DB_EXTENSIONS       - Comma-separated list of extensions (optional, e.g. "postgis,pgvector")
+#   PG_DB_GRANT_SUPERUSER  - Grant SUPERUSER privilege (optional, "true" to enable, security risk!)
+#   PG_DB_SCHEMA_PERMS     - Grant schema-level permissions (optional, "true" to enable)
+#   PG_DB_SKIP_ALTER_ROLE  - Skip ALTER ROLE settings (optional, "true" to skip)
+#   PG_DB_CREDS_FILE       - Credentials file path (optional, default: ~/${APPLICATION}.creds)
+#
+# Exports:
+#   PG_DB_NAME, PG_DB_USER, PG_DB_PASS - For use in calling script
+# ------------------------------------------------------------------------------
+
+function setup_postgresql_db() {
+  # Validation
+  if [[ -z "${PG_DB_NAME:-}" || -z "${PG_DB_USER:-}" ]]; then
+    msg_error "PG_DB_NAME and PG_DB_USER must be set before calling setup_postgresql_db"
+    return 1
+  fi
+
+  # Generate password if not provided
+  if [[ -z "${PG_DB_PASS:-}" ]]; then
+    PG_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c13)
+  fi
+
+  msg_info "Setting up PostgreSQL Database"
+  $STD sudo -u postgres psql -c "CREATE ROLE $PG_DB_USER WITH LOGIN PASSWORD '$PG_DB_PASS';"
+  $STD sudo -u postgres psql -c "CREATE DATABASE $PG_DB_NAME WITH OWNER $PG_DB_USER ENCODING 'UTF8' TEMPLATE template0;"
+
+  # Install extensions (comma-separated)
+  if [[ -n "${PG_DB_EXTENSIONS:-}" ]]; then
+    IFS=',' read -ra EXT_LIST <<<"${PG_DB_EXTENSIONS:-}"
+    for ext in "${EXT_LIST[@]}"; do
+      ext=$(echo "$ext" | xargs) # Trim whitespace
+      $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS $ext;"
+    done
+  fi
+
+  # ALTER ROLE settings for Django/Rails compatibility (unless skipped)
+  if [[ "${PG_DB_SKIP_ALTER_ROLE:-}" != "true" ]]; then
+    $STD sudo -u postgres psql -c "ALTER ROLE $PG_DB_USER SET client_encoding TO 'utf8';"
+    $STD sudo -u postgres psql -c "ALTER ROLE $PG_DB_USER SET default_transaction_isolation TO 'read committed';"
+    $STD sudo -u postgres psql -c "ALTER ROLE $PG_DB_USER SET timezone TO 'UTC';"
+  fi
+
+  # Schema permissions (if requested)
+  if [[ "${PG_DB_SCHEMA_PERMS:-}" == "true" ]]; then
+    $STD sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $PG_DB_NAME TO $PG_DB_USER;"
+    $STD sudo -u postgres psql -c "ALTER USER $PG_DB_USER CREATEDB;"
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT ALL ON SCHEMA public TO $PG_DB_USER;"
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT CREATE ON SCHEMA public TO $PG_DB_USER;"
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $PG_DB_USER;"
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $PG_DB_USER;"
+  fi
+
+  # Superuser grant (if requested - WARNING!)
+  if [[ "${PG_DB_GRANT_SUPERUSER:-}" == "true" ]]; then
+    msg_warn "Granting SUPERUSER privilege (security risk!)"
+    $STD sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $PG_DB_NAME to $PG_DB_USER;"
+    $STD sudo -u postgres psql -c "ALTER USER $PG_DB_USER WITH SUPERUSER;"
+  fi
+
+  # Save credentials
+  local CREDS_FILE="${PG_DB_CREDS_FILE:-${HOME}/${APPLICATION}.creds}"
+  {
+    echo "PostgreSQL Credentials"
+    echo "Database: $PG_DB_NAME"
+    echo "User: $PG_DB_USER"
+    echo "Password: $PG_DB_PASS"
+  } >>"$CREDS_FILE"
+
+  msg_ok "Set up PostgreSQL Database"
+
+  # Export for use in calling script
+  export PG_DB_NAME
+  export PG_DB_USER
+  export PG_DB_PASS
+}
+
+# ------------------------------------------------------------------------------
 # Installs rbenv and ruby-build, installs Ruby and optionally Rails.
 #
 # Description:
@@ -4172,31 +4341,63 @@ function setup_rust() {
     }
     export PATH="$CARGO_BIN:$PATH"
     echo 'export PATH="$HOME/.cargo/bin:$PATH"' >>"$HOME/.profile"
+
+    # Verify installation
+    if ! command -v rustc >/dev/null 2>&1; then
+      msg_error "Rust binary not found after installation"
+      return 1
+    fi
+
     local RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+    if [[ -z "$RUST_VERSION" ]]; then
+      msg_error "Failed to determine Rust version"
+      return 1
+    fi
+
     cache_installed_version "rust" "$RUST_VERSION"
     msg_ok "Setup Rust $RUST_VERSION"
   else
     # Scenario 2: Rustup already installed - update/maintain
     msg_info "Update Rust ($RUST_TOOLCHAIN)"
-    $STD rustup install "$RUST_TOOLCHAIN" || {
-      msg_error "Failed to install Rust toolchain $RUST_TOOLCHAIN"
-      return 1
+
+    # Ensure default toolchain is set
+    $STD rustup default "$RUST_TOOLCHAIN" 2>/dev/null || {
+      # If default fails, install the toolchain first
+      $STD rustup install "$RUST_TOOLCHAIN" || {
+        msg_error "Failed to install Rust toolchain $RUST_TOOLCHAIN"
+        return 1
+      }
+      $STD rustup default "$RUST_TOOLCHAIN" || {
+        msg_error "Failed to set default Rust toolchain"
+        return 1
+      }
     }
-    $STD rustup default "$RUST_TOOLCHAIN" || {
-      msg_error "Failed to set default Rust toolchain"
-      return 1
-    }
+
+    # Update to latest patch version
     $STD rustup update "$RUST_TOOLCHAIN" || true
+
+    # Ensure PATH is updated for current shell session
+    export PATH="$CARGO_BIN:$PATH"
+
     local RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+    if [[ -z "$RUST_VERSION" ]]; then
+      msg_error "Failed to determine Rust version after update"
+      return 1
+    fi
+
     cache_installed_version "rust" "$RUST_VERSION"
     msg_ok "Update Rust $RUST_VERSION"
   fi
 
   # Install global crates
   if [[ -n "$RUST_CRATES" ]]; then
+    msg_info "Processing Rust crates: $RUST_CRATES"
     IFS=',' read -ra CRATES <<<"$RUST_CRATES"
     for crate in "${CRATES[@]}"; do
-      local NAME VER INSTALLED_VER
+      crate=$(echo "$crate" | xargs) # trim whitespace
+      [[ -z "$crate" ]] && continue  # skip empty entries
+
+      local NAME VER INSTALLED_VER CRATE_LIST
       if [[ "$crate" == *"@"* ]]; then
         NAME="${crate%@*}"
         VER="${crate##*@}"
@@ -4205,18 +4406,50 @@ function setup_rust() {
         VER=""
       fi
 
-      INSTALLED_VER=$(cargo install --list 2>/dev/null | awk "/^$NAME v[0-9]/ {print \$2}" | tr -d 'v')
+      # Get list of installed crates once
+      CRATE_LIST=$(cargo install --list 2>/dev/null || echo "")
 
-      if [[ -n "$INSTALLED_VER" ]]; then
+      # Check if already installed
+      if echo "$CRATE_LIST" | grep -q "^${NAME} "; then
+        INSTALLED_VER=$(echo "$CRATE_LIST" | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+
         if [[ -n "$VER" && "$VER" != "$INSTALLED_VER" ]]; then
-          $STD cargo install "$NAME" --version "$VER" --force
+          msg_info "Upgrading $NAME from v$INSTALLED_VER to v$VER"
+          $STD cargo install "$NAME" --version "$VER" --force || {
+            msg_error "Failed to install $NAME@$VER"
+            return 1
+          }
+          msg_ok "Upgraded $NAME to v$VER"
         elif [[ -z "$VER" ]]; then
-          $STD cargo install "$NAME" --force
+          msg_info "Upgrading $NAME to latest"
+          $STD cargo install "$NAME" --force || {
+            msg_error "Failed to upgrade $NAME"
+            return 1
+          }
+          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+          msg_ok "Upgraded $NAME to v$NEW_VER"
+        else
+          msg_ok "$NAME v$INSTALLED_VER already installed"
         fi
       else
-        $STD cargo install "$NAME" ${VER:+--version "$VER"}
+        msg_info "Installing $NAME${VER:+@$VER}"
+        if [[ -n "$VER" ]]; then
+          $STD cargo install "$NAME" --version "$VER" || {
+            msg_error "Failed to install $NAME@$VER"
+            return 1
+          }
+          msg_ok "Installed $NAME v$VER"
+        else
+          $STD cargo install "$NAME" || {
+            msg_error "Failed to install $NAME"
+            return 1
+          }
+          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+          msg_ok "Installed $NAME v$NEW_VER"
+        fi
       fi
     done
+    msg_ok "Processed Rust crates"
   fi
 }
 
@@ -4353,7 +4586,9 @@ function setup_uv() {
 
   # Optional: Generate shell completions
   $STD uv generate-shell-completion bash >/etc/bash_completion.d/uv 2>/dev/null || true
-  $STD uv generate-shell-completion zsh >/usr/share/zsh/site-functions/_uv 2>/dev/null || true
+  if [[ -d /usr/share/zsh/site-functions ]]; then
+    $STD uv generate-shell-completion zsh >/usr/share/zsh/site-functions/_uv 2>/dev/null || true
+  fi
 
   # Optional: Install specific Python version if requested
   if [[ -n "${PYTHON_VERSION:-}" ]]; then
