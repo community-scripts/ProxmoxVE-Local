@@ -216,13 +216,19 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       // Check if there's a corresponding local script
       const hasLocalVersion = localScriptsData?.scripts?.some(local => {
         if (!local?.name) return false;
+        
+        // Primary: Exact slug-to-slug matching (most reliable, prevents false positives)
+        if (local.slug && script.slug) {
+          if (local.slug.toLowerCase() === script.slug.toLowerCase()) {
+            return true;
+          }
+        }
+        
+        // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
+        // Only use normalized matching for install basenames, not for slug/name matching
         const normalizedLocal = normalizeId(local.name);
-        const matchesNameOrSlug = (
-          normalizedLocal === normalizeId(script.name) ||
-          normalizedLocal === normalizeId(script.slug)
-        );
         const matchesInstallBasename = (script as any)?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
-        return matchesNameOrSlug || matchesInstallBasename;
+        return matchesInstallBasename;
       }) ?? false;
       
       return {
