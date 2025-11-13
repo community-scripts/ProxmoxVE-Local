@@ -31,5 +31,6 @@
     "username": "admin@shinobi.video",
     "password": "admin"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

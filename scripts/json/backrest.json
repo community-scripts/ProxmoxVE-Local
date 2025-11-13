@@ -36,5 +36,6 @@
       "type": "info",
       "text": "`cat ~/.ssh/id_ed25519.pub` to view ssh public key. This key is used to authenticate with sftp targets. You can add this key on the sftp server."
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

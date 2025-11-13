@@ -40,5 +40,6 @@
       "text": "Add additional allowed hosts to `/opt/homepage/.env`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -44,5 +44,6 @@
       "text": "The container will be recreated with a new ID and desired privilege setting.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

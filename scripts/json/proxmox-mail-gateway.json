@@ -36,5 +36,6 @@
       "text": "Set a root password if using autologin. This will be the PMG password. `passwd root`",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

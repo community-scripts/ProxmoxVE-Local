@@ -41,5 +41,6 @@
       "text": "This Script works on amd64 and arm64 Architecture.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

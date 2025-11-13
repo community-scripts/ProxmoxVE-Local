@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 10,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -31,5 +31,6 @@
     "username": "itsm",
     "password": "itsm"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

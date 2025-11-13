@@ -47,5 +47,6 @@
       "text": "To install themes, type `update` in the LXC console. (debian/ubuntu only)",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -44,5 +44,6 @@
       "text": "Make sure to either mount an external path or increase the Disk space afterwards",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

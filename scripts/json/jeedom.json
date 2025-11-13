@@ -40,5 +40,6 @@
       "text": "Only OS packages are updateable. To update Jeedom, please use the web interface.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -36,5 +36,6 @@
       "text": "After free registration, you will receive a license keyfile to your email address. Upload it into any LXC directory and select on first run.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

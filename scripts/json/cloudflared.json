@@ -36,5 +36,6 @@
       "text": "With an option to configure cloudflared as a DNS-over-HTTPS (DoH) proxy",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

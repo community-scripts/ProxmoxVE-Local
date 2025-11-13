@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
-import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter } from "lucide-react";
+import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter, GitBranch } from "lucide-react";
+import { api } from "~/trpc/react";
 
 export interface FilterState {
   searchQuery: string;
   showUpdatable: boolean | null; // null = all, true = only updatable, false = only non-updatable
   selectedTypes: string[]; // Array of selected types: 'lxc', 'vm', 'addon', 'pve'
+  selectedRepositories: string[]; // Array of selected repository URLs
   sortBy: "name" | "created"; // Sort criteria (removed 'updated')
   sortOrder: "asc" | "desc"; // Sort direction
 }
@@ -43,6 +45,23 @@ export function FilterBar({
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
+  // Fetch enabled repositories
+  const { data: enabledReposData } = api.repositories.getEnabled.useQuery();
+  const enabledRepos = enabledReposData?.repositories ?? [];
+  
+  // Helper function to extract repository name from URL
+  const getRepoName = (url: string): string => {
+    try {
+      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        return `${match[1]}/${match[2]}`;
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+
   const updateFilters = (updates: Partial<FilterState>) => {
     onFiltersChange({ ...filters, ...updates });
   };
@@ -52,6 +71,7 @@ export function FilterBar({
       searchQuery: "",
       showUpdatable: null,
       selectedTypes: [],
+      selectedRepositories: [],
       sortBy: "name",
       sortOrder: "asc",
     });
@@ -61,6 +81,7 @@ export function FilterBar({
     filters.searchQuery ||
     filters.showUpdatable !== null ||
     filters.selectedTypes.length > 0 ||
+    filters.selectedRepositories.length > 0 ||
     filters.sortBy !== "name" ||
     filters.sortOrder !== "asc";
 
@@ -289,6 +310,40 @@ export function FilterBar({
             </div>
           )}
         </div>
+
+        {/* Repository Filter Buttons - Only show if more than one enabled repo */}
+        {enabledRepos.length > 1 && enabledRepos.map((repo) => {
+          const isSelected = filters.selectedRepositories.includes(repo.url);
+          return (
+            <Button
+              key={repo.id}
+              onClick={() => {
+                const currentSelected = filters.selectedRepositories;
+                if (isSelected) {
+                  // Remove repository from selection
+                  updateFilters({
+                    selectedRepositories: currentSelected.filter(url => url !== repo.url)
+                  });
+                } else {
+                  // Add repository to selection
+                  updateFilters({
+                    selectedRepositories: [...currentSelected, repo.url]
+                  });
+                }
+              }}
+              variant="outline"
+              size="default"
+              className={`w-full sm:w-auto flex items-center justify-center space-x-2 ${
+                isSelected
+                  ? "border border-primary/20 bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <GitBranch className="h-4 w-4" />
+              <span>{getRepoName(repo.url)}</span>
+            </Button>
+          );
+        })}
 
         {/* Sort By Dropdown */}
         <div className="relative w-full sm:w-auto">

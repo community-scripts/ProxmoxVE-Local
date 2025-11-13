@@ -36,5 +36,6 @@
       "text": "Execute within an existing LXC Console",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

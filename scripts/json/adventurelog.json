@@ -40,5 +40,6 @@
       "text": "Use `cat ~/adventurelog.creds` to see login credentials.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

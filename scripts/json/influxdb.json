@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 8,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -40,5 +40,6 @@
       "text": "Port for V2: 8086",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

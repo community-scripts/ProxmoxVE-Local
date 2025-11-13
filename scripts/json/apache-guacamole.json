@@ -31,5 +31,6 @@
     "username": "guacadmin",
     "password": "guacadmin"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

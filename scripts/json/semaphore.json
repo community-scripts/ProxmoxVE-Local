@@ -40,5 +40,6 @@
       "text": "Admin password: `cat ~/semaphore.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

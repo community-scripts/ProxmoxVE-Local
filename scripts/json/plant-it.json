@@ -40,5 +40,6 @@
       "text": "After the initial start, the backend requires approx. 1-2 minutes boot time",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

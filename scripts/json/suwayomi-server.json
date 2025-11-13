@@ -36,5 +36,6 @@
       "text": "This application can be conflicting with Kaspersky products. You maybe need to disable Kaspersky in order to use this application.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

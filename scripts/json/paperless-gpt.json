@@ -36,5 +36,6 @@
       "text": "Configuration File: `/opt/paperless-gpt-data/.env`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

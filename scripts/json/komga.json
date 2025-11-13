@@ -36,5 +36,6 @@
       "text": "Starting Komga (Web UI) may take up to 2 minutes after a restart or fresh installation.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

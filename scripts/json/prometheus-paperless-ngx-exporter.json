@@ -40,5 +40,6 @@
       "text": "Please adjust the Paperless authentication token in the configuration file: /etc/prometheus-paperless-ngx-exporter/paperless_auth_token_file",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

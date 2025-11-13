@@ -40,5 +40,6 @@
       "text": "Config stored at `/etc/hev-socks5-server/main.yml`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

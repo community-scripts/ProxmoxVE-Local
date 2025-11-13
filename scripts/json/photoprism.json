@@ -36,5 +36,6 @@
       "text": "Please note that Ubuntu 22.04 and Debian 12 are supported, while older Linux distributions may not be compatible.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

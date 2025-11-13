@@ -40,5 +40,6 @@
       "text": "At every boot of LXC, application will look for updates for language models installed. This can prolong the startup of the LXC.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

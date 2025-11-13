@@ -51,5 +51,6 @@
       "text": "Access Adminer Web UI at `http://<CONTAINER_IP>/adminer.php`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

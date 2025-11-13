@@ -36,5 +36,6 @@
       "text": "Admin password and database encryption key: `cat ~/duplicati.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

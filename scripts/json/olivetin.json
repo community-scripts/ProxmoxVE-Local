@@ -36,5 +36,6 @@
       "text": "Configuration Path: `/etc/OliveTin/config.yaml`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

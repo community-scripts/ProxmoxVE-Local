@@ -55,5 +55,6 @@
       "text": "if you need an external module run: `xcaddy build --with github.com/caddy-dns/cloudflare`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

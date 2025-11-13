@@ -40,5 +40,6 @@
       "text": "Per FreshRSS documentation, a cron job to actualize FreshRSS will be setup at `/etc/cron.d/freshrss-actualize`. This can be adjusted as needed",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

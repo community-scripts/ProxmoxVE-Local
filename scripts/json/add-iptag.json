@@ -48,5 +48,6 @@
       "text": "You can execute the ip tool manually with `iptag-run`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

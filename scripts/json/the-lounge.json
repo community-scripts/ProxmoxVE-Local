@@ -36,5 +36,6 @@
       "text": "The Lounge is running in private mode. Use `runuser -u thelounge -- thelounge add usernamehere` to create users.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

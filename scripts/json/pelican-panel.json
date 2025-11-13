@@ -40,5 +40,6 @@
       "text": "Step 5 of the Panel installer can be skipped because it has already been set up by the script.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

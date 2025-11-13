@@ -32,5 +32,6 @@
     "username": null,
     "password": null
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

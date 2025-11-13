@@ -36,5 +36,6 @@
       "text": "Execute within an existing LXC Console. Debian only!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

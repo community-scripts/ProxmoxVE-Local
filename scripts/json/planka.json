@@ -36,5 +36,6 @@
       "text": "Type `cat ~/planka.creds` inside LXC to see admin user and database credentials.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

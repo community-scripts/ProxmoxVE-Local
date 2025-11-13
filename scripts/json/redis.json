@@ -47,5 +47,6 @@
       "text": "Redis Configuration: `nano /etc/redis/redis.conf` or in Alpine: `nano /etc/redis.conf`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

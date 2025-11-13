@@ -51,5 +51,6 @@
       "text": "Debian script offers versions `15, 16, 17, 18`, while Alpine script offers versions `15, 16, 17`.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

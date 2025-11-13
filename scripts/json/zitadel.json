@@ -40,5 +40,6 @@
       "text": "Change the ExternalDomain value in `/opt/zitadel/config.yaml` to your domain/hostname/IP and run `bash zitadel-rerun.sh`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

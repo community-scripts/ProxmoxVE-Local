@@ -36,5 +36,6 @@
       "text": "doesnt work with lvm and lvmthin disks!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -47,5 +47,6 @@
       "text": "AdGuard Home can only be updated via the user interface.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

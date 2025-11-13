@@ -36,5 +36,6 @@
       "text": "Running OVM in a LXC container may require a complicated disk setup, consider using a VM instead. More info: `https://github.com/community-scripts/ProxmoxVE/discussions/175`",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

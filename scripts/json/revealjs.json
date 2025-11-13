@@ -36,5 +36,6 @@
       "text": "LiveReload is on port: 35729",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

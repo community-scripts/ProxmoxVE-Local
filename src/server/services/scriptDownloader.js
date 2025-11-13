@@ -16,13 +16,58 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Validates that a directory path doesn't contain nested directories with the same name
+   * (e.g., prevents ct/ct or install/install)
+   */
+  validateDirectoryPath(dirPath) {
+    const normalizedPath = dirPath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    
+    // Check for consecutive duplicate directory names
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (parts[i] === parts[i + 1] && parts[i] !== '') {
+        throw new Error(`Invalid directory path: nested directory detected (${parts[i]}/${parts[i + 1]}) in path: ${dirPath}`);
+      }
+    }
+    
+    return true;
+  }
+
+  /**
+   * Validates that finalTargetDir doesn't contain nested directory names like ct/ct or install/install
+   */
+  validateTargetDir(targetDir, finalTargetDir) {
+    // Check if finalTargetDir contains nested directory names
+    const normalized = finalTargetDir.replace(/\\/g, '/');
+    const parts = normalized.split('/');
+    
+    // Check for consecutive duplicate directory names
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (parts[i] === parts[i + 1]) {
+        console.warn(`[Path Validation] Detected nested directory pattern "${parts[i]}/${parts[i + 1]}" in finalTargetDir: ${finalTargetDir}. Using base directory "${targetDir}" instead.`);
+        return targetDir; // Return the base directory instead
+      }
+    }
+    
+    return finalTargetDir;
+  }
+
   async ensureDirectoryExists(dirPath) {
+    // Validate the directory path to prevent nested directories with the same name
+    this.validateDirectoryPath(dirPath);
+    
     try {
+      console.log(`[Directory Creation] Ensuring directory exists: ${dirPath}`);
       await mkdir(dirPath, { recursive: true });
+      console.log(`[Directory Creation] Directory created/verified: ${dirPath}`);
     } catch (error) {
       if (error.code !== 'EEXIST') {
+        console.error(`[Directory Creation] Error creating directory ${dirPath}:`, error.message);
         throw error;
       }
+      // Directory already exists, which is fine
+      console.log(`[Directory Creation] Directory already exists: ${dirPath}`);
     }
   }
 
@@ -112,6 +157,8 @@ export class ScriptDownloaderService {
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Modify the content for CT scripts
                 const modifiedContent = this.modifyScriptContent(content);
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
@@ -122,6 +169,8 @@ export class ScriptDownloaderService {
                 const subPath = scriptPath.replace('tools/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
                 await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
                 filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
@@ -132,6 +181,8 @@ export class ScriptDownloaderService {
                 const subPath = scriptPath.replace('vm/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
                 await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
                 filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
@@ -140,6 +191,8 @@ export class ScriptDownloaderService {
                 // Handle other script types (fallback to ct directory)
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 const modifiedContent = this.modifyScriptContent(content);
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
                 await writeFile(filePath, modifiedContent, 'utf-8');
@@ -701,3 +754,4 @@ export class ScriptDownloaderService {
 }
 
 export const scriptDownloaderService = new ScriptDownloaderService();
+

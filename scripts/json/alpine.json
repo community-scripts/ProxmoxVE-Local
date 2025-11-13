@@ -36,5 +36,6 @@
       "text": "To Update Alpine: `apk -U upgrade`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

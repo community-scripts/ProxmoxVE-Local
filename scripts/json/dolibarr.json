@@ -36,5 +36,6 @@
       "text": "Database credentials: `cat ~/dolibarr.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

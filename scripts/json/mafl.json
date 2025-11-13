@@ -36,5 +36,6 @@
       "text": "Configuration Path: `/opt/mafl/data/config.yml`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

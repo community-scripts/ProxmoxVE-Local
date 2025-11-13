@@ -36,5 +36,6 @@
       "text": "Initial admin email and password: `cat ~/seelf.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

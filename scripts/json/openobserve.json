@@ -36,5 +36,6 @@
       "text": "Show Login Credentials: `cat /opt/openobserve/data/.env`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

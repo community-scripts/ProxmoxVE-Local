@@ -36,5 +36,6 @@
       "text": "Update master key in the config file",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

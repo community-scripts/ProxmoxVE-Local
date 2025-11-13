@@ -40,5 +40,6 @@
       "text": "Show password: `cat ~/wazuh.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

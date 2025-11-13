@@ -40,5 +40,6 @@
       "text": "Proxmox Datacenter Manager is in an alpha stage of development. Use it cautiously, as bugs, incomplete features, and potential instabilities are expected.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }
