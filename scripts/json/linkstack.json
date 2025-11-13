@@ -40,5 +40,6 @@
       "text": "Complete setup via the web interface at http://<container-ip>/. Check installation logs: `cat ~/linkstack-install.log`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

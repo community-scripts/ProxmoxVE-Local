@@ -23,7 +23,7 @@
         "ram": 4096,
         "hdd": 20,
         "os": "Debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -36,5 +36,6 @@
       "text": "Application can take some time to build, depending on your host speed. Please be patient.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

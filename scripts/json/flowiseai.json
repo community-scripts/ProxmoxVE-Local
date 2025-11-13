@@ -36,5 +36,6 @@
       "text": "Application takes long time to install. Please be patient!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

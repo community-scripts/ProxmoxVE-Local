@@ -41,5 +41,6 @@
       "text": "You're probably going to want to use a bind mount for the media directories",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -31,5 +31,6 @@
     "username": "neo4j",
     "password": "neo4j"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

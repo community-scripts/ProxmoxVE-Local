@@ -29,6 +29,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     searchQuery: '',
     showUpdatable: null,
     selectedTypes: [],
+    selectedRepositories: [],
     sortBy: 'name',
     sortOrder: 'asc',
   });
@@ -245,6 +246,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       filters.searchQuery?.trim() !== '' ||
       filters.showUpdatable !== null ||
       filters.selectedTypes.length > 0 ||
+      filters.selectedRepositories.length > 0 ||
       filters.sortBy !== 'name' ||
       filters.sortOrder !== 'asc' ||
       selectedCategory !== null
@@ -315,6 +317,22 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         const mappedType = scriptType === 'turnkey' ? 'ct' : scriptType;
         
         return filters.selectedTypes.some(type => type.toLowerCase() === mappedType);
+      });
+    }
+
+    // Filter by repositories
+    if (filters.selectedRepositories.length > 0) {
+      scripts = scripts.filter(script => {
+        if (!script) return false;
+        const repoUrl = script.repository_url;
+        
+        // If script has no repository_url, exclude it when filtering by repositories
+        if (!repoUrl) {
+          return false;
+        }
+        
+        // Only include scripts from selected repositories
+        return filters.selectedRepositories.includes(repoUrl);
       });
     }
 

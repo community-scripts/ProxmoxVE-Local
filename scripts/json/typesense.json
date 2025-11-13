@@ -36,5 +36,6 @@
       "text": "This script requires some extra steps after the installation, Please checkout the 'documentation' Button",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

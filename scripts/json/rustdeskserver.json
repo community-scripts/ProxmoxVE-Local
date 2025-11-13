@@ -55,5 +55,6 @@
       "text": "To see admin password on Alpine, type `cat ~/rustdesk.creds` inside LXC.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

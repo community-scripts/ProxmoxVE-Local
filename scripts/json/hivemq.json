@@ -23,7 +23,7 @@
         "ram": 1024,
         "hdd": 4,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -36,5 +36,6 @@
       "text": "To check if HiveMQ is listening to the default port for MQTT `lsof -i :1883`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

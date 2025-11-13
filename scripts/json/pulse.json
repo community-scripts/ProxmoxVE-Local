@@ -44,5 +44,6 @@
       "text": "Configure authentication in the Web UI => Settings => Security",
       "type": "Info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

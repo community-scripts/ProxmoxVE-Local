@@ -36,5 +36,6 @@
       "text": "After Installation: Register your user -> Login -> Dashboard -> Accept Primary URL.",
       "type": "warn"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

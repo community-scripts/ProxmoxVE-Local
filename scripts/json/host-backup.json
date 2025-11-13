@@ -40,5 +40,6 @@
       "text": "A backup is rendered ineffective when it remains stored on the host",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

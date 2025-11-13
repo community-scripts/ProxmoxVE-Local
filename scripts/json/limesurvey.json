@@ -36,5 +36,6 @@
       "text": "You will need to input database credentials into LimeSurvey installer. Use `cat ~/limesurvey.creds` inside LXC.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

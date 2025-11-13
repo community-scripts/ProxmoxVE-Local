@@ -44,5 +44,6 @@
       "text": "Stopped containers will be started temporarily to run the command, then shut down again.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

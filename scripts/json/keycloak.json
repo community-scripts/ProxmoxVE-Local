@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 4,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -40,5 +40,6 @@
       "text": "When updating, if you had modified cache-ispn.xml: Re-apply your changes to the new file, otherwise leave it unchanged.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -36,5 +36,6 @@
       "text": "It takes a minute or two after installation for web UI to start, please be patient.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

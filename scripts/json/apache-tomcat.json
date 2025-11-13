@@ -36,5 +36,6 @@
       "text": "User can select which Adoptium JDK should be used for the selected Tomcat version (9, 10.1 or 11). ",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

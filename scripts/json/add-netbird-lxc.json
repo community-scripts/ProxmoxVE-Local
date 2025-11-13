@@ -44,5 +44,6 @@
       "text": "The script only works in Debian/Ubuntu, not in Alpine!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

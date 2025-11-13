@@ -36,5 +36,6 @@
       "text": "When it is in used external please use it behind reverse proxy or create your own certificates",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

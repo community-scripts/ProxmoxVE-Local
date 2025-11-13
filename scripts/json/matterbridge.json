@@ -40,5 +40,6 @@
       "text": "Updatable via the Matterbridge WebUI",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

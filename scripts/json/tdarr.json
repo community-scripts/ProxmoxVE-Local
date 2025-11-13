@@ -36,5 +36,6 @@
       "text": "With Privileged/Unprivileged Hardware Acceleration Support",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

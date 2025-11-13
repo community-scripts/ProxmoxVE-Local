@@ -36,5 +36,6 @@
       "text": "Use `cat ~/docmost.creds` to see database credentials.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

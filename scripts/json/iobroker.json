@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 8,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -36,5 +36,6 @@
       "text": "WARNING: Installation sources scripts outside of Community Scripts repo. Please check the source before installing.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -36,5 +36,6 @@
       "text": "Edit config file then restart the scraparr service: `systemctl restart scraparr`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

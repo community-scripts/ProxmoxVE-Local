@@ -40,5 +40,6 @@
       "text": "Database location: `/opt/tududi-db`. Uploads: `/opt/tududi-uploads`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

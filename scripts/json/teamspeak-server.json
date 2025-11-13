@@ -51,5 +51,6 @@
       "text": "Use `cat /var/log/teamspeak.err.log` inside Alpine LXC console to check for admin credentials!",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

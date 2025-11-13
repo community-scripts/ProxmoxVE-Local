@@ -36,5 +36,6 @@
       "text": "FTP server credentials: `cat ~/ftp.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

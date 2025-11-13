@@ -36,5 +36,6 @@
       "text": "To view the database credentials : `cat umami.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

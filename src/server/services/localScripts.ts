@@ -64,6 +64,7 @@ export class LocalScriptsService {
         type: script.type,
         updateable: script.updateable,
         website: script.website,
+        repository_url: script.repository_url,
       }));
     } catch (error) {
       console.error('Error creating script cards:', error);
@@ -79,7 +80,47 @@ export class LocalScriptsService {
       
       try {
         const content = await readFile(filePath, 'utf-8');
-        return JSON.parse(content) as Script;
+        const script = JSON.parse(content) as Script;
+        
+        // Ensure repository_url is set (backward compatibility)
+        // If missing, try to determine which repo it came from by checking all enabled repos
+        // Note: This is a fallback for scripts synced before repository_url was added
+        if (!script.repository_url) {
+          const { repositoryService } = await import('./repositoryService');
+          const enabledRepos = await repositoryService.getEnabledRepositories();
+          
+          // Check each repo in priority order to see which one has this script
+          // We check in priority order so that if a script exists in multiple repos,
+          // we use the highest priority repo (same as sync logic)
+          let foundRepo: string | null = null;
+          for (const repo of enabledRepos) {
+            try {
+              const { githubJsonService } = await import('./githubJsonService.js');
+              const repoScript = await githubJsonService.getScriptBySlug(slug, repo.url);
+              if (repoScript) {
+                foundRepo = repo.url;
+                // Don't break - continue to check higher priority repos first
+                // Actually, repos are already sorted by priority, so first match is highest priority
+                break;
+              }
+            } catch {
+              // Continue checking other repos
+            }
+          }
+          
+          // Set repository_url to found repo or default to main repo
+          const { env } = await import('~/env.js');
+          script.repository_url = foundRepo ?? env.REPO_URL ?? 'https://github.com/community-scripts/ProxmoxVE';
+          
+          // Update the JSON file with the repository_url for future loads
+          try {
+            await writeFile(filePath, JSON.stringify(script, null, 2), 'utf-8');
+          } catch {
+            // If we can't write, that's okay - at least we have it in memory
+          }
+        }
+        
+        return script;
       } catch {
         // If file doesn't exist, return null instead of throwing
         return null;

@@ -23,7 +23,7 @@
         "ram": 512,
         "hdd": 2,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -36,5 +36,6 @@
       "text": "Container must be privileged.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

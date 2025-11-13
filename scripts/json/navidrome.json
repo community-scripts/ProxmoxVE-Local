@@ -36,5 +36,6 @@
       "text": "To change Navidrome music folder path, `nano /etc/navidrome/navidrome.toml`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

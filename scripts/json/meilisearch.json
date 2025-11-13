@@ -40,5 +40,6 @@
       "text": "Meilisearch-UI has early development status and can cause performance issues",
       "type": "warn"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

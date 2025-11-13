@@ -40,5 +40,6 @@
       "text": "To use Palmr with a reverse proxy, uncomment `SECURE_SITE` in `/opt/palmr/apps/server/.env`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

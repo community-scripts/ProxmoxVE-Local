@@ -41,5 +41,6 @@
       "text": "After changing the config restart OAuth2-Proxy with: `systemctl restart oauth2-proxy`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

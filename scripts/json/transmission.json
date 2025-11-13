@@ -51,5 +51,6 @@
       "type": "info",
       "text": "Alpine script sets initial disk size to 1GB. Please adjust for your needs after installation ends."
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

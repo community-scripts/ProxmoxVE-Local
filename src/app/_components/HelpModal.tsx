@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download, Lock } from 'lucide-react';
+import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download, Lock, GitBranch } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface HelpModalProps {
@@ -11,7 +11,7 @@ interface HelpModalProps {
   initialSection?: string;
 }
 
-type HelpSection = 'server-settings' | 'general-settings' | 'auth-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system';
+type HelpSection = 'server-settings' | 'general-settings' | 'auth-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system' | 'repositories';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
   useRegisterModal(isOpen, { id: 'help-modal', allowEscape: true, onClose });
@@ -25,6 +25,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
     { id: 'auth-settings' as HelpSection, label: 'Authentication Settings', icon: Lock },
     { id: 'sync-button' as HelpSection, label: 'Sync Button', icon: RefreshCw },
     { id: 'auto-sync' as HelpSection, label: 'Auto-Sync', icon: Clock },
+    { id: 'repositories' as HelpSection, label: 'Repositories', icon: GitBranch },
     { id: 'available-scripts' as HelpSection, label: 'Available Scripts', icon: Package },
     { id: 'downloaded-scripts' as HelpSection, label: 'Downloaded Scripts', icon: HardDrive },
     { id: 'installed-scripts' as HelpSection, label: 'Installed Scripts', icon: FolderOpen },
@@ -379,6 +380,106 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
           </div>
         );
 
+      case 'repositories':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-4">Repositories</h3>
+              <p className="text-muted-foreground mb-6">
+                Manage script repositories (GitHub repositories) and configure which repositories to use for syncing scripts.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">What Are Repositories?</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Repositories are GitHub repositories that contain scripts and their metadata. Scripts are organized by repositories, allowing you to add custom repositories or manage which repositories are active.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  You can add custom repositories or manage existing ones in General Settings &gt; Repositories.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Repository Structure</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  For a repository to work with this system, it must follow this structure:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2 ml-4 list-disc">
+                  <li><strong>JSON files:</strong> Must be located in a <code className="bg-muted px-1 rounded">frontend/public/json/</code> folder at the repository root. Each JSON file contains metadata for a script (name, description, installation methods, etc.).</li>
+                  <li><strong>Script files:</strong> Must be organized in subdirectories:
+                    <ul className="ml-4 mt-1 space-y-1 list-disc">
+                      <li><code className="bg-muted px-1 rounded">ct/</code> - Container scripts (LXC)</li>
+                      <li><code className="bg-muted px-1 rounded">install/</code> - Installation scripts</li>
+                      <li><code className="bg-muted px-1 rounded">tools/</code> - Tool scripts</li>
+                      <li><code className="bg-muted px-1 rounded">vm/</code> - Virtual machine scripts</li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Default Repositories</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  The system comes with two default repositories that cannot be deleted:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2 ml-4 list-disc">
+                  <li><strong>Main Repository (ProxmoxVE):</strong> The primary repository at <code className="bg-muted px-1 rounded">github.com/community-scripts/ProxmoxVE</code>. This is enabled by default and contains stable, production-ready scripts. This repository cannot be deleted.</li>
+                  <li><strong>Dev Repository (ProxmoxVED):</strong> The development/testing repository at <code className="bg-muted px-1 rounded">github.com/community-scripts/ProxmoxVED</code>. This is disabled by default and contains experimental or in-development scripts. This repository cannot be deleted.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Enable vs Disable</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  You can enable or disable repositories to control which scripts are available:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2 ml-4 list-disc">
+                  <li><strong>Enabled:</strong> Scripts from this repository are included in the Available Scripts tab and will be synced when you sync repositories. Enabled repositories are checked for updates during sync operations.</li>
+                  <li><strong>Disabled:</strong> Scripts from this repository are excluded from the Available Scripts tab and will not be synced. Scripts already downloaded from a disabled repository remain on your system but won&apos;t appear in the list. Disabled repositories are not checked for updates.</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <strong>Note:</strong> Disabling a repository doesn&apos;t delete scripts you&apos;ve already downloaded from it. They remain on your system but are hidden from the Available Scripts list.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Repository Filter Buttons</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  When multiple repositories are enabled, filter buttons appear in the filter bar on the Available Scripts tab.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2 ml-4 list-disc">
+                  <li>Each enabled repository gets its own filter button</li>
+                  <li>Click a repository button to toggle showing/hiding scripts from that repository</li>
+                  <li>Active buttons are highlighted with primary styling</li>
+                  <li>Inactive buttons have muted styling</li>
+                  <li>This allows you to quickly focus on scripts from specific repositories</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <strong>Note:</strong> Filter buttons only appear when more than one repository is enabled. If only one repository is enabled, all scripts from that repository are shown by default.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Adding Custom Repositories</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  You can add your own GitHub repositories to access custom scripts:
+                </p>
+                <ol className="text-sm text-muted-foreground space-y-2 ml-4 list-decimal">
+                  <li>Go to General Settings &gt; Repositories</li>
+                  <li>Enter the GitHub repository URL (format: <code className="bg-muted px-1 rounded">https://github.com/owner/repo</code>)</li>
+                  <li>Choose whether to enable it immediately</li>
+                  <li>Click &quot;Add Repository&quot;</li>
+                </ol>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <strong>Important:</strong> Custom repositories must follow the repository structure described above. Repositories that don&apos;t follow this structure may not work correctly.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
       case 'available-scripts':
         return (
           <div className="space-y-6">
@@ -407,6 +508,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Update Status:</strong> Show only scripts with available updates</li>
                   <li>• <strong>Search Query:</strong> Search within script names and descriptions</li>
                   <li>• <strong>Categories:</strong> Filter by specific script categories</li>
+                  <li>• <strong>Repositories:</strong> Filter scripts by repository source (only shown when multiple repositories are enabled). Click repository buttons to toggle visibility of scripts from that repository.</li>
                 </ul>
               </div>
 

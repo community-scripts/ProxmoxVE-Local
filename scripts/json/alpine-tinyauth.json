@@ -47,5 +47,6 @@
       "text": "The default credentials are located in `/opt/tinyauth/credentials.txt`.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

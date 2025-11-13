@@ -40,5 +40,6 @@
       "text": "The script updates only the operating system of the LXC container. It DOES NOT update the application installed within the container!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

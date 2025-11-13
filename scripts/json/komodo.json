@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 10,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     },
     {
@@ -47,5 +47,6 @@
       "text": "For admin username and password type `cat ~/komodo.creds` inside LXC.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

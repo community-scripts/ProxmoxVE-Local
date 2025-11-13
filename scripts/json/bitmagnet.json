@@ -47,5 +47,6 @@
       "text": "During installation you will be asked to enter your TMDB API key, if you wanna use it. Make sure you have it ready.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

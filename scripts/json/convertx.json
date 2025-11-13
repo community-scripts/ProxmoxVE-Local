@@ -36,5 +36,6 @@
       "text": "Complete setup via the web interface at http://<container-ip>:3000. Create and secure the admin account immediately.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

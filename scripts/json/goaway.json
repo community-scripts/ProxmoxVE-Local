@@ -36,5 +36,6 @@
       "text": "Type `cat ~/goaway.creds` to see login credentials.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

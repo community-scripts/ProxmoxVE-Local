@@ -40,5 +40,6 @@
       "text": "This LXC includes Soularr; it needs to be configured (/opt/soularr/config.ini) before it will work",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

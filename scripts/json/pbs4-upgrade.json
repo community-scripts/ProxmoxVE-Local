@@ -48,5 +48,6 @@
       "text": "A reboot is strongly recommended after upgrade to activate the new kernel and services.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

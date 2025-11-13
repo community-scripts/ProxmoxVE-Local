@@ -31,5 +31,6 @@
     "username": "proxmox",
     "password": "proxmox"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

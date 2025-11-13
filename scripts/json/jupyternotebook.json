@@ -36,5 +36,6 @@
       "text": "To get the token to access the Jupyter Notebook, run the following command: jupyter notebook list.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

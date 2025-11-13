@@ -8,7 +8,7 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
-import { initializeAutoSync, setupGracefulShutdown } from './src/server/lib/autoSyncInit.js';
+import { initializeAutoSync, initializeRepositories, setupGracefulShutdown } from './src/server/lib/autoSyncInit.js';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -978,9 +978,12 @@ app.prepare().then(() => {
       console.error(err);
       process.exit(1);
     })
-    .listen(port, hostname, () => {
+    .listen(port, hostname, async () => {
       console.log(`> Ready on http://${hostname}:${port}`);
       console.log(`> WebSocket server running on ws://${hostname}:${port}/ws/script-execution`);
+      
+      // Initialize default repositories
+      await initializeRepositories();
       
       // Initialize auto-sync service
       initializeAutoSync();

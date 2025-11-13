@@ -48,5 +48,6 @@
       "text": "If agent2 with NVIDIA plugin is installed in an environment without GPU, the installer disables it automatically",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

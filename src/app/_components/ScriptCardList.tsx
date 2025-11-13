@@ -44,6 +44,15 @@ export function ScriptCardList({ script, onClick, isSelected = false, onToggleSe
     return script.categoryNames.join(', ');
   };
 
+  const getRepoName = (url?: string): string => {
+    if (!url) return '';
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (match) {
+      return `${match[1]}/${match[2]}`;
+    }
+    return url;
+  };
+
   return (
     <div
       className="bg-card rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-border hover:border-primary relative"
@@ -102,6 +111,11 @@ export function ScriptCardList({ script, onClick, isSelected = false, onToggleSe
                 <div className="flex items-center space-x-3 flex-wrap gap-2">
                   <TypeBadge type={script.type ?? 'unknown'} />
                   {script.updateable && <UpdateableBadge />}
+                  {script.repository_url && (
+                    <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded border border-border" title={script.repository_url}>
+                      {getRepoName(script.repository_url)}
+                    </span>
+                  )}
                   <div className="flex items-center space-x-1">
                     <div className={`w-2 h-2 rounded-full ${
                       script.isDownloaded ? 'bg-success' : 'bg-error'

@@ -36,5 +36,6 @@
       "text": "This app requires a Twitch cliend_ID and client_secret, set it in the config file. Look in the application documentation on how to obtain it.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

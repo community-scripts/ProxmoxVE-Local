@@ -36,5 +36,6 @@
       "text": "This VM use as base a Debian 12 OS with a custom kernel and some additional packages to run Umbrel OS. It is not a standard Debian VM, but it is optimized for Umbrel OS.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

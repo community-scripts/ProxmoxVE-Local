@@ -48,5 +48,6 @@
       "text": "Build process requires 4GB RAM (runtime: ~2GB). A temporary swap file will be created automatically if insufficient memory is detected.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -36,5 +36,6 @@
       "text": "To configure evcc, type `cd /etc` followed by `evcc configure` in the evcc LXC shell",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

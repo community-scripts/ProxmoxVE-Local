@@ -36,5 +36,6 @@
       "text": "For additional configuration options check the documentation.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

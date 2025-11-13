@@ -23,7 +23,7 @@
         "ram": 4096,
         "hdd": 10,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -31,5 +31,6 @@
     "username": null,
     "password": null
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -3,8 +3,9 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
 import { githubJsonService } from "~/server/services/githubJsonService";
 import { localScriptsService } from "~/server/services/localScripts";
-import { scriptDownloaderService } from "~/server/services/scriptDownloader";
+import { scriptDownloaderService } from "~/server/services/scriptDownloader.js";
 import { AutoSyncService } from "~/server/services/autoSyncService";
+import { repositoryService } from "~/server/services/repositoryService";
 import type { ScriptCard } from "~/types/script";
 
 export const scriptsRouter = createTRPCRouter({
@@ -166,13 +167,17 @@ export const scriptsRouter = createTRPCRouter({
   getScriptCardsWithCategories: publicProcedure
     .query(async () => {
       try {
-        const [cards, metadata] = await Promise.all([
+        const [cards, metadata, enabledRepos] = await Promise.all([
           localScriptsService.getScriptCards(),
-          localScriptsService.getMetadata()
+          localScriptsService.getMetadata(),
+          repositoryService.getEnabledRepositories()
         ]);
 
         // Get all scripts to access their categories
         const scripts = await localScriptsService.getAllScripts();
+        
+        // Create a set of enabled repository URLs for fast lookup
+        const enabledRepoUrls = new Set(enabledRepos.map(repo => repo.url));
         
         // Create category ID to name mapping
         const categoryMap: Record<number, string> = {};
@@ -213,10 +218,26 @@ export const scriptsRouter = createTRPCRouter({
             // Add interface port
             interface_port: script?.interface_port,
             install_basenames,
+            // Add repository_url from script
+            repository_url: script?.repository_url ?? card.repository_url,
           } as ScriptCard;
         });
 
-        return { success: true, cards: cardsWithCategories, metadata };
+        // Filter cards to only include scripts from enabled repositories
+        // For backward compatibility, include scripts without repository_url
+        const filteredCards = cardsWithCategories.filter(card => {
+          const repoUrl = card.repository_url;
+          
+          // If script has no repository_url, include it for backward compatibility
+          if (!repoUrl) {
+            return true;
+          }
+          
+          // Only include scripts from enabled repositories
+          return enabledRepoUrls.has(repoUrl);
+        });
+
+        return { success: true, cards: filteredCards, metadata };
       } catch (error) {
         console.error('Error in getScriptCardsWithCategories:', error);
         return {
