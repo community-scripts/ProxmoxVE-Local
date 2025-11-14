@@ -294,11 +294,102 @@ class BackupService {
   }
 
   /**
+   * Login to PBS using stored credentials
+   */
+  async loginToPBS(server: Server, storage: Storage): Promise<boolean> {
+    const db = getDatabase();
+    const credential = await db.getPBSCredential(server.id, storage.name);
+    
+    if (!credential) {
+      console.log(`[BackupService] No PBS credentials found for storage ${storage.name}, skipping PBS discovery`);
+      return false;
+    }
+    
+    const sshService = getSSHExecutionService();
+    const storageService = getStorageService();
+    const pbsInfo = storageService.getPBSStorageInfo(storage);
+    
+    // Use IP and datastore from credentials (they override config if different)
+    const pbsIp = credential.pbs_ip || pbsInfo.pbs_ip;
+    const pbsDatastore = credential.pbs_datastore || pbsInfo.pbs_datastore;
+    
+    if (!pbsIp || !pbsDatastore) {
+      console.log(`[BackupService] Missing PBS IP or datastore for storage ${storage.name}`);
+      return false;
+    }
+    
+    // Build login command
+    // Format: proxmox-backup-client login --repository root@pam@<IP>:<DATASTORE>
+    const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
+    
+    // Auto-accept fingerprint using echo "y"
+    // Provide password via stdin
+    // proxmox-backup-client accepts password via stdin
+    const fullCommand = `echo -e "y\\n${credential.pbs_password}" | timeout 10 proxmox-backup-client login --repository ${repository} 2>&1`;
+    
+    console.log(`[BackupService] Logging into PBS: ${repository}`);
+    
+    let loginOutput = '';
+    let loginSuccess = false;
+    
+    try {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          sshService.executeCommand(
+            server,
+            fullCommand,
+            (data: string) => {
+              loginOutput += data;
+            },
+            (error: string) => {
+              console.log(`[BackupService] PBS login error: ${error}`);
+              resolve();
+            },
+            (exitCode: number) => {
+              loginSuccess = exitCode === 0;
+              if (loginSuccess) {
+                console.log(`[BackupService] Successfully logged into PBS: ${repository}`);
+              } else {
+                console.log(`[BackupService] PBS login failed with exit code ${exitCode}`);
+                console.log(`[BackupService] Login output: ${loginOutput}`);
+              }
+              resolve();
+            }
+          );
+        }),
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            console.log(`[BackupService] PBS login timeout`);
+            resolve();
+          }, 15000); // 15 second timeout
+        })
+      ]);
+      
+      // Check if login was successful (look for success indicators in output)
+      if (loginSuccess || loginOutput.includes('successfully') || loginOutput.includes('logged in')) {
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`[BackupService] Error during PBS login:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Discover PBS backups using proxmox-backup-client
    */
   async discoverPBSBackups(server: Server, storage: Storage, ctId: string, hostname: string): Promise<BackupData[]> {
     const sshService = getSSHExecutionService();
     const backups: BackupData[] = [];
+    
+    // Login to PBS first
+    const loggedIn = await this.loginToPBS(server, storage);
+    if (!loggedIn) {
+      console.log(`[BackupService] Failed to login to PBS for storage ${storage.name}, skipping backup discovery`);
+      return backups;
+    }
     
     // Use storage name as repository name (e.g., "PBS1")
     const repositoryName = storage.name;

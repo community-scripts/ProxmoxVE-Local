@@ -42,6 +42,7 @@ model Server {
   key_generated      Boolean?           @default(false)
   installed_scripts  InstalledScript[]
   backups            Backup[]
+  pbs_credentials    PBSStorageCredential[]
   
   @@map("servers")
 }
@@ -114,4 +115,21 @@ model Backup {
   @@index([container_id])
   @@index([server_id])
   @@map("backups")
+}
+
+model PBSStorageCredential {
+  id                Int       @id @default(autoincrement())
+  server_id         Int
+  storage_name      String
+  pbs_ip            String
+  pbs_datastore     String
+  pbs_password      String
+  pbs_fingerprint   String
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  server            Server    @relation(fields: [server_id], references: [id], onDelete: Cascade)
+  
+  @@unique([server_id, storage_name])
+  @@index([server_id])
+  @@map("pbs_storage_credentials")
 }

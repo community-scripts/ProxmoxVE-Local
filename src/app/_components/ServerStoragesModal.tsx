@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
-import { Database, RefreshCw, CheckCircle } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle, Lock, AlertCircle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 import { api } from '~/trpc/react';
+import { PBSCredentialsModal } from './PBSCredentialsModal';
 import type { Storage } from '~/server/services/storageService';
 
 interface ServerStoragesModalProps {
@@ -21,11 +22,25 @@ export function ServerStoragesModal({
   serverName
 }: ServerStoragesModalProps) {
   const [forceRefresh, setForceRefresh] = useState(false);
+  const [selectedPBSStorage, setSelectedPBSStorage] = useState<Storage | null>(null);
   
   const { data, isLoading, refetch } = api.installedScripts.getBackupStorages.useQuery(
     { serverId, forceRefresh },
     { enabled: isOpen }
   );
+  
+  // Fetch all PBS credentials for this server to show status indicators
+  const { data: allCredentials } = api.pbsCredentials.getAllCredentialsForServer.useQuery(
+    { serverId },
+    { enabled: isOpen }
+  );
+  
+  const credentialsMap = new Map<string, boolean>();
+  if (allCredentials?.success) {
+    allCredentials.credentials.forEach(c => {
+      credentialsMap.set(c.storage_name, true);
+    });
+  }
 
   useRegisterModal(isOpen, { id: 'server-storages-modal', allowEscape: true, onClose });
 
@@ -122,38 +137,62 @@ export function ServerStoragesModal({
                           : 'border-border bg-card'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-medium text-foreground">{storage.name}</h3>
-                            {isBackupCapable && (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="font-medium text-foreground">{storage.name}</h3>
+                          {isBackupCapable && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-success/20 text-success border border-success/30 flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3" />
+                              Backup
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
+                            {storage.type}
+                          </span>
+                          {storage.type === 'pbs' && (
+                            credentialsMap.has(storage.name) ? (
                               <span className="px-2 py-0.5 text-xs font-medium rounded bg-success/20 text-success border border-success/30 flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" />
-                                Backup
+                                Credentials Configured
                               </span>
-                            )}
-                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
-                              {storage.type}
-                            </span>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <div>
-                              <span className="font-medium">Content:</span> {storage.content.join(', ')}
-                            </div>
-                            {storage.nodes && storage.nodes.length > 0 && (
-                              <div>
-                                <span className="font-medium">Nodes:</span> {storage.nodes.join(', ')}
-                              </div>
-                            )}
-                            {Object.entries(storage)
-                              .filter(([key]) => !['name', 'type', 'content', 'supportsBackup', 'nodes'].includes(key))
-                              .map(([key, value]) => (
-                                <div key={key}>
-                                  <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
-                                </div>
-                              ))}
-                          </div>
+                            ) : (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning/20 text-warning border border-warning/30 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Credentials Needed
+                              </span>
+                            )
+                          )}
                         </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <div>
+                            <span className="font-medium">Content:</span> {storage.content.join(', ')}
+                          </div>
+                          {storage.nodes && storage.nodes.length > 0 && (
+                            <div>
+                              <span className="font-medium">Nodes:</span> {storage.nodes.join(', ')}
+                            </div>
+                          )}
+                          {Object.entries(storage)
+                            .filter(([key]) => !['name', 'type', 'content', 'supportsBackup', 'nodes'].includes(key))
+                            .map(([key, value]) => (
+                              <div key={key}>
+                                <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
+                              </div>
+                            ))}
+                        </div>
+                        {storage.type === 'pbs' && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <Button
+                              onClick={() => setSelectedPBSStorage(storage)}
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-2"
+                            >
+                              <Lock className="h-4 w-4" />
+                              {credentialsMap.has(storage.name) ? 'Edit' : 'Configure'} Credentials
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -171,6 +210,17 @@ export function ServerStoragesModal({
           )}
         </div>
       </div>
+      
+      {/* PBS Credentials Modal */}
+      {selectedPBSStorage && (
+        <PBSCredentialsModal
+          isOpen={!!selectedPBSStorage}
+          onClose={() => setSelectedPBSStorage(null)}
+          serverId={serverId}
+          serverName={serverName}
+          storage={selectedPBSStorage}
+        />
+      )}
     </div>
   );
 }

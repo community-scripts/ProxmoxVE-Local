@@ -417,6 +417,69 @@ class DatabaseServicePrisma {
     return grouped;
   }
 
+  // PBS Credentials CRUD operations
+  async createOrUpdatePBSCredential(credentialData: {
+    server_id: number;
+    storage_name: string;
+    pbs_ip: string;
+    pbs_datastore: string;
+    pbs_password: string;
+    pbs_fingerprint: string;
+  }) {
+    return await prisma.pBSStorageCredential.upsert({
+      where: {
+        server_id_storage_name: {
+          server_id: credentialData.server_id,
+          storage_name: credentialData.storage_name,
+        },
+      },
+      update: {
+        pbs_ip: credentialData.pbs_ip,
+        pbs_datastore: credentialData.pbs_datastore,
+        pbs_password: credentialData.pbs_password,
+        pbs_fingerprint: credentialData.pbs_fingerprint,
+        updated_at: new Date(),
+      },
+      create: {
+        server_id: credentialData.server_id,
+        storage_name: credentialData.storage_name,
+        pbs_ip: credentialData.pbs_ip,
+        pbs_datastore: credentialData.pbs_datastore,
+        pbs_password: credentialData.pbs_password,
+        pbs_fingerprint: credentialData.pbs_fingerprint,
+      },
+    });
+  }
+
+  async getPBSCredential(serverId: number, storageName: string) {
+    return await prisma.pBSStorageCredential.findUnique({
+      where: {
+        server_id_storage_name: {
+          server_id: serverId,
+          storage_name: storageName,
+        },
+      },
+    });
+  }
+
+  async getPBSCredentialsByServer(serverId: number) {
+    return await prisma.pBSStorageCredential.findMany({
+      where: { server_id: serverId },
+      orderBy: { storage_name: 'asc' },
+    });
+  }
+
+  async deletePBSCredential(serverId: number, storageName: string) {
+    return await prisma.pBSStorageCredential.delete({
+      where: {
+        server_id_storage_name: {
+          server_id: serverId,
+          storage_name: storageName,
+        },
+      },
+    });
+  }
+
   async close() {
     await prisma.$disconnect();
   }

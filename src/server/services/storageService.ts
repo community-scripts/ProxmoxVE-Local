@@ -183,6 +183,20 @@ class StorageService {
   }
 
   /**
+   * Get PBS storage information (IP and datastore) from storage config
+   */
+  getPBSStorageInfo(storage: Storage): { pbs_ip: string | null; pbs_datastore: string | null } {
+    if (storage.type !== 'pbs') {
+      return { pbs_ip: null, pbs_datastore: null };
+    }
+    
+    return {
+      pbs_ip: (storage as any).server || null,
+      pbs_datastore: (storage as any).datastore || null,
+    };
+  }
+
+  /**
    * Clear cache for a specific server
    */
   clearCache(serverId: number): void {
