@@ -1,0 +1,197 @@
+import { getSSHExecutionService } from '../ssh-execution-service';
+import type { Server } from '~/types/server';
+
+export interface Storage {
+  name: string;
+  type: string;
+  content: string[];
+  supportsBackup: boolean;
+  nodes?: string[];
+  [key: string]: any; // For additional storage-specific properties
+}
+
+interface CachedStorageData {
+  storages: Storage[];
+  lastFetched: Date;
+}
+
+class StorageService {
+  private cache: Map<number, CachedStorageData> = new Map();
+  private readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+  /**
+   * Parse storage.cfg content and extract storage information
+   */
+  private parseStorageConfig(configContent: string): Storage[] {
+    const storages: Storage[] = [];
+    const lines = configContent.split('\n');
+    
+    let currentStorage: Partial<Storage> | null = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines and comments
+      if (!line || line.startsWith('#')) {
+        continue;
+      }
+      
+      // Check if this is a storage definition line (format: "type: name")
+      const storageMatch = line.match(/^(\w+):\s*(.+)$/);
+      if (storageMatch) {
+        // Save previous storage if exists
+        if (currentStorage && currentStorage.name) {
+          storages.push(this.finalizeStorage(currentStorage));
+        }
+        
+        // Start new storage
+        currentStorage = {
+          type: storageMatch[1],
+          name: storageMatch[2],
+          content: [],
+          supportsBackup: false,
+        };
+        continue;
+      }
+      
+      // Parse storage properties (indented lines)
+      if (currentStorage && /^\s/.test(line)) {
+        const propertyMatch = line.match(/^\s+(\w+)\s+(.+)$/);
+        if (propertyMatch) {
+          const key = propertyMatch[1];
+          const value = propertyMatch[2];
+          
+          switch (key) {
+            case 'content':
+              // Content can be comma-separated: "images,rootdir" or "backup"
+              currentStorage.content = value.split(',').map(c => c.trim());
+              currentStorage.supportsBackup = currentStorage.content.includes('backup');
+              break;
+            case 'nodes':
+              // Nodes can be comma-separated: "prox5" or "prox5,prox6"
+              currentStorage.nodes = value.split(',').map(n => n.trim());
+              break;
+            default:
+              // Store other properties
+              (currentStorage as any)[key] = value;
+          }
+        }
+      }
+    }
+    
+    // Don't forget the last storage
+    if (currentStorage && currentStorage.name) {
+      storages.push(this.finalizeStorage(currentStorage));
+    }
+    
+    return storages;
+  }
+
+  /**
+   * Finalize storage object with proper typing
+   */
+  private finalizeStorage(storage: Partial<Storage>): Storage {
+    return {
+      name: storage.name!,
+      type: storage.type!,
+      content: storage.content || [],
+      supportsBackup: storage.supportsBackup || false,
+      nodes: storage.nodes,
+      ...Object.fromEntries(
+        Object.entries(storage).filter(([key]) => 
+          !['name', 'type', 'content', 'supportsBackup', 'nodes'].includes(key)
+        )
+      ),
+    };
+  }
+
+  /**
+   * Fetch storage configuration from server via SSH
+   */
+  async fetchStoragesFromServer(server: Server, forceRefresh = false): Promise<Storage[]> {
+    const serverId = server.id;
+    
+    // Check cache first (unless force refresh)
+    if (!forceRefresh && this.cache.has(serverId)) {
+      const cached = this.cache.get(serverId)!;
+      const age = Date.now() - cached.lastFetched.getTime();
+      
+      if (age < this.CACHE_TTL_MS) {
+        return cached.storages;
+      }
+    }
+    
+    // Fetch from server
+    const sshService = getSSHExecutionService();
+    let configContent = '';
+    
+    await new Promise<void>((resolve, reject) => {
+      sshService.executeCommand(
+        server,
+        'cat /etc/pve/storage.cfg',
+        (data: string) => {
+          configContent += data;
+        },
+        (error: string) => {
+          reject(new Error(`Failed to read storage config: ${error}`));
+        },
+        (exitCode: number) => {
+          if (exitCode === 0) {
+            resolve();
+          } else {
+            reject(new Error(`Command failed with exit code ${exitCode}`));
+          }
+        }
+      );
+    });
+    
+    // Parse and cache
+    const storages = this.parseStorageConfig(configContent);
+    this.cache.set(serverId, {
+      storages,
+      lastFetched: new Date(),
+    });
+    
+    return storages;
+  }
+
+  /**
+   * Get all storages for a server (cached or fresh)
+   */
+  async getStorages(server: Server, forceRefresh = false): Promise<Storage[]> {
+    return this.fetchStoragesFromServer(server, forceRefresh);
+  }
+
+  /**
+   * Get only backup-capable storages
+   */
+  async getBackupStorages(server: Server, forceRefresh = false): Promise<Storage[]> {
+    const allStorages = await this.getStorages(server, forceRefresh);
+    return allStorages.filter(s => s.supportsBackup);
+  }
+
+  /**
+   * Clear cache for a specific server
+   */
+  clearCache(serverId: number): void {
+    this.cache.delete(serverId);
+  }
+
+  /**
+   * Clear all caches
+   */
+  clearAllCaches(): void {
+    this.cache.clear();
+  }
+}
+
+// Singleton instance
+let storageServiceInstance: StorageService | null = null;
+
+export function getStorageService(): StorageService {
+  if (!storageServiceInstance) {
+    storageServiceInstance = new StorageService();
+  }
+  return storageServiceInstance;
+}
+
