@@ -364,6 +364,15 @@ class DatabaseServicePrisma {
     });
   }
 
+  async getBackupById(id: number) {
+    return await prisma.backup.findUnique({
+      where: { id },
+      include: {
+        server: true,
+      },
+    });
+  }
+
   async getBackupsByContainerId(containerId: string) {
     return await prisma.backup.findMany({
       where: { container_id: containerId },

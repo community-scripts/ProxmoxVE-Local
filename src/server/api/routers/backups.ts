@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { getDatabase } from '~/server/database-prisma';
 import { getBackupService } from '~/server/services/backupService';
+import { getRestoreService } from '~/server/services/restoreService';
 
 export const backupsRouter = createTRPCRouter({
   // Get all backups grouped by container ID
@@ -47,6 +48,7 @@ export const backupsRouter = createTRPCRouter({
               storage_name: backup.storage_name,
               storage_type: backup.storage_type,
               discovered_at: backup.discovered_at,
+              server_id: backup.server_id,
               server_name: backup.server?.name ?? null,
               server_color: backup.server?.color ?? null,
             })),
@@ -83,6 +85,37 @@ export const backupsRouter = createTRPCRouter({
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to discover backups',
+        };
+      }
+    }),
+
+  // Restore backup
+  restoreBackup: publicProcedure
+    .input(z.object({
+      backupId: z.number(),
+      containerId: z.string(),
+      serverId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const restoreService = getRestoreService();
+        const result = await restoreService.executeRestore(
+          input.backupId,
+          input.containerId,
+          input.serverId
+        );
+        
+        return {
+          success: result.success,
+          error: result.error,
+          progress: result.progress,
+        };
+      } catch (error) {
+        console.error('Error in restoreBackup:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to restore backup',
+          progress: [],
         };
       }
     }),
