@@ -11,6 +11,7 @@ import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import { Clock } from 'lucide-react';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
+import { getDefaultFilters, mergeFiltersWithDefaults } from './filterUtils';
 
 
 interface ScriptsGridProps {
@@ -25,14 +26,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number; currentScript: string; failed: Array<{ slug: string; error: string }> } | null>(null);
-  const [filters, setFilters] = useState<FilterState>({
-    searchQuery: '',
-    showUpdatable: null,
-    selectedTypes: [],
-    selectedRepositories: [],
-    sortBy: 'name',
-    sortOrder: 'asc',
-  });
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters());
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [isNewestMinimized, setIsNewestMinimized] = useState(false);
@@ -67,7 +61,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           if (filtersResponse.ok) {
             const filtersData = await filtersResponse.json();
             if (filtersData.filters) {
-              setFilters(filtersData.filters as FilterState);
+              setFilters(mergeFiltersWithDefaults(filtersData.filters));
             }
           }
         }

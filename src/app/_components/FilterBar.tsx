@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import { Package, Monitor, Wrench, Server, FileText, Calendar, RefreshCw, Filter, GitBranch } from "lucide-react";
 import { api } from "~/trpc/react";
+import { getDefaultFilters } from "./filterUtils";
 
 export interface FilterState {
   searchQuery: string;
@@ -67,14 +68,7 @@ export function FilterBar({
   };
 
   const clearAllFilters = () => {
-    onFiltersChange({
-      searchQuery: "",
-      showUpdatable: null,
-      selectedTypes: [],
-      selectedRepositories: [],
-      sortBy: "name",
-      sortOrder: "asc",
-    });
+    onFiltersChange(getDefaultFilters());
   };
 
   const hasActiveFilters =
