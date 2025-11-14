@@ -10,6 +10,7 @@ import { FilterBar, type FilterState } from './FilterBar';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
+import { getDefaultFilters, mergeFiltersWithDefaults } from './filterUtils';
 
 interface DownloadedScriptsTabProps {
   onInstallScript?: (
@@ -25,14 +26,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
-  const [filters, setFilters] = useState<FilterState>({
-    searchQuery: '',
-    showUpdatable: null,
-    selectedTypes: [],
-    selectedRepositories: [],
-    sortBy: 'name',
-    sortOrder: 'asc',
-  });
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters());
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -63,7 +57,7 @@ export function DownloadedScriptsTab({ onInstallScript }: DownloadedScriptsTabPr
           if (filtersResponse.ok) {
             const filtersData = await filtersResponse.json();
             if (filtersData.filters) {
-              setFilters(filtersData.filters as FilterState);
+              setFilters(mergeFiltersWithDefaults(filtersData.filters));
             }
           }
         }
