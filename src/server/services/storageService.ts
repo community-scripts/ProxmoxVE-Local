@@ -29,7 +29,12 @@ class StorageService {
     let currentStorage: Partial<Storage> | null = null;
     
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const rawLine = lines[i];
+      if (!rawLine) continue;
+      
+      // Check if line is indented (has leading whitespace/tabs) BEFORE trimming
+      const isIndented = /^[\s\t]/.test(rawLine);
+      const line = rawLine.trim();
       
       // Skip empty lines and comments
       if (!line || line.startsWith('#')) {
@@ -37,29 +42,34 @@ class StorageService {
       }
       
       // Check if this is a storage definition line (format: "type: name")
-      const storageMatch = line.match(/^(\w+):\s*(.+)$/);
-      if (storageMatch) {
-        // Save previous storage if exists
-        if (currentStorage && currentStorage.name) {
-          storages.push(this.finalizeStorage(currentStorage));
+      // Storage definitions are NOT indented
+      if (!isIndented) {
+        const storageMatch = line.match(/^(\w+):\s*(.+)$/);
+        if (storageMatch && storageMatch[1] && storageMatch[2]) {
+          // Save previous storage if exists
+          if (currentStorage && currentStorage.name) {
+            storages.push(this.finalizeStorage(currentStorage));
+          }
+          
+          // Start new storage
+          currentStorage = {
+            type: storageMatch[1],
+            name: storageMatch[2],
+            content: [],
+            supportsBackup: false,
+          };
+          continue;
         }
-        
-        // Start new storage
-        currentStorage = {
-          type: storageMatch[1],
-          name: storageMatch[2],
-          content: [],
-          supportsBackup: false,
-        };
-        continue;
       }
       
-      // Parse storage properties (indented lines)
-      if (currentStorage && /^\s/.test(line)) {
-        const propertyMatch = line.match(/^\s+(\w+)\s+(.+)$/);
-        if (propertyMatch) {
-          const key = propertyMatch[1];
-          const value = propertyMatch[2];
+      // Parse storage properties (indented lines - can be tabs or spaces)
+      if (currentStorage && isIndented) {
+        // Split on first whitespace (space or tab) to separate key and value
+        const match = line.match(/^(\S+)\s+(.+)$/);
+        
+        if (match && match[1] && match[2]) {
+          const key = match[1];
+          const value = match[2].trim();
           
           switch (key) {
             case 'content':
@@ -73,7 +83,9 @@ class StorageService {
               break;
             default:
               // Store other properties
-              (currentStorage as any)[key] = value;
+              if (key) {
+                (currentStorage as any)[key] = value;
+              }
           }
         }
       }

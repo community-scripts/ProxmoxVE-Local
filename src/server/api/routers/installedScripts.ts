@@ -4,7 +4,6 @@ import { getDatabase } from "~/server/database-prisma";
 import { createHash } from "crypto";
 import type { Server } from "~/types/server";
 import { getStorageService } from "~/server/services/storageService";
-import { SSHService } from "~/server/ssh-service";
 
 // Helper function to parse raw LXC config into structured data
 function parseRawConfig(rawConfig: string): any {
@@ -2063,6 +2062,7 @@ EOFCONFIG`;
         }
 
         const storageService = getStorageService();
+        const { default: SSHService } = await import('~/server/ssh-service');
         const sshService = new SSHService();
         
         // Test SSH connection first
@@ -2118,6 +2118,7 @@ EOFCONFIG`;
           };
         }
 
+        const { default: SSHService } = await import('~/server/ssh-service');
         const sshService = new SSHService();
         
         // Test SSH connection first

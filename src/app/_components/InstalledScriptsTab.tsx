@@ -61,6 +61,7 @@ export function InstalledScriptsTab() {
   const [backupStorages, setBackupStorages] = useState<Storage[]>([]);
   const [isLoadingStorages, setIsLoadingStorages] = useState(false);
   const [showBackupWarning, setShowBackupWarning] = useState(false);
+  const [isPreUpdateBackup, setIsPreUpdateBackup] = useState(false); // Track if storage selection is for pre-update backup
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   const [showAddForm, setShowAddForm] = useState(false);
@@ -660,6 +661,7 @@ export function InstalledScriptsTab() {
     if (wantsBackup) {
       // User wants backup - fetch storages and show selection
       if (pendingUpdateScript.server_id) {
+        setIsPreUpdateBackup(true); // Mark that this is for pre-update backup
         void fetchStorages(pendingUpdateScript.server_id, false);
         setShowStorageSelection(true);
       } else {
@@ -682,12 +684,13 @@ export function InstalledScriptsTab() {
     setShowStorageSelection(false);
     
     // Check if this is for a standalone backup or pre-update backup
-    if (pendingUpdateScript && !showBackupPrompt) {
+    if (isPreUpdateBackup) {
+      // Pre-update backup - proceed with update
+      setIsPreUpdateBackup(false); // Reset flag
+      proceedWithUpdate(storage.name);
+    } else if (pendingUpdateScript) {
       // Standalone backup - execute backup directly
       executeStandaloneBackup(pendingUpdateScript, storage.name);
-    } else {
-      // Pre-update backup - proceed with update
-      proceedWithUpdate(storage.name);
     }
   };
 
@@ -718,6 +721,7 @@ export function InstalledScriptsTab() {
     });
 
     // Reset state
+    setIsPreUpdateBackup(false); // Reset flag
     setPendingUpdateScript(null);
     setBackupStorages([]);
   };
@@ -745,7 +749,8 @@ export function InstalledScriptsTab() {
       id: pendingUpdateScript.id,
       containerId: pendingUpdateScript.container_id!,
       server: server,
-      backupStorage: backupStorage ?? undefined
+      backupStorage: backupStorage ?? undefined,
+      isBackupOnly: false // Explicitly set to false for update operations
     });
     
     // Reset state
@@ -779,6 +784,7 @@ export function InstalledScriptsTab() {
     }
 
     // Store the script and fetch storages
+    setIsPreUpdateBackup(false); // This is a standalone backup, not pre-update
     setPendingUpdateScript(script);
     void fetchStorages(script.server_id, false);
     setShowStorageSelection(true);
