@@ -298,6 +298,125 @@ class DatabaseServicePrisma {
     });
   }
 
+  // Backup CRUD operations
+  async createOrUpdateBackup(backupData: {
+    container_id: string;
+    server_id: number;
+    hostname: string;
+    backup_name: string;
+    backup_path: string;
+    size?: bigint;
+    created_at?: Date;
+    storage_name: string;
+    storage_type: 'local' | 'storage' | 'pbs';
+  }) {
+    // Find existing backup by container_id, server_id, and backup_path
+    const existing = await prisma.backup.findFirst({
+      where: {
+        container_id: backupData.container_id,
+        server_id: backupData.server_id,
+        backup_path: backupData.backup_path,
+      },
+    });
+
+    if (existing) {
+      // Update existing backup
+      return await prisma.backup.update({
+        where: { id: existing.id },
+        data: {
+          hostname: backupData.hostname,
+          backup_name: backupData.backup_name,
+          size: backupData.size,
+          created_at: backupData.created_at,
+          storage_name: backupData.storage_name,
+          storage_type: backupData.storage_type,
+          discovered_at: new Date(),
+        },
+      });
+    } else {
+      // Create new backup
+      return await prisma.backup.create({
+        data: {
+          container_id: backupData.container_id,
+          server_id: backupData.server_id,
+          hostname: backupData.hostname,
+          backup_name: backupData.backup_name,
+          backup_path: backupData.backup_path,
+          size: backupData.size,
+          created_at: backupData.created_at,
+          storage_name: backupData.storage_name,
+          storage_type: backupData.storage_type,
+          discovered_at: new Date(),
+        },
+      });
+    }
+  }
+
+  async getAllBackups() {
+    return await prisma.backup.findMany({
+      include: {
+        server: true,
+      },
+      orderBy: [
+        { container_id: 'asc' },
+        { created_at: 'desc' },
+      ],
+    });
+  }
+
+  async getBackupsByContainerId(containerId: string) {
+    return await prisma.backup.findMany({
+      where: { container_id: containerId },
+      include: {
+        server: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async deleteBackupsForContainer(containerId: string, serverId: number) {
+    return await prisma.backup.deleteMany({
+      where: {
+        container_id: containerId,
+        server_id: serverId,
+      },
+    });
+  }
+
+  async getBackupsGroupedByContainer(): Promise<Map<string, Array<{
+    id: number;
+    container_id: string;
+    server_id: number;
+    hostname: string;
+    backup_name: string;
+    backup_path: string;
+    size: bigint | null;
+    created_at: Date | null;
+    storage_name: string;
+    storage_type: string;
+    discovered_at: Date;
+    server: {
+      id: number;
+      name: string;
+      ip: string;
+      user: string;
+      color: string | null;
+    } | null;
+  }>>> {
+    const backups = await this.getAllBackups();
+    const grouped = new Map<string, typeof backups>();
+    
+    for (const backup of backups) {
+      const key = backup.container_id;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(backup);
+    }
+    
+    return grouped;
+  }
+
   async close() {
     await prisma.$disconnect();
   }

@@ -2063,7 +2063,9 @@ EOFCONFIG`;
 
         const storageService = getStorageService();
         const { default: SSHService } = await import('~/server/ssh-service');
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
         const sshService = new SSHService();
+        const sshExecutionService = getSSHExecutionService();
         
         // Test SSH connection first
         const connectionTest = await sshService.testSSHConnection(server as Server);
@@ -2076,16 +2078,62 @@ EOFCONFIG`;
           };
         }
 
+        // Get server hostname to filter storages
+        let serverHostname = '';
+        try {
+          await new Promise<void>((resolve, reject) => {
+            sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => {
+                serverHostname += data;
+              },
+              (error: string) => {
+                reject(new Error(`Failed to get hostname: ${error}`));
+              },
+              (exitCode: number) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`hostname command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error('Error getting server hostname:', error);
+          // Continue without filtering if hostname can't be retrieved
+        }
+        
+        const normalizedHostname = serverHostname.trim().toLowerCase();
+        
         // Check if we have cached data
         const wasCached = !input.forceRefresh;
         
         // Fetch storages (will use cache if not forcing refresh)
         const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
         
+        // Filter storages by node hostname matching
+        const applicableStorages = allStorages.filter(storage => {
+          // If storage has no nodes specified, it's available on all nodes
+          if (!storage.nodes || storage.nodes.length === 0) {
+            return true;
+          }
+          
+          // If we couldn't get hostname, include all storages (fallback)
+          if (!normalizedHostname) {
+            return true;
+          }
+          
+          // Check if server hostname is in the nodes array (case-insensitive, trimmed)
+          const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
+          return normalizedNodes.includes(normalizedHostname);
+        });
+        
         return {
           success: true,
-          storages: allStorages,
-          cached: wasCached && allStorages.length > 0
+          storages: applicableStorages,
+          cached: wasCached && applicableStorages.length > 0
         };
       } catch (error) {
         console.error('Error in getBackupStorages:', error);

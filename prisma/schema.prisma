@@ -41,6 +41,7 @@ model Server {
   ssh_key_path       String?
   key_generated      Boolean?           @default(false)
   installed_scripts  InstalledScript[]
+  backups            Backup[]
   
   @@map("servers")
 }
@@ -94,4 +95,23 @@ model LXCConfig {
   updated_at            DateTime         @updatedAt
   
   @@map("lxc_configs")
+}
+
+model Backup {
+  id                Int       @id @default(autoincrement())
+  container_id      String
+  server_id         Int
+  hostname          String
+  backup_name       String
+  backup_path       String
+  size              BigInt?
+  created_at        DateTime?
+  storage_name      String
+  storage_type      String    // 'local', 'storage', or 'pbs'
+  discovered_at     DateTime  @default(now())
+  server            Server    @relation(fields: [server_id], references: [id], onDelete: Cascade)
+  
+  @@index([container_id])
+  @@index([server_id])
+  @@map("backups")
 }

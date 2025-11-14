@@ -271,6 +271,96 @@ class DatabaseServicePrisma {
     });
   }
 
+  // Backup CRUD operations
+  async createOrUpdateBackup(backupData) {
+    // Find existing backup by container_id, server_id, and backup_path
+    const existing = await prisma.backup.findFirst({
+      where: {
+        container_id: backupData.container_id,
+        server_id: backupData.server_id,
+        backup_path: backupData.backup_path,
+      },
+    });
+
+    if (existing) {
+      // Update existing backup
+      return await prisma.backup.update({
+        where: { id: existing.id },
+        data: {
+          hostname: backupData.hostname,
+          backup_name: backupData.backup_name,
+          size: backupData.size,
+          created_at: backupData.created_at,
+          storage_name: backupData.storage_name,
+          storage_type: backupData.storage_type,
+          discovered_at: new Date(),
+        },
+      });
+    } else {
+      // Create new backup
+      return await prisma.backup.create({
+        data: {
+          container_id: backupData.container_id,
+          server_id: backupData.server_id,
+          hostname: backupData.hostname,
+          backup_name: backupData.backup_name,
+          backup_path: backupData.backup_path,
+          size: backupData.size,
+          created_at: backupData.created_at,
+          storage_name: backupData.storage_name,
+          storage_type: backupData.storage_type,
+          discovered_at: new Date(),
+        },
+      });
+    }
+  }
+
+  async getAllBackups() {
+    return await prisma.backup.findMany({
+      include: {
+        server: true,
+      },
+      orderBy: [
+        { container_id: 'asc' },
+        { created_at: 'desc' },
+      ],
+    });
+  }
+
+  async getBackupsByContainerId(containerId) {
+    return await prisma.backup.findMany({
+      where: { container_id: containerId },
+      include: {
+        server: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async deleteBackupsForContainer(containerId, serverId) {
+    return await prisma.backup.deleteMany({
+      where: {
+        container_id: containerId,
+        server_id: serverId,
+      },
+    });
+  }
+
+  async getBackupsGroupedByContainer() {
+    const backups = await this.getAllBackups();
+    const grouped = new Map();
+    
+    for (const backup of backups) {
+      const key = backup.container_id;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key).push(backup);
+    }
+    
+    return grouped;
+  }
+
   async close() {
     await prisma.$disconnect();
   }
