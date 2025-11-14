@@ -42,6 +42,7 @@ export function BackupsTab() {
   const [restoreProgress, setRestoreProgress] = useState<string[]>([]);
   const [restoreSuccess, setRestoreSuccess] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [shouldPollRestore, setShouldPollRestore] = useState(false);
 
   const { data: backupsData, refetch: refetchBackups, isLoading } = api.backups.getAllBackupsGrouped.useQuery();
   const discoverMutation = api.backups.discoverBackups.useMutation({
@@ -50,32 +51,67 @@ export function BackupsTab() {
     },
   });
 
+  // Poll for restore progress
+  const { data: restoreLogsData } = api.backups.getRestoreProgress.useQuery(undefined, {
+    enabled: shouldPollRestore,
+    refetchInterval: 1000, // Poll every second
+    refetchIntervalInBackground: true,
+  });
+
+  // Update restore progress when log data changes
+  useEffect(() => {
+    if (restoreLogsData?.success && restoreLogsData.logs) {
+      setRestoreProgress(restoreLogsData.logs);
+      
+      // Stop polling when restore is complete
+      if (restoreLogsData.isComplete) {
+        setShouldPollRestore(false);
+        // Check if restore was successful or failed
+        const lastLog = restoreLogsData.logs[restoreLogsData.logs.length - 1] || '';
+        if (lastLog.includes('Restore completed successfully')) {
+          setRestoreSuccess(true);
+          setRestoreError(null);
+        } else if (lastLog.includes('Error:') || lastLog.includes('failed')) {
+          setRestoreError(lastLog);
+          setRestoreSuccess(false);
+        }
+      }
+    }
+  }, [restoreLogsData]);
+
   const restoreMutation = api.backups.restoreBackup.useMutation({
     onMutate: () => {
-      // Show progress immediately when mutation starts
+      // Start polling for progress
+      setShouldPollRestore(true);
       setRestoreProgress(['Starting restore...']);
       setRestoreError(null);
       setRestoreSuccess(false);
     },
     onSuccess: (result) => {
+      // Stop polling - progress will be updated from logs
+      setShouldPollRestore(false);
+      
       if (result.success) {
-        setRestoreSuccess(true);
-        // Update progress with all messages from backend
-        const progressMessages = result.progress?.map(p => p.message) || ['Restore completed successfully'];
+        // Update progress with all messages from backend (fallback if polling didn't work)
+        const progressMessages = restoreProgress.length > 0 ? restoreProgress : (result.progress?.map(p => p.message) || ['Restore completed successfully']);
         setRestoreProgress(progressMessages);
+        setRestoreSuccess(true);
+        setRestoreError(null);
         setRestoreConfirmOpen(false);
         setSelectedBackup(null);
-        // Clear success message after 5 seconds
-        setTimeout(() => {
-          setRestoreSuccess(false);
-          setRestoreProgress([]);
-        }, 5000);
+        // Keep success message visible - user can dismiss manually
       } else {
         setRestoreError(result.error || 'Restore failed');
-        setRestoreProgress(result.progress?.map(p => p.message) || []);
+        setRestoreProgress(result.progress?.map(p => p.message) || restoreProgress);
+        setRestoreSuccess(false);
+        setRestoreConfirmOpen(false);
+        setSelectedBackup(null);
+        // Keep error message visible - user can dismiss manually
       }
     },
     onError: (error) => {
+      // Stop polling on error
+      setShouldPollRestore(false);
       setRestoreError(error.message || 'Restore failed');
       setRestoreConfirmOpen(false);
       setSelectedBackup(null);
@@ -376,59 +412,69 @@ export function BackupsTab() {
       )}
 
       {/* Restore Progress Modal */}
-      {restoreMutation.isPending && (
+      {(restoreMutation.isPending || (restoreSuccess && restoreProgress.length > 0)) && (
         <LoadingModal
           isOpen={true}
           action={currentProgressText}
+          logs={restoreProgress}
+          isComplete={restoreSuccess}
+          title="Restore in progress"
+          onClose={() => {
+            setRestoreSuccess(false);
+            setRestoreProgress([]);
+          }}
         />
-      )}
-
-      {/* Restore Progress Details - Show during restore */}
-      {restoreMutation.isPending && (
-        <div className="bg-card rounded-lg border border-border p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-            <span className="font-medium text-foreground">Restoring backup...</span>
-          </div>
-          {restoreProgress.length > 0 && (
-            <div className="space-y-1">
-              {restoreProgress.map((message, index) => (
-                <p key={index} className="text-sm text-muted-foreground">
-                  {message}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
       )}
 
       {/* Restore Success */}
       {restoreSuccess && (
         <div className="bg-success/10 border border-success/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="h-5 w-5 text-success" />
-            <span className="font-medium text-success">Restore completed successfully!</span>
-          </div>
-          {restoreProgress.length > 0 && (
-            <div className="space-y-1 mt-2">
-              {restoreProgress.map((message, index) => (
-                <p key={index} className="text-sm text-muted-foreground">
-                  {message}
-                </p>
-              ))}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <span className="font-medium text-success">Restore Completed Successfully</span>
             </div>
-          )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setRestoreSuccess(false);
+                setRestoreProgress([]);
+              }}
+              className="h-6 w-6 p-0"
+            >
+              ×
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            The container has been restored from backup.
+          </p>
         </div>
       )}
 
       {/* Restore Error */}
       {restoreError && (
-        <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <span className="font-medium text-destructive">Restore failed</span>
+        <div className="bg-error/10 border border-error/20 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-error" />
+              <span className="font-medium text-error">Restore Failed</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setRestoreError(null);
+                setRestoreProgress([]);
+              }}
+              className="h-6 w-6 p-0"
+            >
+              ×
+            </Button>
           </div>
-          <p className="text-sm text-destructive">{restoreError}</p>
+          <p className="text-sm text-muted-foreground">
+            {restoreError}
+          </p>
           {restoreProgress.length > 0 && (
             <div className="space-y-1 mt-2">
               {restoreProgress.map((message, index) => (

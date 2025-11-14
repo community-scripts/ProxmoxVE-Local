@@ -4,6 +4,9 @@ import { getStorageService } from './storageService';
 import { getDatabase } from '../database-prisma';
 import type { Server } from '~/types/server';
 import type { Storage } from './storageService';
+import { writeFile, readFile } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
 
 export interface RestoreProgress {
   step: string;
@@ -73,26 +76,25 @@ class RestoreService {
       }
       
       return null;
-    } catch (error) {
-      console.error(`Error reading LXC config for CT ${ctId}:`, error);
-      // Try fallback to database
-      try {
-        const installedScripts = await db.getAllInstalledScripts();
-        const script = installedScripts.find((s: any) => s.container_id === ctId && s.server_id === server.id);
-        if (script) {
-          const lxcConfig = await db.getLXCConfigByScriptId(script.id);
-          if (lxcConfig?.rootfs_storage) {
-            const match = lxcConfig.rootfs_storage.match(/^([^:]+):/);
-            if (match && match[1]) {
-              return match[1].trim();
+      } catch (error) {
+        // Try fallback to database
+        try {
+          const installedScripts = await db.getAllInstalledScripts();
+          const script = installedScripts.find((s: any) => s.container_id === ctId && s.server_id === server.id);
+          if (script) {
+            const lxcConfig = await db.getLXCConfigByScriptId(script.id);
+            if (lxcConfig?.rootfs_storage) {
+              const match = lxcConfig.rootfs_storage.match(/^([^:]+):/);
+              if (match && match[1]) {
+                return match[1].trim();
+              }
             }
           }
+        } catch (dbError) {
+          // Ignore database error
         }
-      } catch (dbError) {
-        console.error(`Error getting storage from database:`, dbError);
+        return null;
       }
-      return null;
-    }
   }
 
   /**
@@ -132,7 +134,6 @@ class RestoreService {
         (error: string) => {
           // Check if error is about container not existing
           if (error.includes('does not exist') || error.includes('not found')) {
-            console.log(`[RestoreService] Container ${ctId} does not exist`);
             resolve(); // Container doesn't exist, that's fine
           } else {
             reject(new Error(`Destroy failed: ${error}`));
@@ -145,7 +146,6 @@ class RestoreService {
           } else {
             // Check if error is about container not existing
             if (output.includes('does not exist') || output.includes('not found') || output.includes('No such file')) {
-              console.log(`[RestoreService] Container ${ctId} does not exist`);
               resolve(); // Container doesn't exist, that's fine
             } else {
               reject(new Error(`Destroy failed with exit code ${exitCode}: ${output}`));
@@ -201,7 +201,7 @@ class RestoreService {
     ctId: string,
     snapshotPath: string,
     storageName: string,
-    onProgress?: (step: string, message: string) => void
+    onProgress?: (step: string, message: string) => Promise<void>
   ): Promise<void> {
     const backupService = getBackupService();
     const sshService = getSSHExecutionService();
@@ -236,18 +236,15 @@ class RestoreService {
     let downloadSuccess = false;
     
     // Login to PBS first
-    if (onProgress) onProgress('pbs_login', 'Logging into PBS...');
-    console.log(`[RestoreService] Logging into PBS for storage ${storage.name}`);
+    if (onProgress) await onProgress('pbs_login', 'Logging into PBS...');
     const loggedIn = await backupService.loginToPBS(server, storage);
     if (!loggedIn) {
       throw new Error(`Failed to login to PBS for storage ${storage.name}`);
     }
-    console.log(`[RestoreService] PBS login successful`);
     
     // Download backup from PBS
     // proxmox-backup-client restore outputs a folder, not a file
-    if (onProgress) onProgress('pbs_download', 'Downloading backup from PBS...');
-    console.log(`[RestoreService] Starting download of snapshot ${snapshotPath}`);
+    if (onProgress) await onProgress('pbs_download', 'Downloading backup from PBS...');
     
     // Target folder for PBS restore (without extension)
     // Use sanitized snapshot name (colons replaced with underscores) for file paths
@@ -270,19 +267,15 @@ class RestoreService {
             restoreCommand,
             (data: string) => {
               output += data;
-              console.log(`[RestoreService] Download output: ${data}`);
             },
             (error: string) => {
-              console.error(`[RestoreService] Download error: ${error}`);
               reject(new Error(`Download failed: ${error}`));
             },
             (code: number) => {
               exitCode = code;
-              console.log(`[RestoreService] Download command exited with code ${exitCode}`);
               if (exitCode === 0) {
                 resolve();
               } else {
-                console.error(`[RestoreService] Download failed: ${output}`);
                 reject(new Error(`Download failed with exit code ${exitCode}: ${output}`));
               }
             }
@@ -311,15 +304,12 @@ class RestoreService {
         );
       });
       
-      console.log(`[RestoreService] Folder check result: ${checkOutput}`);
-      
       if (!checkOutput.includes('exists')) {
         throw new Error(`Downloaded folder ${targetFolder} does not exist`);
       }
       
       // Pack the folder into a tar file
-      if (onProgress) onProgress('pbs_pack', 'Packing backup folder...');
-      console.log(`[RestoreService] Packing folder ${targetFolder} into ${targetTar}`);
+      if (onProgress) await onProgress('pbs_pack', 'Packing backup folder...');
       
       // Use -C to change to the folder directory, then pack all contents (.) into the tar file
       const packCommand = `tar -cf "${targetTar}" -C "${targetFolder}" . 2>&1`;
@@ -333,19 +323,15 @@ class RestoreService {
             packCommand,
             (data: string) => {
               packOutput += data;
-              console.log(`[RestoreService] Pack output: ${data}`);
             },
             (error: string) => {
-              console.error(`[RestoreService] Pack error: ${error}`);
               reject(new Error(`Pack failed: ${error}`));
             },
             (code: number) => {
               packExitCode = code;
-              console.log(`[RestoreService] Pack command exited with code ${packExitCode}`);
               if (packExitCode === 0) {
                 resolve();
               } else {
-                console.error(`[RestoreService] Pack failed: ${packOutput}`);
                 reject(new Error(`Pack failed with exit code ${packExitCode}: ${packOutput}`));
               }
             }
@@ -374,18 +360,13 @@ class RestoreService {
         );
       });
       
-      console.log(`[RestoreService] Tar file check result: ${checkTarOutput}`);
-      
       if (!checkTarOutput.includes('exists')) {
         throw new Error(`Packed tar file ${targetTar} does not exist`);
       }
       
       downloadedPath = targetTar;
       downloadSuccess = true;
-      console.log(`[RestoreService] Successfully downloaded and packed backup to ${targetTar}`);
-      
     } catch (error) {
-      console.error(`[RestoreService] Failed to download/pack backup:`, error);
       throw error;
     }
     
@@ -394,13 +375,12 @@ class RestoreService {
     }
     
     // Restore from packed tar file
-    if (onProgress) onProgress('restoring', 'Restoring container...');
+      if (onProgress) await onProgress('restoring', 'Restoring container...');
     try {
-    console.log(`[RestoreService] Starting Restore from ${targetTar}`);
       await this.restoreLocalBackup(server, ctId, downloadedPath, storageName);
     } finally {
       // Cleanup: delete downloaded folder and tar file
-      if (onProgress) onProgress('cleanup', 'Cleaning up temporary files...');
+      if (onProgress) await onProgress('cleanup', 'Cleaning up temporary files...');
       const cleanupCommand = `rm -rf "${targetFolder}" "${targetTar}" 2>&1 || true`;
       sshService.executeCommand(
         server,
@@ -422,28 +402,54 @@ class RestoreService {
     onProgress?: (progress: RestoreProgress) => void
   ): Promise<RestoreResult> {
     const progress: RestoreProgress[] = [];
+    const logPath = join(process.cwd(), 'restore.log');
     
-    const addProgress = (step: string, message: string) => {
+    // Clear log file at start of restore
+    const clearLogFile = async () => {
+      try {
+        await writeFile(logPath, '', 'utf-8');
+      } catch (error) {
+        // Ignore log file errors
+      }
+    };
+    
+    // Write progress to log file
+    const writeProgressToLog = async (message: string) => {
+      try {
+        const logLine = `${message}\n`;
+        await writeFile(logPath, logLine, { flag: 'a', encoding: 'utf-8' });
+      } catch (error) {
+        // Ignore log file errors
+      }
+    };
+    
+    const addProgress = async (step: string, message: string) => {
       const p = { step, message };
       progress.push(p);
+      
+      // Write to log file (just the message, without step prefix)
+      await writeProgressToLog(message);
+      
+      // Call callback if provided
       if (onProgress) {
         onProgress(p);
       }
     };
     
     try {
+      // Clear log file at start
+      await clearLogFile();
+      
       const db = getDatabase();
       const sshService = getSSHExecutionService();
       
-      console.log(`[RestoreService] Starting restore for backup ${backupId}, CT ${containerId}, server ${serverId}`);
+      await addProgress('starting', 'Starting restore...');
       
       // Get backup details
       const backup = await db.getBackupById(backupId);
       if (!backup) {
         throw new Error(`Backup with ID ${backupId} not found`);
       }
-      
-      console.log(`[RestoreService] Backup found: ${backup.backup_name}, type: ${backup.storage_type}, path: ${backup.backup_path}`);
       
       // Get server details
       const server = await db.getServerById(serverId);
@@ -452,10 +458,8 @@ class RestoreService {
       }
       
       // Get rootfs storage
-      addProgress('reading_config', 'Reading container configuration...');
-      console.log(`[RestoreService] Getting rootfs storage for CT ${containerId}`);
+      await addProgress('reading_config', 'Reading container configuration...');
       const rootfsStorage = await this.getRootfsStorage(server, containerId);
-      console.log(`[RestoreService] Rootfs storage: ${rootfsStorage || 'not found'}`);
       
       if (!rootfsStorage) {
         // Try to check if container exists, if not we can proceed without stopping/destroying
@@ -482,29 +486,24 @@ class RestoreService {
       }
       
       // Try to stop and destroy container - if it doesn't exist, continue anyway
-      addProgress('stopping', 'Stopping container...');
+      await addProgress('stopping', 'Stopping container...');
       try {
         await this.stopContainer(server, containerId);
-        console.log(`[RestoreService] Container ${containerId} stopped`);
       } catch (error) {
-        console.warn(`[RestoreService] Failed to stop container (may not exist or already stopped):`, error);
         // Continue even if stop fails
       }
       
       // Try to destroy container - if it doesn't exist, continue anyway
-      addProgress('destroying', 'Destroying container...');
+      await addProgress('destroying', 'Destroying container...');
       try {
         await this.destroyContainer(server, containerId);
-        console.log(`[RestoreService] Container ${containerId} destroyed successfully`);
       } catch (error) {
         // Container might not exist, which is fine - continue with restore
-        console.log(`[RestoreService] Container ${containerId} does not exist or destroy failed (continuing anyway):`, error);
-        addProgress('skipping', 'Container does not exist or already destroyed, continuing...');
+        await addProgress('skipping', 'Container does not exist or already destroyed, continuing...');
       }
       
       // Restore based on backup type
       if (backup.storage_type === 'pbs') {
-        console.log(`[RestoreService] Restoring from PBS backup`);
         // Get storage info for PBS
         const storageService = getStorageService();
         const storages = await storageService.getStorages(server, false);
@@ -521,22 +520,17 @@ class RestoreService {
         }
         
         const snapshotPath = snapshotPathMatch[1];
-        console.log(`[RestoreService] Snapshot path: ${snapshotPath}, Storage: ${rootfsStorage}`);
         
-        await this.restorePBSBackup(server, storage, containerId, snapshotPath, rootfsStorage, (step, message) => {
-          addProgress(step, message);
+        await this.restorePBSBackup(server, storage, containerId, snapshotPath, rootfsStorage, async (step, message) => {
+          await addProgress(step, message);
         });
       } else {
         // Local or storage backup
-        console.log(`[RestoreService] Restoring from ${backup.storage_type} backup: ${backup.backup_path}`);
-        addProgress('restoring', 'Restoring container...');
+        await addProgress('restoring', 'Restoring container...');
         await this.restoreLocalBackup(server, containerId, backup.backup_path, rootfsStorage);
-        console.log(`[RestoreService] Local restore completed`);
       }
       
-      addProgress('complete', 'Restore completed successfully');
-      
-      console.log(`[RestoreService] Restore completed successfully for CT ${containerId}`);
+      await addProgress('complete', 'Restore completed successfully');
       
       return {
         success: true,
@@ -544,8 +538,7 @@ class RestoreService {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error(`[RestoreService] Restore failed for CT ${containerId}:`, error);
-      addProgress('error', `Error: ${errorMessage}`);
+      await addProgress('error', `Error: ${errorMessage}`);
       
       return {
         success: false,

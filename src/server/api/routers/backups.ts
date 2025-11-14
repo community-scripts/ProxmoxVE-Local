@@ -3,6 +3,10 @@ import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { getDatabase } from '~/server/database-prisma';
 import { getBackupService } from '~/server/services/backupService';
 import { getRestoreService } from '~/server/services/restoreService';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import stripAnsi from 'strip-ansi';
 
 export const backupsRouter = createTRPCRouter({
   // Get all backups grouped by container ID
@@ -85,6 +89,49 @@ export const backupsRouter = createTRPCRouter({
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to discover backups',
+        };
+      }
+    }),
+
+  // Get restore progress from log file
+  getRestoreProgress: publicProcedure
+    .query(async () => {
+      try {
+        const logPath = join(process.cwd(), 'restore.log');
+        
+        if (!existsSync(logPath)) {
+          return {
+            success: true,
+            logs: [],
+            isComplete: false
+          };
+        }
+
+        const logs = await readFile(logPath, 'utf-8');
+        const logLines = logs.split('\n')
+          .filter(line => line.trim())
+          .map(line => stripAnsi(line)); // Strip ANSI color codes
+        
+        // Check if restore is complete by looking for completion indicators
+        const isComplete = logLines.some(line => 
+          line.includes('complete: Restore completed successfully') || 
+          line.includes('error: Error:') ||
+          line.includes('Restore completed successfully') ||
+          line.includes('Restore failed')
+        );
+
+        return {
+          success: true,
+          logs: logLines,
+          isComplete
+        };
+      } catch (error) {
+        console.error('Error reading restore logs:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read restore logs',
+          logs: [],
+          isComplete: false
         };
       }
     }),
