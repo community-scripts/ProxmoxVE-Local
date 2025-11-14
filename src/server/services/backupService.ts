@@ -320,12 +320,16 @@ class BackupService {
     
     // Build login command
     // Format: proxmox-backup-client login --repository root@pam@<IP>:<DATASTORE>
+    // PBS supports PBS_PASSWORD and PBS_REPOSITORY environment variables for non-interactive login
     const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
     
-    // Auto-accept fingerprint using echo "y"
-    // Provide password via stdin
-    // proxmox-backup-client accepts password via stdin
-    const fullCommand = `echo -e "y\\n${credential.pbs_password}" | timeout 10 proxmox-backup-client login --repository ${repository} 2>&1`;
+    // Escape password for shell safety (single quotes)
+    const escapedPassword = credential.pbs_password.replace(/'/g, "'\\''");
+    
+    // Use PBS_PASSWORD environment variable for non-interactive authentication
+    // Auto-accept fingerprint by piping "y" to stdin
+    // PBS will use PBS_PASSWORD env var if available, avoiding interactive prompt
+    const fullCommand = `echo "y" | PBS_PASSWORD='${escapedPassword}' PBS_REPOSITORY='${repository}' timeout 10 proxmox-backup-client login --repository ${repository} 2>&1`;
     
     console.log(`[BackupService] Logging into PBS: ${repository}`);
     
@@ -391,12 +395,32 @@ class BackupService {
       return backups;
     }
     
-    // Use storage name as repository name (e.g., "PBS1")
-    const repositoryName = storage.name;
-    const command = `timeout 30 proxmox-backup-client snapshots host/${ctId} --repository ${repositoryName} 2>&1 || echo "PBS_ERROR"`;
+    // Get PBS credentials to build full repository string
+    const db = getDatabase();
+    const credential = await db.getPBSCredential(server.id, storage.name);
+    if (!credential) {
+      console.log(`[BackupService] No PBS credentials found for storage ${storage.name}`);
+      return backups;
+    }
+    
+    const storageService = getStorageService();
+    const pbsInfo = storageService.getPBSStorageInfo(storage);
+    const pbsIp = credential.pbs_ip || pbsInfo.pbs_ip;
+    const pbsDatastore = credential.pbs_datastore || pbsInfo.pbs_datastore;
+    
+    if (!pbsIp || !pbsDatastore) {
+      console.log(`[BackupService] Missing PBS IP or datastore for storage ${storage.name}`);
+      return backups;
+    }
+    
+    // Build full repository string: root@pam@<IP>:<DATASTORE>
+    const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
+    
+    // Use correct command: snapshot list ct/<CT_ID> --repository <full_repo_string>
+    const command = `timeout 30 proxmox-backup-client snapshot list ct/${ctId} --repository ${repository} 2>&1 || echo "PBS_ERROR"`;
     let output = '';
     
-    console.log(`[BackupService] Discovering PBS backups for CT ${ctId} on repository ${repositoryName}`);
+    console.log(`[BackupService] Discovering PBS backups for CT ${ctId} on repository ${repository}`);
     
     try {
       // Add timeout to prevent hanging
@@ -409,18 +433,18 @@ class BackupService {
               output += data;
             },
             (error: string) => {
-              console.log(`[BackupService] PBS command error for ${repositoryName}: ${error}`);
+              console.log(`[BackupService] PBS command error: ${error}`);
               resolve();
             },
             (exitCode: number) => {
-              console.log(`[BackupService] PBS command completed for ${repositoryName} with exit code ${exitCode}`);
+              console.log(`[BackupService] PBS command completed with exit code ${exitCode}`);
               resolve();
             }
           );
         }),
         new Promise<void>((resolve) => {
           setTimeout(() => {
-            console.log(`[BackupService] PBS discovery timeout for ${repositoryName}, continuing...`);
+            console.log(`[BackupService] PBS discovery timeout, continuing...`);
             resolve();
           }, 35000); // 35 second timeout (command has 30s timeout, so this is a safety net)
         })
@@ -428,35 +452,74 @@ class BackupService {
       
       // Check if PBS command failed
       if (output.includes('PBS_ERROR') || output.includes('error') || output.includes('Error')) {
-        console.log(`[BackupService] PBS discovery failed or no backups found for CT ${ctId} on ${repositoryName}`);
+        console.log(`[BackupService] PBS discovery failed or no backups found for CT ${ctId}`);
         return backups;
       }
       
-      // Parse PBS snapshot output
-      // Format is typically: snapshot_name timestamp (optional size info)
+      // Parse PBS snapshot list output (table format)
+      // Format: snapshot | size | files
+      // Example: ct/148/2025-10-21T19:14:55Z | 994.944 MiB | catalog.pcat1 client.log ...
       const lines = output.trim().split('\n').filter(line => line.trim());
       
-      console.log(`[BackupService] Parsing ${lines.length} lines from PBS output for ${repositoryName}`);
+      console.log(`[BackupService] Parsing ${lines.length} lines from PBS output`);
       
       for (const line of lines) {
-        // Skip header lines or error messages
+        // Skip header lines, separators, or error messages
+        if (line.includes('snapshot') && line.includes('size') && line.includes('files')) {
+          continue; // Skip header row
+        }
+        if (line.includes('═') || line.includes('─') || line.includes('│') && line.match(/^[│═─╞╪╡├┼┤└┴┘]+$/)) {
+          continue; // Skip table separator lines
+        }
         if (line.includes('repository') || line.includes('error') || line.includes('Error') || line.includes('PBS_ERROR')) {
           continue;
         }
         
-        // Parse snapshot line - format varies, try to extract snapshot name and timestamp
-        const parts = line.trim().split(/\s+/);
-        if (parts.length > 0) {
-          const snapshotName = parts[0];
+        // Parse table row - format: snapshot | size | files
+        // Example: │ ct/148/2025-10-21T19:14:55Z │ 994.944 MiB │ catalog.pcat1 client.log index.json pct.conf root.pxar │
+        const parts = line.split('│').map(p => p.trim()).filter(p => p);
+        
+        if (parts.length >= 2) {
+          const snapshotPath = parts[0]; // e.g., "ct/148/2025-10-21T19:14:55Z"
+          const sizeStr = parts[1]; // e.g., "994.944 MiB"
           
-          // Try to extract timestamp if available
+          if (!snapshotPath) {
+            continue; // Skip if no snapshot path
+          }
+          
+          // Extract snapshot name (last part after /)
+          const snapshotParts = snapshotPath.split('/');
+          const snapshotName = snapshotParts[snapshotParts.length - 1] || snapshotPath;
+          
+          if (!snapshotName) {
+            continue; // Skip if no snapshot name
+          }
+          
+          // Parse date from snapshot name (format: 2025-10-21T19:14:55Z)
           let createdAt: Date | undefined;
-          if (parts.length > 1 && parts[1]) {
-            const timestampMatch = parts[1].match(/\d+/);
-            if (timestampMatch && timestampMatch[0]) {
-              const timestamp = parseInt(timestampMatch[0], 10);
-              // PBS timestamps might be in seconds or milliseconds
-              createdAt = new Date(timestamp > 1000000000000 ? timestamp : timestamp * 1000);
+          const dateMatch = snapshotName.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/);
+          if (dateMatch && dateMatch[1]) {
+            try {
+              createdAt = new Date(dateMatch[1]);
+            } catch (e) {
+              // Invalid date, leave undefined
+            }
+          }
+          
+          // Parse size (convert MiB/GiB to bytes)
+          let size: bigint | undefined;
+          if (sizeStr) {
+            const sizeMatch = sizeStr.match(/([\d.]+)\s*(MiB|GiB|KiB|B)/i);
+            if (sizeMatch && sizeMatch[1] && sizeMatch[2]) {
+              const sizeValue = parseFloat(sizeMatch[1]);
+              const unit = sizeMatch[2].toUpperCase();
+              let bytes = sizeValue;
+              
+              if (unit === 'KIB') bytes = sizeValue * 1024;
+              else if (unit === 'MIB') bytes = sizeValue * 1024 * 1024;
+              else if (unit === 'GIB') bytes = sizeValue * 1024 * 1024 * 1024;
+              
+              size = BigInt(Math.floor(bytes));
             }
           }
           
@@ -464,17 +527,19 @@ class BackupService {
             container_id: ctId,
             server_id: server.id,
             hostname,
-            backup_name: snapshotName || 'unknown',
-            backup_path: `pbs://${repositoryName}/host/${ctId}/${snapshotName || 'unknown'}`,
-            size: undefined, // PBS doesn't always provide size in snapshot list
+            backup_name: snapshotName,
+            backup_path: `pbs://${repository}/${snapshotPath}`,
+            size,
             created_at: createdAt,
-            storage_name: repositoryName,
+            storage_name: storage.name,
             storage_type: 'pbs',
           });
         }
       }
+      
+      console.log(`[BackupService] Found ${backups.length} PBS backups for CT ${ctId}`);
     } catch (error) {
-      console.error(`Error discovering PBS backups for CT ${ctId} on ${repositoryName}:`, error);
+      console.error(`Error discovering PBS backups for CT ${ctId}:`, error);
     }
     
     return backups;
