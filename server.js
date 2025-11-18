@@ -276,13 +276,15 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, containerId } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, containerId, storage, backupStorage } = message;
 
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
-          if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, server);
+          if (isBackup && containerId && storage) {
+            await this.startBackupExecution(ws, containerId, executionId, storage, mode, server);
+          } else if (isUpdate && containerId) {
+            await this.startUpdateExecution(ws, containerId, executionId, mode, server, backupStorage);
           } else if (isShell && containerId) {
             await this.startShellExecution(ws, containerId, executionId, mode, server);
           } else {
@@ -661,17 +663,219 @@ class ScriptExecutionHandler {
   }
 
   /**
+   * Start backup execution
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   * @param {string} storage
+   * @param {string} mode
+   * @param {ServerInfo|null} server
+   */
+  async startBackupExecution(ws, containerId, executionId, storage, mode = 'local', server = null) {
+    try {
+      // Send start message
+      this.sendMessage(ws, {
+        type: 'start',
+        data: `Starting backup for container ${containerId} to storage ${storage}...`,
+        timestamp: Date.now()
+      });
+
+      if (mode === 'ssh' && server) {
+        await this.startSSHBackupExecution(ws, containerId, executionId, storage, server);
+      } else {
+        this.sendMessage(ws, {
+          type: 'error',
+          data: 'Backup is only supported via SSH',
+          timestamp: Date.now()
+        });
+      }
+    } catch (error) {
+      this.sendMessage(ws, {
+        type: 'error',
+        data: `Failed to start backup: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  /**
+   * Start SSH backup execution
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   * @param {string} storage
+   * @param {ServerInfo} server
+   * @param {Function} [onComplete] - Optional callback when backup completes
+   */
+  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = null) {
+    const sshService = getSSHExecutionService();
+    
+    return new Promise((resolve, reject) => {
+      try {
+        const backupCommand = `vzdump ${containerId} --storage ${storage} --mode snapshot`;
+        
+        // Wrap the onExit callback to resolve our promise
+        let promiseResolved = false;
+        
+        sshService.executeCommand(
+          server,
+          backupCommand,
+          /** @param {string} data */
+          (data) => {
+            this.sendMessage(ws, {
+              type: 'output',
+              data: data,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {string} error */
+          (error) => {
+            this.sendMessage(ws, {
+              type: 'error',
+              data: error,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {number} code */
+          (code) => {
+            // Don't send 'end' message here if this is part of a backup+update flow
+            // The update flow will handle completion messages
+            const success = code === 0;
+            
+            if (!success) {
+              this.sendMessage(ws, {
+                type: 'error',
+                data: `Backup failed with exit code: ${code}`,
+                timestamp: Date.now()
+              });
+            }
+            
+            // Send a completion message (but not 'end' type to avoid stopping terminal)
+            this.sendMessage(ws, {
+              type: 'output',
+              data: `\n[Backup ${success ? 'completed' : 'failed'} with exit code: ${code}]\n`,
+              timestamp: Date.now()
+            });
+            
+            if (onComplete) onComplete(success);
+            
+            // Resolve the promise when backup completes
+            // Use setImmediate to ensure resolution happens in the right execution context
+            if (!promiseResolved) {
+              promiseResolved = true;
+              const result = { success, code };
+              
+              // Use setImmediate to ensure promise resolution happens in the next tick
+              // This ensures the await in startUpdateExecution can properly resume
+              setImmediate(() => {
+                try {
+                  resolve(result);
+                } catch (resolveError) {
+                  console.error('Error resolving backup promise:', resolveError);
+                  reject(resolveError);
+                }
+              });
+            }
+            
+            this.activeExecutions.delete(executionId);
+          }
+        ).then((execution) => {
+          // Store the execution
+          this.activeExecutions.set(executionId, { 
+            process: /** @type {any} */ (execution).process, 
+            ws
+          });
+          // Note: Don't resolve here - wait for onExit callback
+        }).catch((error) => {
+          console.error('Error starting backup execution:', error);
+          this.sendMessage(ws, {
+            type: 'error',
+            data: `SSH backup execution failed: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: Date.now()
+          });
+          if (onComplete) onComplete(false);
+          if (!promiseResolved) {
+            promiseResolved = true;
+            reject(error);
+          }
+        });
+
+      } catch (error) {
+        console.error('Error in startSSHBackupExecution:', error);
+        this.sendMessage(ws, {
+          type: 'error',
+          data: `SSH backup execution failed: ${error instanceof Error ? error.message : String(error)}`,
+          timestamp: Date.now()
+        });
+        if (onComplete) onComplete(false);
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * Start update execution (pct enter + update command)
    * @param {ExtendedWebSocket} ws
    * @param {string} containerId
    * @param {string} executionId
    * @param {string} mode
    * @param {ServerInfo|null} server
+   * @param {string} [backupStorage] - Optional storage to backup to before update
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = null) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = null, backupStorage = null) {
     try {
+      // If backup storage is provided, run backup first
+      if (backupStorage && mode === 'ssh' && server) {
+        this.sendMessage(ws, {
+          type: 'start',
+          data: `Starting backup before update for container ${containerId}...`,
+          timestamp: Date.now()
+        });
+
+        // Create a separate execution ID for backup
+        const backupExecutionId = `backup_${executionId}`;
+        
+        // Run backup and wait for it to complete
+        try {
+          const backupResult = await this.startSSHBackupExecution(
+            ws, 
+            containerId, 
+            backupExecutionId, 
+            backupStorage, 
+            server
+          );
+          
+          // Backup completed (successfully or not)
+          if (!backupResult || !backupResult.success) {
+            // Backup failed, but we'll still allow update (per requirement 1b)
+            this.sendMessage(ws, {
+              type: 'output',
+              data: '\n⚠️ Backup failed, but proceeding with update as requested...\n',
+              timestamp: Date.now()
+            });
+          } else {
+            // Backup succeeded
+            this.sendMessage(ws, {
+              type: 'output',
+              data: '\n✅ Backup completed successfully. Starting update...\n',
+              timestamp: Date.now()
+            });
+          }
+        } catch (error) {
+          console.error('Backup error before update:', error);
+          // Backup failed to start, but allow update to proceed
+          this.sendMessage(ws, {
+            type: 'output',
+            data: `\n⚠️ Backup error: ${error instanceof Error ? error.message : String(error)}. Proceeding with update...\n`,
+            timestamp: Date.now()
+          });
+        }
+        
+        // Small delay before starting update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       
-      // Send start message
+      // Send start message for update (only if we're actually starting an update)
       this.sendMessage(ws, {
         type: 'start',
         data: `Starting update for container ${containerId}...`,

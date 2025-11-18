@@ -10,6 +10,9 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorModal } from './ErrorModal';
 import { LoadingModal } from './LoadingModal';
 import { LXCSettingsModal } from './LXCSettingsModal';
+import { StorageSelectionModal } from './StorageSelectionModal';
+import { BackupWarningModal } from './BackupWarningModal';
+import type { Storage } from '~/server/services/storageService';
 import { getContrastColor } from '../../lib/colorUtils';
 import {
   DropdownMenu,
@@ -50,8 +53,15 @@ export function InstalledScriptsTab() {
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<'script_name' | 'container_id' | 'server_name' | 'status' | 'installation_date'>('server_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any } | null>(null);
+  const [updatingScript, setUpdatingScript] = useState<{ id: number; containerId: string; server?: any; backupStorage?: string; isBackupOnly?: boolean } | null>(null);
   const [openingShell, setOpeningShell] = useState<{ id: number; containerId: string; server?: any } | null>(null);
+  const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+  const [showStorageSelection, setShowStorageSelection] = useState(false);
+  const [pendingUpdateScript, setPendingUpdateScript] = useState<InstalledScript | null>(null);
+  const [backupStorages, setBackupStorages] = useState<Storage[]>([]);
+  const [isLoadingStorages, setIsLoadingStorages] = useState(false);
+  const [showBackupWarning, setShowBackupWarning] = useState(false);
+  const [isPreUpdateBackup, setIsPreUpdateBackup] = useState(false); // Track if storage selection is for pre-update backup
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{ script_name: string; container_id: string; web_ui_ip: string; web_ui_port: string }>({ script_name: '', container_id: '', web_ui_ip: '', web_ui_port: '' });
   const [showAddForm, setShowAddForm] = useState(false);
@@ -244,21 +254,53 @@ export function InstalledScriptsTab() {
       void refetchScripts();
       setAutoDetectStatus({ 
         type: 'success', 
-        message: data.message ?? 'Web UI IP detected successfully!' 
+        message: data.success ? `Detected IP: ${data.ip}` : (data.error ?? 'Failed to detect Web UI')
       });
-      // Clear status after 5 seconds
       setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     },
     onError: (error) => {
-      console.error('❌ Auto-detect Web UI error:', error);
+      console.error('❌ Auto-detect WebUI error:', error);
       setAutoDetectStatus({ 
         type: 'error', 
-        message: error.message ?? 'Auto-detect failed. Please try again.' 
+        message: error.message ?? 'Failed to detect Web UI'
       });
-      // Clear status after 5 seconds
-      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
+      setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 8000);
     }
   });
+
+  // Get backup storages query
+  const getBackupStoragesQuery = api.installedScripts.getBackupStorages.useQuery(
+    { serverId: pendingUpdateScript?.server_id ?? 0, forceRefresh: false },
+    { enabled: false } // Only fetch when explicitly called
+  );
+
+  const fetchStorages = async (serverId: number, forceRefresh = false) => {
+    setIsLoadingStorages(true);
+    try {
+      const result = await getBackupStoragesQuery.refetch({ 
+        queryKey: ['installedScripts.getBackupStorages', { serverId, forceRefresh }]
+      });
+      if (result.data?.success) {
+        setBackupStorages(result.data.storages);
+      } else {
+        setErrorModal({
+          isOpen: true,
+          title: 'Failed to Fetch Storages',
+          message: result.data?.error ?? 'Unknown error occurred',
+          type: 'error'
+        });
+      }
+    } catch (error) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Failed to Fetch Storages',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        type: 'error'
+      });
+    } finally {
+      setIsLoadingStorages(false);
+    }
+  };
 
   // Container control mutations
   // Note: getStatusMutation removed - using direct API calls instead
@@ -600,36 +642,152 @@ export function InstalledScriptsTab() {
       message: `Are you sure you want to update "${script.script_name}"?\n\n⚠️ WARNING: This will update the script and may affect the container. Consider backing up your data beforehand.`,
       variant: 'danger',
       confirmText: script.container_id,
-      confirmButtonText: 'Update Script',
+      confirmButtonText: 'Continue',
       onConfirm: () => {
-        // Get server info if it's SSH mode
-        let server = null;
-        if (script.server_id && script.server_user) {
-          server = {
-            id: script.server_id,
-            name: script.server_name,
-            ip: script.server_ip,
-            user: script.server_user,
-            password: script.server_password,
-            auth_type: script.server_auth_type ?? 'password',
-            ssh_key: script.server_ssh_key,
-            ssh_key_passphrase: script.server_ssh_key_passphrase,
-            ssh_port: script.server_ssh_port ?? 22
-          };
-        }
-        
-        setUpdatingScript({
-          id: script.id,
-          containerId: script.container_id!,
-          server: server
-        });
         setConfirmationModal(null);
+        // Store the script for backup flow
+        setPendingUpdateScript(script);
+        // Show backup prompt
+        setShowBackupPrompt(true);
       }
     });
   };
 
+  const handleBackupPromptResponse = (wantsBackup: boolean) => {
+    setShowBackupPrompt(false);
+    
+    if (!pendingUpdateScript) return;
+
+    if (wantsBackup) {
+      // User wants backup - fetch storages and show selection
+      if (pendingUpdateScript.server_id) {
+        setIsPreUpdateBackup(true); // Mark that this is for pre-update backup
+        void fetchStorages(pendingUpdateScript.server_id, false);
+        setShowStorageSelection(true);
+      } else {
+        setErrorModal({
+          isOpen: true,
+          title: 'Backup Not Available',
+          message: 'Backup is only available for SSH scripts with a configured server.',
+          type: 'error'
+        });
+        // Proceed without backup
+        proceedWithUpdate(null);
+      }
+    } else {
+      // User doesn't want backup - proceed directly to update
+      proceedWithUpdate(null);
+    }
+  };
+
+  const handleStorageSelected = (storage: Storage) => {
+    setShowStorageSelection(false);
+    
+    // Check if this is for a standalone backup or pre-update backup
+    if (isPreUpdateBackup) {
+      // Pre-update backup - proceed with update
+      setIsPreUpdateBackup(false); // Reset flag
+      proceedWithUpdate(storage.name);
+    } else if (pendingUpdateScript) {
+      // Standalone backup - execute backup directly
+      executeStandaloneBackup(pendingUpdateScript, storage.name);
+    }
+  };
+
+  const executeStandaloneBackup = (script: InstalledScript, storageName: string) => {
+    // Get server info
+    let server = null;
+    if (script.server_id && script.server_user) {
+      server = {
+        id: script.server_id,
+        name: script.server_name,
+        ip: script.server_ip,
+        user: script.server_user,
+        password: script.server_password,
+        auth_type: script.server_auth_type ?? 'password',
+        ssh_key: script.server_ssh_key,
+        ssh_key_passphrase: script.server_ssh_key_passphrase,
+        ssh_port: script.server_ssh_port ?? 22
+      };
+    }
+
+    // Start backup terminal
+    setUpdatingScript({
+      id: script.id,
+      containerId: script.container_id!,
+      server: server,
+      backupStorage: storageName,
+      isBackupOnly: true
+    });
+
+    // Reset state
+    setIsPreUpdateBackup(false); // Reset flag
+    setPendingUpdateScript(null);
+    setBackupStorages([]);
+  };
+
+  const proceedWithUpdate = (backupStorage: string | null) => {
+    if (!pendingUpdateScript) return;
+
+    // Get server info if it's SSH mode
+    let server = null;
+    if (pendingUpdateScript.server_id && pendingUpdateScript.server_user) {
+      server = {
+        id: pendingUpdateScript.server_id,
+        name: pendingUpdateScript.server_name,
+        ip: pendingUpdateScript.server_ip,
+        user: pendingUpdateScript.server_user,
+        password: pendingUpdateScript.server_password,
+        auth_type: pendingUpdateScript.server_auth_type ?? 'password',
+        ssh_key: pendingUpdateScript.server_ssh_key,
+        ssh_key_passphrase: pendingUpdateScript.server_ssh_key_passphrase,
+        ssh_port: pendingUpdateScript.server_ssh_port ?? 22
+      };
+    }
+    
+    setUpdatingScript({
+      id: pendingUpdateScript.id,
+      containerId: pendingUpdateScript.container_id!,
+      server: server,
+      backupStorage: backupStorage ?? undefined,
+      isBackupOnly: false // Explicitly set to false for update operations
+    });
+    
+    // Reset state
+    setPendingUpdateScript(null);
+    setBackupStorages([]);
+  };
+
   const handleCloseUpdateTerminal = () => {
     setUpdatingScript(null);
+  };
+
+  const handleBackupScript = (script: InstalledScript) => {
+    if (!script.container_id) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Backup Failed',
+        message: 'No Container ID available for this script',
+        details: 'This script does not have a valid container ID and cannot be backed up.'
+      });
+      return;
+    }
+
+    if (!script.server_id) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Backup Not Available',
+        message: 'Backup is only available for SSH scripts with a configured server.',
+        type: 'error'
+      });
+      return;
+    }
+
+    // Store the script and fetch storages
+    setIsPreUpdateBackup(false); // This is a standalone backup, not pre-update
+    setPendingUpdateScript(script);
+    void fetchStorages(script.server_id, false);
+    setShowStorageSelection(true);
   };
 
   const handleOpenShell = (script: InstalledScript) => {
@@ -887,12 +1045,15 @@ export function InstalledScriptsTab() {
       {updatingScript && (
         <div className="mb-8" data-terminal="update">
           <Terminal
-            scriptPath={`update-${updatingScript.containerId}`}
+            scriptPath={updatingScript.isBackupOnly ? `backup-${updatingScript.containerId}` : `update-${updatingScript.containerId}`}
             onClose={handleCloseUpdateTerminal}
             mode={updatingScript.server ? 'ssh' : 'local'}
             server={updatingScript.server}
-            isUpdate={true}
+            isUpdate={!updatingScript.isBackupOnly}
+            isBackup={updatingScript.isBackupOnly}
             containerId={updatingScript.containerId}
+            storage={updatingScript.isBackupOnly ? updatingScript.backupStorage : undefined}
+            backupStorage={!updatingScript.isBackupOnly ? updatingScript.backupStorage : undefined}
           />
         </div>
       )}
@@ -1252,6 +1413,7 @@ export function InstalledScriptsTab() {
                   onSave={handleSaveEdit}
                   onCancel={handleCancelEdit}
                   onUpdate={() => handleUpdateScript(script)}
+                  onBackup={() => handleBackupScript(script)}
                   onShell={() => handleOpenShell(script)}
                   onDelete={() => handleDeleteScript(Number(script.id))}
                   isUpdating={updateScriptMutation.isPending}
@@ -1532,6 +1694,15 @@ export function InstalledScriptsTab() {
                                     )}
                                     {script.container_id && script.execution_mode === 'ssh' && (
                                       <DropdownMenuItem
+                                        onClick={() => handleBackupScript(script)}
+                                        disabled={containerStatuses.get(script.id) === 'stopped'}
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                      >
+                                        Backup
+                                      </DropdownMenuItem>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <DropdownMenuItem
                                         onClick={() => handleOpenShell(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
                                         className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
@@ -1655,6 +1826,79 @@ export function InstalledScriptsTab() {
             action={loadingModal.action}
           />
         )}
+
+        {/* Backup Prompt Modal */}
+        {showBackupPrompt && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
+              <div className="flex items-center justify-center p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <svg className="h-8 w-8 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <h2 className="text-2xl font-bold text-card-foreground">Backup Before Update?</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-muted-foreground mb-6">
+                  Would you like to create a backup before updating the container?
+                </p>
+                <div className="flex flex-col sm:flex-row justify-end gap-3">
+                  <Button
+                    onClick={() => {
+                      setShowBackupPrompt(false);
+                      handleBackupPromptResponse(false);
+                    }}
+                    variant="outline"
+                    size="default"
+                    className="w-full sm:w-auto"
+                  >
+                    No, Update Without Backup
+                  </Button>
+                  <Button
+                    onClick={() => handleBackupPromptResponse(true)}
+                    variant="default"
+                    size="default"
+                    className="w-full sm:w-auto"
+                  >
+                    Yes, Backup First
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Storage Selection Modal */}
+        <StorageSelectionModal
+          isOpen={showStorageSelection}
+          onClose={() => {
+            setShowStorageSelection(false);
+            setPendingUpdateScript(null);
+            setBackupStorages([]);
+          }}
+          onSelect={handleStorageSelected}
+          storages={backupStorages}
+          isLoading={isLoadingStorages}
+          onRefresh={() => {
+            if (pendingUpdateScript?.server_id) {
+              void fetchStorages(pendingUpdateScript.server_id, true);
+            }
+          }}
+        />
+
+        {/* Backup Warning Modal */}
+        <BackupWarningModal
+          isOpen={showBackupWarning}
+          onClose={() => setShowBackupWarning(false)}
+          onProceed={() => {
+            setShowBackupWarning(false);
+            // Proceed with update even though backup failed
+            if (pendingUpdateScript) {
+              proceedWithUpdate(null);
+            }
+          }}
+        />
 
         {/* LXC Settings Modal */}
         <LXCSettingsModal

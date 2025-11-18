@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ScriptsGrid } from './_components/ScriptsGrid';
 import { DownloadedScriptsTab } from './_components/DownloadedScriptsTab';
 import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
+import { BackupsTab } from './_components/BackupsTab';
 import { ResyncButton } from './_components/ResyncButton';
 import { Terminal } from './_components/Terminal';
 import { ServerSettingsButton } from './_components/ServerSettingsButton';
@@ -16,16 +17,16 @@ import { Button } from './_components/ui/button';
 import { ContextualHelpIcon } from './_components/ContextualHelpIcon';
 import { ReleaseNotesModal, getLastSeenVersion } from './_components/ReleaseNotesModal';
 import { Footer } from './_components/Footer';
-import { Package, HardDrive, FolderOpen, LogOut } from 'lucide-react';
+import { Package, HardDrive, FolderOpen, LogOut, Archive } from 'lucide-react';
 import { api } from '~/trpc/react';
 import { useAuth } from './_components/AuthProvider';
 
 export default function Home() {
   const { isAuthenticated, logout } = useAuth();
   const [runningScript, setRunningScript] = useState<{ path: string; name: string; mode?: 'local' | 'ssh'; server?: any } | null>(null);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed'>(() => {
+  const [activeTab, setActiveTab] = useState<'scripts' | 'downloaded' | 'installed' | 'backups'>(() => {
     if (typeof window !== 'undefined') {
-      const savedTab = localStorage.getItem('activeTab') as 'scripts' | 'downloaded' | 'installed';
+      const savedTab = localStorage.getItem('activeTab') as 'scripts' | 'downloaded' | 'installed' | 'backups';
       return savedTab || 'scripts';
     }
     return 'scripts';
@@ -38,6 +39,7 @@ export default function Home() {
   const { data: scriptCardsData } = api.scripts.getScriptCardsWithCategories.useQuery();
   const { data: localScriptsData } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: installedScriptsData } = api.installedScripts.getAllInstalledScripts.useQuery();
+  const { data: backupsData } = api.backups.getAllBackupsGrouped.useQuery();
   const { data: versionData } = api.version.getCurrentVersion.useQuery();
 
   // Save active tab to localStorage whenever it changes
@@ -118,7 +120,8 @@ export default function Home() {
         });
       }).length;
     })(),
-    installed: installedScriptsData?.scripts?.length ?? 0
+    installed: installedScriptsData?.scripts?.length ?? 0,
+    backups: backupsData?.success ? backupsData.backups.length : 0
   };
 
   const scrollToTerminal = () => {
@@ -243,6 +246,22 @@ export default function Home() {
                 </span>
                 <ContextualHelpIcon section="installed-scripts" tooltip="Help with Installed Scripts" />
               </Button>
+              <Button
+                variant="ghost"
+                size="null"
+                onClick={() => setActiveTab('backups')}
+                className={`px-3 py-2 text-sm flex items-center justify-center sm:justify-start gap-2 w-full sm:w-auto ${
+                  activeTab === 'backups'
+                    ? 'bg-accent text-accent-foreground rounded-t-md rounded-b-none'
+                    : 'hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none'
+                }`}>
+                <Archive className="h-4 w-4" />
+                <span className="hidden sm:inline">Backups</span>
+                <span className="sm:hidden">Backups</span>
+                <span className="ml-1 px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
+                  {scriptCounts.backups}
+                </span>
+              </Button>
             </nav>
           </div>
         </div>
@@ -272,6 +291,10 @@ export default function Home() {
         
         {activeTab === 'installed' && (
           <InstalledScriptsTab />
+        )}
+        
+        {activeTab === 'backups' && (
+          <BackupsTab />
         )}
       </div>
 

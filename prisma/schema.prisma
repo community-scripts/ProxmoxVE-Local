@@ -41,6 +41,8 @@ model Server {
   ssh_key_path       String?
   key_generated      Boolean?           @default(false)
   installed_scripts  InstalledScript[]
+  backups            Backup[]
+  pbs_credentials    PBSStorageCredential[]
   
   @@map("servers")
 }
@@ -94,6 +96,42 @@ model LXCConfig {
   updated_at            DateTime         @updatedAt
   
   @@map("lxc_configs")
+}
+
+model Backup {
+  id                Int       @id @default(autoincrement())
+  container_id      String
+  server_id         Int
+  hostname          String
+  backup_name       String
+  backup_path       String
+  size              BigInt?
+  created_at        DateTime?
+  storage_name      String
+  storage_type      String    // 'local', 'storage', or 'pbs'
+  discovered_at     DateTime  @default(now())
+  server            Server    @relation(fields: [server_id], references: [id], onDelete: Cascade)
+  
+  @@index([container_id])
+  @@index([server_id])
+  @@map("backups")
+}
+
+model PBSStorageCredential {
+  id                Int       @id @default(autoincrement())
+  server_id         Int
+  storage_name      String
+  pbs_ip            String
+  pbs_datastore     String
+  pbs_password      String
+  pbs_fingerprint   String
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  server            Server    @relation(fields: [server_id], references: [id], onDelete: Cascade)
+  
+  @@unique([server_id, storage_name])
+  @@index([server_id])
+  @@map("pbs_storage_credentials")
 }
 
 model Repository {

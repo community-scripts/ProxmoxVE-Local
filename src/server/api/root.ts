@@ -2,6 +2,8 @@ import { scriptsRouter } from "~/server/api/routers/scripts";
 import { installedScriptsRouter } from "~/server/api/routers/installedScripts";
 import { serversRouter } from "~/server/api/routers/servers";
 import { versionRouter } from "~/server/api/routers/version";
+import { backupsRouter } from "~/server/api/routers/backups";
+import { pbsCredentialsRouter } from "~/server/api/routers/pbsCredentials";
 import { repositoriesRouter } from "~/server/api/routers/repositories";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
@@ -15,6 +17,8 @@ export const appRouter = createTRPCRouter({
   installedScripts: installedScriptsRouter,
   servers: serversRouter,
   version: versionRouter,
+  backups: backupsRouter,
+  pbsCredentials: pbsCredentialsRouter,
   repositories: repositoriesRouter,
 });
 

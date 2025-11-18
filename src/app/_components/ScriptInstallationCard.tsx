@@ -44,6 +44,7 @@ interface ScriptInstallationCardProps {
   onSave: () => void;
   onCancel: () => void;
   onUpdate: () => void;
+  onBackup?: () => void;
   onShell: () => void;
   onDelete: () => void;
   isUpdating: boolean;
@@ -68,6 +69,7 @@ export function ScriptInstallationCard({
   onSave,
   onCancel,
   onUpdate,
+  onBackup,
   onShell,
   onDelete,
   isUpdating,
@@ -305,6 +307,15 @@ export function ScriptInstallationCard({
                       className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                     >
                       Update
+                    </DropdownMenuItem>
+                  )}
+                  {script.container_id && script.execution_mode === 'ssh' && onBackup && (
+                    <DropdownMenuItem
+                      onClick={onBackup}
+                      disabled={containerStatus === 'stopped'}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                    >
+                      Backup
                     </DropdownMenuItem>
                   )}
                   {script.container_id && script.execution_mode === 'ssh' && (

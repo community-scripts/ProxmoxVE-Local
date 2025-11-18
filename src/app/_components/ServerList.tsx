@@ -6,7 +6,8 @@ import { ServerForm } from './ServerForm';
 import { Button } from './ui/button';
 import { ConfirmationModal } from './ConfirmationModal';
 import { PublicKeyModal } from './PublicKeyModal';
-import { Key } from 'lucide-react';
+import { ServerStoragesModal } from './ServerStoragesModal';
+import { Key, Database } from 'lucide-react';
 
 interface ServerListProps {
   servers: Server[];
@@ -32,6 +33,8 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
     serverName: string;
     serverIp: string;
   } | null>(null);
+  const [showStoragesModal, setShowStoragesModal] = useState(false);
+  const [selectedServerForStorages, setSelectedServerForStorages] = useState<{ id: number; name: string } | null>(null);
 
   const handleEdit = (server: Server) => {
     setEditingId(server.id);
@@ -251,6 +254,19 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
                     </>
                   )}
                 </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedServerForStorages({ id: server.id, name: server.name });
+                    setShowStoragesModal(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto border-info/20 text-info bg-info/10 hover:bg-info/20"
+                >
+                  <Database className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">View Storages</span>
+                  <span className="sm:hidden">Storages</span>
+                </Button>
                 <div className="flex space-x-2">
                   {/* View Public Key button - only show for generated keys */}
                   {server.key_generated === true && (
@@ -322,6 +338,19 @@ export function ServerList({ servers, onUpdate, onDelete }: ServerListProps) {
           publicKey={publicKeyData.publicKey}
           serverName={publicKeyData.serverName}
           serverIp={publicKeyData.serverIp}
+        />
+      )}
+
+      {/* Server Storages Modal */}
+      {selectedServerForStorages && (
+        <ServerStoragesModal
+          isOpen={showStoragesModal}
+          onClose={() => {
+            setShowStoragesModal(false);
+            setSelectedServerForStorages(null);
+          }}
+          serverId={selectedServerForStorages.id}
+          serverName={selectedServerForStorages.name}
         />
       )}
     </div>

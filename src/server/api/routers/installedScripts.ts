@@ -3,6 +3,7 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database-prisma";
 import { createHash } from "crypto";
 import type { Server } from "~/types/server";
+import { getStorageService } from "~/server/services/storageService";
 
 // Helper function to parse raw LXC config into structured data
 function parseRawConfig(rawConfig: string): any {
@@ -2038,5 +2039,163 @@ EOFCONFIG`;
         .getLXCConfig({ scriptId: input.scriptId, forceSync: true });
       
       return result;
+    }),
+
+  // Get backup-capable storages for a server
+  getBackupStorages: publicProcedure
+    .input(z.object({ 
+      serverId: z.number(), 
+      forceRefresh: z.boolean().optional().default(false) 
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            storages: [],
+            cached: false
+          };
+        }
+
+        const storageService = getStorageService();
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = getSSHExecutionService();
+        
+        // Test SSH connection first
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            storages: [],
+            cached: false
+          };
+        }
+
+        // Get server hostname to filter storages
+        let serverHostname = '';
+        try {
+          await new Promise<void>((resolve, reject) => {
+            sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => {
+                serverHostname += data;
+              },
+              (error: string) => {
+                reject(new Error(`Failed to get hostname: ${error}`));
+              },
+              (exitCode: number) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`hostname command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error('Error getting server hostname:', error);
+          // Continue without filtering if hostname can't be retrieved
+        }
+        
+        const normalizedHostname = serverHostname.trim().toLowerCase();
+        
+        // Check if we have cached data
+        const wasCached = !input.forceRefresh;
+        
+        // Fetch storages (will use cache if not forcing refresh)
+        const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
+        
+        // Filter storages by node hostname matching
+        const applicableStorages = allStorages.filter(storage => {
+          // If storage has no nodes specified, it's available on all nodes
+          if (!storage.nodes || storage.nodes.length === 0) {
+            return true;
+          }
+          
+          // If we couldn't get hostname, include all storages (fallback)
+          if (!normalizedHostname) {
+            return true;
+          }
+          
+          // Check if server hostname is in the nodes array (case-insensitive, trimmed)
+          const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
+          return normalizedNodes.includes(normalizedHostname);
+        });
+        
+        return {
+          success: true,
+          storages: applicableStorages,
+          cached: wasCached && applicableStorages.length > 0
+        };
+      } catch (error) {
+        console.error('Error in getBackupStorages:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch storages',
+          storages: [],
+          cached: false
+        };
+      }
+    }),
+
+  // Execute backup for a container
+  executeBackup: publicProcedure
+    .input(z.object({ 
+      containerId: z.string(),
+      storage: z.string(),
+      serverId: z.number()
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            executionId: null
+          };
+        }
+
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const sshService = new SSHService();
+        
+        // Test SSH connection first
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            executionId: null
+          };
+        }
+
+        // Generate execution ID for websocket tracking
+        const executionId = `backup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        return {
+          success: true,
+          executionId,
+          containerId: input.containerId,
+          storage: input.storage,
+          server: server as Server
+        };
+      } catch (error) {
+        console.error('Error in executeBackup:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to execute backup',
+          executionId: null
+        };
+      }
     })
 });

@@ -12,7 +12,10 @@ interface TerminalProps {
   server?: any;
   isUpdate?: boolean;
   isShell?: boolean;
+  isBackup?: boolean;
   containerId?: string;
+  storage?: string;
+  backupStorage?: string;
 }
 
 interface TerminalMessage {
@@ -21,7 +24,7 @@ interface TerminalMessage {
   timestamp: number;
 }
 
-export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, containerId }: TerminalProps) {
+export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, isBackup = false, containerId, storage, backupStorage }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -334,7 +337,10 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             server,
             isUpdate,
             isShell,
-            containerId
+            isBackup,
+            containerId,
+            storage,
+            backupStorage
           };
           ws.send(JSON.stringify(message));
         }
