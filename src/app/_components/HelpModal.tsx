@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download, Lock, GitBranch } from 'lucide-react';
+import { HelpCircle, Server, Settings, RefreshCw, Clock, Package, HardDrive, FolderOpen, Search, Download, Lock, GitBranch, Archive } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 
 interface HelpModalProps {
@@ -11,7 +11,7 @@ interface HelpModalProps {
   initialSection?: string;
 }
 
-type HelpSection = 'server-settings' | 'general-settings' | 'auth-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system' | 'repositories';
+type HelpSection = 'server-settings' | 'general-settings' | 'auth-settings' | 'sync-button' | 'auto-sync' | 'available-scripts' | 'downloaded-scripts' | 'installed-scripts' | 'lxc-settings' | 'update-system' | 'repositories' | 'backups';
 
 export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' }: HelpModalProps) {
   useRegisterModal(isOpen, { id: 'help-modal', allowEscape: true, onClose });
@@ -30,6 +30,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
     { id: 'downloaded-scripts' as HelpSection, label: 'Downloaded Scripts', icon: HardDrive },
     { id: 'installed-scripts' as HelpSection, label: 'Installed Scripts', icon: FolderOpen },
     { id: 'lxc-settings' as HelpSection, label: 'LXC Settings', icon: Settings },
+    { id: 'backups' as HelpSection, label: 'LXC Backups', icon: Archive },
     { id: 'update-system' as HelpSection, label: 'Update System', icon: Download },
   ];
 
@@ -919,6 +920,144 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>• <strong>Cache expiration:</strong> Cached configs expire after 5 minutes for freshness</li>
                   <li>• <strong>Change detection:</strong> Hash comparison detects external modifications</li>
                   <li>• <strong>Manual sync:</strong> Always available via the &quot;Sync from Server&quot; button</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'backups':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-4">LXC Backups</h3>
+              <p className="text-muted-foreground mb-6">
+                Create backups of your LXC containers before updates or on-demand. Backups are created using Proxmox VE&apos;s built-in backup system and can be stored on any backup-capable storage.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg bg-primary/10 border-primary/20">
+                <h4 className="font-medium text-foreground mb-2">Overview</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The backup feature allows you to create snapshots of your LXC containers before performing updates or at any time. Backups are created using the <code className="bg-muted px-1 rounded">vzdump</code> command via SSH and stored on your configured Proxmox storage.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Pre-Update Backups:</strong> Automatically create backups before updating containers</li>
+                  <li>• <strong>Standalone Backups:</strong> Create backups on-demand from the Actions menu</li>
+                  <li>• <strong>Storage Selection:</strong> Choose from available backup-capable storages</li>
+                  <li>• <strong>Real-Time Progress:</strong> View backup progress in the terminal output</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Backup Before Update</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  When updating an LXC container, you can choose to create a backup first:
+                </p>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Click the &quot;Update&quot; button for an installed script</li>
+                  <li>Confirm that you want to update the container</li>
+                  <li>Choose whether to create a backup before updating</li>
+                  <li>If yes, select a backup-capable storage from the list</li>
+                  <li>The backup will be created, then the update will proceed automatically</li>
+                </ol>
+                <div className="mt-3 p-3 bg-info/10 rounded-md">
+                  <h5 className="font-medium text-info-foreground mb-2">Backup Failure Handling</h5>
+                  <p className="text-xs text-info/80">
+                    If a backup fails, you&apos;ll be warned but can still choose to proceed with the update. This ensures updates aren&apos;t blocked by backup issues.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Standalone Backup</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create a backup at any time without updating:
+                </p>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Open the Actions dropdown menu for an installed script</li>
+                  <li>Click &quot;Backup&quot;</li>
+                  <li>Select a backup-capable storage from the list</li>
+                  <li>Watch the backup progress in the terminal output</li>
+                </ol>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <strong>Note:</strong> Standalone backups are only available for SSH-enabled scripts with valid container IDs.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Storage Selection</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The system automatically discovers backup-capable storages from your Proxmox servers:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>Automatic Discovery:</strong> Storages are fetched from <code className="bg-muted px-1 rounded">/etc/pve/storage.cfg</code> on each server</li>
+                  <li>• <strong>Backup-Capable Only:</strong> Only storages with &quot;backup&quot; in their content are shown</li>
+                  <li>• <strong>Cached Results:</strong> Storage lists are cached for 1 hour to improve performance</li>
+                  <li>• <strong>Manual Refresh:</strong> Use the &quot;Fetch Storages&quot; button to refresh the list if needed</li>
+                </ul>
+                <div className="mt-3 p-3 bg-muted/30 rounded-md">
+                  <h5 className="font-medium text-foreground mb-1">Storage Types</h5>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    <li>• <strong>Local:</strong> Backups stored on the Proxmox host</li>
+                    <li>• <strong>Storage:</strong> Network-attached storage (NFS, CIFS, etc.)</li>
+                    <li>• <strong>PBS:</strong> Proxmox Backup Server storage</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Viewing Available Storages</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  You can view all storages for a server, including which ones support backups:
+                </p>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Go to the Server Settings section</li>
+                  <li>Find the server you want to check</li>
+                  <li>Click the &quot;View Storages&quot; button (database icon)</li>
+                  <li>See all storages with backup-capable ones highlighted</li>
+                </ol>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This helps you identify which storages are available for backups before starting a backup operation.
+                </p>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Backup Process</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  When a backup is initiated, the following happens:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• <strong>SSH Connection:</strong> Connects to the Proxmox server via SSH</li>
+                  <li>• <strong>Command Execution:</strong> Runs <code className="bg-muted px-1 rounded">vzdump &lt;CTID&gt; --storage &lt;STORAGE&gt; --mode snapshot</code></li>
+                  <li>• <strong>Real-Time Output:</strong> Backup progress is streamed to the terminal</li>
+                  <li>• <strong>Completion:</strong> Backup completes and shows success/failure status</li>
+                  <li>• <strong>Sequential Execution:</strong> If part of update flow, update proceeds after backup completes</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg bg-warning/10 border-warning/20">
+                <h4 className="font-medium text-warning-foreground mb-2">⚠️ Important Notes</h4>
+                <ul className="text-sm text-warning/80 space-y-2">
+                  <li>• <strong>Storage Requirements:</strong> Ensure you have sufficient storage space for backups</li>
+                  <li>• <strong>Backup Duration:</strong> Backup time depends on container size and storage speed</li>
+                  <li>• <strong>Snapshot Mode:</strong> Backups use snapshot mode, which requires sufficient disk space</li>
+                  <li>• <strong>SSH Access:</strong> Backups require valid SSH credentials configured for the server</li>
+                  <li>• <strong>Container State:</strong> Containers can be running or stopped during backup</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border border-border rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Backup Storage Cache</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Storage information is cached to improve performance:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Cache Duration:</strong> Storage lists are cached for 1 hour</li>
+                  <li>• <strong>Automatic Refresh:</strong> Cache expires and refreshes automatically</li>
+                  <li>• <strong>Manual Refresh:</strong> Use &quot;Fetch Storages&quot; button to force refresh</li>
+                  <li>• <strong>Per-Server Cache:</strong> Each server has its own cached storage list</li>
                 </ul>
               </div>
             </div>
