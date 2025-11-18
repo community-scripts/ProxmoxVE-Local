@@ -1323,9 +1323,9 @@ EOF'
   msg_ok "Customized LXC Container"
 
   if [ "$var_os" == "alpine" ]; then
-    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/alpine-install.func")"
+    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func"  && echo && cat "$CORE_DIR/api.func" && echo && cat "$CORE_DIR/alpine-install.func")"
   else
-    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/install.func")"
+    FUNCTIONS_FILE_PATH="$(cat "$CORE_DIR/core.func" && echo && cat "$CORE_DIR/tools.func" && echo && cat "$CORE_DIR/api.func" && echo && cat "$CORE_DIR/install.func")"
   fi
   
   FUNCTIONS_FILE="/tmp/functions.sh"
