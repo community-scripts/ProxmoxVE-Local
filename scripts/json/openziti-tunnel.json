@@ -40,5 +40,6 @@
       "text": "Openziti tunnel prompts for identity enrollment token during installation",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

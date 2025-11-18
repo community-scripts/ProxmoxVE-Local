@@ -64,5 +64,6 @@
       "text": "Monitor-All logs: `cat /var/log/ping-instances.log`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

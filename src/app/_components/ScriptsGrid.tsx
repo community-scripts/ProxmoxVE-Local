@@ -11,6 +11,7 @@ import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import { Clock } from 'lucide-react';
 import type { ScriptCard as ScriptCardType } from '~/types/script';
+import { getDefaultFilters, mergeFiltersWithDefaults } from './filterUtils';
 
 
 interface ScriptsGridProps {
@@ -25,13 +26,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number; currentScript: string; failed: Array<{ slug: string; error: string }> } | null>(null);
-  const [filters, setFilters] = useState<FilterState>({
-    searchQuery: '',
-    showUpdatable: null,
-    selectedTypes: [],
-    sortBy: 'name',
-    sortOrder: 'asc',
-  });
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters());
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [isNewestMinimized, setIsNewestMinimized] = useState(false);
@@ -66,7 +61,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           if (filtersResponse.ok) {
             const filtersData = await filtersResponse.json();
             if (filtersData.filters) {
-              setFilters(filtersData.filters as FilterState);
+              setFilters(mergeFiltersWithDefaults(filtersData.filters));
             }
           }
         }
@@ -216,13 +211,19 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       // Check if there's a corresponding local script
       const hasLocalVersion = localScriptsData?.scripts?.some(local => {
         if (!local?.name) return false;
+        
+        // Primary: Exact slug-to-slug matching (most reliable, prevents false positives)
+        if (local.slug && script.slug) {
+          if (local.slug.toLowerCase() === script.slug.toLowerCase()) {
+            return true;
+          }
+        }
+        
+        // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
+        // Only use normalized matching for install basenames, not for slug/name matching
         const normalizedLocal = normalizeId(local.name);
-        const matchesNameOrSlug = (
-          normalizedLocal === normalizeId(script.name) ||
-          normalizedLocal === normalizeId(script.slug)
-        );
         const matchesInstallBasename = (script as any)?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
-        return matchesNameOrSlug || matchesInstallBasename;
+        return matchesInstallBasename;
       }) ?? false;
       
       return {
@@ -239,6 +240,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       filters.searchQuery?.trim() !== '' ||
       filters.showUpdatable !== null ||
       filters.selectedTypes.length > 0 ||
+      filters.selectedRepositories.length > 0 ||
       filters.sortBy !== 'name' ||
       filters.sortOrder !== 'asc' ||
       selectedCategory !== null
@@ -309,6 +311,22 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         const mappedType = scriptType === 'turnkey' ? 'ct' : scriptType;
         
         return filters.selectedTypes.some(type => type.toLowerCase() === mappedType);
+      });
+    }
+
+    // Filter by repositories
+    if (filters.selectedRepositories.length > 0) {
+      scripts = scripts.filter(script => {
+        if (!script) return false;
+        const repoUrl = script.repository_url;
+        
+        // If script has no repository_url, exclude it when filtering by repositories
+        if (!repoUrl) {
+          return false;
+        }
+        
+        // Only include scripts from selected repositories
+        return filters.selectedRepositories.includes(repoUrl);
       });
     }
 

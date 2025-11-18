@@ -36,5 +36,6 @@
       "text": "If the LXC is created Privileged, the script will automatically set up USB passthrough.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

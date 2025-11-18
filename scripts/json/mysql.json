@@ -44,5 +44,6 @@
       "text": "If installed, access phpMyAdmin at `http://<LXC_IP>/phpMyAdmin`, case sensitive.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

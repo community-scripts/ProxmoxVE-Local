@@ -37,5 +37,6 @@
       "text": "Please adjust the Proxmox credentials in the configuration file!",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -40,5 +40,6 @@
       "text": "Advanced Install is only possible with disabled IPV6! Otherwise the installation sometimes stuck.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

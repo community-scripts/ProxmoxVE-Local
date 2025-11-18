@@ -26,6 +26,15 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
     }
   };
 
+  const getRepoName = (url?: string): string => {
+    if (!url) return '';
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (match) {
+      return `${match[1]}/${match[2]}`;
+    }
+    return url;
+  };
+
   return (
     <div
       className="bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer border border-border hover:border-primary h-full flex flex-col relative"
@@ -81,6 +90,11 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
               <div className="flex items-center space-x-2 flex-wrap gap-1">
                 <TypeBadge type={script.type ?? 'unknown'} />
                 {script.updateable && <UpdateableBadge />}
+                {script.repository_url && (
+                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded border border-border" title={script.repository_url}>
+                    {getRepoName(script.repository_url)}
+                  </span>
+                )}
               </div>
               
               {/* Download Status */}

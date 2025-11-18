@@ -36,5 +36,6 @@
       "text": "First start of the service can take some time due to certificate generation.",
       "type": "warn"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

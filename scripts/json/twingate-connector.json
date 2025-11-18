@@ -40,5 +40,6 @@
       "text": "If you need to update your access or refresh tokens, they can be found in /etc/twingate/connector.conf",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

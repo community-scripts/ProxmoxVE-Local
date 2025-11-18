@@ -37,5 +37,6 @@
       "text": "Only use Ubuntu 24.04!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

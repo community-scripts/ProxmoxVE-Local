@@ -36,5 +36,6 @@
       "text": "Configuration file is not created at install time. Example is at: `https://cwiki.apache.org/confluence/display/TIKA/TikaServer+in+Tika+2.x`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

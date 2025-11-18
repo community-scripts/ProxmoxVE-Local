@@ -55,5 +55,6 @@
       "text": "Options to Install Portainer and/or Docker Compose V2",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

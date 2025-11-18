@@ -31,5 +31,6 @@
     "username": "helper-scripts@local.com",
     "password": "helper-scripts"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

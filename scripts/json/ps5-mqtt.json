@@ -36,5 +36,6 @@
       "text": "After installation, the MQTT endpoint must be configured. The configuration file is located within the LXC container at: `/opt/.config/ps5-mqtt/config.json`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

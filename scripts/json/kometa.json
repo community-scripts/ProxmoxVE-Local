@@ -23,7 +23,7 @@
         "ram": 4096,
         "hdd": 8,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -40,5 +40,6 @@
       "text": "Configuration file is at `/opt/kometa/config/config.yml`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

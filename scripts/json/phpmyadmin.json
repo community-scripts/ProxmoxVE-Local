@@ -40,5 +40,6 @@
       "text": "To update or uninstall run bash call again",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

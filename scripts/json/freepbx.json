@@ -36,5 +36,6 @@
       "text": "This script uses the official FreePBX install script. Check it here: https://github.com/FreePBX/sng_freepbx_debian_install",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

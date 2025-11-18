@@ -36,5 +36,6 @@
       "text": "The first user you register will be the admin user.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

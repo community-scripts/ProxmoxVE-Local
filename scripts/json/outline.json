@@ -40,5 +40,6 @@
       "text": "Configuration file is at: `/opt/outline/.env`. Modify to suit your environment.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

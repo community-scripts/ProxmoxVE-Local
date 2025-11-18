@@ -1,7 +1,22 @@
 import { AutoSyncService } from '../services/autoSyncService.js';
+import { repositoryService } from '../services/repositoryService.ts';
 
 let autoSyncService = null;
 let isInitialized = false;
+
+/**
+ * Initialize default repositories
+ */
+export async function initializeRepositories() {
+  try {
+    console.log('Initializing default repositories...');
+    await repositoryService.initializeDefaultRepositories();
+    console.log('Default repositories initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize repositories:', error);
+    console.error('Error stack:', error.stack);
+  }
+}
 
 /**
  * Initialize auto-sync service and schedule cron job if enabled

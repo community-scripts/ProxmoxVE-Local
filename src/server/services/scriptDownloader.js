@@ -16,38 +16,103 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Validates that a directory path doesn't contain nested directories with the same name
+   * (e.g., prevents ct/ct or install/install)
+   */
+  validateDirectoryPath(dirPath) {
+    const normalizedPath = dirPath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    
+    // Check for consecutive duplicate directory names
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (parts[i] === parts[i + 1] && parts[i] !== '') {
+        throw new Error(`Invalid directory path: nested directory detected (${parts[i]}/${parts[i + 1]}) in path: ${dirPath}`);
+      }
+    }
+    
+    return true;
+  }
+
+  /**
+   * Validates that finalTargetDir doesn't contain nested directory names like ct/ct or install/install
+   */
+  validateTargetDir(targetDir, finalTargetDir) {
+    // Check if finalTargetDir contains nested directory names
+    const normalized = finalTargetDir.replace(/\\/g, '/');
+    const parts = normalized.split('/');
+    
+    // Check for consecutive duplicate directory names
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (parts[i] === parts[i + 1]) {
+        console.warn(`[Path Validation] Detected nested directory pattern "${parts[i]}/${parts[i + 1]}" in finalTargetDir: ${finalTargetDir}. Using base directory "${targetDir}" instead.`);
+        return targetDir; // Return the base directory instead
+      }
+    }
+    
+    return finalTargetDir;
+  }
+
   async ensureDirectoryExists(dirPath) {
+    // Validate the directory path to prevent nested directories with the same name
+    this.validateDirectoryPath(dirPath);
+    
     try {
+      console.log(`[Directory Creation] Ensuring directory exists: ${dirPath}`);
       await mkdir(dirPath, { recursive: true });
+      console.log(`[Directory Creation] Directory created/verified: ${dirPath}`);
     } catch (error) {
       if (error.code !== 'EEXIST') {
+        console.error(`[Directory Creation] Error creating directory ${dirPath}:`, error.message);
         throw error;
       }
+      // Directory already exists, which is fine
+      console.log(`[Directory Creation] Directory already exists: ${dirPath}`);
     }
   }
 
-  async downloadFileFromGitHub(filePath) {
+  extractRepoPath(repoUrl) {
+    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
+    if (!match) {
+      throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
+    }
+    return `${match[1]}/${match[2]}`;
+  }
+
+  async downloadFileFromGitHub(repoUrl, filePath, branch = 'main') {
     this.initializeConfig();
-    if (!this.repoUrl) {
-      throw new Error('REPO_URL environment variable is not set');
+    if (!repoUrl) {
+      throw new Error('Repository URL is not set');
     }
 
-    // Extract repo path from URL
-    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(this.repoUrl);
-    if (!match) {
-      throw new Error('Invalid GitHub repository URL');
-    }
-    const [, owner, repo] = match;
+    const repoPath = this.extractRepoPath(repoUrl);
+    const url = `https://raw.githubusercontent.com/${repoPath}/${branch}/${filePath}`;
     
-    const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/${filePath}`;
+    const headers = {
+      'User-Agent': 'PVEScripts-Local/1.0',
+    };
+    
+    // Add GitHub token authentication if available
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
+    }
     
     console.log(`Downloading from GitHub: ${url}`);
-    const response = await fetch(url);
+    const response = await fetch(url, { headers });
     if (!response.ok) {
-      throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to download ${filePath} from ${repoUrl}: ${response.status} ${response.statusText}`);
     }
 
     return response.text();
+  }
+
+  getRepoUrlForScript(script) {
+    // Use repository_url from script if available, otherwise fallback to env or default
+    if (script.repository_url) {
+      return script.repository_url;
+    }
+    this.initializeConfig();
+    return this.repoUrl;
   }
 
   modifyScriptContent(content) {
@@ -62,6 +127,10 @@ export class ScriptDownloaderService {
     this.initializeConfig();
     try {
       const files = [];
+      const repoUrl = this.getRepoUrlForScript(script);
+      const branch = process.env.REPO_BRANCH || 'main';
+      
+      console.log(`Loading script "${script.name}" (${script.slug}) from repository: ${repoUrl}`);
       
       // Ensure directories exist
       await this.ensureDirectoryExists(join(this.scriptsDirectory, 'ct'));
@@ -76,9 +145,9 @@ export class ScriptDownloaderService {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
-              // Download from GitHub
-              console.log(`Downloading script file: ${scriptPath}`);
-              const content = await this.downloadFileFromGitHub(scriptPath);
+              // Download from GitHub using the script's repository URL
+              console.log(`Downloading script file: ${scriptPath} from ${repoUrl}`);
+              const content = await this.downloadFileFromGitHub(repoUrl, scriptPath, branch);
               
               // Determine target directory based on script path
               let targetDir;
@@ -88,6 +157,8 @@ export class ScriptDownloaderService {
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Modify the content for CT scripts
                 const modifiedContent = this.modifyScriptContent(content);
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
@@ -98,6 +169,8 @@ export class ScriptDownloaderService {
                 const subPath = scriptPath.replace('tools/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
                 await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
                 filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
@@ -108,6 +181,8 @@ export class ScriptDownloaderService {
                 const subPath = scriptPath.replace('vm/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
                 await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
                 filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
@@ -116,6 +191,8 @@ export class ScriptDownloaderService {
                 // Handle other script types (fallback to ct directory)
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
+                // Validate and sanitize finalTargetDir
+                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 const modifiedContent = this.modifyScriptContent(content);
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
                 await writeFile(filePath, modifiedContent, 'utf-8');
@@ -133,8 +210,8 @@ export class ScriptDownloaderService {
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         try {
-          console.log(`Downloading install script: install/${installScriptName}`);
-          const installContent = await this.downloadFileFromGitHub(`install/${installScriptName}`);
+          console.log(`Downloading install script: install/${installScriptName} from ${repoUrl}`);
+          const installContent = await this.downloadFileFromGitHub(repoUrl, `install/${installScriptName}`, branch);
           const localInstallPath = join(this.scriptsDirectory, 'install', installScriptName);
           await writeFile(localInstallPath, installContent, 'utf-8');
           files.push(`install/${installScriptName}`);
@@ -157,8 +234,8 @@ export class ScriptDownloaderService {
       if (hasAlpineCtVariant) {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
         try {
-          console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName}`);
-          const alpineInstallContent = await this.downloadFileFromGitHub(`install/${alpineInstallScriptName}`);
+          console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName} from ${repoUrl}`);
+          const alpineInstallContent = await this.downloadFileFromGitHub(repoUrl, `install/${alpineInstallScriptName}`, branch);
           const localAlpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
           await writeFile(localAlpineInstallPath, alpineInstallContent, 'utf-8');
           files.push(`install/${alpineInstallScriptName}`);
@@ -394,6 +471,8 @@ export class ScriptDownloaderService {
     this.initializeConfig();
     const differences = [];
     let hasDifferences = false;
+    const repoUrl = this.getRepoUrlForScript(script);
+    const branch = process.env.REPO_BRANCH || 'main';
 
     try {
       // First check if any local files exist
@@ -438,7 +517,7 @@ export class ScriptDownloaderService {
               }
               
               comparisonPromises.push(
-                this.compareSingleFile(scriptPath, `${finalTargetDir}/${fileName}`)
+                this.compareSingleFile(script, scriptPath, `${finalTargetDir}/${fileName}`)
                   .then(result => {
                     if (result.hasDifferences) {
                       hasDifferences = true;
@@ -460,7 +539,7 @@ export class ScriptDownloaderService {
         const installScriptPath = `install/${installScriptName}`;
         
         comparisonPromises.push(
-          this.compareSingleFile(installScriptPath, installScriptPath)
+          this.compareSingleFile(script, installScriptPath, installScriptPath)
             .then(result => {
               if (result.hasDifferences) {
                 hasDifferences = true;
@@ -486,7 +565,7 @@ export class ScriptDownloaderService {
         try {
           await access(localAlpineInstallPath);
           comparisonPromises.push(
-            this.compareSingleFile(alpineInstallScriptPath, alpineInstallScriptPath)
+            this.compareSingleFile(script, alpineInstallScriptPath, alpineInstallScriptPath)
               .then(result => {
                 if (result.hasDifferences) {
                   hasDifferences = true;
@@ -512,15 +591,17 @@ export class ScriptDownloaderService {
     }
   }
 
-  async compareSingleFile(remotePath, filePath) {
+  async compareSingleFile(script, remotePath, filePath) {
     try {
       const localPath = join(this.scriptsDirectory, filePath);
+      const repoUrl = this.getRepoUrlForScript(script);
+      const branch = process.env.REPO_BRANCH || 'main';
       
       // Read local content
       const localContent = await readFile(localPath, 'utf-8');
       
-      // Download remote content
-      const remoteContent = await this.downloadFileFromGitHub(remotePath);
+      // Download remote content from the script's repository
+      const remoteContent = await this.downloadFileFromGitHub(repoUrl, remotePath, branch);
       
       // Apply modification only for CT scripts, not for other script types
       let modifiedRemoteContent;
@@ -539,6 +620,138 @@ export class ScriptDownloaderService {
       return { hasDifferences: false, filePath };
     }
   }
+
+  async getScriptDiff(script, filePath) {
+    this.initializeConfig();
+    try {
+      const repoUrl = this.getRepoUrlForScript(script);
+      const branch = process.env.REPO_BRANCH || 'main';
+      let localContent = null;
+      let remoteContent = null;
+
+      if (filePath.startsWith('ct/')) {
+        // Handle CT script
+        const fileName = filePath.split('/').pop();
+        if (fileName) {
+          const localPath = join(this.scriptsDirectory, 'ct', fileName);
+          try {
+            localContent = await readFile(localPath, 'utf-8');
+          } catch {
+            // Error reading local CT script
+          }
+
+          try {
+            // Find the corresponding script path in install_methods
+            const method = script.install_methods?.find(m => m.script === filePath);
+            if (method?.script) {
+              const downloadedContent = await this.downloadFileFromGitHub(repoUrl, method.script, branch);
+              remoteContent = this.modifyScriptContent(downloadedContent);
+            }
+          } catch {
+            // Error downloading remote CT script
+          }
+        }
+      } else if (filePath.startsWith('install/')) {
+        // Handle install script
+        const localPath = join(this.scriptsDirectory, filePath);
+        try {
+          localContent = await readFile(localPath, 'utf-8');
+        } catch {
+          // Error reading local install script
+        }
+
+        try {
+          remoteContent = await this.downloadFileFromGitHub(repoUrl, filePath, branch);
+        } catch {
+          // Error downloading remote install script
+        }
+      }
+
+      if (!localContent || !remoteContent) {
+        return { diff: null, localContent, remoteContent };
+      }
+
+      // Generate diff using a simple line-by-line comparison
+      const diff = this.generateDiff(localContent, remoteContent);
+      return { diff, localContent, remoteContent };
+    } catch (error) {
+      console.error('Error getting script diff:', error);
+      return { diff: null, localContent: null, remoteContent: null };
+    }
+  }
+
+  generateDiff(localContent, remoteContent) {
+    const localLines = localContent.split('\n');
+    const remoteLines = remoteContent.split('\n');
+    
+    let diff = '';
+    let i = 0;
+    let j = 0;
+
+    while (i < localLines.length || j < remoteLines.length) {
+      const localLine = localLines[i];
+      const remoteLine = remoteLines[j];
+
+      if (i >= localLines.length) {
+        // Only remote lines left
+        diff += `+${j + 1}: ${remoteLine}\n`;
+        j++;
+      } else if (j >= remoteLines.length) {
+        // Only local lines left
+        diff += `-${i + 1}: ${localLine}\n`;
+        i++;
+      } else if (localLine === remoteLine) {
+        // Lines are the same
+        diff += ` ${i + 1}: ${localLine}\n`;
+        i++;
+        j++;
+      } else {
+        // Lines are different - find the best match
+        let found = false;
+        for (let k = j + 1; k < Math.min(j + 10, remoteLines.length); k++) {
+          if (localLine === remoteLines[k]) {
+            // Found match in remote, local line was removed
+            for (let l = j; l < k; l++) {
+              diff += `+${l + 1}: ${remoteLines[l]}\n`;
+            }
+            diff += ` ${i + 1}: ${localLine}\n`;
+            i++;
+            j = k + 1;
+            found = true;
+            break;
+          }
+        }
+        
+        if (!found) {
+          for (let k = i + 1; k < Math.min(i + 10, localLines.length); k++) {
+            if (remoteLine === localLines[k]) {
+              // Found match in local, remote line was added
+              diff += `-${i + 1}: ${localLine}\n`;
+              for (let l = i + 1; l < k; l++) {
+                diff += `-${l + 1}: ${localLines[l]}\n`;
+              }
+              diff += `+${j + 1}: ${remoteLine}\n`;
+              i = k + 1;
+              j++;
+              found = true;
+              break;
+            }
+          }
+        }
+        
+        if (!found) {
+          // No match found, lines are different
+          diff += `-${i + 1}: ${localLine}\n`;
+          diff += `+${j + 1}: ${remoteLine}\n`;
+          i++;
+          j++;
+        }
+      }
+    }
+
+    return diff;
+  }
 }
 
 export const scriptDownloaderService = new ScriptDownloaderService();
+

@@ -36,5 +36,6 @@
       "text": "Data directory is: `/opt/openarchiver-data`. If you have a lot of email, you might consider mounting external storage to this directory.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

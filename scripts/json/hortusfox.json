@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 5,
         "os": "Debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -36,5 +36,6 @@
       "text": "Login Credentials : `cat ~/hortusfox.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

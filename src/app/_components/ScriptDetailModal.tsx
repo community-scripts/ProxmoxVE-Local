@@ -234,6 +234,18 @@ export function ScriptDetailModal({
                 <TypeBadge type={script.type} />
                 {script.updateable && <UpdateableBadge />}
                 {script.privileged && <PrivilegedBadge />}
+                {script.repository_url && (
+                  <a
+                    href={script.repository_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded border border-border hover:bg-accent hover:text-foreground transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                    title={`Source: ${script.repository_url}`}
+                  >
+                    {script.repository_url.match(/github\.com\/([^\/]+)\/([^\/]+)/)?.[0]?.replace('https://', '') ?? script.repository_url}
+                  </a>
+                )}
               </div>
             </div>
             

@@ -133,3 +133,16 @@ model PBSStorageCredential {
   @@index([server_id])
   @@map("pbs_storage_credentials")
 }
+
+model Repository {
+  id          Int      @id @default(autoincrement())
+  url         String   @unique
+  enabled     Boolean  @default(true)
+  is_default  Boolean  @default(false)
+  is_removable Boolean @default(true)
+  priority    Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  @@map("repositories")
+}

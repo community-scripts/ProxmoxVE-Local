@@ -52,5 +52,6 @@
       "text": "Logs: `/var/log/immich`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

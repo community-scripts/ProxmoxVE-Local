@@ -23,7 +23,7 @@
         "ram": 2048,
         "hdd": 7,
         "os": "debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -31,5 +31,6 @@
     "username": "admin@helper-scripts.com",
     "password": "helper-scripts.com"
   },
-  "notes": []
+  "notes": [],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

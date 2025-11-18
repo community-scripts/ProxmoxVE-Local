@@ -48,8 +48,9 @@
       "type": "info"
     },
     {
-      "text": "WGDashboard installation is optional.`",
+      "text": "WGDashboard installation is optional.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

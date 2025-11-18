@@ -36,5 +36,6 @@
       "text": "Resource and network settings are adjustable post LXC creation.",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

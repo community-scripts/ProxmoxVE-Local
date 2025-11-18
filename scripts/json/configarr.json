@@ -36,5 +36,6 @@
       "text": "change secrets file /opt/configarr/secrets.yml",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

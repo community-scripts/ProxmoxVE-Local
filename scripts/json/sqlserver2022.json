@@ -44,5 +44,6 @@
       "text": "Make sure you disable the SA account if you intend to use this in production!",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

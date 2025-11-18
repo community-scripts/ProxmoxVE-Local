@@ -23,7 +23,7 @@
         "ram": 8192,
         "hdd": 50,
         "os": "Debian",
-        "version": "12"
+        "version": "13"
       }
     }
   ],
@@ -44,5 +44,6 @@
       "text": "Show credentials: `cat ~/kasm.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

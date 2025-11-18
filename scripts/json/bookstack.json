@@ -36,5 +36,6 @@
       "text": "Bookstack works only with static ip. If you Change the IP of your LXC, you Need to edit the .env File `nano /opt/bookstack/.env`",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

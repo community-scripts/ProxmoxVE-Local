@@ -36,5 +36,6 @@
       "text": "Unbound Configuration Path: `/etc/unbound/unbound.conf.d/unbound.conf`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

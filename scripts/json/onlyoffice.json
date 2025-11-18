@@ -36,5 +36,6 @@
       "text": "Database / RabbitMQ Credentials: `cat ~/onlyoffice.creds`",
       "type": "info"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

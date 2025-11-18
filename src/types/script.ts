@@ -39,6 +39,7 @@ export interface Script {
   install_methods: ScriptInstallMethod[];
   default_credentials: ScriptCredentials;
   notes: (ScriptNote | string)[];
+  repository_url?: string;
 }
 
 export interface ScriptCard {
@@ -62,6 +63,7 @@ export interface ScriptCard {
   interface_port?: number | null;
   // Optional: basenames of install scripts (without extension)
   install_basenames?: string[];
+  repository_url?: string;
 }
 
 export interface GitHubFile {

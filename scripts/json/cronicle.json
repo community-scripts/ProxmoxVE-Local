@@ -28,13 +28,14 @@
     }
   ],
   "default_credentials": {
-    "username": null,
-    "password": null
+    "username": "admin",
+    "password": "admin"
   },
   "notes": [
     {
       "text": "Primary and Worker Private Keys Must Match in the config file",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }

@@ -40,5 +40,6 @@
       "text": "This is designed to work with SSDs on ext4 filesystems only.",
       "type": "warning"
     }
-  ]
+  ],
+  "repository_url": "https://github.com/community-scripts/ProxmoxVE"
 }
