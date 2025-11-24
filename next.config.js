@@ -43,6 +43,10 @@ const config = {
     'http://192.168.*',
   ],
 
+  turbopack: {
+    // Disable Turbopack and use Webpack instead for compatibility
+    // This is necessary for server-side code that uses child_process
+  },
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
       config.watchOptions = {
@@ -50,11 +54,14 @@ const config = {
         aggregateTimeout: 300,
       };
     }
+    // Handle server-side modules
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (!config.externals.includes('child_process')) {
+        config.externals.push('child_process');
+      }
+    }
     return config;
-  },
-  // Ignore ESLint errors during build (they can be fixed separately)
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   // Ignore TypeScript errors during build (they can be fixed separately)
   typescript: {
