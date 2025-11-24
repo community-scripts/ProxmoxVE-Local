@@ -1,3 +1,4 @@
+
 # Copyright (c) 2021-2025 community-scripts ORG
 # License: MIT | https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/LICENSE
 
@@ -392,8 +393,6 @@ cleanup_lxc() {
 
   # Python pip
   if command -v pip &>/dev/null; then $STD pip cache purge || true; fi
-  # Python uv
-  if command -v uv &>/dev/null; then $STD uv cache clear || true; fi
   # Node.js npm
   if command -v npm &>/dev/null; then $STD npm cache clean --force || true; fi
   # Node.js yarn
@@ -410,7 +409,6 @@ cleanup_lxc() {
   if command -v composer &>/dev/null; then $STD composer clear-cache || true; fi
 
   if command -v journalctl &>/dev/null; then
-    $STD journalctl --rotate || true
     $STD journalctl --vacuum-time=10m || true
   fi
   msg_ok "Cleaned"
@@ -455,6 +453,3 @@ check_or_create_swap() {
 }
 
 trap 'stop_spinner' EXIT INT TERM
-
-# Initialize functions when core.func is sourced
-load_functions
