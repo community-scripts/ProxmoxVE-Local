@@ -187,9 +187,10 @@ export function CategorySidebar({
     'Miscellaneous': 'box'
   };
 
-  // Sort categories by count (descending) and then alphabetically
+  // Filter categories to only show those with scripts, then sort by count (descending) and alphabetically
   const sortedCategories = categories
     .map(category => [category, categoryCounts[category] ?? 0] as const)
+    .filter(([, count]) => count > 0) // Only show categories with at least one script
     .sort(([a, countA], [b, countB]) => {
       if (countB !== countA) return countB - countA;
       return a.localeCompare(b);

@@ -882,7 +882,7 @@ export function ScriptDetailModal({
         <TextViewer
           scriptName={
             script.install_methods
-              ?.find((method) => method.script?.startsWith("ct/"))
+              ?.find((method) => method.script && (method.script.startsWith("ct/") || method.script.startsWith("vm/") || method.script.startsWith("tools/")))
               ?.script?.split("/")
               .pop() ?? `${script.slug}.sh`
           }

@@ -4,9 +4,10 @@ import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
+import { UpdateConfirmationModal } from "./UpdateConfirmationModal";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface VersionDisplayProps {
   onOpenReleaseNotes?: () => void;
@@ -85,8 +86,12 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [shouldSubscribe, setShouldSubscribe] = useState(false);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
+  const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
   const lastLogTimeRef = useRef<number>(Date.now());
   const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasReloadedRef = useRef<boolean>(false);
+  const isUpdatingRef = useRef<boolean>(false);
+  const isNetworkErrorRef = useRef<boolean>(false);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result) => {
@@ -98,11 +103,13 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         setUpdateLogs(['Update started...']);
       } else {
         setIsUpdating(false);
+        setShouldSubscribe(false); // Reset subscription on failure
       }
     },
     onError: (error) => {
       setUpdateResult({ success: false, message: error.message });
       setIsUpdating(false);
+      setShouldSubscribe(false); // Reset subscription on error
     }
   });
 
@@ -113,63 +120,49 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     refetchIntervalInBackground: true,
   });
 
-  // Update logs when data changes
-  useEffect(() => {
-    if (updateLogsData?.success && updateLogsData.logs) {
-      lastLogTimeRef.current = Date.now();
-      setUpdateLogs(updateLogsData.logs);
-      
-      if (updateLogsData.isComplete) {
-        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
-        setIsNetworkError(true);
-        // Start reconnection attempts when we know update is complete
-        startReconnectAttempts();
-      }
-    }
-  }, [updateLogsData]);
-
-  // Monitor for server connection loss and auto-reload (fallback only)
-  useEffect(() => {
-    if (!shouldSubscribe) return;
-
-    // Only use this as a fallback - the main trigger should be completion detection
-    const checkInterval = setInterval(() => {
-      const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
-      
-      // Only start reconnection if we've been updating for at least 3 minutes
-      // and no logs for 60 seconds (very conservative fallback)
-      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
-      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
-      
-      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
-        setIsNetworkError(true);
-        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
-        
-        // Start trying to reconnect
-        startReconnectAttempts();
-      }
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(checkInterval);
-  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError]);
-
   // Attempt to reconnect and reload page when server is back
-  const startReconnectAttempts = () => {
-    if (reconnectIntervalRef.current) return;
+  // Memoized with useCallback to prevent recreation on every render
+  // Only depends on refs to avoid stale closures
+  const startReconnectAttempts = useCallback(() => {
+    // CRITICAL: Stricter guard - check refs BEFORE starting reconnect attempts
+    // Only start if we're actually updating and haven't already started
+    // Double-check isUpdating state to prevent false triggers from stale data
+    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) {
+      return;
+    }
     
     setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
     
     reconnectIntervalRef.current = setInterval(() => {
       void (async () => {
+        // Guard: Only proceed if we're still updating and in network error state
+        // Check refs directly to avoid stale closures
+        if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current) {
+          // Clear interval if we're no longer updating
+          if (!isUpdatingRef.current && reconnectIntervalRef.current) {
+            clearInterval(reconnectIntervalRef.current);
+            reconnectIntervalRef.current = null;
+          }
+          return;
+        }
+        
         try {
           // Try to fetch the root path to check if server is back
           const response = await fetch('/', { method: 'HEAD' });
           if (response.ok || response.status === 200) {
+            // Double-check we're still updating before reloading
+            if (!isUpdatingRef.current || hasReloadedRef.current) {
+              return;
+            }
+            
+            // Mark that we're about to reload to prevent multiple reloads
+            hasReloadedRef.current = true;
             setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
             
             // Clear interval and reload
             if (reconnectIntervalRef.current) {
               clearInterval(reconnectIntervalRef.current);
+              reconnectIntervalRef.current = null;
             }
             
             setTimeout(() => {
@@ -181,18 +174,101 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         }
       })();
     }, 2000);
-  };
+  }, []); // Empty deps - only uses refs which are stable
 
-  // Cleanup reconnect interval on unmount
+  // Update logs when data changes
   useEffect(() => {
+    // CRITICAL: Only process update logs if we're actually updating
+    // This prevents stale isComplete data from triggering reloads when not updating
+    if (!isUpdating) {
+      return;
+    }
+    
+    if (updateLogsData?.success && updateLogsData.logs) {
+      lastLogTimeRef.current = Date.now();
+      setUpdateLogs(updateLogsData.logs);
+      
+      // CRITICAL: Only process isComplete if we're actually updating
+      // Double-check isUpdating state to prevent false triggers
+      if (updateLogsData.isComplete && isUpdating) {
+        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+        setIsNetworkError(true);
+        // Start reconnection attempts when we know update is complete
+        startReconnectAttempts();
+      }
+    }
+  }, [updateLogsData, startReconnectAttempts, isUpdating]);
+
+  // Monitor for server connection loss and auto-reload (fallback only)
+  useEffect(() => {
+    // Early return: only run if we're actually updating
+    if (!shouldSubscribe || !isUpdating) return;
+
+    // Only use this as a fallback - the main trigger should be completion detection
+    const checkInterval = setInterval(() => {
+      // Check refs first to ensure we're still updating
+      if (!isUpdatingRef.current || hasReloadedRef.current) {
+        return;
+      }
+
+      const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
+      
+      // Only start reconnection if we've been updating for at least 3 minutes
+      // and no logs for 60 seconds (very conservative fallback)
+      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
+      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
+      
+      // Additional guard: check refs again before triggering
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdatingRef.current && !isNetworkErrorRef.current) {
+        setIsNetworkError(true);
+        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
+        
+        // Start trying to reconnect
+        startReconnectAttempts();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [shouldSubscribe, isUpdating, updateStartTime, startReconnectAttempts]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    isUpdatingRef.current = isUpdating;
+  }, [isUpdating]);
+
+  useEffect(() => {
+    isNetworkErrorRef.current = isNetworkError;
+  }, [isNetworkError]);
+
+  // Clear reconnect interval when update completes or component unmounts
+  useEffect(() => {
+    // If we're no longer updating, clear the reconnect interval and reset subscription
+    if (!isUpdating) {
+      if (reconnectIntervalRef.current) {
+        clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
+      }
+      // Reset subscription to prevent stale polling
+      setShouldSubscribe(false);
+    }
+    
     return () => {
       if (reconnectIntervalRef.current) {
         clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [isUpdating]);
 
   const handleUpdate = () => {
+    // Show confirmation modal instead of starting update directly
+    setShowUpdateConfirmation(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    // Close the confirmation modal
+    setShowUpdateConfirmation(false);
+    // Start the actual update process
     setIsUpdating(true);
     setUpdateResult(null);
     setIsNetworkError(false);
@@ -200,6 +276,12 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     setShouldSubscribe(false);
     setUpdateStartTime(Date.now());
     lastLogTimeRef.current = Date.now();
+    hasReloadedRef.current = false; // Reset reload flag when starting new update
+    // Clear any existing reconnect interval
+    if (reconnectIntervalRef.current) {
+      clearInterval(reconnectIntervalRef.current);
+      reconnectIntervalRef.current = null;
+    }
     executeUpdate.mutate();
   };
 
@@ -232,6 +314,18 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     <>
       {/* Loading overlay */}
       {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
+      
+      {/* Update Confirmation Modal */}
+      {versionStatus?.releaseInfo && (
+        <UpdateConfirmationModal
+          isOpen={showUpdateConfirmation}
+          onClose={() => setShowUpdateConfirmation(false)}
+          onConfirm={handleConfirmUpdate}
+          releaseInfo={versionStatus.releaseInfo}
+          currentVersion={versionStatus.currentVersion}
+          latestVersion={versionStatus.latestVersion}
+        />
+      )}
       
       <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
         <Badge 

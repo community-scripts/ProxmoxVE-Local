@@ -79,13 +79,26 @@ class ScriptExecutionHandler {
    * @param {import('http').Server} server
    */
   constructor(server) {
+    // Create WebSocketServer without attaching to server
+    // We'll handle upgrades manually to avoid interfering with Next.js HMR
     this.wss = new WebSocketServer({ 
-      server,
-      path: '/ws/script-execution'
+      noServer: true
     });
     this.activeExecutions = new Map();
     this.db = getDatabase();
     this.setupWebSocket();
+  }
+  
+  /**
+   * Handle WebSocket upgrade for our endpoint
+   * @param {import('http').IncomingMessage} request
+   * @param {import('stream').Duplex} socket
+   * @param {Buffer} head
+   */
+  handleUpgrade(request, socket, head) {
+    this.wss.handleUpgrade(request, socket, head, (ws) => {
+      this.wss.emit('connection', ws, request);
+    });
   }
 
   /**
@@ -1159,12 +1172,22 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url || '', true);
       const { pathname, query } = parsedUrl;
 
-      if (pathname === '/ws/script-execution') {
+      // Check if this is a WebSocket upgrade request
+      const isWebSocketUpgrade = req.headers.upgrade === 'websocket';
+      
+      // Only intercept WebSocket upgrades for /ws/script-execution
+      // Let Next.js handle all other WebSocket upgrades (like HMR) and all HTTP requests
+      if (isWebSocketUpgrade && pathname === '/ws/script-execution') {
         // WebSocket upgrade will be handled by the WebSocket server
+        // Don't call handle() for this path - let WebSocketServer handle it
         return;
       }
 
-      // Let Next.js handle all other requests including HMR
+      // Let Next.js handle all other requests including:
+      // - HTTP requests to /ws/script-execution (non-WebSocket)
+      // - WebSocket upgrades to other paths (like /_next/webpack-hmr)
+      // - All static assets (_next routes)
+      // - All other routes
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -1175,6 +1198,33 @@ app.prepare().then(() => {
 
   // Create WebSocket handlers
   const scriptHandler = new ScriptExecutionHandler(httpServer);
+  
+  // Handle WebSocket upgrades manually to avoid interfering with Next.js HMR
+  // We need to preserve Next.js's upgrade handlers and call them for non-matching paths
+  // Save any existing upgrade listeners (Next.js might have set them up)
+  const existingUpgradeListeners = httpServer.listeners('upgrade').slice();
+  httpServer.removeAllListeners('upgrade');
+  
+  // Add our upgrade handler that routes based on path
+  httpServer.on('upgrade', (request, socket, head) => {
+    const parsedUrl = parse(request.url || '', true);
+    const { pathname } = parsedUrl;
+    
+    if (pathname === '/ws/script-execution') {
+      // Handle our custom WebSocket endpoint
+      scriptHandler.handleUpgrade(request, socket, head);
+    } else {
+      // For all other paths (including Next.js HMR), call existing listeners
+      // This allows Next.js to handle its own WebSocket upgrades
+      for (const listener of existingUpgradeListeners) {
+        try {
+          listener.call(httpServer, request, socket, head);
+        } catch (err) {
+          console.error('Error in upgrade listener:', err);
+        }
+      }
+    }
+  });
   // Note: TerminalHandler removed as it's not being used by the current application
 
   httpServer

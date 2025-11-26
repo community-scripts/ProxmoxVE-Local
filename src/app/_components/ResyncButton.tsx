@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
@@ -9,6 +9,8 @@ export function ResyncButton() {
   const [isResyncing, setIsResyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const hasReloadedRef = useRef<boolean>(false);
+  const isUserInitiatedRef = useRef<boolean>(false);
 
   const resyncMutation = api.scripts.resyncScripts.useMutation({
     onSuccess: (data) => {
@@ -16,24 +18,38 @@ export function ResyncButton() {
       setLastSync(new Date());
       if (data.success) {
         setSyncMessage(data.message ?? 'Scripts synced successfully');
-        // Reload the page after successful sync
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000); // Wait 2 seconds to show the success message
+        // Only reload if this was triggered by user action
+        if (isUserInitiatedRef.current && !hasReloadedRef.current) {
+          hasReloadedRef.current = true;
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000); // Wait 2 seconds to show the success message
+        } else {
+          // Reset flag if reload didn't happen
+          isUserInitiatedRef.current = false;
+        }
       } else {
         setSyncMessage(data.error ?? 'Failed to sync scripts');
         // Clear message after 3 seconds for errors
         setTimeout(() => setSyncMessage(null), 3000);
+        isUserInitiatedRef.current = false;
       }
     },
     onError: (error) => {
       setIsResyncing(false);
       setSyncMessage(`Error: ${error.message}`);
       setTimeout(() => setSyncMessage(null), 3000);
+      isUserInitiatedRef.current = false;
     },
   });
 
   const handleResync = async () => {
+    // Prevent multiple simultaneous sync operations
+    if (isResyncing) return;
+    
+    // Mark as user-initiated before starting
+    isUserInitiatedRef.current = true;
+    hasReloadedRef.current = false;
     setIsResyncing(true);
     setSyncMessage(null);
     resyncMutation.mutate();

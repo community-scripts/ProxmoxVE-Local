@@ -14,9 +14,9 @@ interface TextViewerProps {
 }
 
 interface ScriptContent {
-  ctScript?: string;
+  mainScript?: string;
   installScript?: string;
-  alpineCtScript?: string;
+  alpineMainScript?: string;
   alpineInstallScript?: string;
 }
 
@@ -24,18 +24,27 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
   const [scriptContent, setScriptContent] = useState<ScriptContent>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ct' | 'install'>('ct');
+  const [activeTab, setActiveTab] = useState<'main' | 'install'>('main');
   const [selectedVersion, setSelectedVersion] = useState<'default' | 'alpine'>('default');
 
   // Extract slug from script name (remove .sh extension)
   const slug = scriptName.replace(/\.sh$/, '').replace(/^alpine-/, '');
   
-  // Check if alpine variant exists
-  const hasAlpineVariant = script?.install_methods?.some(
-    method => method.type === 'alpine' && method.script?.startsWith('ct/')
-  );
+  // Get default and alpine install methods
+  const defaultMethod = script?.install_methods?.find(method => method.type === 'default');
+  const alpineMethod = script?.install_methods?.find(method => method.type === 'alpine');
   
-  // Get script names for default and alpine versions
+  // Check if alpine variant exists
+  const hasAlpineVariant = !!alpineMethod;
+  
+  // Get script paths from install_methods
+  const defaultScriptPath = defaultMethod?.script;
+  const alpineScriptPath = alpineMethod?.script;
+  
+  // Determine if install scripts exist (only for ct/ scripts typically)
+  const hasInstallScript = defaultScriptPath?.startsWith('ct/') || alpineScriptPath?.startsWith('ct/');
+  
+  // Get script names for display
   const defaultScriptName = scriptName.replace(/^alpine-/, '');
   const alpineScriptName = scriptName.startsWith('alpine-') ? scriptName : `alpine-${scriptName}`;
 
@@ -44,116 +53,72 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
     setError(null);
     
     try {
-      // Build fetch requests for default version
+      // Build fetch requests based on actual script paths from install_methods
       const requests: Promise<Response>[] = [];
-      
-      // Default CT script
-      requests.push(
-        fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `ct/${defaultScriptName}` } }))}`)
-      );
-      
-      // Tools, VM, VW scripts
-      requests.push(
-        fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `tools/pve/${defaultScriptName}` } }))}`)
-      );
-      requests.push(
-        fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `vm/${defaultScriptName}` } }))}`)
-      );
-      requests.push(
-        fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `vw/${defaultScriptName}` } }))}`)
-      );
-      
-      // Default install script
-      requests.push(
-        fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `install/${slug}-install.sh` } }))}`)
-      );
-      
-      // Alpine versions if variant exists
-      if (hasAlpineVariant) {
+      const requestTypes: Array<'default-main' | 'default-install' | 'alpine-main' | 'alpine-install'> = [];
+
+      // Default main script (ct/, vm/, tools/, etc.)
+      if (defaultScriptPath) {
         requests.push(
-          fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `ct/${alpineScriptName}` } }))}`)
+          fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: defaultScriptPath } }))}`)
         );
+        requestTypes.push('default-main');
+      }
+      
+      // Default install script (only for ct/ scripts)
+      if (hasInstallScript && defaultScriptPath?.startsWith('ct/')) {
+        requests.push(
+          fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `install/${slug}-install.sh` } }))}`)
+        );
+        requestTypes.push('default-install');
+      }
+      
+      // Alpine main script
+      if (hasAlpineVariant && alpineScriptPath) {
+        requests.push(
+          fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: alpineScriptPath } }))}`)
+        );
+        requestTypes.push('alpine-main');
+      }
+      
+      // Alpine install script (only for ct/ scripts)
+      if (hasAlpineVariant && hasInstallScript && alpineScriptPath?.startsWith('ct/')) {
         requests.push(
           fetch(`/api/trpc/scripts.getScriptContent?input=${encodeURIComponent(JSON.stringify({ json: { path: `install/alpine-${slug}-install.sh` } }))}`)
         );
+        requestTypes.push('alpine-install');
       }
       
       const responses = await Promise.allSettled(requests);
-
       const content: ScriptContent = {};
-      let responseIndex = 0;
 
-      // Default CT script
-      const ctResponse = responses[responseIndex];
-      if (ctResponse?.status === 'fulfilled' && ctResponse.value.ok) {
-        const ctData = await ctResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-        if (ctData.result?.data?.json?.success) {
-          content.ctScript = ctData.result.data.json.content;
-        }
-      }
-
-      responseIndex++;
-      // Tools script
-      const toolsResponse = responses[responseIndex];
-      if (toolsResponse?.status === 'fulfilled' && toolsResponse.value.ok) {
-        const toolsData = await toolsResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-        if (toolsData.result?.data?.json?.success) {
-          content.ctScript = toolsData.result.data.json.content; // Use ctScript field for tools scripts too
-        }
-      }
-
-      responseIndex++;
-      // VM script
-      const vmResponse = responses[responseIndex];
-      if (vmResponse?.status === 'fulfilled' && vmResponse.value.ok) {
-        const vmData = await vmResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-        if (vmData.result?.data?.json?.success) {
-          content.ctScript = vmData.result.data.json.content; // Use ctScript field for VM scripts too
-        }
-      }
-
-      responseIndex++;
-      // VW script
-      const vwResponse = responses[responseIndex];
-      if (vwResponse?.status === 'fulfilled' && vwResponse.value.ok) {
-        const vwData = await vwResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-        if (vwData.result?.data?.json?.success) {
-          content.ctScript = vwData.result.data.json.content; // Use ctScript field for VW scripts too
-        }
-      }
-
-      responseIndex++;
-      // Default install script
-      const installResponse = responses[responseIndex];
-      if (installResponse?.status === 'fulfilled' && installResponse.value.ok) {
-        const installData = await installResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-        if (installData.result?.data?.json?.success) {
-          content.installScript = installData.result.data.json.content;
-        }
-      }
-      responseIndex++;
-      // Alpine CT script
-      if (hasAlpineVariant) {
-        const alpineCtResponse = responses[responseIndex];
-        if (alpineCtResponse?.status === 'fulfilled' && alpineCtResponse.value.ok) {
-          const alpineCtData = await alpineCtResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-          if (alpineCtData.result?.data?.json?.success) {
-            content.alpineCtScript = alpineCtData.result.data.json.content;
+      // Process responses based on their types
+      await Promise.all(responses.map(async (response, index) => {
+        if (response.status === 'fulfilled' && response.value.ok) {
+          try {
+            const data = await response.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
+            const type = requestTypes[index];
+            if (data.result?.data?.json?.success && data.result.data.json.content) {
+              switch (type) {
+                case 'default-main':
+                  content.mainScript = data.result.data.json.content;
+                  break;
+                case 'default-install':
+                  content.installScript = data.result.data.json.content;
+                  break;
+                case 'alpine-main':
+                  content.alpineMainScript = data.result.data.json.content;
+                  break;
+                case 'alpine-install':
+                  content.alpineInstallScript = data.result.data.json.content;
+                  break;
+              }
+            }
+          } catch {
+            // Ignore errors
           }
         }
-        responseIndex++;
-      }
-
-      // Alpine install script
-      if (hasAlpineVariant) {
-        const alpineInstallResponse = responses[responseIndex];
-        if (alpineInstallResponse?.status === 'fulfilled' && alpineInstallResponse.value.ok) {
-          const alpineInstallData = await alpineInstallResponse.value.json() as { result?: { data?: { json?: { success?: boolean; content?: string } } } };
-          if (alpineInstallData.result?.data?.json?.success) {
-            content.alpineInstallScript = alpineInstallData.result.data.json.content;
-          }
-        }
-      }
+      }));
 
       setScriptContent(content);
     } catch (err) {
@@ -161,7 +126,7 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
     } finally {
       setIsLoading(false);
     }
-  }, [defaultScriptName, alpineScriptName, slug, hasAlpineVariant]);
+  }, [defaultScriptPath, alpineScriptPath, slug, hasAlpineVariant, hasInstallScript]);
 
   useEffect(() => {
     if (isOpen && scriptName) {
@@ -207,23 +172,25 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
                 </Button>
               </div>
             )}
-            {((selectedVersion === 'default' && (scriptContent.ctScript || scriptContent.installScript)) ||
-              (selectedVersion === 'alpine' && (scriptContent.alpineCtScript || scriptContent.alpineInstallScript))) && (
+            {((selectedVersion === 'default' && (scriptContent.mainScript || scriptContent.installScript)) ||
+              (selectedVersion === 'alpine' && (scriptContent.alpineMainScript || scriptContent.alpineInstallScript))) && (
               <div className="flex space-x-2">
                 <Button
-                  variant={activeTab === 'ct' ? 'outline' : 'ghost'}
-                  onClick={() => setActiveTab('ct')}
+                  variant={activeTab === 'main' ? 'outline' : 'ghost'}
+                  onClick={() => setActiveTab('main')}
                   className="px-3 py-1 text-sm"
                 >
-                  CT Script
+                  Script
                 </Button>
-                <Button
-                  variant={activeTab === 'install' ? 'outline' : 'ghost'}
-                  onClick={() => setActiveTab('install')}
-                  className="px-3 py-1 text-sm"
-                >
-                  Install Script
-                </Button>
+                {hasInstallScript && (
+                  <Button
+                    variant={activeTab === 'install' ? 'outline' : 'ghost'}
+                    onClick={() => setActiveTab('install')}
+                    className="px-3 py-1 text-sm"
+                  >
+                    Install Script
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -249,8 +216,8 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              {activeTab === 'ct' && (
-                selectedVersion === 'default' && scriptContent.ctScript ? (
+              {activeTab === 'main' && (
+                selectedVersion === 'default' && scriptContent.mainScript ? (
                   <SyntaxHighlighter
                     language="bash"
                     style={tomorrow}
@@ -264,9 +231,9 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
                     showLineNumbers={true}
                     wrapLines={true}
                   >
-                    {scriptContent.ctScript}
+                    {scriptContent.mainScript}
                   </SyntaxHighlighter>
-                ) : selectedVersion === 'alpine' && scriptContent.alpineCtScript ? (
+                ) : selectedVersion === 'alpine' && scriptContent.alpineMainScript ? (
                   <SyntaxHighlighter
                     language="bash"
                     style={tomorrow}
@@ -280,12 +247,12 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
                     showLineNumbers={true}
                     wrapLines={true}
                   >
-                    {scriptContent.alpineCtScript}
+                    {scriptContent.alpineMainScript}
                   </SyntaxHighlighter>
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-lg text-muted-foreground">
-                      {selectedVersion === 'default' ? 'Default CT script not found' : 'Alpine CT script not found'}
+                      {selectedVersion === 'default' ? 'Default script not found' : 'Alpine script not found'}
                     </div>
                   </div>
                 )
