@@ -111,7 +111,8 @@ export const versionRouter = createTRPCRouter({
             tagName: release.tag_name,
             name: release.name,
             publishedAt: release.published_at,
-            htmlUrl: release.html_url
+            htmlUrl: release.html_url,
+            body: release.body
           }
         };
       } catch (error) {

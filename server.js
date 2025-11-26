@@ -92,7 +92,7 @@ class ScriptExecutionHandler {
   /**
    * Handle WebSocket upgrade for our endpoint
    * @param {import('http').IncomingMessage} request
-   * @param {import('net').Socket} socket
+   * @param {import('stream').Duplex} socket
    * @param {Buffer} head
    */
   handleUpgrade(request, socket, head) {
