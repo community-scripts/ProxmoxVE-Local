@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface VersionDisplayProps {
   onOpenReleaseNotes?: () => void;
@@ -116,56 +116,22 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     refetchIntervalInBackground: true,
   });
 
-  // Update logs when data changes
-  useEffect(() => {
-    if (updateLogsData?.success && updateLogsData.logs) {
-      lastLogTimeRef.current = Date.now();
-      setUpdateLogs(updateLogsData.logs);
-      
-      if (updateLogsData.isComplete) {
-        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
-        setIsNetworkError(true);
-        // Start reconnection attempts when we know update is complete
-        startReconnectAttempts();
-      }
-    }
-  }, [updateLogsData]);
-
-  // Monitor for server connection loss and auto-reload (fallback only)
-  useEffect(() => {
-    if (!shouldSubscribe) return;
-
-    // Only use this as a fallback - the main trigger should be completion detection
-    const checkInterval = setInterval(() => {
-      const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
-      
-      // Only start reconnection if we've been updating for at least 3 minutes
-      // and no logs for 60 seconds (very conservative fallback)
-      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
-      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
-      
-      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdating && !isNetworkError) {
-        setIsNetworkError(true);
-        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
-        
-        // Start trying to reconnect
-        startReconnectAttempts();
-      }
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(checkInterval);
-  }, [shouldSubscribe, isUpdating, updateStartTime, isNetworkError]);
-
   // Attempt to reconnect and reload page when server is back
-  const startReconnectAttempts = () => {
+  // Memoized with useCallback to prevent recreation on every render
+  // Only depends on refs to avoid stale closures
+  const startReconnectAttempts = useCallback(() => {
+    // Stricter guard: check refs BEFORE starting reconnect attempts
     // Only start if we're actually updating and haven't already started
-    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) return;
+    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) {
+      return;
+    }
     
     setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
     
     reconnectIntervalRef.current = setInterval(() => {
       void (async () => {
         // Guard: Only proceed if we're still updating and in network error state
+        // Check refs directly to avoid stale closures
         if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current) {
           // Clear interval if we're no longer updating
           if (!isUpdatingRef.current && reconnectIntervalRef.current) {
@@ -203,7 +169,54 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         }
       })();
     }, 2000);
-  };
+  }, []); // Empty deps - only uses refs which are stable
+
+  // Update logs when data changes
+  useEffect(() => {
+    if (updateLogsData?.success && updateLogsData.logs) {
+      lastLogTimeRef.current = Date.now();
+      setUpdateLogs(updateLogsData.logs);
+      
+      if (updateLogsData.isComplete) {
+        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+        setIsNetworkError(true);
+        // Start reconnection attempts when we know update is complete
+        startReconnectAttempts();
+      }
+    }
+  }, [updateLogsData, startReconnectAttempts]);
+
+  // Monitor for server connection loss and auto-reload (fallback only)
+  useEffect(() => {
+    // Early return: only run if we're actually updating
+    if (!shouldSubscribe || !isUpdating) return;
+
+    // Only use this as a fallback - the main trigger should be completion detection
+    const checkInterval = setInterval(() => {
+      // Check refs first to ensure we're still updating
+      if (!isUpdatingRef.current || hasReloadedRef.current) {
+        return;
+      }
+
+      const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
+      
+      // Only start reconnection if we've been updating for at least 3 minutes
+      // and no logs for 60 seconds (very conservative fallback)
+      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
+      const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
+      
+      // Additional guard: check refs again before triggering
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdatingRef.current && !isNetworkErrorRef.current) {
+        setIsNetworkError(true);
+        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
+        
+        // Start trying to reconnect
+        startReconnectAttempts();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [shouldSubscribe, isUpdating, updateStartTime, startReconnectAttempts]);
 
   // Keep refs in sync with state
   useEffect(() => {
