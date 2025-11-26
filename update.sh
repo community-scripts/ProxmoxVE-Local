@@ -851,6 +851,59 @@ rollback() {
     exit 1
 }
 
+# Check installed Node.js version and upgrade if needed
+check_node_version() {
+    if ! command -v node &>/dev/null; then
+        log_error "Node.js is not installed"
+        exit 1
+    fi
+
+    local current major_version
+
+    current=$(node -v 2>/dev/null | tr -d 'v')
+    major_version=${current%%.*}
+
+    log "Detected Node.js version: $current"
+
+    if (( major_version < 24 )); then
+        log_warning "Node.js < 24 detected → upgrading to Node.js 24 LTS..."
+        upgrade_node_to_24
+    elif (( major_version > 24 )); then
+        log_warning "Node.js > 24 detected → script tested only up to Node 24"
+        log "Continuing anyway…"
+    else
+        log_success "Node.js 24 already installed"
+    fi
+}
+
+# Upgrade Node.js to version 24
+upgrade_node_to_24() {
+    log "Preparing Node.js 24 upgrade…"
+
+    # Remove old nodesource repo if it exists
+    if [ -f /etc/apt/sources.list.d/nodesource.list ]; then
+        rm -f /etc/apt/sources.list.d/nodesource.list
+    fi
+
+    # Install NodeSource repo for Node.js 24
+    curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/node24_setup.sh
+    if ! bash /tmp/node24_setup.sh > /tmp/node24_setup.log 2>&1; then
+        log_error "Failed to configure Node.js 24 repository"
+        tail -20 /tmp/node24_setup.log | while read -r line; do log_error "$line"; done
+        exit 1
+    fi
+
+    log "Installing Node.js 24…"
+    if ! apt-get install -y nodejs >> "$LOG_FILE" 2>&1; then
+        log_error "Failed to install Node.js 24"
+        exit 1
+    fi
+
+    local new_ver
+    new_ver=$(node -v 2>/dev/null || true)
+    log_success "Node.js successfully upgraded to $new_ver"
+}
+
 # Main update process
 main() {
     # Check if this is the relocated/detached version first
@@ -913,6 +966,12 @@ main() {
     
     # Stop the application before updating
     stop_application
+
+    # Check Node.js version
+    check_node_version
+
+    #Update Node.js to 24
+    upgrade_node_to_24
     
     # Download and extract release
     local source_dir
