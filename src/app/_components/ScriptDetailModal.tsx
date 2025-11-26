@@ -61,7 +61,11 @@ export function ScriptDetailModal({
     isLoading: comparisonLoading,
   } = api.scripts.compareScriptContent.useQuery(
     { slug: script?.slug ?? "" },
-    { enabled: !!script && isOpen },
+    { 
+      enabled: !!script && isOpen,
+      refetchOnMount: true,
+      staleTime: 0,
+    },
   );
 
   // Load script mutation
@@ -547,19 +551,60 @@ export function ScriptDetailModal({
                     </div>
                     {scriptFilesData?.success &&
                       (scriptFilesData.ctExists ||
-                        scriptFilesData.installExists) &&
-                      comparisonData?.success &&
-                      !comparisonLoading && (
+                        scriptFilesData.installExists) && (
                         <div className="flex items-center space-x-2">
-                          <div
-                            className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-warning" : "bg-success"}`}
-                          ></div>
-                          <span>
-                            Status:{" "}
-                            {comparisonData.hasDifferences
-                              ? "Update available"
-                              : "Up to date"}
-                          </span>
+                          {comparisonData?.success ? (
+                            <>
+                              <div
+                                className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-warning" : "bg-success"}`}
+                              ></div>
+                              <span>
+                                Status:{" "}
+                                {comparisonData.hasDifferences
+                                  ? "Update available"
+                                  : "Up to date"}
+                              </span>
+                            </>
+                          ) : comparisonLoading ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-muted animate-pulse"></div>
+                              <span>Checking for updates...</span>
+                            </>
+                          ) : comparisonData?.error ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-destructive"></div>
+                              <span className="text-destructive">Error: {comparisonData.error}</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-muted"></div>
+                              <span>Status: Unknown</span>
+                            </>
+                          )}
+                          <button
+                            onClick={() => void refetchComparison()}
+                            disabled={comparisonLoading}
+                            className="ml-2 p-1.5 rounded-md hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            title="Refresh comparison"
+                          >
+                            {comparisonLoading ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                            ) : (
+                              <svg
+                                className="h-4 w-4 text-muted-foreground hover:text-foreground"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                            )}
+                          </button>
                         </div>
                       )}
                   </div>

@@ -519,13 +519,16 @@ export class ScriptDownloaderService {
               comparisonPromises.push(
                 this.compareSingleFile(script, scriptPath, `${finalTargetDir}/${fileName}`)
                   .then(result => {
+                    if (result.error) {
+                      console.error(`[Comparison] Error comparing ${result.filePath}: ${result.error}`);
+                    }
                     if (result.hasDifferences) {
                       hasDifferences = true;
                       differences.push(result.filePath);
                     }
                   })
-                  .catch(() => {
-                    // Don't add to differences if there's an error reading files
+                  .catch((error) => {
+                    console.error(`[Comparison] Promise error for ${scriptPath}:`, error);
                   })
               );
             }
@@ -541,13 +544,16 @@ export class ScriptDownloaderService {
         comparisonPromises.push(
           this.compareSingleFile(script, installScriptPath, installScriptPath)
             .then(result => {
+              if (result.error) {
+                console.error(`[Comparison] Error comparing ${result.filePath}: ${result.error}`);
+              }
               if (result.hasDifferences) {
                 hasDifferences = true;
                 differences.push(result.filePath);
               }
             })
-            .catch(() => {
-              // Don't add to differences if there's an error reading files
+            .catch((error) => {
+              console.error(`[Comparison] Promise error for ${installScriptPath}:`, error);
             })
         );
       }
@@ -567,13 +573,16 @@ export class ScriptDownloaderService {
           comparisonPromises.push(
             this.compareSingleFile(script, alpineInstallScriptPath, alpineInstallScriptPath)
               .then(result => {
+                if (result.error) {
+                  console.error(`[Comparison] Error comparing ${result.filePath}: ${result.error}`);
+                }
                 if (result.hasDifferences) {
                   hasDifferences = true;
                   differences.push(result.filePath);
                 }
               })
-              .catch(() => {
-                // Don't add to differences if there's an error reading files
+              .catch((error) => {
+                console.error(`[Comparison] Promise error for ${alpineInstallScriptPath}:`, error);
               })
           );
         } catch {
@@ -584,10 +593,11 @@ export class ScriptDownloaderService {
       // Wait for all comparisons to complete
       await Promise.all(comparisonPromises);
 
+      console.log(`[Comparison] Completed comparison for ${script.slug}: hasDifferences=${hasDifferences}, differences=${differences.length}`);
       return { hasDifferences, differences };
     } catch (error) {
-      console.error('Error comparing script content:', error);
-      return { hasDifferences: false, differences: [] };
+      console.error(`[Comparison] Error comparing script content for ${script.slug}:`, error);
+      return { hasDifferences: false, differences: [], error: error.message };
     }
   }
 
@@ -597,16 +607,21 @@ export class ScriptDownloaderService {
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';
       
+      console.log(`[Comparison] Comparing ${filePath} from ${repoUrl} (branch: ${branch})`);
+      
       // Read local content
       const localContent = await readFile(localPath, 'utf-8');
+      console.log(`[Comparison] Local file size: ${localContent.length} bytes`);
       
       // Download remote content from the script's repository
       const remoteContent = await this.downloadFileFromGitHub(repoUrl, remotePath, branch);
+      console.log(`[Comparison] Remote file size: ${remoteContent.length} bytes`);
       
       // Apply modification only for CT scripts, not for other script types
       let modifiedRemoteContent;
       if (remotePath.startsWith('ct/')) {
         modifiedRemoteContent = this.modifyScriptContent(remoteContent);
+        console.log(`[Comparison] Applied CT script modifications`);
       } else {
         modifiedRemoteContent = remoteContent; // Don't modify tools or vm scripts
       }
@@ -614,10 +629,17 @@ export class ScriptDownloaderService {
       // Compare content
       const hasDifferences = localContent !== modifiedRemoteContent;
       
+      if (hasDifferences) {
+        console.log(`[Comparison] Differences found in ${filePath}`);
+      } else {
+        console.log(`[Comparison] No differences in ${filePath}`);
+      }
+      
       return { hasDifferences, filePath };
     } catch (error) {
-      console.error(`Error comparing file ${filePath}:`, error);
-      return { hasDifferences: false, filePath };
+      console.error(`[Comparison] Error comparing file ${filePath}:`, error.message);
+      // Return error information so it can be handled upstream
+      return { hasDifferences: false, filePath, error: error.message };
     }
   }
 
