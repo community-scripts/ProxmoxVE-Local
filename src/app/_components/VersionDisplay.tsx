@@ -4,6 +4,7 @@ import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
+import { UpdateConfirmationModal } from "./UpdateConfirmationModal";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -85,6 +86,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [shouldSubscribe, setShouldSubscribe] = useState(false);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
+  const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
   const lastLogTimeRef = useRef<number>(Date.now());
   const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasReloadedRef = useRef<boolean>(false);
@@ -101,11 +103,13 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         setUpdateLogs(['Update started...']);
       } else {
         setIsUpdating(false);
+        setShouldSubscribe(false); // Reset subscription on failure
       }
     },
     onError: (error) => {
       setUpdateResult({ success: false, message: error.message });
       setIsUpdating(false);
+      setShouldSubscribe(false); // Reset subscription on error
     }
   });
 
@@ -120,8 +124,9 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   // Memoized with useCallback to prevent recreation on every render
   // Only depends on refs to avoid stale closures
   const startReconnectAttempts = useCallback(() => {
-    // Stricter guard: check refs BEFORE starting reconnect attempts
+    // CRITICAL: Stricter guard - check refs BEFORE starting reconnect attempts
     // Only start if we're actually updating and haven't already started
+    // Double-check isUpdating state to prevent false triggers from stale data
     if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) {
       return;
     }
@@ -173,18 +178,26 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
 
   // Update logs when data changes
   useEffect(() => {
+    // CRITICAL: Only process update logs if we're actually updating
+    // This prevents stale isComplete data from triggering reloads when not updating
+    if (!isUpdating) {
+      return;
+    }
+    
     if (updateLogsData?.success && updateLogsData.logs) {
       lastLogTimeRef.current = Date.now();
       setUpdateLogs(updateLogsData.logs);
       
-      if (updateLogsData.isComplete) {
+      // CRITICAL: Only process isComplete if we're actually updating
+      // Double-check isUpdating state to prevent false triggers
+      if (updateLogsData.isComplete && isUpdating) {
         setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
         setIsNetworkError(true);
         // Start reconnection attempts when we know update is complete
         startReconnectAttempts();
       }
     }
-  }, [updateLogsData, startReconnectAttempts]);
+  }, [updateLogsData, startReconnectAttempts, isUpdating]);
 
   // Monitor for server connection loss and auto-reload (fallback only)
   useEffect(() => {
@@ -229,10 +242,14 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
 
   // Clear reconnect interval when update completes or component unmounts
   useEffect(() => {
-    // If we're no longer updating, clear the reconnect interval
-    if (!isUpdating && reconnectIntervalRef.current) {
-      clearInterval(reconnectIntervalRef.current);
-      reconnectIntervalRef.current = null;
+    // If we're no longer updating, clear the reconnect interval and reset subscription
+    if (!isUpdating) {
+      if (reconnectIntervalRef.current) {
+        clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
+      }
+      // Reset subscription to prevent stale polling
+      setShouldSubscribe(false);
     }
     
     return () => {
@@ -244,6 +261,14 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   }, [isUpdating]);
 
   const handleUpdate = () => {
+    // Show confirmation modal instead of starting update directly
+    setShowUpdateConfirmation(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    // Close the confirmation modal
+    setShowUpdateConfirmation(false);
+    // Start the actual update process
     setIsUpdating(true);
     setUpdateResult(null);
     setIsNetworkError(false);
@@ -289,6 +314,18 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     <>
       {/* Loading overlay */}
       {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
+      
+      {/* Update Confirmation Modal */}
+      {versionStatus?.releaseInfo && (
+        <UpdateConfirmationModal
+          isOpen={showUpdateConfirmation}
+          onClose={() => setShowUpdateConfirmation(false)}
+          onConfirm={handleConfirmUpdate}
+          releaseInfo={versionStatus.releaseInfo}
+          currentVersion={versionStatus.currentVersion}
+          latestVersion={versionStatus.latestVersion}
+        />
+      )}
       
       <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
         <Badge 
