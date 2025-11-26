@@ -1159,12 +1159,22 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url || '', true);
       const { pathname, query } = parsedUrl;
 
-      if (pathname === '/ws/script-execution') {
+      // Check if this is a WebSocket upgrade request
+      const isWebSocketUpgrade = req.headers.upgrade === 'websocket';
+      
+      // Only intercept WebSocket upgrades for /ws/script-execution
+      // Let Next.js handle all other WebSocket upgrades (like HMR) and all HTTP requests
+      if (isWebSocketUpgrade && pathname === '/ws/script-execution') {
         // WebSocket upgrade will be handled by the WebSocket server
+        // Don't call handle() for this path - let WebSocketServer handle it
         return;
       }
 
-      // Let Next.js handle all other requests including HMR
+      // Let Next.js handle all other requests including:
+      // - HTTP requests to /ws/script-execution (non-WebSocket)
+      // - WebSocket upgrades to other paths (like /_next/webpack-hmr)
+      // - All static assets (_next routes)
+      // - All other routes
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
