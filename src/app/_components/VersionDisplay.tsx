@@ -87,6 +87,9 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const lastLogTimeRef = useRef<number>(Date.now());
   const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasReloadedRef = useRef<boolean>(false);
+  const isUpdatingRef = useRef<boolean>(false);
+  const isNetworkErrorRef = useRef<boolean>(false);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result) => {
@@ -155,21 +158,40 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
 
   // Attempt to reconnect and reload page when server is back
   const startReconnectAttempts = () => {
-    if (reconnectIntervalRef.current) return;
+    // Only start if we're actually updating and haven't already started
+    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) return;
     
     setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
     
     reconnectIntervalRef.current = setInterval(() => {
       void (async () => {
+        // Guard: Only proceed if we're still updating and in network error state
+        if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current) {
+          // Clear interval if we're no longer updating
+          if (!isUpdatingRef.current && reconnectIntervalRef.current) {
+            clearInterval(reconnectIntervalRef.current);
+            reconnectIntervalRef.current = null;
+          }
+          return;
+        }
+        
         try {
           // Try to fetch the root path to check if server is back
           const response = await fetch('/', { method: 'HEAD' });
           if (response.ok || response.status === 200) {
+            // Double-check we're still updating before reloading
+            if (!isUpdatingRef.current || hasReloadedRef.current) {
+              return;
+            }
+            
+            // Mark that we're about to reload to prevent multiple reloads
+            hasReloadedRef.current = true;
             setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
             
             // Clear interval and reload
             if (reconnectIntervalRef.current) {
               clearInterval(reconnectIntervalRef.current);
+              reconnectIntervalRef.current = null;
             }
             
             setTimeout(() => {
@@ -183,14 +205,30 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     }, 2000);
   };
 
-  // Cleanup reconnect interval on unmount
+  // Keep refs in sync with state
   useEffect(() => {
+    isUpdatingRef.current = isUpdating;
+  }, [isUpdating]);
+
+  useEffect(() => {
+    isNetworkErrorRef.current = isNetworkError;
+  }, [isNetworkError]);
+
+  // Clear reconnect interval when update completes or component unmounts
+  useEffect(() => {
+    // If we're no longer updating, clear the reconnect interval
+    if (!isUpdating && reconnectIntervalRef.current) {
+      clearInterval(reconnectIntervalRef.current);
+      reconnectIntervalRef.current = null;
+    }
+    
     return () => {
       if (reconnectIntervalRef.current) {
         clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [isUpdating]);
 
   const handleUpdate = () => {
     setIsUpdating(true);
@@ -200,6 +238,12 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     setShouldSubscribe(false);
     setUpdateStartTime(Date.now());
     lastLogTimeRef.current = Date.now();
+    hasReloadedRef.current = false; // Reset reload flag when starting new update
+    // Clear any existing reconnect interval
+    if (reconnectIntervalRef.current) {
+      clearInterval(reconnectIntervalRef.current);
+      reconnectIntervalRef.current = null;
+    }
     executeUpdate.mutate();
   };
 
