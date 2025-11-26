@@ -79,13 +79,16 @@ class ScriptExecutionHandler {
    * @param {import('http').Server} server
    */
   constructor(server) {
+    // Create WebSocketServer without attaching to server
+    // We'll handle upgrades manually to avoid interfering with Next.js HMR
     this.wss = new WebSocketServer({ 
-      server,
+      noServer: true,
       path: '/ws/script-execution'
     });
     this.activeExecutions = new Map();
     this.db = getDatabase();
     this.setupWebSocket();
+    this.server = server;
   }
 
   /**
@@ -1185,6 +1188,23 @@ app.prepare().then(() => {
 
   // Create WebSocket handlers
   const scriptHandler = new ScriptExecutionHandler(httpServer);
+  
+  // Manually handle upgrade events to ensure Next.js HMR WebSocket works
+  // We handle /ws/script-execution ourselves and pass everything else to Next.js
+  httpServer.on('upgrade', (request, socket, head) => {
+    const parsedUrl = parse(request.url || '', true);
+    const { pathname } = parsedUrl;
+    
+    if (pathname === '/ws/script-execution') {
+      // Handle our custom WebSocket endpoint
+      scriptHandler.wss.handleUpgrade(request, socket, head, (ws) => {
+        scriptHandler.wss.emit('connection', ws, request);
+      });
+    } else {
+      // Pass all other WebSocket upgrades (including Next.js HMR) to Next.js handler
+      handle(request, socket, head);
+    }
+  });
   // Note: TerminalHandler removed as it's not being used by the current application
 
   httpServer
