@@ -41,10 +41,14 @@ export async function POST(request: NextRequest) {
     const sessionDurationDays = authConfig.sessionDurationDays;
     const token = generateToken(username, sessionDurationDays);
 
+    // Calculate expiration time for client
+    const expirationTime = Date.now() + (sessionDurationDays * 24 * 60 * 60 * 1000);
+
     const response = NextResponse.json({ 
       success: true, 
       message: 'Login successful',
-      username 
+      username,
+      expirationTime
     });
 
     // Determine if request is over HTTPS

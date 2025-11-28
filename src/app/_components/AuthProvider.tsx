@@ -97,7 +97,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = useCallback(() => {
     return checkAuthInternal(0);
-     
   }, []);
 
   const login = async (
@@ -115,17 +114,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (response.ok) {
-        const data = (await response.json()) as { username: string };
+        const data = (await response.json()) as {
+          username: string;
+          expirationTime?: number;
+        };
         setIsAuthenticated(true);
         setUsername(data.username);
-
-        // Check auth again to get expiration time
-        // Add a small delay to ensure the httpOnly cookie is available
-        await new Promise<void>((resolve) => {
-          setTimeout(() => {
-            void checkAuth().then(() => resolve());
-          }, 150);
-        });
+        // Set expiration time from login response if available
+        if (data.expirationTime) {
+          setExpirationTime(data.expirationTime);
+        }
+        // Don't call checkAuth after login - we already know we're authenticated
+        // The cookie is set by the server response
         return true;
       } else {
         const errorData = await response.json();
