@@ -16,6 +16,9 @@
 db.sqlite
 data/settings.db
 
+# prisma generated client
+/prisma/generated/
+
 # ssh keys (sensitive)
 data/ssh-keys/
 
