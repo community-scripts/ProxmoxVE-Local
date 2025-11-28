@@ -1,4 +1,4 @@
-import { prisma } from './db.js';
+import { prisma } from './db';
 import { join } from 'path';
 import { writeFileSync, unlinkSync, chmodSync, mkdirSync } from 'fs';
 import { existsSync } from 'fs';

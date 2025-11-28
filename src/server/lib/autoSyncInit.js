@@ -1,4 +1,4 @@
-import { AutoSyncService } from '../services/autoSyncService.js';
+import { AutoSyncService } from '../services/autoSyncService';
 import { repositoryService } from '../services/repositoryService';
 
 /** @type {AutoSyncService | null} */

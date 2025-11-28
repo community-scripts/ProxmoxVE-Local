@@ -1,7 +1,7 @@
 import cron from 'node-cron';
-import { githubJsonService } from './githubJsonService.js';
-import { scriptDownloaderService } from './scriptDownloader.js';
-import { appriseService } from './appriseService.js';
+import { githubJsonService } from './githubJsonService';
+import { scriptDownloaderService } from './scriptDownloader';
+import { appriseService } from './appriseService';
 import { readFile, writeFile, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import cronValidator from 'cron-validator';
