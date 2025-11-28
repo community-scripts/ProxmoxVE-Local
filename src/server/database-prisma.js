@@ -9,10 +9,10 @@ class DatabaseServicePrisma {
   }
 
   init() {
-    // Ensure data/ssh-keys directory exists
+    // Ensure data/ssh-keys directory exists (recursive to create parent dirs)
     const sshKeysDir = join(process.cwd(), 'data', 'ssh-keys');
     if (!existsSync(sshKeysDir)) {
-      mkdirSync(sshKeysDir, { mode: 0o700 });
+      mkdirSync(sshKeysDir, { recursive: true, mode: 0o700 });
     }
   }
 
