@@ -7,7 +7,7 @@
     "build": "prisma generate && next build --webpack",
     "check": "eslint . && tsc --noEmit",
     "dev": "next dev --webpack",
-    "dev:server": "node server.js",
+    "dev:server": "tsx server.js",
     "dev:next": "next dev --webpack",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
@@ -90,6 +90,7 @@
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0",
+    "tsx": "^4.19.4",
     "vitest": "^4.0.14"
   },
   "ct3aMetadata": {
