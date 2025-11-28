@@ -12,7 +12,7 @@
     /* Strictness */
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "checkJs": false,
+    "checkJs": true,
     /* Bundled projects */
     "lib": [
       "dom",
@@ -44,12 +44,12 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.cjs",
+    "**/*.js",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "**/*.js",
-    "**/*.cjs"
+    "node_modules"
   ]
 }
