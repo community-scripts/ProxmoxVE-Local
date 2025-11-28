@@ -97,7 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = useCallback(() => {
     return checkAuthInternal(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const login = async (

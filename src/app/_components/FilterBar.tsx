@@ -321,7 +321,7 @@ export function FilterBar({
 
             {/* Repository Filter Buttons - Only show if more than one enabled repo */}
             {enabledRepos.length > 1 &&
-              enabledRepos.map((repo) => {
+              enabledRepos.map((repo: { id: number; url: string }) => {
                 const repoUrl = String(repo.url);
                 const isSelected =
                   filters.selectedRepositories.includes(repoUrl);

@@ -187,7 +187,16 @@ export async function POST(request: NextRequest) {
       }
       
       // Update the global service instance with new settings
-      autoSyncService.saveSettings(settings);
+      // Normalize appriseUrls to always be an array
+      const normalizedSettings = {
+        ...settings,
+        appriseUrls: Array.isArray(settings.appriseUrls) 
+          ? settings.appriseUrls 
+          : settings.appriseUrls 
+            ? [settings.appriseUrls] 
+            : undefined
+      };
+      autoSyncService.saveSettings(normalizedSettings);
       
       if (settings.autoSyncEnabled) {
         autoSyncService.scheduleAutoSync();

@@ -32,7 +32,7 @@ interface Backup {
   storage_name: string;
   storage_type: string;
   discovered_at: Date;
-  server_id: number;
+  server_id?: number;
   server_name: string | null;
   server_color: string | null;
 }
@@ -163,7 +163,6 @@ export function BackupsTab() {
       }
       setHasAutoDiscovered(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasAutoDiscovered, isLoading, backupsData]);
 
   const handleDiscoverBackups = () => {
@@ -188,7 +187,7 @@ export function BackupsTab() {
     restoreMutation.mutate({
       backupId: selectedBackup.backup.id,
       containerId: selectedBackup.containerId,
-      serverId: selectedBackup.backup.server_id,
+      serverId: selectedBackup.backup.server_id ?? 0,
     });
   };
 

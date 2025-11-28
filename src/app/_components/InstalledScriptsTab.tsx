@@ -331,7 +331,7 @@ export function InstalledScriptsTab() {
         setAutoDetectStatus({
           type: "success",
           message: data.success
-            ? `Detected IP: ${data.ip}`
+            ? `Detected IP: ${data.detectedIp ?? "unknown"}`
             : (data.error ?? "Failed to detect Web UI"),
         });
         setTimeout(
@@ -359,15 +359,10 @@ export function InstalledScriptsTab() {
       { enabled: false }, // Only fetch when explicitly called
     );
 
-  const fetchStorages = async (serverId: number, forceRefresh = false) => {
+  const fetchStorages = async (serverId: number, _forceRefresh = false) => {
     setIsLoadingStorages(true);
     try {
-      const result = await getBackupStoragesQuery.refetch({
-        queryKey: [
-          "installedScripts.getBackupStorages",
-          { serverId, forceRefresh },
-        ],
-      });
+      const result = await getBackupStoragesQuery.refetch();
       if (result.data?.success) {
         setBackupStorages(result.data.storages);
       } else {

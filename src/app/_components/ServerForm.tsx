@@ -74,7 +74,7 @@ export function ServerForm({
     // Check for IPv6 with zone identifier (link-local addresses like fe80::...%eth0)
     let ipv6Address = trimmed;
     const zoneIdMatch = /^(.+)%([a-zA-Z0-9_\-]+)$/.exec(trimmed);
-    if (zoneIdMatch) {
+    if (zoneIdMatch?.[1] && zoneIdMatch[2]) {
       ipv6Address = zoneIdMatch[1];
       // Zone identifier should be a valid interface name (alphanumeric, underscore, hyphen)
       const zoneId = zoneIdMatch[2];

@@ -476,7 +476,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const scripts = await db.getAllInstalledScripts();
         
         // Transform scripts to flatten server data for frontend compatibility
-        const transformedScripts = await Promise.all(scripts.map(async (script) => {
+         
+        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
           // Determine if it's a VM or LXC
           let is_vm = false;
           if (script.container_id && script.server_id) {
@@ -522,7 +523,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const scripts = await db.getInstalledScriptsByServer(input.serverId);
         
         // Transform scripts to flatten server data for frontend compatibility
-        const transformedScripts = await Promise.all(scripts.map(async (script) => {
+         
+        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
           // Determine if it's a VM or LXC
           let is_vm = false;
           if (script.container_id && script.server_id) {

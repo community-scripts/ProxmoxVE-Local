@@ -1704,134 +1704,143 @@ export function GeneralSettingsModal({
                   {repositoriesData?.success &&
                   repositoriesData.repositories.length > 0 ? (
                     <div className="space-y-3">
-                      {repositoriesData.repositories.map((repo) => (
-                        <div
-                          key={repo.id}
-                          className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1 flex items-center gap-2">
-                              <a
-                                href={repo.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-foreground hover:text-primary flex items-center gap-1 text-sm font-medium"
-                              >
-                                {repo.url}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                              {repo.is_default && (
-                                <span className="bg-primary/10 text-primary rounded px-2 py-0.5 text-xs">
-                                  {repo.priority === 1 ? "Main" : "Dev"}
-                                </span>
-                              )}
+                      {repositoriesData.repositories.map(
+                        (repo: {
+                          id: number;
+                          url: string;
+                          enabled: boolean;
+                          is_default: boolean;
+                          is_removable: boolean;
+                          priority: number;
+                        }) => (
+                          <div
+                            key={repo.id}
+                            className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex items-center gap-2">
+                                <a
+                                  href={repo.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-foreground hover:text-primary flex items-center gap-1 text-sm font-medium"
+                                >
+                                  {repo.url}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                                {repo.is_default && (
+                                  <span className="bg-primary/10 text-primary rounded px-2 py-0.5 text-xs">
+                                    {repo.priority === 1 ? "Main" : "Dev"}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-xs">
+                                Priority: {repo.priority}{" "}
+                                {repo.enabled ? "• Enabled" : "• Disabled"}
+                              </p>
                             </div>
-                            <p className="text-muted-foreground text-xs">
-                              Priority: {repo.priority}{" "}
-                              {repo.enabled ? "• Enabled" : "• Disabled"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Toggle
-                              checked={repo.enabled}
-                              onCheckedChange={async (enabled) => {
-                                setMessage(null);
-                                try {
-                                  const result =
-                                    await updateRepoMutation.mutateAsync({
-                                      id: repo.id,
-                                      enabled,
-                                    });
-                                  if (result.success) {
-                                    setMessage({
-                                      type: "success",
-                                      text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
-                                    });
-                                    await refetchRepositories();
-                                  } else {
-                                    setMessage({
-                                      type: "error",
-                                      text:
-                                        result.error ??
-                                        "Failed to update repository",
-                                    });
-                                  }
-                                } catch (error) {
-                                  setMessage({
-                                    type: "error",
-                                    text:
-                                      error instanceof Error
-                                        ? error.message
-                                        : "Failed to update repository",
-                                  });
-                                }
-                              }}
-                              disabled={updateRepoMutation.isPending}
-                              label={repo.enabled ? "Disable" : "Enable"}
-                            />
-                            <Button
-                              onClick={async () => {
-                                if (!repo.is_removable) {
-                                  setMessage({
-                                    type: "error",
-                                    text: "Default repositories cannot be deleted",
-                                  });
-                                  return;
-                                }
-                                if (
-                                  !confirm(
-                                    `Are you sure you want to delete this repository? All scripts from this repository will be removed.`,
-                                  )
-                                ) {
-                                  return;
-                                }
-                                setDeletingRepoId(Number(repo.id));
-                                setMessage(null);
-                                try {
-                                  const result =
-                                    await deleteRepoMutation.mutateAsync({
-                                      id: repo.id,
-                                    });
-                                  if (result.success) {
-                                    setMessage({
-                                      type: "success",
-                                      text: "Repository deleted successfully!",
-                                    });
-                                    await refetchRepositories();
-                                  } else {
+                            <div className="flex items-center gap-2">
+                              <Toggle
+                                checked={repo.enabled}
+                                onCheckedChange={async (enabled) => {
+                                  setMessage(null);
+                                  try {
+                                    const result =
+                                      await updateRepoMutation.mutateAsync({
+                                        id: repo.id,
+                                        enabled,
+                                      });
+                                    if (result.success) {
+                                      setMessage({
+                                        type: "success",
+                                        text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
+                                      });
+                                      await refetchRepositories();
+                                    } else {
+                                      setMessage({
+                                        type: "error",
+                                        text:
+                                          result.error ??
+                                          "Failed to update repository",
+                                      });
+                                    }
+                                  } catch (error) {
                                     setMessage({
                                       type: "error",
                                       text:
-                                        result.error ??
-                                        "Failed to delete repository",
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Failed to update repository",
                                     });
                                   }
-                                } catch (error) {
-                                  setMessage({
-                                    type: "error",
-                                    text:
-                                      error instanceof Error
-                                        ? error.message
-                                        : "Failed to delete repository",
-                                  });
-                                } finally {
-                                  setDeletingRepoId(null);
+                                }}
+                                disabled={updateRepoMutation.isPending}
+                                label={repo.enabled ? "Disable" : "Enable"}
+                              />
+                              <Button
+                                onClick={async () => {
+                                  if (!repo.is_removable) {
+                                    setMessage({
+                                      type: "error",
+                                      text: "Default repositories cannot be deleted",
+                                    });
+                                    return;
+                                  }
+                                  if (
+                                    !confirm(
+                                      `Are you sure you want to delete this repository? All scripts from this repository will be removed.`,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  setDeletingRepoId(Number(repo.id));
+                                  setMessage(null);
+                                  try {
+                                    const result =
+                                      await deleteRepoMutation.mutateAsync({
+                                        id: repo.id,
+                                      });
+                                    if (result.success) {
+                                      setMessage({
+                                        type: "success",
+                                        text: "Repository deleted successfully!",
+                                      });
+                                      await refetchRepositories();
+                                    } else {
+                                      setMessage({
+                                        type: "error",
+                                        text:
+                                          result.error ??
+                                          "Failed to delete repository",
+                                      });
+                                    }
+                                  } catch (error) {
+                                    setMessage({
+                                      type: "error",
+                                      text:
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Failed to delete repository",
+                                    });
+                                  } finally {
+                                    setDeletingRepoId(null);
+                                  }
+                                }}
+                                disabled={
+                                  !repo.is_removable ||
+                                  deletingRepoId === repo.id ||
+                                  deleteRepoMutation.isPending
                                 }
-                              }}
-                              disabled={
-                                !repo.is_removable ||
-                                deletingRepoId === repo.id ||
-                                deleteRepoMutation.isPending
-                              }
-                              variant="ghost"
-                              size="icon"
-                              className="text-error hover:text-error/80 hover:bg-error/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                                variant="ghost"
+                                size="icon"
+                                className="text-error hover:text-error/80 hover:bg-error/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
