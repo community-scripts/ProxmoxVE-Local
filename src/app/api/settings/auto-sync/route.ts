@@ -176,12 +176,12 @@ export async function POST(request: NextRequest) {
 
     // Reschedule auto-sync service with new settings
     try {
-      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
+      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit');
       let autoSyncService = getAutoSyncService();
       
       // If no global instance exists, create one
       if (!autoSyncService) {
-        const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+        const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
         autoSyncService = new AutoSyncService();
         setAutoSyncService(autoSyncService);
       }
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         // Ensure the service is completely stopped and won't restart
         autoSyncService.isRunning = false;
         // Also stop the global service instance if it exists
-        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit.js');
+        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit');
         stopGlobalAutoSync();
       }
     } catch (error) {
@@ -322,7 +322,7 @@ async function handleTestNotification() {
     }
 
     // Send test notification using the auto-sync service
-    const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+    const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
     const autoSyncService = new AutoSyncService();
     const result = await autoSyncService.testNotification();
 
@@ -370,7 +370,7 @@ async function handleManualSync() {
     }
 
     // Trigger manual sync using the auto-sync service
-    const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+    const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
     const autoSyncService = new AutoSyncService();
     const result = await autoSyncService.executeAutoSync() as { success: boolean; message?: string } | null;
 

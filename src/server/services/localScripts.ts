@@ -96,7 +96,7 @@ export class LocalScriptsService {
           let foundRepo: string | null = null;
           for (const repo of enabledRepos) {
             try {
-              const { githubJsonService } = await import('./githubJsonService.js');
+              const { githubJsonService } = await import('./githubJsonService');
               const repoScript = await githubJsonService.getScriptBySlug(slug, repo.url);
               if (repoScript) {
                 foundRepo = repo.url;

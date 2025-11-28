@@ -376,7 +376,7 @@ export class AutoSyncService {
           console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for script downloads...`);
           
           // Get scripts only for the synced files
-          const localScriptsService = await import('./localScripts.js');
+          const localScriptsService = await import('./localScripts');
           const syncedScripts = [];
           
           for (const filename of syncResult.syncedFiles) {
