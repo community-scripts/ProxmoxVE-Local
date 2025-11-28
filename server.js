@@ -11,6 +11,7 @@ import { getDatabase } from './src/server/database-prisma.js';
 import dotenv from 'dotenv';
 
 // Dynamic import for auto sync init to avoid tsx caching issues
+/** @type {any} */
 let autoSyncModule = null;
 
 // Load environment variables from .env file
