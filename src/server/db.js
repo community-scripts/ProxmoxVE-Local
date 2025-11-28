@@ -1,7 +1,8 @@
 import 'dotenv/config'
-import pkg from '@prisma/client'
-const { PrismaClient } = pkg
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+
+// Import from .prisma/client which is the runtime location
+import { PrismaClient } from '.prisma/client'
 
 const globalForPrisma = globalThis;
 
