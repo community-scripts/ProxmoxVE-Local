@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/prefer-regexp-exec */
-import { prisma } from '../db.ts';
+import { prisma } from '../db.js';
 
 export class RepositoryService {
   /**
@@ -18,7 +18,7 @@ export class RepositoryService {
       }
     });
 
-    const existingUrls = new Set(existingRepos.map(r => r.url));
+    const existingUrls = new Set(existingRepos.map((r: { url: string }) => r.url));
 
     // Create main repo if it doesn't exist
     if (!existingUrls.has(mainRepoUrl)) {

@@ -101,7 +101,7 @@ export const scriptsRouter = createTRPCRouter({
   getAllScripts: publicProcedure
     .query(async () => {
       try {
-        const scripts = await githubJsonService.getAllScripts();
+        const scripts = await localScriptsService.getAllScripts();
         return { success: true, scripts };
       } catch (error) {
         return {
@@ -178,7 +178,7 @@ export const scriptsRouter = createTRPCRouter({
         const scripts = await localScriptsService.getAllScripts();
         
         // Create a set of enabled repository URLs for fast lookup
-        const enabledRepoUrls = new Set(enabledRepos.map(repo => repo.url));
+        const enabledRepoUrls = new Set(enabledRepos.map((repo: { url: string }) => repo.url));
         
         // Create category ID to name mapping
         const categoryMap: Record<number, string> = {};

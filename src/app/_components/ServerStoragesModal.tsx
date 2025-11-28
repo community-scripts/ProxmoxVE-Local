@@ -47,7 +47,7 @@ export function ServerStoragesModal({
 
   const credentialsMap = new Map<string, boolean>();
   if (allCredentials?.success) {
-    allCredentials.credentials.forEach((c) => {
+    allCredentials.credentials.forEach((c: { storage_name: string }) => {
       credentialsMap.set(String(c.storage_name), true);
     });
   }
