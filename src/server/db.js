@@ -4,11 +4,11 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 
-// Use createRequire with absolute path to .prisma/client
+// Use createRequire with absolute path to .prisma/client/index.js
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const require = createRequire(import.meta.url)
-const prismaClientPath = join(__dirname, '../../node_modules/.prisma/client')
+const prismaClientPath = join(__dirname, '../../node_modules/.prisma/client/index.js')
 const { PrismaClient } = require(prismaClientPath)
 
 const globalForPrisma = globalThis;
