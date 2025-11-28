@@ -12,8 +12,12 @@ let isInitialized = false;
 export async function initializeRepositories() {
   try {
     console.log('Initializing default repositories...');
-    await repositoryService.initializeDefaultRepositories();
-    console.log('Default repositories initialized successfully');
+    if (repositoryService && repositoryService.initializeDefaultRepositories) {
+      await repositoryService.initializeDefaultRepositories();
+      console.log('Default repositories initialized successfully');
+    } else {
+      console.warn('Repository service not available, skipping repository initialization');
+    }
   } catch (error) {
     console.error('Failed to initialize repositories:', error);
     console.error('Error stack:', error.stack);

@@ -1243,16 +1243,35 @@ app.prepare().then(() => {
       
       // Initialize auto sync module and run initialization
       if (!autoSyncModule) {
-        autoSyncModule = await import('./src/server/lib/autoSyncInit.js');
+        try {
+          console.log('Dynamically importing autoSyncInit...');
+          autoSyncModule = await import('./src/server/lib/autoSyncInit.js');
+          console.log('autoSyncModule loaded, exports:', Object.keys(autoSyncModule));
+        } catch (error) {
+          console.error('Failed to import autoSyncInit:', error.message);
+          console.error('Stack:', error.stack);
+          throw error;
+        }
       }
       
       // Initialize default repositories
-      await autoSyncModule.initializeRepositories();
+      if (typeof autoSyncModule.initializeRepositories === 'function') {
+        console.log('Calling initializeRepositories...');
+        await autoSyncModule.initializeRepositories();
+      } else {
+        console.warn('initializeRepositories is not a function, type:', typeof autoSyncModule.initializeRepositories);
+      }
       
       // Initialize auto-sync service
-      autoSyncModule.initializeAutoSync();
+      if (typeof autoSyncModule.initializeAutoSync === 'function') {
+        console.log('Calling initializeAutoSync...');
+        autoSyncModule.initializeAutoSync();
+      }
       
       // Setup graceful shutdown handlers
-      autoSyncModule.setupGracefulShutdown();
+      if (typeof autoSyncModule.setupGracefulShutdown === 'function') {
+        console.log('Setting up graceful shutdown...');
+        autoSyncModule.setupGracefulShutdown();
+      }
     });
 });
