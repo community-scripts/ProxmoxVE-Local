@@ -19,6 +19,8 @@ export class ScriptDownloaderService {
   /**
    * Validates that a directory path doesn't contain nested directories with the same name
    * (e.g., prevents ct/ct or install/install)
+   * @param {string} dirPath - The directory path to validate
+   * @returns {boolean}
    */
   validateDirectoryPath(dirPath) {
     const normalizedPath = dirPath.replace(/\\/g, '/');
@@ -36,6 +38,9 @@ export class ScriptDownloaderService {
 
   /**
    * Validates that finalTargetDir doesn't contain nested directory names like ct/ct or install/install
+   * @param {string} targetDir - The base target directory
+   * @param {string} finalTargetDir - The final target directory to validate
+   * @returns {string}
    */
   validateTargetDir(targetDir, finalTargetDir) {
     // Check if finalTargetDir contains nested directory names
@@ -53,6 +58,11 @@ export class ScriptDownloaderService {
     return finalTargetDir;
   }
 
+  /**
+   * Ensure a directory exists, creating it if necessary
+   * @param {string} dirPath - The directory path to ensure exists
+   * @returns {Promise<void>}
+   */
   async ensureDirectoryExists(dirPath) {
     // Validate the directory path to prevent nested directories with the same name
     this.validateDirectoryPath(dirPath);
@@ -61,7 +71,7 @@ export class ScriptDownloaderService {
       console.log(`[Directory Creation] Ensuring directory exists: ${dirPath}`);
       await mkdir(dirPath, { recursive: true });
       console.log(`[Directory Creation] Directory created/verified: ${dirPath}`);
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       if (error.code !== 'EEXIST') {
         console.error(`[Directory Creation] Error creating directory ${dirPath}:`, error.message);
         throw error;
@@ -71,6 +81,11 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Extract repository path from GitHub URL
+   * @param {string} repoUrl - The GitHub repository URL
+   * @returns {string}
+   */
   extractRepoPath(repoUrl) {
     const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
     if (!match) {
@@ -79,6 +94,13 @@ export class ScriptDownloaderService {
     return `${match[1]}/${match[2]}`;
   }
 
+  /**
+   * Download a file from GitHub
+   * @param {string} repoUrl - The GitHub repository URL
+   * @param {string} filePath - The file path within the repository
+   * @param {string} [branch] - The branch to download from
+   * @returns {Promise<string>}
+   */
   async downloadFileFromGitHub(repoUrl, filePath, branch = 'main') {
     this.initializeConfig();
     if (!repoUrl) {
@@ -88,6 +110,7 @@ export class ScriptDownloaderService {
     const repoPath = this.extractRepoPath(repoUrl);
     const url = `https://raw.githubusercontent.com/${repoPath}/${branch}/${filePath}`;
     
+    /** @type {Record<string, string>} */
     const headers = {
       'User-Agent': 'PVEScripts-Local/1.0',
     };
@@ -106,6 +129,11 @@ export class ScriptDownloaderService {
     return response.text();
   }
 
+  /**
+   * Get repository URL for a script
+   * @param {import('~/types/script').Script} script - The script object
+   * @returns {string}
+   */
   getRepoUrlForScript(script) {
     // Use repository_url from script if available, otherwise fallback to env or default
     if (script.repository_url) {
@@ -115,6 +143,11 @@ export class ScriptDownloaderService {
     return this.repoUrl;
   }
 
+  /**
+   * Modify script content to use local paths
+   * @param {string} content - The script content
+   * @returns {string}
+   */
   modifyScriptContent(content) {
     // Replace the build.func source line
     const oldPattern = /source <\(curl -fsSL https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\/main\/misc\/build\.func\)/g;
@@ -123,9 +156,15 @@ export class ScriptDownloaderService {
     return content.replace(oldPattern, newPattern);
   }
 
+  /**
+   * Load a script by downloading its files
+   * @param {import('~/types/script').Script} script - The script to load
+   * @returns {Promise<{success: boolean, message: string, files: string[], error?: string}>}
+   */
   async loadScript(script) {
     this.initializeConfig();
     try {
+      /** @type {string[]} */
       const files = [];
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';

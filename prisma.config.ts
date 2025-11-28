@@ -2,9 +2,9 @@ import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
-  schema: 'prisma/schema.prisma',
-  migrate: {
-    migrations: 'prisma/migrations',
+  schema: {
+    kind: 'single',
+    filePath: 'prisma/schema.prisma',
   },
   studio: {
     adapter: async () => {

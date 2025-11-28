@@ -71,7 +71,10 @@ const handle = app.getRequestHandler();
  * @property {ServerInfo} [server]
  * @property {boolean} [isUpdate]
  * @property {boolean} [isShell]
+ * @property {boolean} [isBackup]
  * @property {string} [containerId]
+ * @property {string} [storage]
+ * @property {string} [backupStorage]
  */
 
 class ScriptExecutionHandler {
@@ -720,7 +723,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo} server
    * @param {Function} [onComplete] - Optional callback when backup completes
    */
-  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = null) {
+  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined) {
     const sshService = getSSHExecutionService();
     
     return new Promise((resolve, reject) => {
@@ -832,10 +835,10 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    * @param {string} mode
-   * @param {ServerInfo|null} server
+   * @param {ServerInfo|undefined} server
    * @param {string} [backupStorage] - Optional storage to backup to before update
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = null, backupStorage = null) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined) {
     try {
       // If backup storage is provided, run backup first
       if (backupStorage && mode === 'ssh' && server) {

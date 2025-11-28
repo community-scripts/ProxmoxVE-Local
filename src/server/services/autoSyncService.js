@@ -300,9 +300,6 @@ export class AutoSyncService {
       
       console.log('Starting scheduled auto-sync...');
       await this.executeAutoSync();
-    }, {
-      scheduled: true,
-      timezone: 'UTC'
     });
     
     console.log('Auto-sync cron job scheduled successfully');

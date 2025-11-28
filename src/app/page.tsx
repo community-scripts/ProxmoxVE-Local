@@ -23,6 +23,7 @@ import { Package, HardDrive, FolderOpen, LogOut, Archive } from "lucide-react";
 import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
 import type { Server } from "~/types/server";
+import type { ScriptCard } from "~/types/script";
 
 export default function Home() {
   const { isAuthenticated, logout } = useAuth();
@@ -101,9 +102,9 @@ export default function Home() {
       if (!scriptCardsData?.success) return 0;
 
       // Deduplicate scripts using Map by slug (same logic as ScriptsGrid.tsx)
-      const scriptMap = new Map<string, any>();
+      const scriptMap = new Map<string, ScriptCard>();
 
-      scriptCardsData.cards?.forEach((script) => {
+      scriptCardsData.cards?.forEach((script: ScriptCard) => {
         if (script?.name && script?.slug) {
           // Use slug as unique identifier, only keep first occurrence
           if (!scriptMap.has(script.slug)) {
@@ -126,17 +127,12 @@ export default function Home() {
           .replace(/^-+|-+$/g, "");
 
       // First deduplicate GitHub scripts using Map by slug
-      interface ScriptCard {
-        name?: string;
-        slug?: string;
-        install_basenames?: string[];
-      }
       const scriptMap = new Map<string, ScriptCard>();
 
-      scriptCardsData.cards?.forEach((script) => {
+      scriptCardsData.cards?.forEach((script: ScriptCard) => {
         if (script?.name && script?.slug) {
           if (!scriptMap.has(script.slug)) {
-            scriptMap.set(script.slug, script as ScriptCard);
+            scriptMap.set(script.slug, script);
           }
         }
       });
