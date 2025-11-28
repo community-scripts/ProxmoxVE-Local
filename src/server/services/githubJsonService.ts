@@ -398,7 +398,6 @@ export class GitHubJsonService {
     const filesToSync: GitHubFile[] = [];
     
     for (const ghFile of githubFiles) {
-      const slug = ghFile.name.replace('.json', '');
       const localFilePath = join(this.localJsonDirectory!, ghFile.name);
       
       let needsSync = false;
