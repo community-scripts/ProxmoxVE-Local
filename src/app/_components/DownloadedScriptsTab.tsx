@@ -164,7 +164,7 @@ export function DownloadedScriptsTab({
     // Use Map to deduplicate by slug/name
     const scriptMap = new Map<string, ScriptCardType>();
 
-    scriptCardsData.cards?.forEach((script) => {
+    scriptCardsData.cards?.forEach((script: ScriptCardType) => {
       if (script?.name && script?.slug) {
         // Use slug as unique identifier, only keep first occurrence
         if (!scriptMap.has(script.slug)) {
