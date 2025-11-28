@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { Loader2, CheckCircle, X } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
-import { useEffect, useRef } from 'react';
-import { Button } from './ui/button';
+import { Loader2, CheckCircle, X } from "lucide-react";
+import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useEffect, useRef } from "react";
+import { Button } from "./ui/button";
 
 interface LoadingModalProps {
   isOpen: boolean;
@@ -14,21 +14,32 @@ interface LoadingModalProps {
   onClose?: () => void;
 }
 
-export function LoadingModal({ isOpen, action: _action, logs = [], isComplete = false, title, onClose }: LoadingModalProps) {
+export function LoadingModal({
+  isOpen,
+  action: _action,
+  logs = [],
+  isComplete = false,
+  title,
+  onClose,
+}: LoadingModalProps) {
   // Allow dismissing with ESC only when complete, prevent during running
-  useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: isComplete, onClose: onClose ?? (() => null) });
+  useRegisterModal(isOpen, {
+    id: "loading-modal",
+    allowEscape: isComplete,
+    onClose: onClose ?? (() => null),
+  });
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg shadow-xl max-w-2xl w-full border border-border p-8 max-h-[80vh] flex flex-col relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="bg-card border-border relative flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg border p-8 shadow-xl">
         {/* Close button - only show when complete */}
         {isComplete && onClose && (
           <Button
@@ -40,31 +51,30 @@ export function LoadingModal({ isOpen, action: _action, logs = [], isComplete = 
             <X className="h-4 w-4" />
           </Button>
         )}
-        
+
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
             {isComplete ? (
-              <CheckCircle className="h-12 w-12 text-success" />
+              <CheckCircle className="text-success h-12 w-12" />
             ) : (
               <>
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse"></div>
+                <Loader2 className="text-primary h-12 w-12 animate-spin" />
+                <div className="border-primary/20 absolute inset-0 animate-pulse rounded-full border-2"></div>
               </>
             )}
           </div>
-          
+
           {/* Static title text */}
-          {title && (
-            <p className="text-sm text-muted-foreground">
-              {title}
-            </p>
-          )}
-          
+          {title && <p className="text-muted-foreground text-sm">{title}</p>}
+
           {/* Log output */}
           {logs.length > 0 && (
-            <div className="w-full bg-card border border-border rounded-lg p-4 font-mono text-xs text-chart-2 max-h-[60vh] overflow-y-auto terminal-output">
+            <div className="bg-card border-border text-chart-2 terminal-output max-h-[60vh] w-full overflow-y-auto rounded-lg border p-4 font-mono text-xs">
               {logs.map((log, index) => (
-                <div key={index} className="mb-1 whitespace-pre-wrap break-words">
+                <div
+                  key={index}
+                  className="mb-1 break-words whitespace-pre-wrap"
+                >
                   {log}
                 </div>
               ))}
@@ -74,9 +84,15 @@ export function LoadingModal({ isOpen, action: _action, logs = [], isComplete = 
 
           {!isComplete && (
             <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="bg-primary h-2 w-2 animate-bounce rounded-full"></div>
+              <div
+                className="bg-primary h-2 w-2 animate-bounce rounded-full"
+                style={{ animationDelay: "0.1s" }}
+              ></div>
+              <div
+                className="bg-primary h-2 w-2 animate-bounce rounded-full"
+                style={{ animationDelay: "0.2s" }}
+              ></div>
             </div>
           )}
         </div>
@@ -84,4 +100,3 @@ export function LoadingModal({ isOpen, action: _action, logs = [], isComplete = 
     </div>
   );
 }
-

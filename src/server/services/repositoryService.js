@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/prefer-regexp-exec */
-import { prisma } from '../db';
+// JavaScript wrapper for repositoryService (for use with node server.js)
+import { prisma } from '../db.js';
 
-export class RepositoryService {
+class RepositoryService {
   /**
    * Initialize default repositories if they don't exist
    */
-  async initializeDefaultRepositories(): Promise<void> {
+  async initializeDefaultRepositories() {
     const mainRepoUrl = 'https://github.com/community-scripts/ProxmoxVE';
     const devRepoUrl = 'https://github.com/community-scripts/ProxmoxVED';
 
@@ -18,7 +18,7 @@ export class RepositoryService {
       }
     });
 
-    const existingUrls = new Set(existingRepos.map((r: { url: string }) => r.url));
+    const existingUrls = new Set(existingRepos.map((r) => r.url));
 
     // Create main repo if it doesn't exist
     if (!existingUrls.has(mainRepoUrl)) {
@@ -79,7 +79,7 @@ export class RepositoryService {
   /**
    * Get repository by URL
    */
-  async getRepositoryByUrl(url: string) {
+  async getRepositoryByUrl(url) {
     return await prisma.repository.findUnique({
       where: { url }
     });
@@ -88,11 +88,7 @@ export class RepositoryService {
   /**
    * Create a new repository
    */
-  async createRepository(data: {
-    url: string;
-    enabled?: boolean;
-    priority?: number;
-  }) {
+  async createRepository(data) {
     // Validate GitHub URL
     if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
       throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
@@ -125,11 +121,7 @@ export class RepositoryService {
   /**
    * Update repository
    */
-  async updateRepository(id: number, data: {
-    enabled?: boolean;
-    url?: string;
-    priority?: number;
-  }) {
+  async updateRepository(id, data) {
     // If updating URL, validate it
     if (data.url) {
       if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
@@ -157,7 +149,7 @@ export class RepositoryService {
   /**
    * Delete repository and associated JSON files
    */
-  async deleteRepository(id: number) {
+  async deleteRepository(id) {
     const repo = await prisma.repository.findUnique({
       where: { id }
     });
@@ -184,7 +176,7 @@ export class RepositoryService {
   /**
    * Delete all JSON files associated with a repository
    */
-  private async deleteRepositoryJsonFiles(repoUrl: string): Promise<void> {
+  async deleteRepositoryJsonFiles(repoUrl) {
     const { readdir, unlink, readFile } = await import('fs/promises');
     const { join } = await import('path');
 
@@ -213,7 +205,7 @@ export class RepositoryService {
       }
     } catch (error) {
       // Directory might not exist, which is fine
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if (error.code !== 'ENOENT') {
         console.error('Error deleting repository JSON files:', error);
       }
     }
@@ -222,4 +214,3 @@ export class RepositoryService {
 
 // Singleton instance
 export const repositoryService = new RepositoryService();
-

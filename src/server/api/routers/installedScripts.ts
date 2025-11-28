@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-floating-promises */
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database-prisma";
@@ -71,12 +72,9 @@ function parseRawConfig(rawConfig: string): any {
   
   // Parse rootfs into storage and size
   if (config.rootfs) {
-    const regex = /^([^:]+):([^,]+)(?:,size=(.+))?$/;
-    const match = regex.exec(config.rootfs as string);
-    const storage = match?.[1];
-    const path = match?.[2];
-    if (storage && path) {
-      config.rootfs_storage = `${storage}:${path}`;
+    const match = config.rootfs.match(/^([^:]+):([^,]+)(?:,size=(.+))?$/);
+    if (match) {
+      config.rootfs_storage = `${match[1]}:${match[2]}`;
       config.rootfs_size = match[3] ?? '';
     }
     delete config.rootfs; // Remove the rootfs field since we only need rootfs_storage and rootfs_size
@@ -478,7 +476,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const scripts = await db.getAllInstalledScripts();
         
         // Transform scripts to flatten server data for frontend compatibility
-        const transformedScripts = await Promise.all(scripts.map(async (script) => {
+         
+        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
           // Determine if it's a VM or LXC
           let is_vm = false;
           if (script.container_id && script.server_id) {
@@ -524,7 +523,8 @@ export const installedScriptsRouter = createTRPCRouter({
         const scripts = await db.getInstalledScriptsByServer(input.serverId);
         
         // Transform scripts to flatten server data for frontend compatibility
-        const transformedScripts = await Promise.all(scripts.map(async (script) => {
+         
+        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
           // Determine if it's a VM or LXC
           let is_vm = false;
           if (script.container_id && script.server_id) {
@@ -791,7 +791,7 @@ export const installedScriptsRouter = createTRPCRouter({
         let detectedContainers: any[] = [];
 
         // Helper function to parse list output and extract IDs
-        const parseListOutput = (output: string, _p0: boolean): string[] => {
+        const parseListOutput = (output: string, _isVM: boolean): string[] => {
           const ids: string[] = [];
           const lines = output.split('\n').filter(line => line.trim());
           
@@ -1050,11 +1050,10 @@ export const installedScriptsRouter = createTRPCRouter({
           const scriptData = script as any;
           if (!scriptData.server_id) continue;
           
-          const serverId = Number(scriptData.server_id);
-          if (!scriptsByServer.has(serverId)) {
-            scriptsByServer.set(serverId, []);
+          if (!scriptsByServer.has(scriptData.server_id)) {
+            scriptsByServer.set(scriptData.server_id, []);
           }
-          scriptsByServer.get(serverId)!.push(scriptData);
+          scriptsByServer.get(scriptData.server_id)!.push(scriptData);
         }
 
         // Process each server
@@ -1233,7 +1232,7 @@ export const installedScriptsRouter = createTRPCRouter({
                   }
                 }
               } catch (error) {
-                console.error(`cleanupOrphanedScripts: Error checking script ${String((scriptData).script_name)}:`, error);
+                console.error(`cleanupOrphanedScripts: Error checking script ${String((scriptData as any).script_name)}:`, error);
               }
             }
           } catch (error) {
@@ -1351,7 +1350,7 @@ export const installedScriptsRouter = createTRPCRouter({
             
             try {
               await Promise.race([
-                new Promise<void>((resolve) => {
+                new Promise<void>((resolve, _reject) => {
                   void sshExecutionService.executeCommand(
                     server as Server,
                     'pct list',
@@ -1379,7 +1378,7 @@ export const installedScriptsRouter = createTRPCRouter({
             
             try {
               await Promise.race([
-                new Promise<void>((resolve) => {
+                new Promise<void>((resolve, _reject) => {
                   void sshExecutionService.executeCommand(
                     server as Server,
                     'qm list',
@@ -1483,7 +1482,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Determine if it's a VM or LXC
-        const vm = await isVM(input.id, String(scriptData.container_id), Number(scriptData.server_id));
+        const vm = await isVM(input.id, scriptData.container_id, scriptData.server_id);
         
         // Check container status (use qm for VMs, pct for LXC)
         const statusCommand = vm 
@@ -1586,7 +1585,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Determine if it's a VM or LXC
-        const vm = await isVM(input.id, String(scriptData.container_id), Number(scriptData.server_id));
+        const vm = await isVM(input.id, scriptData.container_id, scriptData.server_id);
         
         // Execute control command (use qm for VMs, pct for LXC)
         const controlCommand = vm
@@ -1682,7 +1681,7 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Determine if it's a VM or LXC
-        const vm = await isVM(input.id, String(scriptData.container_id), Number(scriptData.server_id));
+        const vm = await isVM(input.id, scriptData.container_id, scriptData.server_id);
         
         // First check if container is running and stop it if necessary
         const statusCommand = vm
@@ -2376,7 +2375,7 @@ EOFCONFIG`;
         let serverHostname = '';
         try {
           await new Promise<void>((resolve, reject) => {
-            void sshExecutionService.executeCommand(
+            sshExecutionService.executeCommand(
               server as Server,
               'hostname',
               (data: string) => {

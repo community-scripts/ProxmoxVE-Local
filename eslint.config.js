@@ -1,20 +1,23 @@
+import eslintPluginNext from "@next/eslint-plugin-next";
 import tseslint from "typescript-eslint";
-import { createRequire } from "module";
-import { fileURLToPath } from "url";
-import path from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
-
-// Import Next.js config directly (it's already in flat config format)
-const nextConfig = require("eslint-config-next/core-web-vitals");
+import reactPlugin from "eslint-plugin-react";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default tseslint.config(
   {
-    ignores: [".next", "node_modules"],
+    ignores: [".next", "next-env.d.ts", "postcss.config.js", "prettier.config.js"],
   },
-  ...nextConfig,
+  {
+    plugins: {
+      "@next/next": eslintPluginNext,
+      "react": reactPlugin,
+      "react-hooks": reactHooksPlugin,
+    },
+    rules: {
+      ...eslintPluginNext.configs.recommended.rules,
+      ...eslintPluginNext.configs["core-web-vitals"].rules,
+    },
+  },
   {
     files: ["**/*.ts", "**/*.tsx"],
     extends: [

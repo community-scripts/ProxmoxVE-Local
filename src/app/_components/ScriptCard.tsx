@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
-import type { ScriptCard } from '~/types/script';
-import { TypeBadge, UpdateableBadge } from './Badge';
+import { useState } from "react";
+import Image from "next/image";
+import type { ScriptCard } from "~/types/script";
+import { TypeBadge, UpdateableBadge } from "./Badge";
 
 interface ScriptCardProps {
   script: ScriptCard;
@@ -12,7 +12,12 @@ interface ScriptCardProps {
   onToggleSelect?: (slug: string) => void;
 }
 
-export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect }: ScriptCardProps) {
+export function ScriptCard({
+  script,
+  onClick,
+  isSelected = false,
+  onToggleSelect,
+}: ScriptCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => {
@@ -27,7 +32,7 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
   };
 
   const getRepoName = (url?: string): string => {
-    if (!url) return '';
+    if (!url) return "";
     const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
     if (match) {
       return `${match[1]}/${match[2]}`;
@@ -37,32 +42,36 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
 
   return (
     <div
-      className="bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer border border-border hover:border-primary h-full flex flex-col relative"
+      className="bg-card border-border hover:border-primary relative flex h-full cursor-pointer flex-col rounded-lg border shadow-md transition-shadow duration-200 hover:shadow-lg"
       onClick={() => onClick(script)}
     >
       {/* Checkbox in top-left corner */}
       {onToggleSelect && (
         <div className="absolute top-2 left-2 z-10">
-          <div 
-            className={`w-4 h-4 border-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center ${
-              isSelected 
-                ? 'bg-primary border-primary text-primary-foreground' 
-                : 'bg-card border-border hover:border-primary/60 hover:bg-accent'
+          <div
+            className={`flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2 transition-all duration-200 ${
+              isSelected
+                ? "bg-primary border-primary text-primary-foreground"
+                : "bg-card border-border hover:border-primary/60 hover:bg-accent"
             }`}
             onClick={handleCheckboxClick}
           >
             {isSelected && (
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
             )}
           </div>
         </div>
       )}
-      
-      <div className="p-6 flex-1 flex flex-col">
+
+      <div className="flex flex-1 flex-col p-6">
         {/* Header with logo and name */}
-        <div className="flex items-start space-x-4 mb-4">
+        <div className="mb-4 flex items-start space-x-4">
           <div className="flex-shrink-0">
             {script.logo && !imageError ? (
               <Image
@@ -70,42 +79,49 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
                 alt={`${script.name} logo`}
                 width={48}
                 height={48}
-                className="w-12 h-12 rounded-lg object-contain"
+                className="h-12 w-12 rounded-lg object-contain"
                 onError={handleImageError}
               />
             ) : (
-              <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+              <div className="bg-muted flex h-12 w-12 items-center justify-center rounded-lg">
                 <span className="text-muted-foreground text-lg font-semibold">
-                  {script.name?.charAt(0)?.toUpperCase() || '?'}
+                  {script.name?.charAt(0)?.toUpperCase() || "?"}
                 </span>
               </div>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-foreground truncate">
-              {script.name || 'Unnamed Script'}
+          <div className="min-w-0 flex-1">
+            <h3 className="text-foreground truncate text-lg font-semibold">
+              {script.name || "Unnamed Script"}
             </h3>
             <div className="mt-2 space-y-2">
               {/* Type and Updateable status on first row */}
-              <div className="flex items-center space-x-2 flex-wrap gap-1">
-                <TypeBadge type={script.type ?? 'unknown'} />
+              <div className="flex flex-wrap items-center gap-1 space-x-2">
+                <TypeBadge type={script.type ?? "unknown"} />
                 {script.updateable && <UpdateableBadge />}
                 {script.repository_url && (
-                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded border border-border" title={script.repository_url}>
+                  <span
+                    className="bg-muted text-muted-foreground border-border rounded border px-2 py-0.5 text-xs"
+                    title={script.repository_url}
+                  >
                     {getRepoName(script.repository_url)}
                   </span>
                 )}
               </div>
-              
+
               {/* Download Status */}
               <div className="flex items-center space-x-1">
-                <div className={`w-2 h-2 rounded-full ${
-                  script.isDownloaded ? 'bg-success' : 'bg-error'
-                }`}></div>
-                <span className={`text-xs font-medium ${
-                  script.isDownloaded ? 'text-success' : 'text-error'
-                }`}>
-                  {script.isDownloaded ? 'Downloaded' : 'Not Downloaded'}
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    script.isDownloaded ? "bg-success" : "bg-error"
+                  }`}
+                ></div>
+                <span
+                  className={`text-xs font-medium ${
+                    script.isDownloaded ? "text-success" : "text-error"
+                  }`}
+                >
+                  {script.isDownloaded ? "Downloaded" : "Not Downloaded"}
                 </span>
               </div>
             </div>
@@ -113,8 +129,8 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
         </div>
 
         {/* Description */}
-        <p className="text-muted-foreground text-sm line-clamp-3 mb-4 flex-1">
-          {script.description || 'No description available'}
+        <p className="text-muted-foreground mb-4 line-clamp-3 flex-1 text-sm">
+          {script.description || "No description available"}
         </p>
 
         {/* Footer with website link */}
@@ -124,12 +140,22 @@ export function ScriptCard({ script, onClick, isSelected = false, onToggleSelect
               href={script.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-info hover:text-info/80 text-sm font-medium flex items-center space-x-1"
+              className="text-info hover:text-info/80 flex items-center space-x-1 text-sm font-medium"
               onClick={(e) => e.stopPropagation()}
             >
               <span>Website</span>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <svg
+                className="h-3 w-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
             </a>
           </div>

@@ -272,6 +272,12 @@ export class AutoSyncService {
     
     console.log(`Scheduling auto-sync with cron expression: ${cronExpression}`);
     
+    /** @type {any} */
+    const cronOptions = {
+      scheduled: true,
+      timezone: 'UTC'
+    };
+    
     this.cronJob = cron.schedule(cronExpression, async () => {
       // Check global lock first
       if (globalAutoSyncLock) {
@@ -300,9 +306,7 @@ export class AutoSyncService {
       
       console.log('Starting scheduled auto-sync...');
       await this.executeAutoSync();
-    }, {
-      timezone: 'UTC'
-    });
+    }, cronOptions);
     
     console.log('Auto-sync cron job scheduled successfully');
   }
@@ -372,7 +376,7 @@ export class AutoSyncService {
           console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for script downloads...`);
           
           // Get scripts only for the synced files
-          const localScriptsService = await import('./localScripts.js');
+          const localScriptsService = await import('./localScripts');
           const syncedScripts = [];
           
           for (const filename of syncResult.syncedFiles) {

@@ -3,32 +3,24 @@ import { join } from 'path';
 import { writeFile, mkdir, access, readFile, unlink } from 'fs/promises';
 
 export class ScriptDownloaderService {
-  /**
-   * @type {string | undefined}
-   */
-  scriptsDirectory;
-  /**
-   * @type {string | undefined}
-   */
-  repoUrl;
-
   constructor() {
-    this.scriptsDirectory = undefined;
-    this.repoUrl = undefined;
+    /** @type {string} */
+    this.scriptsDirectory = join(process.cwd(), 'scripts');
+    /** @type {string} */
+    this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
   initializeConfig() {
-    if (this.scriptsDirectory === undefined) {
-      this.scriptsDirectory = join(process.cwd(), 'scripts');
-      // Get REPO_URL from environment or use default
-      this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
-    }
+    // Re-initialize if needed (for environment changes)
+    this.scriptsDirectory = join(process.cwd(), 'scripts');
+    this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
   /**
    * Validates that a directory path doesn't contain nested directories with the same name
    * (e.g., prevents ct/ct or install/install)
-   * @param {string} dirPath
+   * @param {string} dirPath - The directory path to validate
+   * @returns {boolean}
    */
   validateDirectoryPath(dirPath) {
     const normalizedPath = dirPath.replace(/\\/g, '/');
@@ -46,8 +38,9 @@ export class ScriptDownloaderService {
 
   /**
    * Validates that finalTargetDir doesn't contain nested directory names like ct/ct or install/install
-   * @param {string} targetDir
-   * @param {string} finalTargetDir
+   * @param {string} targetDir - The base target directory
+   * @param {string} finalTargetDir - The final target directory to validate
+   * @returns {string}
    */
   validateTargetDir(targetDir, finalTargetDir) {
     // Check if finalTargetDir contains nested directory names
@@ -66,7 +59,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {string} dirPath
+   * Ensure a directory exists, creating it if necessary
+   * @param {string} dirPath - The directory path to ensure exists
+   * @returns {Promise<void>}
    */
   async ensureDirectoryExists(dirPath) {
     // Validate the directory path to prevent nested directories with the same name
@@ -76,13 +71,10 @@ export class ScriptDownloaderService {
       console.log(`[Directory Creation] Ensuring directory exists: ${dirPath}`);
       await mkdir(dirPath, { recursive: true });
       console.log(`[Directory Creation] Directory created/verified: ${dirPath}`);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      /** @type {any} */
-      const errAny = err;
-      if (errAny.code !== 'EEXIST') {
-        console.error(`[Directory Creation] Error creating directory ${dirPath}:`, err.message);
-        throw err;
+    } catch (/** @type {any} */ error) {
+      if (error.code !== 'EEXIST') {
+        console.error(`[Directory Creation] Error creating directory ${dirPath}:`, error.message);
+        throw error;
       }
       // Directory already exists, which is fine
       console.log(`[Directory Creation] Directory already exists: ${dirPath}`);
@@ -90,7 +82,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {string} repoUrl
+   * Extract repository path from GitHub URL
+   * @param {string} repoUrl - The GitHub repository URL
+   * @returns {string}
    */
   extractRepoPath(repoUrl) {
     const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
@@ -101,9 +95,11 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {string} repoUrl
-   * @param {string} filePath
-   * @param {string} [branch]
+   * Download a file from GitHub
+   * @param {string} repoUrl - The GitHub repository URL
+   * @param {string} filePath - The file path within the repository
+   * @param {string} [branch] - The branch to download from
+   * @returns {Promise<string>}
    */
   async downloadFileFromGitHub(repoUrl, filePath, branch = 'main') {
     this.initializeConfig();
@@ -134,7 +130,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Get repository URL for a script
+   * @param {import('~/types/script').Script} script - The script object
+   * @returns {string}
    */
   getRepoUrlForScript(script) {
     // Use repository_url from script if available, otherwise fallback to env or default
@@ -146,7 +144,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {string} content
+   * Modify script content to use local paths
+   * @param {string} content - The script content
+   * @returns {string}
    */
   modifyScriptContent(content) {
     // Replace the build.func source line
@@ -157,11 +157,14 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Load a script by downloading its files
+   * @param {import('~/types/script').Script} script - The script to load
+   * @returns {Promise<{success: boolean, message: string, files: string[], error?: string}>}
    */
   async loadScript(script) {
     this.initializeConfig();
     try {
+      /** @type {string[]} */
       const files = [];
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';
@@ -169,10 +172,10 @@ export class ScriptDownloaderService {
       console.log(`Loading script "${script.name}" (${script.slug}) from repository: ${repoUrl}`);
       
       // Ensure directories exist
-      await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', 'ct'));
-      await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', 'install'));
-      await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', 'tools'));
-      await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', 'vm'));
+      await this.ensureDirectoryExists(join(this.scriptsDirectory, 'ct'));
+      await this.ensureDirectoryExists(join(this.scriptsDirectory, 'install'));
+      await this.ensureDirectoryExists(join(this.scriptsDirectory, 'tools'));
+      await this.ensureDirectoryExists(join(this.scriptsDirectory, 'vm'));
 
       if (script.install_methods?.length) {
         for (const method of script.install_methods) {
@@ -197,7 +200,7 @@ export class ScriptDownloaderService {
                 finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Modify the content for CT scripts
                 const modifiedContent = this.modifyScriptContent(content);
-                filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+                filePath = join(this.scriptsDirectory, targetDir, fileName);
                 await writeFile(filePath, modifiedContent, 'utf-8');
               } else if (scriptPath.startsWith('tools/')) {
                 targetDir = 'tools';
@@ -208,8 +211,8 @@ export class ScriptDownloaderService {
                 // Validate and sanitize finalTargetDir
                 finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
-                await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', finalTargetDir));
-                filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+                await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
                 await writeFile(filePath, content, 'utf-8');
               } else if (scriptPath.startsWith('vm/')) {
                 targetDir = 'vm';
@@ -220,8 +223,8 @@ export class ScriptDownloaderService {
                 // Validate and sanitize finalTargetDir
                 finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 // Ensure the subdirectory exists
-                await this.ensureDirectoryExists(join(this.scriptsDirectory ?? '', finalTargetDir));
-                filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+                await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
                 await writeFile(filePath, content, 'utf-8');
               } else {
                 // Handle other script types (fallback to ct directory)
@@ -230,7 +233,7 @@ export class ScriptDownloaderService {
                 // Validate and sanitize finalTargetDir
                 finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
                 const modifiedContent = this.modifyScriptContent(content);
-                filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+                filePath = join(this.scriptsDirectory, targetDir, fileName);
                 await writeFile(filePath, modifiedContent, 'utf-8');
               }
               
@@ -242,13 +245,13 @@ export class ScriptDownloaderService {
       }
 
       // Only download install script for CT scripts
-      const hasCtScript = script.install_methods?.some(/** @param {any} method */ method => method.script?.startsWith('ct/'));
+      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         try {
           console.log(`Downloading install script: install/${installScriptName} from ${repoUrl}`);
           const installContent = await this.downloadFileFromGitHub(repoUrl, `install/${installScriptName}`, branch);
-          const localInstallPath = join(this.scriptsDirectory ?? '', 'install', installScriptName);
+          const localInstallPath = join(this.scriptsDirectory, 'install', installScriptName);
           await writeFile(localInstallPath, installContent, 'utf-8');
           files.push(`install/${installScriptName}`);
           console.log(`Successfully downloaded: install/${installScriptName}`);
@@ -260,11 +263,11 @@ export class ScriptDownloaderService {
 
       // Download alpine install script if alpine variant exists (only for CT scripts)
       const hasAlpineCtVariant = script.install_methods?.some(
-        /** @param {any} method */ method => method.type === 'alpine' && method.script?.startsWith('ct/')
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
       );
       console.log(`[${script.slug}] Checking for alpine variant:`, {
         hasAlpineCtVariant,
-        installMethods: script.install_methods?.map(/** @param {any} m */ m => ({ type: m.type, script: m.script }))
+        installMethods: script.install_methods?.map(m => ({ type: m.type, script: m.script }))
       });
       
       if (hasAlpineCtVariant) {
@@ -272,7 +275,7 @@ export class ScriptDownloaderService {
         try {
           console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName} from ${repoUrl}`);
           const alpineInstallContent = await this.downloadFileFromGitHub(repoUrl, `install/${alpineInstallScriptName}`, branch);
-          const localAlpineInstallPath = join(this.scriptsDirectory ?? '', 'install', alpineInstallScriptName);
+          const localAlpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
           await writeFile(localAlpineInstallPath, alpineInstallContent, 'utf-8');
           files.push(`install/${alpineInstallScriptName}`);
           console.log(`[${script.slug}] Successfully downloaded: install/${alpineInstallScriptName}`);
@@ -303,7 +306,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Check if a script is downloaded
+   * @param {import('~/types/script').Script} script - The script to check
+   * @returns {Promise<boolean>}
    */
   async isScriptDownloaded(script) {
     if (!script.install_methods?.length) return false;
@@ -323,23 +328,23 @@ export class ScriptDownloaderService {
           if (scriptPath.startsWith('ct/')) {
             targetDir = 'ct';
             finalTargetDir = targetDir;
-            filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+            filePath = join(this.scriptsDirectory, targetDir, fileName);
           } else if (scriptPath.startsWith('tools/')) {
             targetDir = 'tools';
             const subPath = scriptPath.replace('tools/', '');
             const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
             finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-            filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+            filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
           } else if (scriptPath.startsWith('vm/')) {
             targetDir = 'vm';
             const subPath = scriptPath.replace('vm/', '');
             const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
             finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-            filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+            filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
           } else {
             targetDir = 'ct';
             finalTargetDir = targetDir;
-            filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+            filePath = join(this.scriptsDirectory, targetDir, fileName);
           }
           
           try {
@@ -358,7 +363,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Check which script files exist locally
+   * @param {import('~/types/script').Script} script - The script to check
+   * @returns {Promise<{ctExists: boolean, installExists: boolean, files: string[]}>}
    */
   async checkScriptExists(script) {
     this.initializeConfig();
@@ -382,25 +389,25 @@ export class ScriptDownloaderService {
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
-                filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+                filePath = join(this.scriptsDirectory, targetDir, fileName);
               } else if (scriptPath.startsWith('tools/')) {
                 targetDir = 'tools';
                 // Preserve subdirectory structure for tools scripts
                 const subPath = scriptPath.replace('tools/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-                filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
               } else if (scriptPath.startsWith('vm/')) {
                 targetDir = 'vm';
                 // Preserve subdirectory structure for VM scripts
                 const subPath = scriptPath.replace('vm/', '');
                 const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
                 finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-                filePath = join(this.scriptsDirectory ?? '', finalTargetDir, fileName);
+                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
               } else {
                 targetDir = 'ct'; // Default fallback
                 finalTargetDir = targetDir;
-                filePath = join(this.scriptsDirectory ?? '', targetDir, fileName);
+                filePath = join(this.scriptsDirectory, targetDir, fileName);
               }
               
               try {
@@ -420,10 +427,10 @@ export class ScriptDownloaderService {
       }
 
       // Check for install script for CT scripts
-      const hasCtScript = script.install_methods?.some(/** @param {any} method */ method => method.script?.startsWith('ct/'));
+      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
-        const installPath = join(this.scriptsDirectory ?? '', 'install', installScriptName);
+        const installPath = join(this.scriptsDirectory, 'install', installScriptName);
         
         try {
           await access(installPath);
@@ -436,11 +443,11 @@ export class ScriptDownloaderService {
 
       // Check alpine install script if alpine variant exists (only for CT scripts)
       const hasAlpineCtVariant = script.install_methods?.some(
-        /** @param {any} method */ method => method.type === 'alpine' && method.script?.startsWith('ct/')
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
       );
       if (hasAlpineCtVariant) {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
-        const alpineInstallPath = join(this.scriptsDirectory ?? '', 'install', alpineInstallScriptName);
+        const alpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
         
         try {
           await access(alpineInstallPath);
@@ -459,7 +466,9 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Delete a script's local files
+   * @param {import('~/types/script').Script} script - The script to delete
+   * @returns {Promise<{success: boolean, message: string, deletedFiles: string[]}>}
    */
   async deleteScript(script) {
     this.initializeConfig();
@@ -480,7 +489,7 @@ export class ScriptDownloaderService {
       // Delete all files
       for (const filePath of fileCheck.files) {
         try {
-          const fullPath = join(this.scriptsDirectory ?? '', filePath);
+          const fullPath = join(this.scriptsDirectory, filePath);
           await unlink(fullPath);
           deletedFiles.push(filePath);
         } catch (error) {
@@ -513,11 +522,13 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {any} script
+   * Compare local script content with remote
+   * @param {import('~/types/script').Script} script - The script to compare
+   * @returns {Promise<{hasDifferences: boolean, differences: string[], error?: string}>}
    */
   async compareScriptContent(script) {
     this.initializeConfig();
-    /** @type {any[]} */
+    /** @type {string[]} */
     const differences = [];
     let hasDifferences = false;
     const repoUrl = this.getRepoUrlForScript(script);
@@ -609,12 +620,12 @@ export class ScriptDownloaderService {
 
       // Compare alpine install script if alpine variant exists (only for CT scripts)
       const hasAlpineCtVariant = script.install_methods?.some(
-        /** @param {any} method */ method => method.type === 'alpine' && method.script?.startsWith('ct/')
+        method => method.type === 'alpine' && method.script?.startsWith('ct/')
       );
       if (hasAlpineCtVariant) {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
         const alpineInstallScriptPath = `install/${alpineInstallScriptName}`;
-        const localAlpineInstallPath = join(this.scriptsDirectory ?? '', alpineInstallScriptPath);
+        const localAlpineInstallPath = join(this.scriptsDirectory, alpineInstallScriptPath);
         
         // Check if alpine install script exists locally
         try {
@@ -644,21 +655,22 @@ export class ScriptDownloaderService {
 
       console.log(`[Comparison] Completed comparison for ${script.slug}: hasDifferences=${hasDifferences}, differences=${differences.length}`);
       return { hasDifferences, differences };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    } catch (/** @type {any} */ error) {
       console.error(`[Comparison] Error comparing script content for ${script.slug}:`, error);
-      return { hasDifferences: false, differences: [], error: errorMessage };
+      return { hasDifferences: false, differences: [], error: error.message };
     }
   }
 
   /**
-   * @param {any} script
-   * @param {string} remotePath
-   * @param {string} filePath
+   * Compare a single file with remote
+   * @param {import('~/types/script').Script} script - The script object
+   * @param {string} remotePath - The remote file path
+   * @param {string} filePath - The local file path
+   * @returns {Promise<{hasDifferences: boolean, filePath: string, error?: string}>}
    */
   async compareSingleFile(script, remotePath, filePath) {
     try {
-      const localPath = join(this.scriptsDirectory ?? '', filePath);
+      const localPath = join(this.scriptsDirectory, filePath);
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';
       
@@ -691,17 +703,18 @@ export class ScriptDownloaderService {
       }
       
       return { hasDifferences, filePath };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Comparison] Error comparing file ${filePath}:`, errorMessage);
+    } catch (/** @type {any} */ error) {
+      console.error(`[Comparison] Error comparing file ${filePath}:`, error.message);
       // Return error information so it can be handled upstream
-      return { hasDifferences: false, filePath, error: errorMessage };
+      return { hasDifferences: false, filePath, error: error.message };
     }
   }
 
   /**
-   * @param {any} script
-   * @param {string} filePath
+   * Get diff between local and remote script
+   * @param {import('~/types/script').Script} script - The script object
+   * @param {string} filePath - The file path to diff
+   * @returns {Promise<{diff: string|null, localContent: string|null, remoteContent: string|null}>}
    */
   async getScriptDiff(script, filePath) {
     this.initializeConfig();
@@ -715,7 +728,7 @@ export class ScriptDownloaderService {
         // Handle CT script
         const fileName = filePath.split('/').pop();
         if (fileName) {
-          const localPath = join(this.scriptsDirectory ?? '', 'ct', fileName);
+          const localPath = join(this.scriptsDirectory, 'ct', fileName);
           try {
             localContent = await readFile(localPath, 'utf-8');
           } catch {
@@ -724,7 +737,7 @@ export class ScriptDownloaderService {
 
           try {
             // Find the corresponding script path in install_methods
-            const method = script.install_methods?.find(/** @param {any} m */ m => m.script === filePath);
+            const method = script.install_methods?.find(m => m.script === filePath);
             if (method?.script) {
               const downloadedContent = await this.downloadFileFromGitHub(repoUrl, method.script, branch);
               remoteContent = this.modifyScriptContent(downloadedContent);
@@ -735,7 +748,7 @@ export class ScriptDownloaderService {
         }
       } else if (filePath.startsWith('install/')) {
         // Handle install script
-        const localPath = join(this.scriptsDirectory ?? '', filePath);
+        const localPath = join(this.scriptsDirectory, filePath);
         try {
           localContent = await readFile(localPath, 'utf-8');
         } catch {
@@ -763,8 +776,10 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * @param {string} localContent
-   * @param {string} remoteContent
+   * Generate a simple line-by-line diff
+   * @param {string} localContent - The local file content
+   * @param {string} remoteContent - The remote file content
+   * @returns {string}
    */
   generateDiff(localContent, remoteContent) {
     const localLines = localContent.split('\n');

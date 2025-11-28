@@ -5,13 +5,13 @@ import path from 'path';
 import { isValidCron } from 'cron-validator';
 
 interface AutoSyncSettings {
-  autoSyncEnabled?: boolean;
-  syncIntervalType?: 'predefined' | 'custom';
+  autoSyncEnabled: boolean;
+  syncIntervalType: string;
   syncIntervalPredefined?: string;
   syncIntervalCron?: string;
-  autoDownloadNew?: boolean;
-  autoUpdateExisting?: boolean;
-  notificationEnabled?: boolean;
+  autoDownloadNew: boolean;
+  autoUpdateExisting: boolean;
+  notificationEnabled: boolean;
   appriseUrls?: string[] | string;
   lastAutoSync?: string;
   lastAutoSyncError?: string;
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate sync interval type
-    if (settings.syncIntervalType && !['predefined', 'custom'].includes(settings.syncIntervalType)) {
+    if (!['predefined', 'custom'].includes(settings.syncIntervalType)) {
       return NextResponse.json(
         { error: 'syncIntervalType must be "predefined" or "custom"' },
         { status: 400 }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Validate predefined interval
     if (settings.syncIntervalType === 'predefined') {
       const validIntervals = ['15min', '30min', '1hour', '6hours', '12hours', '24hours'];
-      if (settings.syncIntervalPredefined && !validIntervals.includes(settings.syncIntervalPredefined)) {
+      if (!settings.syncIntervalPredefined || !validIntervals.includes(settings.syncIntervalPredefined)) {
         return NextResponse.json(
           { error: 'Invalid predefined interval' },
           { status: 400 }
@@ -97,11 +97,11 @@ export async function POST(request: NextRequest) {
     if (settings.notificationEnabled && settings.appriseUrls) {
       try {
         // Handle both array and JSON string formats
-        let urls: string[];
+        let urls;
         if (Array.isArray(settings.appriseUrls)) {
           urls = settings.appriseUrls;
         } else if (typeof settings.appriseUrls === 'string') {
-          urls = JSON.parse(settings.appriseUrls) as string[];
+          urls = JSON.parse(settings.appriseUrls);
         } else {
           return NextResponse.json(
             { error: 'Apprise URLs must be an array or JSON string' },
@@ -125,8 +125,7 @@ export async function POST(request: NextRequest) {
             );
           }
         }
-      } catch (parseError) {
-        console.error('Error parsing Apprise URLs:', parseError);
+      } catch {
         return NextResponse.json(
           { error: 'Invalid JSON format for Apprise URLs' },
           { status: 400 }
@@ -146,13 +145,13 @@ export async function POST(request: NextRequest) {
     // Auto-sync settings to add/update
     const autoSyncSettings = {
       'AUTO_SYNC_ENABLED': settings.autoSyncEnabled ? 'true' : 'false',
-      'SYNC_INTERVAL_TYPE': settings.syncIntervalType ?? 'predefined',
+      'SYNC_INTERVAL_TYPE': settings.syncIntervalType,
       'SYNC_INTERVAL_PREDEFINED': settings.syncIntervalPredefined ?? '',
       'SYNC_INTERVAL_CRON': settings.syncIntervalCron ?? '',
       'AUTO_DOWNLOAD_NEW': settings.autoDownloadNew ? 'true' : 'false',
       'AUTO_UPDATE_EXISTING': settings.autoUpdateExisting ? 'true' : 'false',
       'NOTIFICATION_ENABLED': settings.notificationEnabled ? 'true' : 'false',
-      'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (typeof settings.appriseUrls === 'string' ? settings.appriseUrls : '[]'),
+      'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (settings.appriseUrls ?? '[]'),
       'LAST_AUTO_SYNC': settings.lastAutoSync ?? '',
       'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError ?? '',
       'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime ?? ''
@@ -177,44 +176,36 @@ export async function POST(request: NextRequest) {
 
     // Reschedule auto-sync service with new settings
     try {
-      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit.js');
+      const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit');
       let autoSyncService = getAutoSyncService();
       
       // If no global instance exists, create one
       if (!autoSyncService) {
-        const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+        const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
         autoSyncService = new AutoSyncService();
         setAutoSyncService(autoSyncService);
       }
+      
       // Update the global service instance with new settings
-      // Make sure required fields are set and not undefined to match type expectations
-      autoSyncService.saveSettings({
+      // Normalize appriseUrls to always be an array
+      const normalizedSettings = {
         ...settings,
-        autoSyncEnabled: settings.autoSyncEnabled ?? false,
-        autoDownloadNew: settings.autoDownloadNew ?? false,
-        autoUpdateExisting: settings.autoUpdateExisting ?? false,
-        notificationEnabled: settings.notificationEnabled ?? false,
-        syncIntervalType: settings.syncIntervalType ?? 'predefined',
-        syncIntervalPredefined: settings.syncIntervalPredefined ?? '',
-        syncIntervalCron: settings.syncIntervalCron ?? '',
-        appriseUrls: Array.isArray(settings.appriseUrls)
-          ? settings.appriseUrls
-          : (typeof settings.appriseUrls === 'string'
-            ? JSON.parse(settings.appriseUrls || '[]')
-            : []),
-        lastAutoSync: settings.lastAutoSync ?? '',
-        lastAutoSyncError: settings.lastAutoSyncError ?? undefined,
-        lastAutoSyncErrorTime: settings.lastAutoSyncErrorTime ?? undefined,
-      });
-
-      if (settings.autoSyncEnabled === true) {
+        appriseUrls: Array.isArray(settings.appriseUrls) 
+          ? settings.appriseUrls 
+          : settings.appriseUrls 
+            ? [settings.appriseUrls] 
+            : undefined
+      };
+      autoSyncService.saveSettings(normalizedSettings);
+      
+      if (settings.autoSyncEnabled) {
         autoSyncService.scheduleAutoSync();
       } else {
         autoSyncService.stopAutoSync();
         // Ensure the service is completely stopped and won't restart
         autoSyncService.isRunning = false;
         // Also stop the global service instance if it exists
-        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit.js');
+        const { stopAutoSync: stopGlobalAutoSync } = await import('../../../../server/lib/autoSyncInit');
         stopGlobalAutoSync();
       }
     } catch (error) {
@@ -263,23 +254,23 @@ export async function GET() {
     
     const settings = {
       autoSyncEnabled: getEnvValue(envContent, 'AUTO_SYNC_ENABLED') === 'true',
-      syncIntervalType: getEnvValue(envContent, 'SYNC_INTERVAL_TYPE') || 'predefined' as 'predefined' | 'custom',
+      syncIntervalType: getEnvValue(envContent, 'SYNC_INTERVAL_TYPE') || 'predefined',
       syncIntervalPredefined: getEnvValue(envContent, 'SYNC_INTERVAL_PREDEFINED') || '1hour',
-      syncIntervalCron: getEnvValue(envContent, 'SYNC_INTERVAL_CRON') || '',
+      syncIntervalCron: getEnvValue(envContent, 'SYNC_INTERVAL_CRON') ?? '',
       autoDownloadNew: getEnvValue(envContent, 'AUTO_DOWNLOAD_NEW') === 'true',
       autoUpdateExisting: getEnvValue(envContent, 'AUTO_UPDATE_EXISTING') === 'true',
       notificationEnabled: getEnvValue(envContent, 'NOTIFICATION_ENABLED') === 'true',
       appriseUrls: (() => {
         try {
-          const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') || '[]';
+          const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') ?? '[]';
           return JSON.parse(urlsValue) as string[];
         } catch {
           return [];
         }
       })(),
-      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') || '',
-      lastAutoSyncError: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR') || null,
-      lastAutoSyncErrorTime: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR_TIME') || null
+      lastAutoSync: getEnvValue(envContent, 'LAST_AUTO_SYNC') ?? '',
+      lastAutoSyncError: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR') ?? null,
+      lastAutoSyncErrorTime: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR_TIME') ?? null
     };
     
     return NextResponse.json({ settings });
@@ -309,7 +300,7 @@ async function handleTestNotification() {
     const notificationEnabled = getEnvValue(envContent, 'NOTIFICATION_ENABLED') === 'true';
     const appriseUrls = (() => {
       try {
-        const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') || '[]';
+        const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') ?? '[]';
         return JSON.parse(urlsValue) as string[];
       } catch {
         return [];
@@ -323,7 +314,7 @@ async function handleTestNotification() {
       );
     }
 
-    if (!appriseUrls || appriseUrls.length === 0) {
+    if (!appriseUrls?.length) {
       return NextResponse.json(
         { error: 'No Apprise URLs configured' },
         { status: 400 }
@@ -331,7 +322,7 @@ async function handleTestNotification() {
     }
 
     // Send test notification using the auto-sync service
-    const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+    const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
     const autoSyncService = new AutoSyncService();
     const result = await autoSyncService.testNotification();
 
@@ -379,9 +370,9 @@ async function handleManualSync() {
     }
 
     // Trigger manual sync using the auto-sync service
-    const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
+    const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
     const autoSyncService = new AutoSyncService();
-    const result = await autoSyncService.executeAutoSync() as { success: boolean; message?: string };
+    const result = await autoSyncService.executeAutoSync() as { success: boolean; message?: string } | null;
 
     if (result?.success) {
       return NextResponse.json({
@@ -391,7 +382,7 @@ async function handleManualSync() {
       });
     } else {
       return NextResponse.json(
-        { error: result.message },
+        { error: result?.message ?? 'Unknown error' },
         { status: 500 }
       );
     }

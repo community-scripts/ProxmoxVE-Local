@@ -13,9 +13,7 @@ export async function initializeRepositories(): Promise<void> {
     console.log('Default repositories initialized successfully');
   } catch (error) {
     console.error('Failed to initialize repositories:', error);
-    if (error instanceof Error) {
-      console.error('Error stack:', error.stack);
-    }
+    console.error('Error stack:', (error as Error).stack);
   }
 }
 

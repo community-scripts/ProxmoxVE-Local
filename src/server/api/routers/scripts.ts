@@ -1,3 +1,4 @@
+ 
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
@@ -100,7 +101,7 @@ export const scriptsRouter = createTRPCRouter({
   getAllScripts: publicProcedure
     .query(async () => {
       try {
-        const scripts = await githubJsonService.getAllScripts("");
+        const scripts = await localScriptsService.getAllScripts();
         return { success: true, scripts };
       } catch (error) {
         return {
@@ -177,7 +178,7 @@ export const scriptsRouter = createTRPCRouter({
         const scripts = await localScriptsService.getAllScripts();
         
         // Create a set of enabled repository URLs for fast lookup
-        const enabledRepoUrls = new Set(enabledRepos.map(repo => repo.url));
+        const enabledRepoUrls = new Set(enabledRepos.map((repo: { url: string }) => repo.url));
         
         // Create category ID to name mapping
         const categoryMap: Record<number, string> = {};
@@ -188,7 +189,7 @@ export const scriptsRouter = createTRPCRouter({
         }
 
         // Enhance cards with category information and additional script data
-        const cardsWithCategories = cards.map(card => {
+        const cardsWithCategories = cards.map((card: ScriptCard) => {
           const script = scripts.find(s => s.slug === card.slug);
           const categoryNames: string[] = script?.categories?.map(id => categoryMap[id]).filter((name): name is string => typeof name === 'string') ?? [];
           
@@ -225,7 +226,7 @@ export const scriptsRouter = createTRPCRouter({
 
         // Filter cards to only include scripts from enabled repositories
         // For backward compatibility, include scripts without repository_url
-        const filteredCards = cardsWithCategories.filter(card => {
+        const filteredCards = cardsWithCategories.filter((card: ScriptCard) => {
           const repoUrl = card.repository_url;
           
           // If script has no repository_url, include it for backward compatibility

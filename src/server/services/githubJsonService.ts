@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import { writeFile, mkdir, readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { env } from '../../env.js';

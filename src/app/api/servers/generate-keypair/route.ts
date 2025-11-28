@@ -12,7 +12,7 @@ export const POST = withApiLogging(async function POST(_request: NextRequest) {
     // Get the next available server ID for key file naming
     const serverId = await db.getNextServerId();
     
-    const keyPair = await sshService.generateKeyPair(serverId);
+    const keyPair = await sshService.generateKeyPair(Number(serverId));
     
     return NextResponse.json({
       success: true,
