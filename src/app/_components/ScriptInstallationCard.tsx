@@ -33,6 +33,7 @@ interface InstalledScript {
   container_status?: 'running' | 'stopped' | 'unknown';
   web_ui_ip: string | null;
   web_ui_port: number | null;
+  is_vm?: boolean;
 }
 
 interface ScriptInstallationCardProps {
@@ -300,7 +301,7 @@ export function ScriptInstallationCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-48 bg-card border-border">
-                  {script.container_id && (
+                  {script.container_id && !script.is_vm && (
                     <DropdownMenuItem
                       onClick={onUpdate}
                       disabled={containerStatus === 'stopped'}
@@ -318,7 +319,7 @@ export function ScriptInstallationCard({
                       Backup
                     </DropdownMenuItem>
                   )}
-                  {script.container_id && script.execution_mode === 'ssh' && (
+                  {script.container_id && script.execution_mode === 'ssh' && !script.is_vm && (
                     <DropdownMenuItem
                       onClick={onShell}
                       disabled={containerStatus === 'stopped'}
