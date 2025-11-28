@@ -1,18 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { api } from '~/trpc/react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { RefreshCw, ChevronDown, ChevronRight, HardDrive, Database, Server, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { api } from "~/trpc/react";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import {
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  HardDrive,
+  Database,
+  Server,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import { ConfirmationModal } from './ConfirmationModal';
-import { LoadingModal } from './LoadingModal';
+} from "./ui/dropdown-menu";
+import { ConfirmationModal } from "./ConfirmationModal";
+import { LoadingModal } from "./LoadingModal";
 
 interface Backup {
   id: number;
@@ -35,16 +44,25 @@ interface ContainerBackups {
 }
 
 export function BackupsTab() {
-  const [expandedContainers, setExpandedContainers] = useState<Set<string>>(new Set());
+  const [expandedContainers, setExpandedContainers] = useState<Set<string>>(
+    new Set(),
+  );
   const [hasAutoDiscovered, setHasAutoDiscovered] = useState(false);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
-  const [selectedBackup, setSelectedBackup] = useState<{ backup: Backup; containerId: string } | null>(null);
+  const [selectedBackup, setSelectedBackup] = useState<{
+    backup: Backup;
+    containerId: string;
+  } | null>(null);
   const [restoreProgress, setRestoreProgress] = useState<string[]>([]);
   const [restoreSuccess, setRestoreSuccess] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [shouldPollRestore, setShouldPollRestore] = useState(false);
 
-  const { data: backupsData, refetch: refetchBackups, isLoading } = api.backups.getAllBackupsGrouped.useQuery();
+  const {
+    data: backupsData,
+    refetch: refetchBackups,
+    isLoading,
+  } = api.backups.getAllBackupsGrouped.useQuery();
   const discoverMutation = api.backups.discoverBackups.useMutation({
     onSuccess: () => {
       void refetchBackups();
@@ -52,26 +70,30 @@ export function BackupsTab() {
   });
 
   // Poll for restore progress
-  const { data: restoreLogsData } = api.backups.getRestoreProgress.useQuery(undefined, {
-    enabled: shouldPollRestore,
-    refetchInterval: 1000, // Poll every second
-    refetchIntervalInBackground: true,
-  });
+  const { data: restoreLogsData } = api.backups.getRestoreProgress.useQuery(
+    undefined,
+    {
+      enabled: shouldPollRestore,
+      refetchInterval: 1000, // Poll every second
+      refetchIntervalInBackground: true,
+    },
+  );
 
   // Update restore progress when log data changes
   useEffect(() => {
     if (restoreLogsData?.success && restoreLogsData.logs) {
       setRestoreProgress(restoreLogsData.logs);
-      
+
       // Stop polling when restore is complete
       if (restoreLogsData.isComplete) {
         setShouldPollRestore(false);
         // Check if restore was successful or failed
-        const lastLog = restoreLogsData.logs[restoreLogsData.logs.length - 1] || '';
-        if (lastLog.includes('Restore completed successfully')) {
+        const lastLog =
+          restoreLogsData.logs[restoreLogsData.logs.length - 1] || "";
+        if (lastLog.includes("Restore completed successfully")) {
           setRestoreSuccess(true);
           setRestoreError(null);
-        } else if (lastLog.includes('Error:') || lastLog.includes('failed')) {
+        } else if (lastLog.includes("Error:") || lastLog.includes("failed")) {
           setRestoreError(lastLog);
           setRestoreSuccess(false);
         }
@@ -83,17 +105,22 @@ export function BackupsTab() {
     onMutate: () => {
       // Start polling for progress
       setShouldPollRestore(true);
-      setRestoreProgress(['Starting restore...']);
+      setRestoreProgress(["Starting restore..."]);
       setRestoreError(null);
       setRestoreSuccess(false);
     },
     onSuccess: (result) => {
       // Stop polling - progress will be updated from logs
       setShouldPollRestore(false);
-      
+
       if (result.success) {
         // Update progress with all messages from backend (fallback if polling didn't work)
-        const progressMessages = restoreProgress.length > 0 ? restoreProgress : (result.progress?.map(p => p.message) || ['Restore completed successfully']);
+        const progressMessages =
+          restoreProgress.length > 0
+            ? restoreProgress
+            : result.progress?.map((p) => p.message) || [
+                "Restore completed successfully",
+              ];
         setRestoreProgress(progressMessages);
         setRestoreSuccess(true);
         setRestoreError(null);
@@ -101,8 +128,10 @@ export function BackupsTab() {
         setSelectedBackup(null);
         // Keep success message visible - user can dismiss manually
       } else {
-        setRestoreError(result.error || 'Restore failed');
-        setRestoreProgress(result.progress?.map(p => p.message) || restoreProgress);
+        setRestoreError(result.error || "Restore failed");
+        setRestoreProgress(
+          result.progress?.map((p) => p.message) || restoreProgress,
+        );
         setRestoreSuccess(false);
         setRestoreConfirmOpen(false);
         setSelectedBackup(null);
@@ -112,17 +141,18 @@ export function BackupsTab() {
     onError: (error) => {
       // Stop polling on error
       setShouldPollRestore(false);
-      setRestoreError(error.message || 'Restore failed');
+      setRestoreError(error.message || "Restore failed");
       setRestoreConfirmOpen(false);
       setSelectedBackup(null);
       setRestoreProgress([]);
     },
   });
-  
+
   // Update progress text in modal based on current progress
-  const currentProgressText = restoreProgress.length > 0 
-    ? restoreProgress[restoreProgress.length - 1] 
-    : 'Restoring backup...';
+  const currentProgressText =
+    restoreProgress.length > 0
+      ? restoreProgress[restoreProgress.length - 1]
+      : "Restoring backup...";
 
   // Auto-discover backups when tab is first opened
   useEffect(() => {
@@ -149,11 +179,11 @@ export function BackupsTab() {
 
   const handleRestoreConfirm = () => {
     if (!selectedBackup) return;
-    
+
     setRestoreConfirmOpen(false);
     setRestoreError(null);
     setRestoreSuccess(false);
-    
+
     restoreMutation.mutate({
       backupId: selectedBackup.backup.id,
       containerId: selectedBackup.containerId,
@@ -172,39 +202,41 @@ export function BackupsTab() {
   };
 
   const formatFileSize = (bytes: bigint | null): string => {
-    if (!bytes) return 'Unknown size';
+    if (!bytes) return "Unknown size";
     const b = Number(bytes);
-    if (b === 0) return '0 B';
+    if (b === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(b) / Math.log(k));
     return `${(b / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const formatDate = (date: Date | null): string => {
-    if (!date) return 'Unknown date';
+    if (!date) return "Unknown date";
     return new Date(date).toLocaleString();
   };
 
   const getStorageTypeIcon = (type: string) => {
     switch (type) {
-      case 'pbs':
+      case "pbs":
         return <Database className="h-4 w-4" />;
-      case 'local':
+      case "local":
         return <HardDrive className="h-4 w-4" />;
       default:
         return <Server className="h-4 w-4" />;
     }
   };
 
-  const getStorageTypeBadgeVariant = (type: string): 'default' | 'secondary' | 'outline' => {
+  const getStorageTypeBadgeVariant = (
+    type: string,
+  ): "default" | "secondary" | "outline" => {
     switch (type) {
-      case 'pbs':
-        return 'default';
-      case 'local':
-        return 'secondary';
+      case "pbs":
+        return "default";
+      case "local":
+        return "secondary";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
@@ -216,8 +248,8 @@ export function BackupsTab() {
       {/* Header with refresh button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Backups</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="text-foreground text-2xl font-bold">Backups</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Discovered backups grouped by container ID
           </p>
         </div>
@@ -226,31 +258,38 @@ export function BackupsTab() {
           disabled={isDiscovering}
           className="flex items-center gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${isDiscovering ? 'animate-spin' : ''}`} />
-          {isDiscovering ? 'Discovering...' : 'Discover Backups'}
+          <RefreshCw
+            className={`h-4 w-4 ${isDiscovering ? "animate-spin" : ""}`}
+          />
+          {isDiscovering ? "Discovering..." : "Discover Backups"}
         </Button>
       </div>
 
       {/* Loading state */}
       {(isLoading || isDiscovering) && backups.length === 0 && (
-        <div className="bg-card rounded-lg border border-border p-8 text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+        <div className="bg-card border-border rounded-lg border p-8 text-center">
+          <RefreshCw className="text-muted-foreground mx-auto mb-4 h-8 w-8 animate-spin" />
           <p className="text-muted-foreground">
-            {isDiscovering ? 'Discovering backups...' : 'Loading backups...'}
+            {isDiscovering ? "Discovering backups..." : "Loading backups..."}
           </p>
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && !isDiscovering && backups.length === 0 && (
-        <div className="bg-card rounded-lg border border-border p-8 text-center">
-          <HardDrive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No backups found</h3>
+        <div className="bg-card border-border rounded-lg border p-8 text-center">
+          <HardDrive className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+          <h3 className="text-foreground mb-2 text-lg font-semibold">
+            No backups found
+          </h3>
           <p className="text-muted-foreground mb-4">
-            Click "Discover Backups" to scan for backups on your servers.
+            Click &quot;Discover Backups&quot; to scan for backups on your
+            servers.
           </p>
           <Button onClick={handleDiscoverBackups} disabled={isDiscovering}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isDiscovering ? "animate-spin" : ""}`}
+            />
             Discover Backups
           </Button>
         </div>
@@ -266,33 +305,35 @@ export function BackupsTab() {
             return (
               <div
                 key={container.container_id}
-                className="bg-card rounded-lg border border-border shadow-sm overflow-hidden"
+                className="bg-card border-border overflow-hidden rounded-lg border shadow-sm"
               >
                 {/* Container header - collapsible */}
                 <button
                   onClick={() => toggleContainer(container.container_id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left"
+                  className="hover:bg-accent/50 flex w-full items-center justify-between p-4 text-left transition-colors"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
                     {isExpanded ? (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <ChevronDown className="text-muted-foreground h-5 w-5 flex-shrink-0" />
                     ) : (
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <ChevronRight className="text-muted-foreground h-5 w-5 flex-shrink-0" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-foreground">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-foreground font-semibold">
                           CT {container.container_id}
                         </span>
                         {container.hostname && (
                           <>
                             <span className="text-muted-foreground">•</span>
-                            <span className="text-muted-foreground">{container.hostname}</span>
+                            <span className="text-muted-foreground">
+                              {container.hostname}
+                            </span>
                           </>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {backupCount} {backupCount === 1 ? 'backup' : 'backups'}
+                      <p className="text-muted-foreground mt-1 text-sm">
+                        {backupCount} {backupCount === 1 ? "backup" : "backups"}
                       </p>
                     </div>
                   </div>
@@ -300,28 +341,30 @@ export function BackupsTab() {
 
                 {/* Container content - backups list */}
                 {isExpanded && (
-                  <div className="border-t border-border">
-                    <div className="p-4 space-y-3">
+                  <div className="border-border border-t">
+                    <div className="space-y-3 p-4">
                       {container.backups.map((backup) => (
                         <div
                           key={backup.id}
-                          className="bg-muted/50 rounded-lg p-4 border border-border/50"
+                          className="bg-muted/50 border-border/50 rounded-lg border p-4"
                         >
                           <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                <span className="font-medium text-foreground break-all">
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <span className="text-foreground font-medium break-all">
                                   {backup.backup_name}
                                 </span>
                                 <Badge
-                                  variant={getStorageTypeBadgeVariant(backup.storage_type)}
+                                  variant={getStorageTypeBadgeVariant(
+                                    backup.storage_type,
+                                  )}
                                   className="flex items-center gap-1"
                                 >
                                   {getStorageTypeIcon(backup.storage_type)}
                                   {backup.storage_name}
                                 </Badge>
                               </div>
-                              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                              <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-sm">
                                 {backup.size && (
                                   <span className="flex items-center gap-1">
                                     <HardDrive className="h-3 w-3" />
@@ -339,7 +382,7 @@ export function BackupsTab() {
                                 )}
                               </div>
                               <div className="mt-2">
-                                <code className="text-xs text-muted-foreground break-all">
+                                <code className="text-muted-foreground text-xs break-all">
                                   {backup.backup_path}
                                 </code>
                               </div>
@@ -350,14 +393,19 @@ export function BackupsTab() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                    className="bg-muted/20 hover:bg-muted/30 border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground border transition-all duration-200 hover:scale-105 hover:shadow-md"
                                   >
                                     Actions
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-48 bg-card border-border">
+                                <DropdownMenuContent className="bg-card border-border w-48">
                                   <DropdownMenuItem
-                                    onClick={() => handleRestoreClick(backup, container.container_id)}
+                                    onClick={() =>
+                                      handleRestoreClick(
+                                        backup,
+                                        container.container_id,
+                                      )
+                                    }
                                     disabled={restoreMutation.isPending}
                                     className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                   >
@@ -386,9 +434,9 @@ export function BackupsTab() {
 
       {/* Error state */}
       {backupsData && !backupsData.success && (
-        <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
+        <div className="bg-destructive/10 border-destructive rounded-lg border p-4">
           <p className="text-destructive">
-            Error loading backups: {backupsData.error || 'Unknown error'}
+            Error loading backups: {backupsData.error || "Unknown error"}
           </p>
         </div>
       )}
@@ -412,7 +460,8 @@ export function BackupsTab() {
       )}
 
       {/* Restore Progress Modal */}
-      {(restoreMutation.isPending || (restoreSuccess && restoreProgress.length > 0)) && (
+      {(restoreMutation.isPending ||
+        (restoreSuccess && restoreProgress.length > 0)) && (
         <LoadingModal
           isOpen={true}
           action={currentProgressText}
@@ -428,11 +477,13 @@ export function BackupsTab() {
 
       {/* Restore Success */}
       {restoreSuccess && (
-        <div className="bg-success/10 border border-success/20 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-success/10 border-success/20 rounded-lg border p-4">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              <span className="font-medium text-success">Restore Completed Successfully</span>
+              <CheckCircle className="text-success h-5 w-5" />
+              <span className="text-success font-medium">
+                Restore Completed Successfully
+              </span>
             </div>
             <Button
               variant="ghost"
@@ -446,7 +497,7 @@ export function BackupsTab() {
               ×
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             The container has been restored from backup.
           </p>
         </div>
@@ -454,11 +505,11 @@ export function BackupsTab() {
 
       {/* Restore Error */}
       {restoreError && (
-        <div className="bg-error/10 border border-error/20 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-error/10 border-error/20 rounded-lg border p-4">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-error" />
-              <span className="font-medium text-error">Restore Failed</span>
+              <AlertCircle className="text-error h-5 w-5" />
+              <span className="text-error font-medium">Restore Failed</span>
             </div>
             <Button
               variant="ghost"
@@ -472,13 +523,11 @@ export function BackupsTab() {
               ×
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {restoreError}
-          </p>
+          <p className="text-muted-foreground text-sm">{restoreError}</p>
           {restoreProgress.length > 0 && (
-            <div className="space-y-1 mt-2">
+            <div className="mt-2 space-y-1">
               {restoreProgress.map((message, index) => (
-                <p key={index} className="text-sm text-muted-foreground">
+                <p key={index} className="text-muted-foreground text-sm">
                   {message}
                 </p>
               ))}
@@ -500,4 +549,3 @@ export function BackupsTab() {
     </div>
   );
 }
-
