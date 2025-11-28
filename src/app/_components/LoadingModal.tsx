@@ -7,16 +7,16 @@ import { Button } from './ui/button';
 
 interface LoadingModalProps {
   isOpen: boolean;
-  action: string;
+  action?: string;
   logs?: string[];
   isComplete?: boolean;
   title?: string;
   onClose?: () => void;
 }
 
-export function LoadingModal({ isOpen, action, logs = [], isComplete = false, title, onClose }: LoadingModalProps) {
+export function LoadingModal({ isOpen, action: _action, logs = [], isComplete = false, title, onClose }: LoadingModalProps) {
   // Allow dismissing with ESC only when complete, prevent during running
-  useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: isComplete, onClose: onClose || (() => null) });
+  useRegisterModal(isOpen, { id: 'loading-modal', allowEscape: isComplete, onClose: onClose ?? (() => null) });
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new logs arrive

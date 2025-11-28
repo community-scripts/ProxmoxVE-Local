@@ -255,7 +255,7 @@ export function InstalledScriptsTab() {
       void refetchScripts();
       setAutoDetectStatus({ 
         type: 'success', 
-        message: data.success ? `Detected IP: ${data.ip}` : (data.error ?? 'Failed to detect Web UI')
+        message: data.success ? `Detected IP: ${data.detectedIp}:${data.detectedPort}` : (data.error ?? 'Failed to detect Web UI')
       });
       setTimeout(() => setAutoDetectStatus({ type: null, message: '' }), 5000);
     },
@@ -275,12 +275,10 @@ export function InstalledScriptsTab() {
     { enabled: false } // Only fetch when explicitly called
   );
 
-  const fetchStorages = async (serverId: number, forceRefresh = false) => {
+  const fetchStorages = async (serverId: number, _forceRefresh = false) => {
     setIsLoadingStorages(true);
     try {
-      const result = await getBackupStoragesQuery.refetch({ 
-        queryKey: ['installedScripts.getBackupStorages', { serverId, forceRefresh }]
-      });
+      const result = await getBackupStoragesQuery.refetch();
       if (result.data?.success) {
         setBackupStorages(result.data.storages);
       } else {
@@ -563,7 +561,7 @@ export function InstalledScriptsTab() {
   const handleDeleteScript = (id: number, script?: InstalledScript) => {
     const scriptToDelete = script ?? scripts.find(s => s.id === id);
     
-    if (scriptToDelete && scriptToDelete.container_id && scriptToDelete.execution_mode === 'ssh') {
+    if (scriptToDelete?.container_id && scriptToDelete.execution_mode === 'ssh') {
       // For SSH scripts with container_id, use confirmation modal
       setConfirmationModal({
         isOpen: true,

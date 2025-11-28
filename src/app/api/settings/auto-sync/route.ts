@@ -4,9 +4,25 @@ import fs from 'fs';
 import path from 'path';
 import { isValidCron } from 'cron-validator';
 
+interface AutoSyncSettings {
+  autoSyncEnabled?: boolean;
+  syncIntervalType?: 'predefined' | 'custom';
+  syncIntervalPredefined?: string;
+  syncIntervalCron?: string;
+  autoDownloadNew?: boolean;
+  autoUpdateExisting?: boolean;
+  notificationEnabled?: boolean;
+  appriseUrls?: string[] | string;
+  lastAutoSync?: string;
+  lastAutoSyncError?: string;
+  lastAutoSyncErrorTime?: string;
+  testNotification?: boolean;
+  triggerManualSync?: boolean;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const settings = await request.json();
+    const settings = await request.json() as AutoSyncSettings;
 
     if (!settings || typeof settings !== 'object') {
       return NextResponse.json(
@@ -44,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate sync interval type
-    if (!['predefined', 'custom'].includes(settings.syncIntervalType)) {
+    if (settings.syncIntervalType && !['predefined', 'custom'].includes(settings.syncIntervalType)) {
       return NextResponse.json(
         { error: 'syncIntervalType must be "predefined" or "custom"' },
         { status: 400 }
@@ -54,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Validate predefined interval
     if (settings.syncIntervalType === 'predefined') {
       const validIntervals = ['15min', '30min', '1hour', '6hours', '12hours', '24hours'];
-      if (!validIntervals.includes(settings.syncIntervalPredefined)) {
+      if (settings.syncIntervalPredefined && !validIntervals.includes(settings.syncIntervalPredefined)) {
         return NextResponse.json(
           { error: 'Invalid predefined interval' },
           { status: 400 }
@@ -67,7 +83,7 @@ export async function POST(request: NextRequest) {
       if (!settings.syncIntervalCron || typeof settings.syncIntervalCron !== 'string' || settings.syncIntervalCron.trim() === '') {
         // Fallback to predefined if custom is selected but no cron expression
         settings.syncIntervalType = 'predefined';
-        settings.syncIntervalPredefined = settings.syncIntervalPredefined || '1hour';
+        settings.syncIntervalPredefined = settings.syncIntervalPredefined ?? '1hour';
         settings.syncIntervalCron = '';
       } else if (!isValidCron(settings.syncIntervalCron, { seconds: false })) {
         return NextResponse.json(
@@ -81,11 +97,11 @@ export async function POST(request: NextRequest) {
     if (settings.notificationEnabled && settings.appriseUrls) {
       try {
         // Handle both array and JSON string formats
-        let urls;
+        let urls: string[];
         if (Array.isArray(settings.appriseUrls)) {
           urls = settings.appriseUrls;
         } else if (typeof settings.appriseUrls === 'string') {
-          urls = JSON.parse(settings.appriseUrls);
+          urls = JSON.parse(settings.appriseUrls) as string[];
         } else {
           return NextResponse.json(
             { error: 'Apprise URLs must be an array or JSON string' },
@@ -110,6 +126,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (parseError) {
+        console.error('Error parsing Apprise URLs:', parseError);
         return NextResponse.json(
           { error: 'Invalid JSON format for Apprise URLs' },
           { status: 400 }
@@ -129,16 +146,16 @@ export async function POST(request: NextRequest) {
     // Auto-sync settings to add/update
     const autoSyncSettings = {
       'AUTO_SYNC_ENABLED': settings.autoSyncEnabled ? 'true' : 'false',
-      'SYNC_INTERVAL_TYPE': settings.syncIntervalType,
-      'SYNC_INTERVAL_PREDEFINED': settings.syncIntervalPredefined || '',
-      'SYNC_INTERVAL_CRON': settings.syncIntervalCron || '',
+      'SYNC_INTERVAL_TYPE': settings.syncIntervalType ?? 'predefined',
+      'SYNC_INTERVAL_PREDEFINED': settings.syncIntervalPredefined ?? '',
+      'SYNC_INTERVAL_CRON': settings.syncIntervalCron ?? '',
       'AUTO_DOWNLOAD_NEW': settings.autoDownloadNew ? 'true' : 'false',
       'AUTO_UPDATE_EXISTING': settings.autoUpdateExisting ? 'true' : 'false',
       'NOTIFICATION_ENABLED': settings.notificationEnabled ? 'true' : 'false',
-      'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (settings.appriseUrls || '[]'),
-      'LAST_AUTO_SYNC': settings.lastAutoSync || '',
-      'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError || '',
-      'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime || ''
+      'APPRISE_URLS': Array.isArray(settings.appriseUrls) ? JSON.stringify(settings.appriseUrls) : (typeof settings.appriseUrls === 'string' ? settings.appriseUrls : '[]'),
+      'LAST_AUTO_SYNC': settings.lastAutoSync ?? '',
+      'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError ?? '',
+      'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime ?? ''
     };
 
     // Update or add each setting
@@ -169,11 +186,28 @@ export async function POST(request: NextRequest) {
         autoSyncService = new AutoSyncService();
         setAutoSyncService(autoSyncService);
       }
-      
       // Update the global service instance with new settings
-      autoSyncService.saveSettings(settings);
-      
-      if (settings.autoSyncEnabled) {
+      // Make sure required fields are set and not undefined to match type expectations
+      autoSyncService.saveSettings({
+        ...settings,
+        autoSyncEnabled: settings.autoSyncEnabled ?? false,
+        autoDownloadNew: settings.autoDownloadNew ?? false,
+        autoUpdateExisting: settings.autoUpdateExisting ?? false,
+        notificationEnabled: settings.notificationEnabled ?? false,
+        syncIntervalType: settings.syncIntervalType ?? 'predefined',
+        syncIntervalPredefined: settings.syncIntervalPredefined ?? '',
+        syncIntervalCron: settings.syncIntervalCron ?? '',
+        appriseUrls: Array.isArray(settings.appriseUrls)
+          ? settings.appriseUrls
+          : (typeof settings.appriseUrls === 'string'
+            ? JSON.parse(settings.appriseUrls || '[]')
+            : []),
+        lastAutoSync: settings.lastAutoSync ?? '',
+        lastAutoSyncError: settings.lastAutoSyncError ?? undefined,
+        lastAutoSyncErrorTime: settings.lastAutoSyncErrorTime ?? undefined,
+      });
+
+      if (settings.autoSyncEnabled === true) {
         autoSyncService.scheduleAutoSync();
       } else {
         autoSyncService.stopAutoSync();
@@ -229,7 +263,7 @@ export async function GET() {
     
     const settings = {
       autoSyncEnabled: getEnvValue(envContent, 'AUTO_SYNC_ENABLED') === 'true',
-      syncIntervalType: getEnvValue(envContent, 'SYNC_INTERVAL_TYPE') || 'predefined',
+      syncIntervalType: getEnvValue(envContent, 'SYNC_INTERVAL_TYPE') || 'predefined' as 'predefined' | 'custom',
       syncIntervalPredefined: getEnvValue(envContent, 'SYNC_INTERVAL_PREDEFINED') || '1hour',
       syncIntervalCron: getEnvValue(envContent, 'SYNC_INTERVAL_CRON') || '',
       autoDownloadNew: getEnvValue(envContent, 'AUTO_DOWNLOAD_NEW') === 'true',
@@ -238,7 +272,7 @@ export async function GET() {
       appriseUrls: (() => {
         try {
           const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') || '[]';
-          return JSON.parse(urlsValue);
+          return JSON.parse(urlsValue) as string[];
         } catch {
           return [];
         }
@@ -276,7 +310,7 @@ async function handleTestNotification() {
     const appriseUrls = (() => {
       try {
         const urlsValue = getEnvValue(envContent, 'APPRISE_URLS') || '[]';
-        return JSON.parse(urlsValue);
+        return JSON.parse(urlsValue) as string[];
       } catch {
         return [];
       }
@@ -347,9 +381,9 @@ async function handleManualSync() {
     // Trigger manual sync using the auto-sync service
     const { AutoSyncService } = await import('../../../../server/services/autoSyncService.js');
     const autoSyncService = new AutoSyncService();
-    const result = await autoSyncService.executeAutoSync() as any;
+    const result = await autoSyncService.executeAutoSync() as { success: boolean; message?: string };
 
-    if (result && result.success) {
+    if (result?.success) {
       return NextResponse.json({
         success: true,
         message: 'Manual sync completed successfully',
@@ -376,7 +410,7 @@ function getEnvValue(envContent: string, key: string): string {
   const regex = new RegExp(`^${key}="(.+)"$`, 'm');
   let match = regex.exec(envContent);
   
-  if (match && match[1]) {
+  if (match?.[1]) {
     let value = match[1];
     // Remove extra quotes that might be around JSON values
     if (value.startsWith('"') && value.endsWith('"')) {
@@ -388,7 +422,7 @@ function getEnvValue(envContent: string, key: string): string {
   // Try to match without quotes (fallback)
   const regexNoQuotes = new RegExp(`^${key}=([^\\s]*)$`, 'm');
   match = regexNoQuotes.exec(envContent);
-  if (match && match[1]) {
+  if (match?.[1]) {
     return match[1];
   }
   

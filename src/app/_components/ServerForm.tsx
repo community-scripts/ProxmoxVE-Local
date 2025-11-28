@@ -65,11 +65,11 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
 
     // Check for IPv6 with zone identifier (link-local addresses like fe80::...%eth0)
     let ipv6Address = trimmed;
-    const zoneIdMatch = trimmed.match(/^(.+)%([a-zA-Z0-9_\-]+)$/);
+    const zoneIdMatch = /^(.+)%([a-zA-Z0-9_\-]+)$/.exec(trimmed);
     if (zoneIdMatch) {
-      ipv6Address = zoneIdMatch[1];
+      ipv6Address = zoneIdMatch[1] ?? '';
       // Zone identifier should be a valid interface name (alphanumeric, underscore, hyphen)
-      const zoneId = zoneIdMatch[2];
+      const zoneId = zoneIdMatch[2] ?? '';
       if (!/^[a-zA-Z0-9_\-]+$/.test(zoneId)) {
         return false;
       }
@@ -82,7 +82,11 @@ export function ServerForm({ onSubmit, initialData, isEditing = false, onCancel 
     const ipv6Pattern = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:)+[0-9a-fA-F]{1,4}$|^::ffff:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     if (ipv6Pattern.test(ipv6Address)) {
       // Additional validation: ensure only one :: compression exists
-      const compressionCount = (ipv6Address.match(/::/g) || []).length;
+      const regex = /::/g;
+      let compressionCount = 0;
+      while (regex.exec(ipv6Address) !== null) {
+        compressionCount++;
+      }
       if (compressionCount <= 1) {
         return true;
       }

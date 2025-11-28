@@ -63,9 +63,9 @@ const config = {
     }
     return config;
   },
-  // Ignore TypeScript errors during build (they can be fixed separately)
+  // TypeScript errors will fail the build
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 };
 

@@ -1,9 +1,8 @@
 'use client';
 
-import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { X, ExternalLink, Calendar, Tag, Loader2, AlertTriangle } from 'lucide-react';
+import { X, ExternalLink, Calendar, Tag, AlertTriangle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

@@ -35,7 +35,7 @@ export function BackupWarningModal({
           <p className="text-sm text-muted-foreground mb-6">
             The backup failed, but you can still proceed with the update if you wish.
             <br /><br />
-            <strong className="text-foreground">Warning:</strong> Proceeding without a backup means you won't be able to restore the container if something goes wrong during the update.
+            <strong className="text-foreground">Warning:</strong> Proceeding without a backup means you won&apos;t be able to restore the container if something goes wrong during the update.
           </p>
 
           {/* Action Buttons */}

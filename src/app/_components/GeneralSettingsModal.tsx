@@ -10,6 +10,7 @@ import { useRegisterModal } from './modal/ModalStackProvider';
 import { api } from '~/trpc/react';
 import { useAuth } from './AuthProvider';
 import { Trash2, ExternalLink } from 'lucide-react';
+import type { FilterState } from './FilterBar';
 
 interface GeneralSettingsModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
   const [sessionExpirationDisplay, setSessionExpirationDisplay] = useState<string>('');
   const [githubToken, setGithubToken] = useState('');
   const [saveFilter, setSaveFilter] = useState(false);
-  const [savedFilters, setSavedFilters] = useState<any>(null);
+  const [savedFilters, setSavedFilters] = useState<Partial<FilterState> | null>(null);
   const [colorCodingEnabled, setColorCodingEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -139,8 +140,8 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     try {
       const response = await fetch('/api/settings/filters');
       if (response.ok) {
-        const data = await response.json();
-        setSavedFilters(data.filters);
+        const data = await response.json() as { filters?: Partial<FilterState> };
+        setSavedFilters(data.filters ?? null);
       }
     } catch (error) {
       console.error('Error loading saved filters:', error);
@@ -182,7 +183,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
         setMessage({ type: 'success', text: 'GitHub token saved successfully!' });
       } else {
         const errorData = await response.json();
-        setMessage({ type: 'error', text: errorData.error ?? 'Failed to save token' });
+        setMessage({ type: 'error', text: (errorData.error as string | undefined) ?? 'Failed to save token' });
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to save token' });
@@ -413,7 +414,21 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
     try {
       const response = await fetch('/api/settings/auto-sync');
       if (response.ok) {
-        const data = await response.json() as { settings: any };
+        const data = await response.json() as { 
+          settings?: {
+            autoSyncEnabled?: boolean;
+            syncIntervalType?: 'custom' | 'predefined';
+            syncIntervalPredefined?: string;
+            syncIntervalCron?: string;
+            autoDownloadNew?: boolean;
+            autoUpdateExisting?: boolean;
+            notificationEnabled?: boolean;
+            appriseUrls?: string[];
+            lastAutoSync?: string;
+            lastAutoSyncError?: string | null;
+            lastAutoSyncErrorTime?: string | null;
+          }
+        };
         const settings = data.settings;
         if (settings) {
           setAutoSyncEnabled(settings.autoSyncEnabled ?? false);
@@ -1127,7 +1142,7 @@ export function GeneralSettingsModal({ isOpen, onClose }: GeneralSettingsModalPr
                       <div className="flex items-center justify-between">
                         <div>
                           <h5 className="font-medium text-foreground">Auto-download new scripts</h5>
-                          <p className="text-sm text-muted-foreground">Automatically download scripts that haven't been downloaded yet</p>
+                          <p className="text-sm text-muted-foreground">Automatically download scripts that haven&apos;t been downloaded yet</p>
                         </div>
                         <Toggle
                           checked={autoDownloadNew}

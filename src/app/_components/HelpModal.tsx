@@ -329,7 +329,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
               <div className="p-4 border border-border rounded-lg">
                 <h4 className="font-medium text-foreground mb-2">Auto-Download Options</h4>
                 <ul className="text-sm text-muted-foreground space-y-2">
-                  <li>• <strong>Auto-download new scripts:</strong> Automatically download scripts that haven't been downloaded yet</li>
+                  <li>• <strong>Auto-download new scripts:</strong> Automatically download scripts that haven&apos;t been downloaded yet</li>
                   <li>• <strong>Auto-update existing scripts:</strong> Automatically update scripts that have newer versions available</li>
                   <li>• <strong>Selective Control:</strong> Enable/disable each option independently</li>
                 </ul>
@@ -356,7 +356,7 @@ export function HelpModal({ isOpen, onClose, initialSection = 'server-settings' 
                   <li>Choose your sync interval (predefined or custom cron)</li>
                   <li>Configure auto-download options if desired</li>
                   <li>Set up notifications by adding Apprise URLs</li>
-                  <li>Test your notification setup using the "Test Notification" button</li>
+                  <li>Test your notification setup using the &quot;Test Notification&quot; button</li>
                   <li>Save your settings to activate auto-sync</li>
                 </ol>
               </div>

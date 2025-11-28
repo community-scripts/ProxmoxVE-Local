@@ -1,4 +1,4 @@
-import { prisma } from '../db.ts';
+import { prisma } from '../db';
 
 export class RepositoryService {
   /**
@@ -93,7 +93,7 @@ export class RepositoryService {
     priority?: number;
   }) {
     // Validate GitHub URL
-    if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
+    if (!(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/.exec(data.url))) {
       throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
     }
 
@@ -131,7 +131,7 @@ export class RepositoryService {
   }) {
     // If updating URL, validate it
     if (data.url) {
-      if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
+      if (!(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/.exec(data.url))) {
         throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
       }
 

@@ -84,7 +84,7 @@ export function ScriptDetailModal({
         setLoadMessage(`[ERROR] ${error}`);
       }
       // Clear message after 5 seconds
-      setTimeout(() => setLoadMessage(null), 5000);
+      void setTimeout(() => setLoadMessage(null), 5000);
     },
     onError: (error) => {
       setIsLoading(false);
@@ -109,7 +109,7 @@ export function ScriptDetailModal({
         setLoadMessage(`[ERROR] ${error}`);
       }
       // Clear message after 5 seconds
-      setTimeout(() => setLoadMessage(null), 5000);
+      void setTimeout(() => setLoadMessage(null), 5000);
     },
     onError: (error) => {
       setIsDeleting(false);
@@ -155,7 +155,7 @@ export function ScriptDetailModal({
       // Use the first available method or default to 'default' type
       const defaultMethod = installMethods.find(method => method.type === 'default');
       const firstMethod = installMethods[0];
-      setSelectedVersionType(defaultMethod?.type || firstMethod?.type || 'default');
+      setSelectedVersionType(defaultMethod?.type ?? firstMethod?.type ?? 'default');
       setExecutionModeOpen(true);
     }
   };
@@ -170,10 +170,10 @@ export function ScriptDetailModal({
     if (!script || !onInstallScript) return;
 
     // Find the script path based on selected version type
-    const versionType = selectedVersionType || 'default';
+    const versionType = selectedVersionType ?? 'default';
     const scriptMethod = script.install_methods?.find(
       (method) => method.type === versionType && method.script,
-    ) || script.install_methods?.find(
+    ) ?? script.install_methods?.find(
       (method) => method.script,
     );
     
@@ -247,7 +247,7 @@ export function ScriptDetailModal({
                     onClick={(e) => e.stopPropagation()}
                     title={`Source: ${script.repository_url}`}
                   >
-                    {script.repository_url.match(/github\.com\/([^\/]+)\/([^\/]+)/)?.[0]?.replace('https://', '') ?? script.repository_url}
+                    {(/github\.com\/([^\/]+)\/([^\/]+)/.exec(script.repository_url))?.[0]?.replace('https://', '') ?? script.repository_url}
                   </a>
                 )}
               </div>

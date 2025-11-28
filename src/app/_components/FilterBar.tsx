@@ -53,7 +53,7 @@ export function FilterBar({
   // Helper function to extract repository name from URL
   const getRepoName = (url: string): string => {
     try {
-      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
       if (match) {
         return `${match[1]}/${match[2]}`;
       }

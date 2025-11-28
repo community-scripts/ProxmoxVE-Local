@@ -28,8 +28,7 @@ class StorageService {
     
     let currentStorage: Partial<Storage> | null = null;
     
-    for (let i = 0; i < lines.length; i++) {
-      const rawLine = lines[i];
+    for (const rawLine of lines) {
       if (!rawLine) continue;
       
       // Check if line is indented (has leading whitespace/tabs) BEFORE trimming
@@ -44,10 +43,10 @@ class StorageService {
       // Check if this is a storage definition line (format: "type: name")
       // Storage definitions are NOT indented
       if (!isIndented) {
-        const storageMatch = line.match(/^(\w+):\s*(.+)$/);
-        if (storageMatch && storageMatch[1] && storageMatch[2]) {
+        const storageMatch = /^(\w+):\s*(.+)$/.exec(line);
+        if (storageMatch?.[1] && storageMatch[2]) {
           // Save previous storage if exists
-          if (currentStorage && currentStorage.name) {
+          if (currentStorage?.name) {
             storages.push(this.finalizeStorage(currentStorage));
           }
           
@@ -65,9 +64,9 @@ class StorageService {
       // Parse storage properties (indented lines - can be tabs or spaces)
       if (currentStorage && isIndented) {
         // Split on first whitespace (space or tab) to separate key and value
-        const match = line.match(/^(\S+)\s+(.+)$/);
+        const match = /^(\S+)\s+(.+)$/.exec(line);
         
-        if (match && match[1] && match[2]) {
+        if (match?.[1] && match[2]) {
           const key = match[1];
           const value = match[2].trim();
           
@@ -92,7 +91,7 @@ class StorageService {
     }
     
     // Don't forget the last storage
-    if (currentStorage && currentStorage.name) {
+    if (currentStorage?.name) {
       storages.push(this.finalizeStorage(currentStorage));
     }
     
@@ -106,8 +105,8 @@ class StorageService {
     return {
       name: storage.name!,
       type: storage.type!,
-      content: storage.content || [],
-      supportsBackup: storage.supportsBackup || false,
+      content: storage.content ?? [],
+      supportsBackup: storage.supportsBackup ?? false,
       nodes: storage.nodes,
       ...Object.fromEntries(
         Object.entries(storage).filter(([key]) => 
@@ -138,7 +137,7 @@ class StorageService {
     let configContent = '';
     
     await new Promise<void>((resolve, reject) => {
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         'cat /etc/pve/storage.cfg',
         (data: string) => {
@@ -191,8 +190,8 @@ class StorageService {
     }
     
     return {
-      pbs_ip: (storage as any).server || null,
-      pbs_datastore: (storage as any).datastore || null,
+      pbs_ip: (storage as any).server ?? null,
+      pbs_datastore: (storage as any).datastore ?? null,
     };
   }
 
@@ -215,9 +214,7 @@ class StorageService {
 let storageServiceInstance: StorageService | null = null;
 
 export function getStorageService(): StorageService {
-  if (!storageServiceInstance) {
-    storageServiceInstance = new StorageService();
-  }
+  storageServiceInstance ??= new StorageService();
   return storageServiceInstance;
 }
 

@@ -100,7 +100,7 @@ export const scriptsRouter = createTRPCRouter({
   getAllScripts: publicProcedure
     .query(async () => {
       try {
-        const scripts = await githubJsonService.getAllScripts();
+        const scripts = await githubJsonService.getAllScripts("");
         return { success: true, scripts };
       } catch (error) {
         return {

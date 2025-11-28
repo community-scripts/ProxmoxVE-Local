@@ -25,7 +25,7 @@ class BackupService {
     let hostname = '';
     
     await new Promise<void>((resolve, reject) => {
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         'hostname',
         (data: string) => {
@@ -61,17 +61,19 @@ class BackupService {
     try {
       await Promise.race([
         new Promise<void>((resolve) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             findCommand,
             (data: string) => {
               findOutput += data;
             },
             (error: string) => {
+              console.error('Error getting hostname:', error);
               // Ignore errors - directory might not exist
               resolve();
             },
             (exitCode: number) => {
+              console.error('Error getting find command:', exitCode);
               resolve();
             }
           );
@@ -96,7 +98,7 @@ class BackupService {
           
           await Promise.race([
             new Promise<void>((resolve) => {
-              sshService.executeCommand(
+              void sshService.executeCommand(
                 server,
                 statCommand,
                 (data: string) => {
@@ -112,11 +114,11 @@ class BackupService {
           ]);
           
           const statParts = statOutput.trim().split('|');
-          const fileName = backupPath.split('/').pop() || backupPath;
+          const fileName = backupPath.split('/').pop() ?? backupPath;
           
           if (statParts.length >= 2 && statParts[0] && statParts[1]) {
-            const size = BigInt(statParts[0] || '0');
-            const mtime = parseInt(statParts[1] || '0', 10);
+            const size = BigInt(statParts[0] ?? '0');
+            const mtime = parseInt(statParts[1] ?? '0', 10);
             
             backups.push({
               container_id: ctId,
@@ -144,8 +146,9 @@ class BackupService {
             });
           }
         } catch (error) {
+          console.error('Error processing backup:', error);
           // Still try to add the backup even if stat fails
-          const fileName = backupPath.split('/').pop() || backupPath;
+          const fileName = backupPath.split('/').pop() ?? backupPath;
           backups.push({
             container_id: ctId,
             server_id: server.id,
@@ -182,17 +185,18 @@ class BackupService {
     try {
       await Promise.race([
         new Promise<void>((resolve) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             findCommand,
             (data: string) => {
               findOutput += data;
             },
             (error: string) => {
-              // Ignore errors - storage might not be mounted
+              console.error('Error getting stat command:', error);
               resolve();
             },
             (exitCode: number) => {
+              console.error('Error getting stat command:', exitCode);
               resolve();
             }
           );
@@ -218,7 +222,7 @@ class BackupService {
           
           await Promise.race([
             new Promise<void>((resolve) => {
-              sshService.executeCommand(
+              void sshService.executeCommand(
                 server,
                 statCommand,
                 (data: string) => {
@@ -234,11 +238,11 @@ class BackupService {
           ]);
           
           const statParts = statOutput.trim().split('|');
-          const fileName = backupPath.split('/').pop() || backupPath;
+          const fileName = backupPath.split('/').pop() ?? backupPath;
           
           if (statParts.length >= 2 && statParts[0] && statParts[1]) {
-            const size = BigInt(statParts[0] || '0');
-            const mtime = parseInt(statParts[1] || '0', 10);
+            const size = BigInt(statParts[0] ?? '0');
+            const mtime = parseInt(statParts[1] ?? '0', 10);
             
             backups.push({
               container_id: ctId,
@@ -270,7 +274,7 @@ class BackupService {
         } catch (error) {
           console.error(`Error processing backup ${backupPath}:`, error);
           // Still try to add the backup even if stat fails
-          const fileName = backupPath.split('/').pop() || backupPath;
+          const fileName = backupPath.split('/').pop() ?? backupPath;
           backups.push({
             container_id: ctId,
             server_id: server.id,
@@ -310,8 +314,8 @@ class BackupService {
     const pbsInfo = storageService.getPBSStorageInfo(storage);
     
     // Use IP and datastore from credentials (they override config if different)
-    const pbsIp = credential.pbs_ip || pbsInfo.pbs_ip;
-    const pbsDatastore = credential.pbs_datastore || pbsInfo.pbs_datastore;
+    const pbsIp = credential.pbs_ip ?? pbsInfo.pbs_ip;
+    const pbsDatastore = credential.pbs_datastore ?? pbsInfo.pbs_datastore;
     
     if (!pbsIp || !pbsDatastore) {
       console.log(`[BackupService] Missing PBS IP or datastore for storage ${storage.name}`);
@@ -339,7 +343,7 @@ class BackupService {
     try {
       await Promise.race([
         new Promise<void>((resolve) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             fullCommand,
             (data: string) => {
@@ -405,8 +409,8 @@ class BackupService {
     
     const storageService = getStorageService();
     const pbsInfo = storageService.getPBSStorageInfo(storage);
-    const pbsIp = credential.pbs_ip || pbsInfo.pbs_ip;
-    const pbsDatastore = credential.pbs_datastore || pbsInfo.pbs_datastore;
+    const pbsIp = credential.pbs_ip ?? pbsInfo.pbs_ip;
+    const pbsDatastore = credential.pbs_datastore ?? pbsInfo.pbs_datastore;
     
     if (!pbsIp || !pbsDatastore) {
       console.log(`[BackupService] Missing PBS IP or datastore for storage ${storage.name}`);
@@ -425,8 +429,8 @@ class BackupService {
     try {
       // Add timeout to prevent hanging
       await Promise.race([
-        new Promise<void>((resolve, reject) => {
-          sshService.executeCommand(
+        new Promise<void>((resolve) => {
+          void sshService.executeCommand(
             server,
             command,
             (data: string) => {
@@ -468,7 +472,7 @@ class BackupService {
         if (line.includes('snapshot') && line.includes('size') && line.includes('files')) {
           continue; // Skip header row
         }
-        if (line.includes('═') || line.includes('─') || line.includes('│') && line.match(/^[│═─╞╪╡├┼┤└┴┘]+$/)) {
+        if (line.includes('═') || line.includes('─') || line.includes('│') && (/^[│═─╞╪╡├┼┤└┴┘]+$/.exec(line))) {
           continue; // Skip table separator lines
         }
         if (line.includes('repository') || line.includes('error') || line.includes('Error') || line.includes('PBS_ERROR')) {
@@ -489,7 +493,7 @@ class BackupService {
           
           // Extract snapshot name (last part after /)
           const snapshotParts = snapshotPath.split('/');
-          const snapshotName = snapshotParts[snapshotParts.length - 1] || snapshotPath;
+          const snapshotName = snapshotParts[snapshotParts.length - 1] ?? snapshotPath;
           
           if (!snapshotName) {
             continue; // Skip if no snapshot name
@@ -497,11 +501,12 @@ class BackupService {
           
           // Parse date from snapshot name (format: 2025-10-21T19:14:55Z)
           let createdAt: Date | undefined;
-          const dateMatch = snapshotName.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/);
-          if (dateMatch && dateMatch[1]) {
+          const dateMatch = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/.exec(snapshotName);
+          if (dateMatch?.[1]) {
             try {
               createdAt = new Date(dateMatch[1]);
             } catch (e) {
+              console.error('Error parsing date:', e);
               // Invalid date, leave undefined
             }
           }
@@ -509,8 +514,8 @@ class BackupService {
           // Parse size (convert MiB/GiB to bytes)
           let size: bigint | undefined;
           if (sizeStr) {
-            const sizeMatch = sizeStr.match(/([\d.]+)\s*(MiB|GiB|KiB|B)/i);
-            if (sizeMatch && sizeMatch[1] && sizeMatch[2]) {
+            const sizeMatch = /([\d.]+)\s*(MiB|GiB|KiB|B)/i.exec(sizeStr);
+            if (sizeMatch?.[1] && sizeMatch[2]) {
               const sizeValue = parseFloat(sizeMatch[1]);
               const unit = sizeMatch[2].toUpperCase();
               let bytes = sizeValue;
@@ -640,18 +645,18 @@ class BackupService {
       if (!script.container_id || !script.server_id || !script.server) continue;
       
       const containerId = script.container_id;
-      const serverId = script.server_id;
       const server = script.server as Server;
       
       try {
         // Get hostname from LXC config if available, otherwise use script name
-        let hostname = script.script_name || `CT-${script.container_id}`;
+        let hostname = script.script_name ?? `CT-${script.container_id}`;
         try {
           const lxcConfig = await db.getLXCConfigByScriptId(script.id);
           if (lxcConfig?.hostname) {
             hostname = lxcConfig.hostname;
           }
         } catch (error) {
+          console.error('Error getting LXC config:', error);
           // LXC config might not exist, use script name
           console.debug(`No LXC config found for script ${script.id}, using script name as hostname`);
         }
@@ -682,9 +687,7 @@ class BackupService {
 let backupServiceInstance: BackupService | null = null;
 
 export function getBackupService(): BackupService {
-  if (!backupServiceInstance) {
-    backupServiceInstance = new BackupService();
-  }
+  backupServiceInstance ??= new BackupService();
   return backupServiceInstance;
 }
 

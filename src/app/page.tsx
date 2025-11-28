@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, startTransition } from 'react';
 import { ScriptsGrid } from './_components/ScriptsGrid';
 import { DownloadedScriptsTab } from './_components/DownloadedScriptsTab';
 import { InstalledScriptsTab } from './_components/InstalledScriptsTab';
@@ -57,8 +57,10 @@ export default function Home() {
       
       // If we have a current version and either no last seen version or versions don't match
       if (currentVersion && (!lastSeenVersion || currentVersion !== lastSeenVersion)) {
-        setHighlightVersion(currentVersion);
-        setReleaseNotesOpen(true);
+        startTransition(() => {
+          setHighlightVersion(currentVersion);
+          setReleaseNotesOpen(true);
+        });
       }
     }
   }, [versionData]);
@@ -131,18 +133,18 @@ export default function Home() {
               return true;
             }
             // Also try normalized slug matching (handles filename-based slugs vs JSON slugs)
-            if (normalizeId(local.slug) === normalizeId(script.slug)) {
+            if (normalizeId(local.slug) === normalizeId(script.slug as string | undefined)) {
               return true;
             }
           }
           
           // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
           const normalizedLocal = normalizeId(local.name);
-          const matchesInstallBasename = (script as any)?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
+          const matchesInstallBasename = script?.install_basenames?.some((base: string) => normalizeId(base) === normalizedLocal) ?? false;
           if (matchesInstallBasename) return true;
           
           // Tertiary: Normalized filename to normalized slug matching
-          if (script.slug && normalizeId(local.name) === normalizeId(script.slug)) {
+          if (script.slug && normalizeId(local.name) === normalizeId(script.slug as string | undefined)) {
             return true;
           }
           
@@ -167,7 +169,7 @@ export default function Home() {
     }
   };
 
-  const handleRunScript = (scriptPath: string, scriptName: string, mode?: 'local' | 'ssh', server?: any) => {
+  const handleRunScript = (scriptPath: string, scriptName: string, mode?: 'local' | 'ssh', server?: { id: number; name: string; ip: string }) => {
     setRunningScript({ path: scriptPath, name: scriptName, mode, server });
     // Scroll to terminal after a short delay to ensure it's rendered
     setTimeout(scrollToTerminal, 100);

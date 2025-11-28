@@ -46,7 +46,7 @@ export function ScriptCardList({ script, onClick, isSelected = false, onToggleSe
 
   const getRepoName = (url?: string): string => {
     if (!url) return '';
-    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
     if (match) {
       return `${match[1]}/${match[2]}`;
     }

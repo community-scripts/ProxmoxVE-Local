@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, startTransition } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -23,16 +23,12 @@ interface Backup {
   storage_name: string;
   storage_type: string;
   discovered_at: Date;
-  server_id: number;
+  server_id?: number;
   server_name: string | null;
   server_color: string | null;
 }
 
-interface ContainerBackups {
-  container_id: string;
-  hostname: string;
-  backups: Backup[];
-}
+
 
 export function BackupsTab() {
   const [expandedContainers, setExpandedContainers] = useState<Set<string>>(new Set());
@@ -61,21 +57,23 @@ export function BackupsTab() {
   // Update restore progress when log data changes
   useEffect(() => {
     if (restoreLogsData?.success && restoreLogsData.logs) {
-      setRestoreProgress(restoreLogsData.logs);
-      
-      // Stop polling when restore is complete
-      if (restoreLogsData.isComplete) {
-        setShouldPollRestore(false);
-        // Check if restore was successful or failed
-        const lastLog = restoreLogsData.logs[restoreLogsData.logs.length - 1] || '';
-        if (lastLog.includes('Restore completed successfully')) {
-          setRestoreSuccess(true);
-          setRestoreError(null);
-        } else if (lastLog.includes('Error:') || lastLog.includes('failed')) {
-          setRestoreError(lastLog);
-          setRestoreSuccess(false);
+      startTransition(() => {
+        setRestoreProgress(restoreLogsData.logs);
+        
+        // Stop polling when restore is complete
+        if (restoreLogsData.isComplete) {
+          setShouldPollRestore(false);
+          // Check if restore was successful or failed
+          const lastLog = restoreLogsData.logs[restoreLogsData.logs.length - 1] ?? '';
+          if (lastLog.includes('Restore completed successfully')) {
+            setRestoreSuccess(true);
+            setRestoreError(null);
+          } else if (lastLog.includes('Error:') || lastLog.includes('failed')) {
+            setRestoreError(lastLog);
+            setRestoreSuccess(false);
+          }
         }
-      }
+      });
     }
   }, [restoreLogsData]);
 
@@ -93,7 +91,7 @@ export function BackupsTab() {
       
       if (result.success) {
         // Update progress with all messages from backend (fallback if polling didn't work)
-        const progressMessages = restoreProgress.length > 0 ? restoreProgress : (result.progress?.map(p => p.message) || ['Restore completed successfully']);
+        const progressMessages = restoreProgress.length > 0 ? restoreProgress : (result.progress?.map(p => p.message) ?? ['Restore completed successfully']);
         setRestoreProgress(progressMessages);
         setRestoreSuccess(true);
         setRestoreError(null);
@@ -101,8 +99,8 @@ export function BackupsTab() {
         setSelectedBackup(null);
         // Keep success message visible - user can dismiss manually
       } else {
-        setRestoreError(result.error || 'Restore failed');
-        setRestoreProgress(result.progress?.map(p => p.message) || restoreProgress);
+        setRestoreError(result.error ?? 'Restore failed');
+        setRestoreProgress(result.progress?.map(p => p.message) ?? restoreProgress);
         setRestoreSuccess(false);
         setRestoreConfirmOpen(false);
         setSelectedBackup(null);
@@ -112,7 +110,7 @@ export function BackupsTab() {
     onError: (error) => {
       // Stop polling on error
       setShouldPollRestore(false);
-      setRestoreError(error.message || 'Restore failed');
+      setRestoreError(error.message ?? 'Restore failed');
       setRestoreConfirmOpen(false);
       setSelectedBackup(null);
       setRestoreProgress([]);
@@ -124,6 +122,10 @@ export function BackupsTab() {
     ? restoreProgress[restoreProgress.length - 1] 
     : 'Restoring backup...';
 
+  const handleDiscoverBackups = useCallback(() => {
+    discoverMutation.mutate();
+  }, [discoverMutation]);
+
   // Auto-discover backups when tab is first opened
   useEffect(() => {
     if (!hasAutoDiscovered && !isLoading && backupsData) {
@@ -131,13 +133,11 @@ export function BackupsTab() {
       if (!backupsData.backups || backupsData.backups.length === 0) {
         handleDiscoverBackups();
       }
-      setHasAutoDiscovered(true);
+      startTransition(() => {
+        setHasAutoDiscovered(true);
+      });
     }
-  }, [hasAutoDiscovered, isLoading, backupsData]);
-
-  const handleDiscoverBackups = () => {
-    discoverMutation.mutate();
-  };
+  }, [hasAutoDiscovered, isLoading, backupsData, handleDiscoverBackups]);
 
   const handleRestoreClick = (backup: Backup, containerId: string) => {
     setSelectedBackup({ backup, containerId });
@@ -149,6 +149,12 @@ export function BackupsTab() {
 
   const handleRestoreConfirm = () => {
     if (!selectedBackup) return;
+    
+    // Ensure server_id is available
+    if (!selectedBackup.backup.server_id) {
+      setRestoreError('Server ID is required for restore operation');
+      return;
+    }
     
     setRestoreConfirmOpen(false);
     setRestoreError(null);
@@ -247,7 +253,7 @@ export function BackupsTab() {
           <HardDrive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No backups found</h3>
           <p className="text-muted-foreground mb-4">
-            Click "Discover Backups" to scan for backups on your servers.
+            Click &quot;Discover Backups&quot; to scan for backups on your servers.
           </p>
           <Button onClick={handleDiscoverBackups} disabled={isDiscovering}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
@@ -259,7 +265,7 @@ export function BackupsTab() {
       {/* Backups list */}
       {!isLoading && backups.length > 0 && (
         <div className="space-y-4">
-          {backups.map((container: ContainerBackups) => {
+          {backups.map((container) => {
             const isExpanded = expandedContainers.has(container.container_id);
             const backupCount = container.backups.length;
 
@@ -388,7 +394,7 @@ export function BackupsTab() {
       {backupsData && !backupsData.success && (
         <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
           <p className="text-destructive">
-            Error loading backups: {backupsData.error || 'Unknown error'}
+            Error loading backups: {backupsData.error ?? 'Unknown error'}
           </p>
         </div>
       )}
@@ -415,7 +421,7 @@ export function BackupsTab() {
       {(restoreMutation.isPending || (restoreSuccess && restoreProgress.length > 0)) && (
         <LoadingModal
           isOpen={true}
-          action={currentProgressText}
+          action={currentProgressText ?? ""}
           logs={restoreProgress}
           isComplete={restoreSuccess}
           title="Restore in progress"

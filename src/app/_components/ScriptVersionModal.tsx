@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Script, ScriptInstallMethod } from '../../types/script';
+import type { Script } from '../../types/script';
 import { Button } from './ui/button';
 import { useRegisterModal } from './modal/ModalStackProvider';
 

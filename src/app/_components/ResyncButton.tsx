@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
@@ -11,6 +11,8 @@ export function ResyncButton() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const hasReloadedRef = useRef<boolean>(false);
   const isUserInitiatedRef = useRef<boolean>(false);
+  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const resyncMutation = api.scripts.resyncScripts.useMutation({
     onSuccess: (data) => {
@@ -21,7 +23,16 @@ export function ResyncButton() {
         // Only reload if this was triggered by user action
         if (isUserInitiatedRef.current && !hasReloadedRef.current) {
           hasReloadedRef.current = true;
-          setTimeout(() => {
+          
+          // Clear any existing reload timeout
+          if (reloadTimeoutRef.current) {
+            clearTimeout(reloadTimeoutRef.current);
+            reloadTimeoutRef.current = null;
+          }
+          
+          // Set new reload timeout
+          reloadTimeoutRef.current = setTimeout(() => {
+            reloadTimeoutRef.current = null;
             window.location.reload();
           }, 2000); // Wait 2 seconds to show the success message
         } else {
@@ -31,14 +42,26 @@ export function ResyncButton() {
       } else {
         setSyncMessage(data.error ?? 'Failed to sync scripts');
         // Clear message after 3 seconds for errors
-        setTimeout(() => setSyncMessage(null), 3000);
+        if (messageTimeoutRef.current) {
+          clearTimeout(messageTimeoutRef.current);
+        }
+        messageTimeoutRef.current = setTimeout(() => {
+          setSyncMessage(null);
+          messageTimeoutRef.current = null;
+        }, 3000);
         isUserInitiatedRef.current = false;
       }
     },
     onError: (error) => {
       setIsResyncing(false);
       setSyncMessage(`Error: ${error.message}`);
-      setTimeout(() => setSyncMessage(null), 3000);
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      messageTimeoutRef.current = setTimeout(() => {
+        setSyncMessage(null);
+        messageTimeoutRef.current = null;
+      }, 3000);
       isUserInitiatedRef.current = false;
     },
   });
@@ -47,6 +70,12 @@ export function ResyncButton() {
     // Prevent multiple simultaneous sync operations
     if (isResyncing) return;
     
+    // Clear any pending reload timeout
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current);
+      reloadTimeoutRef.current = null;
+    }
+    
     // Mark as user-initiated before starting
     isUserInitiatedRef.current = true;
     hasReloadedRef.current = false;
@@ -54,6 +83,23 @@ export function ResyncButton() {
     setSyncMessage(null);
     resyncMutation.mutate();
   };
+
+  // Cleanup on unmount - clear any pending timeouts
+  useEffect(() => {
+    return () => {
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+        reloadTimeoutRef.current = null;
+      }
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
+      // Reset refs on unmount
+      hasReloadedRef.current = false;
+      isUserInitiatedRef.current = false;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-3">

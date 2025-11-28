@@ -19,7 +19,7 @@ export function PBSCredentialsModal({
   isOpen,
   onClose,
   serverId,
-  serverName,
+  serverName: _serverName,
   storage
 }: PBSCredentialsModalProps) {
   const [pbsIp, setPbsIp] = useState('');
@@ -29,8 +29,8 @@ export function PBSCredentialsModal({
   const [isLoading, setIsLoading] = useState(false);
   
   // Extract PBS info from storage object
-  const pbsIpFromStorage = (storage as any).server || null;
-  const pbsDatastoreFromStorage = (storage as any).datastore || null;
+  const pbsIpFromStorage = (storage as { server?: string }).server ?? null;
+  const pbsDatastoreFromStorage = (storage as { datastore?: string }).datastore ?? null;
   
   // Fetch existing credentials
   const { data: credentialData, refetch } = api.pbsCredentials.getCredentialsForStorage.useQuery(
@@ -46,11 +46,11 @@ export function PBSCredentialsModal({
         setPbsIp(credentialData.credential.pbs_ip);
         setPbsDatastore(credentialData.credential.pbs_datastore);
         setPbsPassword(''); // Don't show password
-        setPbsFingerprint(credentialData.credential.pbs_fingerprint || '');
+        setPbsFingerprint(credentialData.credential.pbs_fingerprint ?? '');
       } else {
         // Initialize with storage config values
-        setPbsIp(pbsIpFromStorage || '');
-        setPbsDatastore(pbsDatastoreFromStorage || '');
+        setPbsIp(pbsIpFromStorage ?? '');
+        setPbsDatastore(pbsDatastoreFromStorage ?? '');
         setPbsPassword('');
         setPbsFingerprint('');
       }
@@ -241,7 +241,7 @@ export function PBSCredentialsModal({
                 placeholder="e.g., 7b:e5:87:38:5e:16:05:d1:12:22:7f:73:d2:e2:d0:cf:8c:cb:28:e2:74:0c:78:91:1a:71:74:2e:79:20:5a:02"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Server fingerprint for auto-acceptance. You can find this on your PBS dashboard by clicking the "Show Fingerprint" button.
+                Server fingerprint for auto-acceptance. You can find this on your PBS dashboard by clicking the &quot;Show Fingerprint&quot; button.
               </p>
             </div>
             

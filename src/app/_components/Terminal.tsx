@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from './ui/button';
 import { Play, Square, Trash2, X, Send, Keyboard, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Server } from '~/types/server';
 
 interface TerminalProps {
   scriptPath: string;
   onClose: () => void;
   mode?: 'local' | 'ssh';
-  server?: any;
+  server?: Server;
   isUpdate?: boolean;
   isShell?: boolean;
   isBackup?: boolean;
@@ -44,6 +45,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const hasConnectedRef = useRef<boolean>(false);
 
   const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
+
+  // Create stable server key for dependency tracking to prevent unnecessary reconnections
+  const serverKey = useMemo((): string | null => {
+    if (!server) return null;
+    // Use server ID if available, otherwise stringify (fallback)
+    return String(server.id ?? server.name ?? JSON.stringify(server));
+  }, [server]);
 
   const handleMessage = useCallback((message: TerminalMessage) => {
     if (!xtermRef.current) return;
@@ -209,7 +217,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         if (isMobile) {
           setTimeout(() => {
             fitAddon.fit();
-            setTimeout(() => {
+            void setTimeout(() => {
               fitAddon.fit();
             }, 200);
           }, 300);
@@ -219,7 +227,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       // Add resize listener for mobile responsiveness
       const handleResize = () => {
         if (fitAddonRef.current) {
-          setTimeout(() => {
+          void setTimeout(() => {
             fitAddonRef.current.fit();
           }, 50);
         }
@@ -260,7 +268,9 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
           xtermRef.current.dispose();
           xtermRef.current = null;
           fitAddonRef.current = null;
-          setIsTerminalReady(false);
+          setTimeout(() => {
+            setIsTerminalReady(false);
+          }, 0);
         }
       };
   }, [isClient, isMobile]);
@@ -296,13 +306,32 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
-    if (hasConnectedRef.current || isConnectingRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) {
+    // Check if we already have an active connection
+    if (wsRef.current) {
+      const readyState = wsRef.current.readyState;
+      // If connection is open or connecting, don't create a new one
+      if (readyState === WebSocket.OPEN || readyState === WebSocket.CONNECTING) {
+        return;
+      }
+      // If connection is closing or closed, clean it up
+      if (readyState === WebSocket.CLOSING || readyState === WebSocket.CLOSED) {
+        wsRef.current = null;
+        hasConnectedRef.current = false;
+      }
+    }
+
+    // Prevent if already connecting
+    if (isConnectingRef.current || hasConnectedRef.current) {
       return;
     }
 
-    // Close any existing connection first
+    // Close any existing connection first (safety check)
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        wsRef.current.close();
+      } catch (e) {
+        console.error('Error closing WebSocket:', e);
+      }
       wsRef.current = null;
     }
 
@@ -359,6 +388,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         setIsConnected(false);
         setIsRunning(false);
         isConnectingRef.current = false;
+        // Reset hasConnectedRef to allow reconnection if needed
+        // Only reset if this was the current connection
+        if (wsRef.current === ws) {
+          hasConnectedRef.current = false;
+          wsRef.current = null;
+        }
       };
 
       ws.onerror = (error) => {
@@ -366,6 +401,12 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         console.error('WebSocket readyState:', ws.readyState);
         setIsConnected(false);
         isConnectingRef.current = false;
+        // Reset hasConnectedRef to allow reconnection if needed
+        // Only reset if this was the current connection
+        if (wsRef.current === ws) {
+          hasConnectedRef.current = false;
+          wsRef.current = null;
+        }
       };
     };
 
@@ -375,12 +416,23 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     return () => {
       clearTimeout(timeoutId);
       isConnectingRef.current = false;
-      hasConnectedRef.current = false;
-      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-        wsRef.current.close();
+      // Only close and reset if the connection is still active
+      if (wsRef.current) {
+        const readyState = wsRef.current.readyState;
+        if (readyState === WebSocket.OPEN || readyState === WebSocket.CONNECTING) {
+          try {
+            wsRef.current.close();
+          } catch (e) {
+            console.error('Error closing WebSocket:', e);
+          }
+        }
+        wsRef.current = null;
       }
+      hasConnectedRef.current = false;
     };
-  }, [scriptPath, mode, server, isUpdate, isShell, containerId, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Use serverKey instead of server object to prevent unnecessary reconnections
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptPath, mode, serverKey, isUpdate, isShell, containerId, isMobile]);
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
@@ -429,7 +481,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       };
       wsRef.current.send(JSON.stringify(message));
       // Clear the feedback after 2 seconds
-      setTimeout(() => setLastInputSent(null), 2000);
+      void setTimeout(() => setLastInputSent(null), 2000);
     }
   };
 

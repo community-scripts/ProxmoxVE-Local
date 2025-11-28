@@ -42,11 +42,10 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
   const alpineScriptPath = alpineMethod?.script;
   
   // Determine if install scripts exist (only for ct/ scripts typically)
-  const hasInstallScript = defaultScriptPath?.startsWith('ct/') || alpineScriptPath?.startsWith('ct/');
+  const hasInstallScript = (defaultScriptPath?.startsWith('ct/') ?? false) || (alpineScriptPath?.startsWith('ct/') ?? false);
   
   // Get script names for display
   const defaultScriptName = scriptName.replace(/^alpine-/, '');
-  const alpineScriptName = scriptName.startsWith('alpine-') ? scriptName : `alpine-${scriptName}`;
 
   const loadScriptContent = useCallback(async () => {
     setIsLoading(true);
@@ -172,8 +171,8 @@ export function TextViewer({ scriptName, isOpen, onClose, script }: TextViewerPr
                 </Button>
               </div>
             )}
-            {((selectedVersion === 'default' && (scriptContent.mainScript || scriptContent.installScript)) ||
-              (selectedVersion === 'alpine' && (scriptContent.alpineMainScript || scriptContent.alpineInstallScript))) && (
+            {((selectedVersion === 'default' && (scriptContent.mainScript ?? scriptContent.installScript)) ?? false) ||
+              (selectedVersion === 'alpine' && (scriptContent.alpineMainScript ?? scriptContent.alpineInstallScript))  && (
               <div className="flex space-x-2">
                 <Button
                   variant={activeTab === 'main' ? 'outline' : 'ghost'}

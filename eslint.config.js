@@ -1,15 +1,20 @@
-import { FlatCompat } from "@eslint/eslintrc";
 import tseslint from "typescript-eslint";
+import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import path from "path";
 
-const compat = new FlatCompat({
-  baseDirectory: import.meta.dirname,
-});
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+
+// Import Next.js config directly (it's already in flat config format)
+const nextConfig = require("eslint-config-next/core-web-vitals");
 
 export default tseslint.config(
   {
-    ignores: [".next"],
+    ignores: [".next", "node_modules"],
   },
-  ...compat.extends("next/core-web-vitals"),
+  ...nextConfig,
   {
     files: ["**/*.ts", "**/*.tsx"],
     extends: [

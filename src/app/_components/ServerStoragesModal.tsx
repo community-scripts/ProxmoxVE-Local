@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Database, RefreshCw, CheckCircle, Lock, AlertCircle } from 'lucide-react';
 import { useRegisterModal } from './modal/ModalStackProvider';

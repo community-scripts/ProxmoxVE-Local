@@ -4,9 +4,9 @@ import { getStorageService } from './storageService';
 import { getDatabase } from '../database-prisma';
 import type { Server } from '~/types/server';
 import type { Storage } from './storageService';
-import { writeFile, readFile } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'fs';
+
 
 export interface RestoreProgress {
   step: string;
@@ -33,7 +33,7 @@ class RestoreService {
     try {
       // Try to read config file (container might not exist, so don't fail on error)
       await new Promise<void>((resolve) => {
-        sshService.executeCommand(
+        void sshService.executeCommand(
           server,
           readCommand,
           (data: string) => {
@@ -51,8 +51,8 @@ class RestoreService {
         for (const line of lines) {
           const trimmed = line.trim();
           if (trimmed.startsWith('rootfs:')) {
-            const match = trimmed.match(/^rootfs:\s*([^:]+):/);
-            if (match && match[1]) {
+            const match = /^rootfs:\s*([^:]+):/.exec(trimmed);
+            if (match?.[1]) {
               return match[1].trim();
             }
           }
@@ -68,8 +68,8 @@ class RestoreService {
         const lxcConfig = await db.getLXCConfigByScriptId(script.id);
         if (lxcConfig?.rootfs_storage) {
           // Extract storage from rootfs_storage format: "STORAGE:vm-148-disk-0"
-          const match = lxcConfig.rootfs_storage.match(/^([^:]+):/);
-          if (match && match[1]) {
+          const match = /^([^:]+):/.exec(lxcConfig.rootfs_storage);
+          if (match?.[1]) {
             return match[1].trim();
           }
         }
@@ -77,6 +77,7 @@ class RestoreService {
       
       return null;
       } catch (error) {
+        console.error('Error getting rootfs storage:', error);
         // Try fallback to database
         try {
           const installedScripts = await db.getAllInstalledScripts();
@@ -84,13 +85,14 @@ class RestoreService {
           if (script) {
             const lxcConfig = await db.getLXCConfigByScriptId(script.id);
             if (lxcConfig?.rootfs_storage) {
-              const match = lxcConfig.rootfs_storage.match(/^([^:]+):/);
-              if (match && match[1]) {
+              const match = /^([^:]+):/.exec(lxcConfig.rootfs_storage);
+              if (match?.[1]) {
                 return match[1].trim();
               }
             }
           }
         } catch (dbError) {
+          console.error('Error getting rootfs storage from database:', dbError);
           // Ignore database error
         }
         return null;
@@ -105,10 +107,12 @@ class RestoreService {
     const command = `pct stop ${ctId} 2>&1 || true`; // Continue even if already stopped
     
     await new Promise<void>((resolve) => {
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         command,
-        () => {},
+        () => {
+          // Ignore output
+        },
         () => resolve(),
         () => resolve() // Always resolve, don't fail if already stopped
       );
@@ -125,7 +129,7 @@ class RestoreService {
     let exitCode = 0;
     
     await new Promise<void>((resolve, reject) => {
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         command,
         (data: string) => {
@@ -171,7 +175,7 @@ class RestoreService {
     let exitCode = 0;
     
     await new Promise<void>((resolve, reject) => {
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         command,
         (data: string) => {
@@ -215,8 +219,8 @@ class RestoreService {
     
     const storageService = getStorageService();
     const pbsInfo = storageService.getPBSStorageInfo(storage);
-    const pbsIp = credential.pbs_ip || pbsInfo.pbs_ip;
-    const pbsDatastore = credential.pbs_datastore || pbsInfo.pbs_datastore;
+    const pbsIp = credential.pbs_ip ?? pbsInfo.pbs_ip;
+    const pbsDatastore = credential.pbs_datastore ?? pbsInfo.pbs_datastore;
     
     if (!pbsIp || !pbsDatastore) {
       throw new Error(`Missing PBS IP or datastore for storage ${storage.name}`);
@@ -226,12 +230,11 @@ class RestoreService {
     
     // Extract snapshot name from path (e.g., "2025-10-21T19:14:55Z" from "ct/148/2025-10-21T19:14:55Z")
     const snapshotParts = snapshotPath.split('/');
-    const snapshotName = snapshotParts[snapshotParts.length - 1] || snapshotPath;
+    const snapshotName = snapshotParts[snapshotParts.length - 1] ?? snapshotPath;
     // Replace colons with underscores for file paths (tar doesn't like colons in filenames)
     const snapshotNameForPath = snapshotName.replace(/:/g, '_');
     
-    // Determine file extension - try common extensions
-    const extensions = ['.tar', '.tar.zst', '.pxar'];
+
     let downloadedPath = '';
     let downloadSuccess = false;
     
@@ -262,7 +265,7 @@ class RestoreService {
       // Download from PBS (creates a folder)
       await Promise.race([
         new Promise<void>((resolve, reject) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             restoreCommand,
             (data: string) => {
@@ -293,7 +296,7 @@ class RestoreService {
       let checkOutput = '';
       
       await new Promise<void>((resolve) => {
-        sshService.executeCommand(
+        void sshService.executeCommand(
           server,
           checkCommand,
           (data: string) => {
@@ -318,7 +321,7 @@ class RestoreService {
       
       await Promise.race([
         new Promise<void>((resolve, reject) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             packCommand,
             (data: string) => {
@@ -349,7 +352,7 @@ class RestoreService {
       let checkTarOutput = '';
       
       await new Promise<void>((resolve) => {
-        sshService.executeCommand(
+        void sshService.executeCommand(
           server,
           checkTarCommand,
           (data: string) => {
@@ -382,12 +385,18 @@ class RestoreService {
       // Cleanup: delete downloaded folder and tar file
       if (onProgress) await onProgress('cleanup', 'Cleaning up temporary files...');
       const cleanupCommand = `rm -rf "${targetFolder}" "${targetTar}" 2>&1 || true`;
-      sshService.executeCommand(
+      void sshService.executeCommand(
         server,
         cleanupCommand,
-        () => {},
-        () => {},
-        () => {}
+        () => {
+          // Ignore output
+        },
+        () => {
+          // Ignore errors
+        },
+        () => {
+          // Ignore exit code
+        }
       );
     }
   }
@@ -409,6 +418,7 @@ class RestoreService {
       try {
         await writeFile(logPath, '', 'utf-8');
       } catch (error) {
+        console.error('Error clearing log file:', error);
         // Ignore log file errors
       }
     };
@@ -419,6 +429,7 @@ class RestoreService {
         const logLine = `${message}\n`;
         await writeFile(logPath, logLine, { flag: 'a', encoding: 'utf-8' });
       } catch (error) {
+        console.error('Error writing progress to log file:', error);
         // Ignore log file errors
       }
     };
@@ -452,10 +463,22 @@ class RestoreService {
       }
       
       // Get server details
-      const server = await db.getServerById(serverId);
-      if (!server) {
+      const serverRaw = await db.getServerById(serverId);
+      if (!serverRaw) {
         throw new Error(`Server with ID ${serverId} not found`);
       }
+      // Convert null to undefined for optional properties to match Server interface
+      const server: Server = {
+        ...serverRaw,
+        password: serverRaw.password ?? undefined,
+        auth_type: (serverRaw.auth_type === 'password' || serverRaw.auth_type === 'key') ? serverRaw.auth_type : undefined,
+        ssh_key: serverRaw.ssh_key ?? undefined,
+        ssh_key_passphrase: serverRaw.ssh_key_passphrase ?? undefined,
+        ssh_key_path: serverRaw.ssh_key_path ?? undefined,
+        key_generated: serverRaw.key_generated ?? undefined,
+        ssh_port: serverRaw.ssh_port ?? undefined,
+        color: serverRaw.color ?? undefined,
+      };
       
       // Get rootfs storage
       await addProgress('reading_config', 'Reading container configuration...');
@@ -466,7 +489,7 @@ class RestoreService {
         const checkCommand = `pct list ${containerId} 2>&1 | grep -q "^${containerId}" && echo "exists" || echo "notfound"`;
         let checkOutput = '';
         await new Promise<void>((resolve) => {
-          sshService.executeCommand(
+          void sshService.executeCommand(
             server,
             checkCommand,
             (data: string) => {
@@ -490,6 +513,7 @@ class RestoreService {
       try {
         await this.stopContainer(server, containerId);
       } catch (error) {
+        console.error('Error stopping container:', error);
         // Continue even if stop fails
       }
       
@@ -498,6 +522,7 @@ class RestoreService {
       try {
         await this.destroyContainer(server, containerId);
       } catch (error) {
+        console.error('Error destroying container:', error);
         // Container might not exist, which is fine - continue with restore
         await addProgress('skipping', 'Container does not exist or already destroyed, continuing...');
       }
@@ -514,8 +539,8 @@ class RestoreService {
         }
         
         // Parse snapshot path from backup_path (format: pbs://root@pam@IP:DATASTORE/ct/148/2025-10-21T19:14:55Z)
-        const snapshotPathMatch = backup.backup_path.match(/pbs:\/\/[^/]+\/(.+)$/);
-        if (!snapshotPathMatch || !snapshotPathMatch[1]) {
+        const snapshotPathMatch = /pbs:\/\/[^/]+\/(.+)$/.exec(backup.backup_path);
+        if (!snapshotPathMatch?.[1]) {
           throw new Error(`Invalid PBS backup path format: ${backup.backup_path}`);
         }
         
@@ -553,9 +578,7 @@ class RestoreService {
 let restoreServiceInstance: RestoreService | null = null;
 
 export function getRestoreService(): RestoreService {
-  if (!restoreServiceInstance) {
-    restoreServiceInstance = new RestoreService();
-  }
+  restoreServiceInstance ??= new RestoreService();
   return restoreServiceInstance;
 }
 

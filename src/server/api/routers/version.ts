@@ -1,5 +1,5 @@
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { readFile, writeFile } from "fs/promises";
+import { readFile, writeFile, stat } from "fs/promises";
 import { join } from "path";
 import { spawn } from "child_process";
 import { env } from "~/env";
@@ -176,8 +176,19 @@ export const versionRouter = createTRPCRouter({
           return {
             success: true,
             logs: [],
-            isComplete: false
+            isComplete: false,
+            logFileModifiedTime: null
           };
+        }
+
+        // Get log file modification time for session validation
+        let logFileModifiedTime: number | null = null;
+        try {
+          const stats = await stat(logPath);
+          logFileModifiedTime = stats.mtimeMs;
+        } catch (statError) {
+          // If we can't get stats, continue without timestamp
+          console.warn('Could not get log file stats:', statError);
         }
 
         const logs = await readFile(logPath, 'utf-8');
@@ -202,7 +213,8 @@ export const versionRouter = createTRPCRouter({
         return {
           success: true,
           logs: logLines,
-          isComplete
+          isComplete,
+          logFileModifiedTime
         };
       } catch (error) {
         console.error('Error reading update logs:', error);
@@ -210,7 +222,8 @@ export const versionRouter = createTRPCRouter({
           success: false,
           error: error instanceof Error ? error.message : 'Failed to read update logs',
           logs: [],
-          isComplete: false
+          isComplete: false,
+          logFileModifiedTime: null
         };
       }
     }),
