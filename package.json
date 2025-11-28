@@ -17,7 +17,7 @@
     "migrate": "prisma migrate dev",
     "preview": "next build && next start",
     "postinstall": "prisma generate",
-    "start": "node server.js",
+    "start": "node --import tsx server.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
