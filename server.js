@@ -8,9 +8,10 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
-// @ts-ignore - TypeScript has trouble with JS module exports
-import { initializeAutoSync, initializeRepositories, setupGracefulShutdown } from './src/server/lib/autoSyncInit.js';
 import dotenv from 'dotenv';
+
+// Dynamic import for auto sync init to avoid tsx caching issues
+let autoSyncModule = null;
 
 // Load environment variables from .env file
 dotenv.config();
@@ -1240,13 +1241,18 @@ app.prepare().then(() => {
       console.log(`> Ready on http://${hostname}:${port}`);
       console.log(`> WebSocket server running on ws://${hostname}:${port}/ws/script-execution`);
       
+      // Initialize auto sync module and run initialization
+      if (!autoSyncModule) {
+        autoSyncModule = await import('./src/server/lib/autoSyncInit.js');
+      }
+      
       // Initialize default repositories
-      await initializeRepositories();
+      await autoSyncModule.initializeRepositories();
       
       // Initialize auto-sync service
-      initializeAutoSync();
+      autoSyncModule.initializeAutoSync();
       
       // Setup graceful shutdown handlers
-      setupGracefulShutdown();
+      autoSyncModule.setupGracefulShutdown();
     });
 });
