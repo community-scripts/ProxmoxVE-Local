@@ -1,9 +1,9 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
-// @ts-ignore - Prisma 7 config types are incomplete
 export default defineConfig({
   schema: 'prisma/schema.prisma',
+  // @ts-expect-error - Prisma 7 config types are incomplete
   studio: {
     adapter: async () => {
       const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3')

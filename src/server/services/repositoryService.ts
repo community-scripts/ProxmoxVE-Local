@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/prefer-regexp-exec */
+/* eslint-disable @typescript-eslint/prefer-regexp-exec */
 import { prisma } from '../db';
 
 export class RepositoryService {

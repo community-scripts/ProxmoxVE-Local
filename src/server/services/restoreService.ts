@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/prefer-optional-chain, @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/prefer-regexp-exec, @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/prefer-optional-chain, @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/prefer-regexp-exec, @typescript-eslint/no-empty-function */
 import { getSSHExecutionService } from '../ssh-execution-service';
 import { getBackupService } from './backupService';
 import { getStorageService } from './storageService';

@@ -1,11 +1,13 @@
 import { AutoSyncService } from '../services/autoSyncService.js';
-import { repositoryService } from '../services/repositoryService.ts';
+import { repositoryService } from '../services/repositoryService.js';
 
+/** @type {AutoSyncService | null} */
 let autoSyncService = null;
 let isInitialized = false;
 
 /**
  * Initialize default repositories
+ * @returns {Promise<void>}
  */
 export async function initializeRepositories() {
   try {
