@@ -7,7 +7,7 @@
     "build": "prisma generate && next build --webpack",
     "check": "eslint . && tsc --noEmit",
     "dev": "next dev --webpack",
-    "dev:server": "tsx server.js",
+    "dev:server": "node --import tsx server.js",
     "dev:next": "next dev --webpack",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
