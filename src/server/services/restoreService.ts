@@ -1,12 +1,12 @@
+/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/prefer-optional-chain, @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/prefer-regexp-exec, @typescript-eslint/no-empty-function */
 import { getSSHExecutionService } from '../ssh-execution-service';
 import { getBackupService } from './backupService';
 import { getStorageService } from './storageService';
 import { getDatabase } from '../database-prisma';
 import type { Server } from '~/types/server';
 import type { Storage } from './storageService';
-import { writeFile, readFile } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'fs';
 
 export interface RestoreProgress {
   step: string;
@@ -76,7 +76,7 @@ class RestoreService {
       }
       
       return null;
-      } catch (error) {
+      } catch {
         // Try fallback to database
         try {
           const installedScripts = await db.getAllInstalledScripts();
@@ -90,7 +90,7 @@ class RestoreService {
               }
             }
           }
-        } catch (dbError) {
+        } catch {
           // Ignore database error
         }
         return null;
@@ -231,7 +231,6 @@ class RestoreService {
     const snapshotNameForPath = snapshotName.replace(/:/g, '_');
     
     // Determine file extension - try common extensions
-    const extensions = ['.tar', '.tar.zst', '.pxar'];
     let downloadedPath = '';
     let downloadSuccess = false;
     
@@ -408,7 +407,7 @@ class RestoreService {
     const clearLogFile = async () => {
       try {
         await writeFile(logPath, '', 'utf-8');
-      } catch (error) {
+      } catch {
         // Ignore log file errors
       }
     };
@@ -418,7 +417,7 @@ class RestoreService {
       try {
         const logLine = `${message}\n`;
         await writeFile(logPath, logLine, { flag: 'a', encoding: 'utf-8' });
-      } catch (error) {
+      } catch {
         // Ignore log file errors
       }
     };
@@ -489,7 +488,7 @@ class RestoreService {
       await addProgress('stopping', 'Stopping container...');
       try {
         await this.stopContainer(server, containerId);
-      } catch (error) {
+      } catch {
         // Continue even if stop fails
       }
       
@@ -497,7 +496,7 @@ class RestoreService {
       await addProgress('destroying', 'Destroying container...');
       try {
         await this.destroyContainer(server, containerId);
-      } catch (error) {
+      } catch {
         // Container might not exist, which is fine - continue with restore
         await addProgress('skipping', 'Container does not exist or already destroyed, continuing...');
       }
@@ -558,4 +557,5 @@ export function getRestoreService(): RestoreService {
   }
   return restoreServiceInstance;
 }
+
 

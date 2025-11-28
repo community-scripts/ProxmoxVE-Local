@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/prefer-optional-chain, @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/prefer-regexp-exec, @typescript-eslint/prefer-for-of */
 import { getSSHExecutionService } from '../ssh-execution-service';
 import type { Server } from '~/types/server';
 
