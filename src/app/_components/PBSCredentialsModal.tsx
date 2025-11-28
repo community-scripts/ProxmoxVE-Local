@@ -45,10 +45,12 @@ export function PBSCredentialsModal({
     if (isOpen) {
       if (credentialData?.success && credentialData.credential) {
         // Load existing credentials
-        setPbsIp(credentialData.credential.pbs_ip);
-        setPbsDatastore(credentialData.credential.pbs_datastore);
+        setPbsIp(String(credentialData.credential.pbs_ip));
+        setPbsDatastore(String(credentialData.credential.pbs_datastore));
         setPbsPassword(""); // Don't show password
-        setPbsFingerprint(credentialData.credential.pbs_fingerprint ?? "");
+        setPbsFingerprint(
+          String(credentialData.credential.pbs_fingerprint ?? ""),
+        );
       } else {
         // Initialize with storage config values
         setPbsIp(pbsIpFromStorage ?? "");

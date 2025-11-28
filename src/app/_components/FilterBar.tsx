@@ -322,9 +322,9 @@ export function FilterBar({
             {/* Repository Filter Buttons - Only show if more than one enabled repo */}
             {enabledRepos.length > 1 &&
               enabledRepos.map((repo) => {
-                const isSelected = filters.selectedRepositories.includes(
-                  repo.url,
-                );
+                const repoUrl = String(repo.url);
+                const isSelected =
+                  filters.selectedRepositories.includes(repoUrl);
                 return (
                   <Button
                     key={repo.id}
@@ -334,13 +334,13 @@ export function FilterBar({
                         // Remove repository from selection
                         updateFilters({
                           selectedRepositories: currentSelected.filter(
-                            (url) => url !== repo.url,
+                            (url) => url !== repoUrl,
                           ),
                         });
                       } else {
                         // Add repository to selection
                         updateFilters({
-                          selectedRepositories: [...currentSelected, repo.url],
+                          selectedRepositories: [...currentSelected, repoUrl],
                         });
                       }
                     }}
@@ -353,7 +353,7 @@ export function FilterBar({
                     }`}
                   >
                     <GitBranch className="h-4 w-4" />
-                    <span>{getRepoName(repo.url)}</span>
+                    <span>{getRepoName(repoUrl)}</span>
                   </Button>
                 );
               })}

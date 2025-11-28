@@ -161,8 +161,11 @@ export default function Home() {
 
           // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
           const normalizedLocal = normalizeId(local.name);
+          const scriptWithBasenames = script as {
+            install_basenames?: string[];
+          };
           const matchesInstallBasename =
-            (script as any)?.install_basenames?.some(
+            scriptWithBasenames.install_basenames?.some(
               (base: string) => normalizeId(base) === normalizedLocal,
             ) ?? false;
           if (matchesInstallBasename) return true;

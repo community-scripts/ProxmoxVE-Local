@@ -67,7 +67,9 @@ export function DownloadedScriptsTab({
         if (saveFilterEnabled) {
           const filtersResponse = await fetch("/api/settings/filters");
           if (filtersResponse.ok) {
-            const filtersData = await filtersResponse.json();
+            const filtersData = (await filtersResponse.json()) as {
+              filters?: Partial<FilterState>;
+            };
             if (filtersData.filters) {
               setFilters(mergeFiltersWithDefaults(filtersData.filters));
             }

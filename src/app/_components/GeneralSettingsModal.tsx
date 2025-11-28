@@ -11,6 +11,20 @@ import { api } from "~/trpc/react";
 import { useAuth } from "./AuthProvider";
 import { Trash2, ExternalLink } from "lucide-react";
 
+interface AutoSyncSettings {
+  autoSyncEnabled: boolean;
+  syncIntervalType: "predefined" | "custom";
+  syncIntervalPredefined: string;
+  syncIntervalCron: string;
+  autoDownloadNew: boolean;
+  autoUpdateExisting: boolean;
+  notificationEnabled: boolean;
+  appriseUrls: string[];
+  lastAutoSync: string;
+  lastAutoSyncError: string | null;
+  lastAutoSyncErrorTime: string | null;
+}
+
 interface GeneralSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -482,7 +496,9 @@ export function GeneralSettingsModal({
     try {
       const response = await fetch("/api/settings/auto-sync");
       if (response.ok) {
-        const data = (await response.json()) as { settings: any };
+        const data = (await response.json()) as {
+          settings: AutoSyncSettings | null;
+        };
         const settings = data.settings;
         if (settings) {
           setAutoSyncEnabled(settings.autoSyncEnabled ?? false);
