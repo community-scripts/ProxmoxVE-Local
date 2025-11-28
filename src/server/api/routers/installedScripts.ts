@@ -5,10 +5,47 @@ import { createHash } from "crypto";
 import type { Server } from "~/types/server";
 import { getStorageService } from "~/server/services/storageService";
 
+// Type for SSH connection test result
+interface SSHConnectionResult {
+  success: boolean;
+  error?: string;
+}
+
+// Type for parsed LXC config
+interface ParsedLXCConfig {
+  arch?: string;
+  cores?: number;
+  memory?: number;
+  hostname?: string;
+  swap?: number;
+  onboot?: number;
+  ostype?: string;
+  unprivileged?: number;
+  tags?: string;
+  net_name?: string;
+  net_bridge?: string;
+  net_hwaddr?: string;
+  net_ip?: string;
+  net_ip_type?: string;
+  net_gateway?: string;
+  net_type?: string;
+  net_vlan?: number;
+  feature_keyctl?: number;
+  feature_nesting?: number;
+  feature_fuse?: number;
+  feature_mount?: string;
+  rootfs_storage?: string;
+  rootfs_size?: string;
+  advanced_config?: string;
+  config_hash?: string;
+  synced_at?: Date;
+  [key: string]: unknown;
+}
+
 // Helper function to parse raw LXC config into structured data
-function parseRawConfig(rawConfig: string): any {
+function parseRawConfig(rawConfig: string): ParsedLXCConfig {
   const lines = rawConfig.split('\n');
-  const config: any = { advanced: [] };
+  const config: ParsedLXCConfig & { advanced: string[] } = { advanced: [] };
   
   for (const line of lines) {
     const trimmed = line.trim();
@@ -80,17 +117,18 @@ function parseRawConfig(rawConfig: string): any {
   }
   
   config.advanced_config = config.advanced.join('\n');
-  delete config.advanced; // Remove the advanced array since we only need advanced_config
-  return config;
+  // Remove the advanced array after copying to advanced_config
+  const { advanced: _, ...configWithoutAdvanced } = config;
+  return configWithoutAdvanced;
 }
 
 // Helper function to reconstruct config from structured data
-function reconstructConfig(parsed: any): string {
+function reconstructConfig(parsed: ParsedLXCConfig): string {
   const lines: string[] = [];
   
   // Add standard fields in order
-  if (parsed.arch) lines.push(`arch: ${parsed.arch}`);
-  if (parsed.cores) lines.push(`cores: ${parsed.cores}`);
+  if (parsed.arch) lines.push(`arch: ${String(parsed.arch)}`);
+  if (parsed.cores) lines.push(`cores: ${String(parsed.cores)}`);
   
   // Build features line
   if (parsed.feature_keyctl !== undefined || parsed.feature_nesting !== undefined || parsed.feature_fuse !== undefined) {
@@ -666,12 +704,12 @@ export const installedScriptsRouter = createTRPCRouter({
         
               // Test SSH connection first
                
-              const connectionTest = await sshService.testSSHConnection(server as Server);
+              const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
               
-              if (!(connectionTest as any).success) {
+              if (!connectionTest.success) {
                 return {
                   success: false,
-                  error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+                  error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`,
                   detectedContainers: []
                 };
               }
@@ -744,8 +782,8 @@ export const installedScriptsRouter = createTRPCRouter({
                             containerId,
                             hostname,
                             configPath,
-                            serverId: Number((server as any).id),
-                            serverName: (server as any).name,
+                            serverId: Number(server.id),
+                            serverName: String(server.name),
                             parsedConfig: {
                               ...parsedConfig,
                               config_hash: configHash,
@@ -914,9 +952,9 @@ export const installedScriptsRouter = createTRPCRouter({
             }
 
             // Test SSH connection
-            const connectionTest = await sshService.testSSHConnection(server as Server);
-            if (!(connectionTest as any).success) {
-              console.warn(`cleanupOrphanedScripts: SSH connection failed for server ${String((server as any).name)}, skipping ${serverScripts.length} scripts`);
+            const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+            if (!connectionTest.success) {
+              console.warn(`cleanupOrphanedScripts: SSH connection failed for server ${String(String(server.name))}, skipping ${serverScripts.length} scripts`);
               continue;
             }
 
@@ -926,7 +964,7 @@ export const installedScriptsRouter = createTRPCRouter({
             
             const existingContainerIds = await new Promise<Set<string>>((resolve, reject) => {
               const timeout = setTimeout(() => {
-                console.warn(`cleanupOrphanedScripts: timeout while getting container list from server ${String((server as any).name)}`);
+                console.warn(`cleanupOrphanedScripts: timeout while getting container list from server ${String(String(server.name))}`);
                 resolve(new Set()); // Treat timeout as no containers found
               }, 20000);
 
@@ -937,7 +975,7 @@ export const installedScriptsRouter = createTRPCRouter({
                   listOutput += data;
                 },
                 (error: string) => {
-                  console.error(`cleanupOrphanedScripts: error getting container list from server ${String((server as any).name)}:`, error);
+                  console.error(`cleanupOrphanedScripts: error getting container list from server ${String(String(server.name))}:`, error);
                   clearTimeout(timeout);
                   resolve(new Set()); // Treat error as no containers found
                 },
@@ -1010,7 +1048,7 @@ export const installedScriptsRouter = createTRPCRouter({
 
                   // If container is not in pct list AND config file doesn't exist, it's orphaned
                   if (!configExists) {
-                    console.log(`cleanupOrphanedScripts: Removing orphaned script ${String(scriptData.script_name)} (container ${containerId}) from server ${String((server as any).name)}`);
+                    console.log(`cleanupOrphanedScripts: Removing orphaned script ${String(scriptData.script_name)} (container ${containerId}) from server ${String(String(server.name))}`);
                     await db.deleteInstalledScript(Number(scriptData.id));
                     deletedScripts.push(String(scriptData.script_name));
                   } else {
@@ -1019,7 +1057,7 @@ export const installedScriptsRouter = createTRPCRouter({
                   }
                 }
               } catch (error) {
-                console.error(`cleanupOrphanedScripts: Error checking script ${String((scriptData as any).script_name)}:`, error);
+                console.error(`cleanupOrphanedScripts: Error checking script ${String(scriptData.script_name)}:`, error);
               }
             }
           } catch (error) {
@@ -1075,8 +1113,8 @@ export const installedScriptsRouter = createTRPCRouter({
 
             // Test SSH connection
              
-            const connectionTest = await sshService.testSSHConnection(server as Server);
-            if (!(connectionTest as any).success) {
+            const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+            if (!connectionTest.success) {
               continue;
             }
 
@@ -1099,7 +1137,7 @@ export const installedScriptsRouter = createTRPCRouter({
                     listOutput += data;
                   },
                   (error: string) => {
-                    console.error(`pct list error on server ${(server as any).name}:`, error);
+                    console.error(`pct list error on server ${String(server.name)}:`, error);
                     reject(new Error(error));
                   },
                   (_exitCode: number) => {
@@ -1134,7 +1172,7 @@ export const installedScriptsRouter = createTRPCRouter({
               }
             }
           } catch (error) {
-            console.error(`Error processing server ${(server as any).name}:`, error);
+            console.error(`Error processing server ${String(server.name)}:`, error);
           }
         }
 
@@ -1198,11 +1236,11 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Test SSH connection first
          
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`,
             status: 'unknown' as const
           };
         }
@@ -1297,11 +1335,11 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Test SSH connection first
          
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`
           };
         }
 
@@ -1388,11 +1426,11 @@ export const installedScriptsRouter = createTRPCRouter({
 
         // Test SSH connection first
          
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`
           };
         }
 
@@ -1551,7 +1589,7 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        console.log('🖥️ Server found:', { id: (server as any).id, name: (server as any).name, ip: (server as any).ip });
+        console.log('🖥️ Server found:', { id: Number(server.id), name: String(server.name), ip: String(server.ip) });
 
         // Import SSH services
         const { default: SSHService } = await import('~/server/ssh-service');
@@ -1562,12 +1600,12 @@ export const installedScriptsRouter = createTRPCRouter({
         // Test SSH connection first
         console.log('🔌 Testing SSH connection...');
          
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
-          console.log('❌ SSH connection failed:', (connectionTest as any).error);
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
+          console.log('❌ SSH connection failed:', connectionTest.error);
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`
           };
         }
 
@@ -1666,11 +1704,11 @@ export const installedScriptsRouter = createTRPCRouter({
         console.log('✅ Successfully updated database');
         return {
           success: true,
-          message: `Successfully detected IP: ${detectedIp}:${detectedPort} for LXC ${scriptData.container_id} on ${(server as any).name}`,
+          message: `Successfully detected IP: ${detectedIp}:${detectedPort} for LXC ${scriptData.container_id} on ${String(server.name)}`,
           detectedIp,
           detectedPort: detectedPort,
           containerId: scriptData.container_id,
-          serverName: (server as any).name
+          serverName: String(server.name)
         };
       } catch (error) {
         console.error('Error in autoDetectWebUI:', error);
@@ -1739,11 +1777,11 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
         
         // Test SSH connection
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`
           };
         }
 
@@ -1857,11 +1895,11 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
         
         // Test SSH connection
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`
           };
         }
 
@@ -2068,11 +2106,11 @@ EOFCONFIG`;
         const sshExecutionService = getSSHExecutionService();
         
         // Test SSH connection first
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`,
             storages: [],
             cached: false
           };
@@ -2170,11 +2208,11 @@ EOFCONFIG`;
         const sshService = new SSHService();
         
         // Test SSH connection first
-        const connectionTest = await sshService.testSSHConnection(server as Server);
-        if (!(connectionTest as any).success) {
+        const connectionTest = await sshService.testSSHConnection(server as Server) as SSHConnectionResult;
+        if (!connectionTest.success) {
           return {
             success: false,
-            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            error: `SSH connection failed: ${connectionTest.error ?? 'Unknown error'}`,
             executionId: null
           };
         }
@@ -2199,3 +2237,6 @@ EOFCONFIG`;
       }
     })
 });
+
+
+

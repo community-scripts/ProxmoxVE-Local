@@ -126,18 +126,26 @@ export default function Home() {
           .replace(/^-+|-+$/g, "");
 
       // First deduplicate GitHub scripts using Map by slug
-      const scriptMap = new Map<string, any>();
+      interface ScriptCard {
+        name?: string;
+        slug?: string;
+        install_basenames?: string[];
+      }
+      const scriptMap = new Map<string, ScriptCard>();
 
       scriptCardsData.cards?.forEach((script) => {
         if (script?.name && script?.slug) {
           if (!scriptMap.has(script.slug)) {
-            scriptMap.set(script.slug, script);
+            scriptMap.set(script.slug, script as ScriptCard);
           }
         }
       });
 
       const deduplicatedGithubScripts = Array.from(scriptMap.values());
-      const localScripts = localScriptsData.scripts ?? [];
+      const localScripts = (localScriptsData.scripts ?? []) as Array<{
+        name?: string;
+        slug?: string;
+      }>;
 
       // Count scripts that are both in deduplicated GitHub data and have local versions
       // Use the same matching logic as DownloadedScriptsTab and ScriptsGrid
@@ -154,26 +162,27 @@ export default function Home() {
               return true;
             }
             // Also try normalized slug matching (handles filename-based slugs vs JSON slugs)
-            if (normalizeId(local.slug) === normalizeId(script.slug)) {
+            if (
+              normalizeId(local.slug ?? undefined) ===
+              normalizeId(script.slug ?? undefined)
+            ) {
               return true;
             }
           }
 
           // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
-          const normalizedLocal = normalizeId(local.name);
-          const scriptWithBasenames = script as {
-            install_basenames?: string[];
-          };
+          const normalizedLocal = normalizeId(local.name ?? undefined);
           const matchesInstallBasename =
-            scriptWithBasenames.install_basenames?.some(
-              (base: string) => normalizeId(base) === normalizedLocal,
+            script.install_basenames?.some(
+              (base) => normalizeId(String(base)) === normalizedLocal,
             ) ?? false;
           if (matchesInstallBasename) return true;
 
           // Tertiary: Normalized filename to normalized slug matching
           if (
             script.slug &&
-            normalizeId(local.name) === normalizeId(script.slug)
+            normalizeId(local.name ?? undefined) ===
+              normalizeId(script.slug ?? undefined)
           ) {
             return true;
           }

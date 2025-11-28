@@ -147,7 +147,7 @@ export function getAuthConfig(): {
   const sessionDurationRegex = /^AUTH_SESSION_DURATION_DAYS=(.*)$/m;
   const sessionDurationMatch = sessionDurationRegex.exec(envContent);
   const sessionDurationDays = sessionDurationMatch 
-    ? parseInt(sessionDurationMatch[1]?.trim() || String(DEFAULT_JWT_EXPIRY_DAYS), 10) || DEFAULT_JWT_EXPIRY_DAYS
+    ? parseInt(sessionDurationMatch[1]?.trim() ?? String(DEFAULT_JWT_EXPIRY_DAYS), 10) || DEFAULT_JWT_EXPIRY_DAYS
     : DEFAULT_JWT_EXPIRY_DAYS;
   
   const hasCredentials = !!(username && passwordHash);

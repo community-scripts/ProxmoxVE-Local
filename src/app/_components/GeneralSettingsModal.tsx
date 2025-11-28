@@ -1785,7 +1785,7 @@ export function GeneralSettingsModal({
                                 ) {
                                   return;
                                 }
-                                setDeletingRepoId(repo.id);
+                                setDeletingRepoId(Number(repo.id));
                                 setMessage(null);
                                 try {
                                   const result =

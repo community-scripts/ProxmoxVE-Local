@@ -1,6 +1,13 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -27,10 +34,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const checkAuthInternal = async (retryCount = 0) => {
     try {
       // First check if setup is completed
-      const setupResponse = await fetch('/api/settings/auth-credentials');
+      const setupResponse = await fetch("/api/settings/auth-credentials");
       if (setupResponse.ok) {
-        const setupData = await setupResponse.json() as { setupCompleted: boolean; enabled: boolean };
-        
+        const setupData = (await setupResponse.json()) as {
+          setupCompleted: boolean;
+          enabled: boolean;
+        };
+
         // If setup is not completed or auth is disabled, don't verify
         if (!setupData.setupCompleted || !setupData.enabled) {
           setIsAuthenticated(false);
@@ -42,12 +52,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // Only verify authentication if setup is completed and auth is enabled
-      const response = await fetch('/api/auth/verify', {
-        credentials: 'include', // Ensure cookies are sent
+      const response = await fetch("/api/auth/verify", {
+        credentials: "include", // Ensure cookies are sent
       });
       if (response.ok) {
-        const data = await response.json() as { 
-          username: string; 
+        const data = (await response.json()) as {
+          username: string;
           expirationTime?: number | null;
           timeUntilExpiration?: number | null;
         };
@@ -58,7 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsAuthenticated(false);
         setUsername(null);
         setExpirationTime(null);
-        
+
         // Retry logic for failed auth checks (max 2 retries)
         if (retryCount < 2) {
           setTimeout(() => {
@@ -68,11 +78,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     } catch (error) {
-      console.error('Error checking auth:', error);
+      console.error("Error checking auth:", error);
       setIsAuthenticated(false);
       setUsername(null);
       setExpirationTime(null);
-      
+
       // Retry logic for network errors (max 2 retries)
       if (retryCount < 2) {
         setTimeout(() => {
@@ -87,24 +97,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = useCallback(() => {
     return checkAuthInternal(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (
+    username: string,
+    password: string,
+  ): Promise<boolean> => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
-        credentials: 'include', // Ensure cookies are received
+        credentials: "include", // Ensure cookies are received
       });
 
       if (response.ok) {
-        const data = await response.json() as { username: string };
+        const data = (await response.json()) as { username: string };
         setIsAuthenticated(true);
         setUsername(data.username);
-        
+
         // Check auth again to get expiration time
         // Add a small delay to ensure the httpOnly cookie is available
         await new Promise<void>((resolve) => {
@@ -115,18 +129,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return true;
       } else {
         const errorData = await response.json();
-        console.error('Login failed:', errorData.error);
+        console.error("Login failed:", errorData.error);
         return false;
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       return false;
     }
   };
 
   const logout = () => {
     // Clear the auth cookie by setting it to expire
-    document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie =
+      "auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     setIsAuthenticated(false);
     setUsername(null);
     setExpirationTime(null);
@@ -156,7 +171,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

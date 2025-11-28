@@ -38,7 +38,7 @@ export const backupsRouter = createTRPCRouter({
           if (backups.length === 0) continue;
           
           // Get hostname from first backup (all backups for same container should have same hostname)
-          const hostname = backups[0]?.hostname || '';
+          const hostname = backups[0]?.hostname ?? '';
           
           result.push({
             container_id: containerId,

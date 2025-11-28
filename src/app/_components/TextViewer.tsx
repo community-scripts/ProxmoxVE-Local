@@ -216,11 +216,16 @@ export function TextViewer({
                 </Button>
               </div>
             )}
+            {/* Boolean logic intentionally uses || for truthiness checks - eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
             {((selectedVersion === "default" &&
-              (scriptContent.mainScript || scriptContent.installScript)) ||
+              Boolean(
+                scriptContent.mainScript ?? scriptContent.installScript,
+              )) ||
               (selectedVersion === "alpine" &&
-                (scriptContent.alpineMainScript ||
-                  scriptContent.alpineInstallScript))) && (
+                Boolean(
+                  scriptContent.alpineMainScript ??
+                    scriptContent.alpineInstallScript,
+                ))) && (
               <div className="flex space-x-2">
                 <Button
                   variant={activeTab === "main" ? "outline" : "ghost"}

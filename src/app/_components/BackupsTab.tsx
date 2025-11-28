@@ -89,7 +89,7 @@ export function BackupsTab() {
         setShouldPollRestore(false);
         // Check if restore was successful or failed
         const lastLog =
-          restoreLogsData.logs[restoreLogsData.logs.length - 1] || "";
+          restoreLogsData.logs[restoreLogsData.logs.length - 1] ?? "";
         if (lastLog.includes("Restore completed successfully")) {
           setRestoreSuccess(true);
           setRestoreError(null);
@@ -118,9 +118,9 @@ export function BackupsTab() {
         const progressMessages =
           restoreProgress.length > 0
             ? restoreProgress
-            : result.progress?.map((p) => p.message) || [
+            : (result.progress?.map((p) => p.message) ?? [
                 "Restore completed successfully",
-              ];
+              ]);
         setRestoreProgress(progressMessages);
         setRestoreSuccess(true);
         setRestoreError(null);
@@ -128,9 +128,9 @@ export function BackupsTab() {
         setSelectedBackup(null);
         // Keep success message visible - user can dismiss manually
       } else {
-        setRestoreError(result.error || "Restore failed");
+        setRestoreError(result.error ?? "Restore failed");
         setRestoreProgress(
-          result.progress?.map((p) => p.message) || restoreProgress,
+          result.progress?.map((p) => p.message) ?? restoreProgress,
         );
         setRestoreSuccess(false);
         setRestoreConfirmOpen(false);
@@ -141,7 +141,7 @@ export function BackupsTab() {
     onError: (error) => {
       // Stop polling on error
       setShouldPollRestore(false);
-      setRestoreError(error.message || "Restore failed");
+      setRestoreError(error.message ?? "Restore failed");
       setRestoreConfirmOpen(false);
       setSelectedBackup(null);
       setRestoreProgress([]);
@@ -158,11 +158,12 @@ export function BackupsTab() {
   useEffect(() => {
     if (!hasAutoDiscovered && !isLoading && backupsData) {
       // Only auto-discover if there are no backups yet
-      if (!backupsData.backups || backupsData.backups.length === 0) {
-        handleDiscoverBackups();
+      if (!backupsData.backups?.length) {
+        void handleDiscoverBackups();
       }
       setHasAutoDiscovered(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasAutoDiscovered, isLoading, backupsData]);
 
   const handleDiscoverBackups = () => {
@@ -436,7 +437,7 @@ export function BackupsTab() {
       {backupsData && !backupsData.success && (
         <div className="bg-destructive/10 border-destructive rounded-lg border p-4">
           <p className="text-destructive">
-            Error loading backups: {backupsData.error || "Unknown error"}
+            Error loading backups: {backupsData.error ?? "Unknown error"}
           </p>
         </div>
       )}
