@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { prisma } from './db';
 import { join } from 'path';
 import { writeFileSync, unlinkSync, chmodSync, mkdirSync } from 'fs';

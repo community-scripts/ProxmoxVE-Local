@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { readFile, readdir, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import type { Script, ScriptCard } from '~/types/script';
