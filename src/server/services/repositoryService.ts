@@ -1,58 +1,19 @@
 /* eslint-disable @typescript-eslint/prefer-regexp-exec */
-import { prisma } from '../db';
+import { prisma, ensureDefaultRepositories } from '../db';
 
 export class RepositoryService {
   /**
    * Initialize default repositories if they don't exist
    */
   async initializeDefaultRepositories(): Promise<void> {
-    const mainRepoUrl = 'https://github.com/community-scripts/ProxmoxVE';
-    const devRepoUrl = 'https://github.com/community-scripts/ProxmoxVED';
-
-    // Check if repositories already exist
-    const existingRepos = await prisma.repository.findMany({
-      where: {
-        url: {
-          in: [mainRepoUrl, devRepoUrl]
-        }
-      }
-    });
-
-    const existingUrls = new Set(existingRepos.map((r: { url: string }) => r.url));
-
-    // Create main repo if it doesn't exist
-    if (!existingUrls.has(mainRepoUrl)) {
-      await prisma.repository.create({
-        data: {
-          url: mainRepoUrl,
-          enabled: true,
-          is_default: true,
-          is_removable: false,
-          priority: 1
-        }
-      });
-      console.log('Initialized main repository:', mainRepoUrl);
-    }
-
-    // Create dev repo if it doesn't exist
-    if (!existingUrls.has(devRepoUrl)) {
-      await prisma.repository.create({
-        data: {
-          url: devRepoUrl,
-          enabled: false,
-          is_default: true,
-          is_removable: false,
-          priority: 2
-        }
-      });
-      console.log('Initialized dev repository:', devRepoUrl);
-    }
+    await ensureDefaultRepositories();
   }
 
   /**
    * Get all repositories, sorted by priority
    */
   async getAllRepositories() {
+    await ensureDefaultRepositories();
     return await prisma.repository.findMany({
       orderBy: [
         { priority: 'asc' },
@@ -65,6 +26,7 @@ export class RepositoryService {
    * Get enabled repositories, sorted by priority
    */
   async getEnabledRepositories() {
+    await ensureDefaultRepositories();
     return await prisma.repository.findMany({
       where: {
         enabled: true
