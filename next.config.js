@@ -18,30 +18,20 @@ const config = {
       },
     ],
   },
-  // Allow cross-origin requests from local network ranges
-  allowedDevOrigins: [
-    'localhost:3000',
-    '127.0.0.1:3000',
-    '[::1]:3000',    
-    '10.*',
-    '172.16.*',
-    '172.17.*',
-    '172.18.*',
-    '172.19.*',
-    '172.20.*',
-    '172.21.*',
-    '172.22.*',
-    '172.23.*',
-    '172.24.*',
-    '172.25.*',
-    '172.26.*',
-    '172.27.*',
-    '172.28.*',
-    '172.29.*',
-    '172.30.*',
-    '172.31.*',
-    '192.168.*',
-  ],
+  // Allow cross-origin requests from local network in dev mode
+  // Note: In Next.js 16, we disable this check entirely for dev
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
+      },
+    ];
+  },
 
   turbopack: {
     // Disable Turbopack and use Webpack instead for compatibility

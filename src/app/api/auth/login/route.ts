@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: isSecure, // Only secure if actually over HTTPS
-      sameSite: 'strict',
+      sameSite: 'lax', // Use lax for cross-origin navigation support
       maxAge: sessionDurationDays * 24 * 60 * 60, // Use configured duration
       path: '/',
     });
