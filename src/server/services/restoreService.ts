@@ -451,10 +451,12 @@ class RestoreService {
       }
       
       // Get server details
-      const server = await db.getServerById(serverId);
-      if (!server) {
+      const serverData = await db.getServerById(serverId);
+      if (!serverData) {
         throw new Error(`Server with ID ${serverId} not found`);
       }
+      // Cast to Server type (Prisma returns nullable fields as null, Server uses undefined)
+      const server = serverData as unknown as Server;
       
       // Get rootfs storage
       await addProgress('reading_config', 'Reading container configuration...');

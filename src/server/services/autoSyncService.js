@@ -272,6 +272,12 @@ export class AutoSyncService {
     
     console.log(`Scheduling auto-sync with cron expression: ${cronExpression}`);
     
+    /** @type {any} */
+    const cronOptions = {
+      scheduled: true,
+      timezone: 'UTC'
+    };
+    
     this.cronJob = cron.schedule(cronExpression, async () => {
       // Check global lock first
       if (globalAutoSyncLock) {
@@ -300,7 +306,7 @@ export class AutoSyncService {
       
       console.log('Starting scheduled auto-sync...');
       await this.executeAutoSync();
-    });
+    }, cronOptions);
     
     console.log('Auto-sync cron job scheduled successfully');
   }

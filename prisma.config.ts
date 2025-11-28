@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
+// @ts-ignore - Prisma 7 config types are incomplete
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   studio: {

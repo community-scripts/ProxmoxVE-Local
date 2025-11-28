@@ -4,16 +4,16 @@ import { writeFile, mkdir, access, readFile, unlink } from 'fs/promises';
 
 export class ScriptDownloaderService {
   constructor() {
-    this.scriptsDirectory = null;
-    this.repoUrl = null;
+    /** @type {string} */
+    this.scriptsDirectory = join(process.cwd(), 'scripts');
+    /** @type {string} */
+    this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
   initializeConfig() {
-    if (this.scriptsDirectory === null) {
-      this.scriptsDirectory = join(process.cwd(), 'scripts');
-      // Get REPO_URL from environment or use default
-      this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
-    }
+    // Re-initialize if needed (for environment changes)
+    this.scriptsDirectory = join(process.cwd(), 'scripts');
+    this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
   /**
@@ -305,6 +305,11 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Check if a script is downloaded
+   * @param {import('~/types/script').Script} script - The script to check
+   * @returns {Promise<boolean>}
+   */
   async isScriptDownloaded(script) {
     if (!script.install_methods?.length) return false;
 
@@ -357,6 +362,11 @@ export class ScriptDownloaderService {
     return true;
   }
 
+  /**
+   * Check which script files exist locally
+   * @param {import('~/types/script').Script} script - The script to check
+   * @returns {Promise<{ctExists: boolean, installExists: boolean, files: string[]}>}
+   */
   async checkScriptExists(script) {
     this.initializeConfig();
     const files = [];
@@ -455,6 +465,11 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Delete a script's local files
+   * @param {import('~/types/script').Script} script - The script to delete
+   * @returns {Promise<{success: boolean, message: string, deletedFiles: string[]}>}
+   */
   async deleteScript(script) {
     this.initializeConfig();
     const deletedFiles = [];
@@ -506,8 +521,14 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Compare local script content with remote
+   * @param {import('~/types/script').Script} script - The script to compare
+   * @returns {Promise<{hasDifferences: boolean, differences: string[], error?: string}>}
+   */
   async compareScriptContent(script) {
     this.initializeConfig();
+    /** @type {string[]} */
     const differences = [];
     let hasDifferences = false;
     const repoUrl = this.getRepoUrlForScript(script);
@@ -634,12 +655,19 @@ export class ScriptDownloaderService {
 
       console.log(`[Comparison] Completed comparison for ${script.slug}: hasDifferences=${hasDifferences}, differences=${differences.length}`);
       return { hasDifferences, differences };
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       console.error(`[Comparison] Error comparing script content for ${script.slug}:`, error);
       return { hasDifferences: false, differences: [], error: error.message };
     }
   }
 
+  /**
+   * Compare a single file with remote
+   * @param {import('~/types/script').Script} script - The script object
+   * @param {string} remotePath - The remote file path
+   * @param {string} filePath - The local file path
+   * @returns {Promise<{hasDifferences: boolean, filePath: string, error?: string}>}
+   */
   async compareSingleFile(script, remotePath, filePath) {
     try {
       const localPath = join(this.scriptsDirectory, filePath);
@@ -675,13 +703,19 @@ export class ScriptDownloaderService {
       }
       
       return { hasDifferences, filePath };
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       console.error(`[Comparison] Error comparing file ${filePath}:`, error.message);
       // Return error information so it can be handled upstream
       return { hasDifferences: false, filePath, error: error.message };
     }
   }
 
+  /**
+   * Get diff between local and remote script
+   * @param {import('~/types/script').Script} script - The script object
+   * @param {string} filePath - The file path to diff
+   * @returns {Promise<{diff: string|null, localContent: string|null, remoteContent: string|null}>}
+   */
   async getScriptDiff(script, filePath) {
     this.initializeConfig();
     try {
@@ -741,6 +775,12 @@ export class ScriptDownloaderService {
     }
   }
 
+  /**
+   * Generate a simple line-by-line diff
+   * @param {string} localContent - The local file content
+   * @param {string} remoteContent - The remote file content
+   * @returns {string}
+   */
   generateDiff(localContent, remoteContent) {
     const localLines = localContent.split('\n');
     const remoteLines = remoteContent.split('\n');
