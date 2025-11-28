@@ -1249,8 +1249,9 @@ app.prepare().then(() => {
           autoSyncModule = await import('./src/server/lib/autoSyncInit.js');
           console.log('autoSyncModule loaded, exports:', Object.keys(autoSyncModule));
         } catch (error) {
-          console.error('Failed to import autoSyncInit:', error.message);
-          console.error('Stack:', error.stack);
+          const err = error instanceof Error ? error : new Error(String(error));
+          console.error('Failed to import autoSyncInit:', err.message);
+          console.error('Stack:', err.stack);
           throw error;
         }
       }
