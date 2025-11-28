@@ -2,10 +2,7 @@ import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
-  schema: {
-    kind: 'single',
-    filePath: 'prisma/schema.prisma',
-  },
+  schema: 'prisma/schema.prisma',
   studio: {
     adapter: async () => {
       const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3')
