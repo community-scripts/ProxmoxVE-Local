@@ -1,8 +1,10 @@
 import 'dotenv/config'
+import { createRequire } from 'module'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 
-// Import from .prisma/client which is the runtime location
-import { PrismaClient } from '.prisma/client'
+// Use createRequire to load CommonJS module from node_modules/.prisma/client
+const require = createRequire(import.meta.url)
+const { PrismaClient } = require('.prisma/client')
 
 const globalForPrisma = globalThis;
 
