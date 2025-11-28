@@ -65,7 +65,8 @@ export class GitHubJsonService {
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
 
-    return response.json() as Promise<T>;
+    const data = await response.json();
+    return data as T;
   }
 
   private async downloadJsonFile(repoUrl: string, filePath: string): Promise<Script> {
@@ -215,9 +216,7 @@ export class GitHubJsonService {
       const script = JSON.parse(content) as Script;
       
       // If script doesn't have repository_url, set it to main repo (for backward compatibility)
-      if (!script.repository_url) {
-        script.repository_url = env.REPO_URL ?? 'https://github.com/community-scripts/ProxmoxVE';
-      }
+      script.repository_url ??= env.REPO_URL ?? 'https://github.com/community-scripts/ProxmoxVE';
       
       // Cache the script
       this.scriptCache.set(slug, script);

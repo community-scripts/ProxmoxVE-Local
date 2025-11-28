@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -47,7 +47,9 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
   // Get current version when modal opens
   useEffect(() => {
     if (isOpen && versionData?.success && versionData.version) {
-      setCurrentVersion(versionData.version);
+      startTransition(() => {
+        setCurrentVersion(versionData.version);
+      });
     }
   }, [isOpen, versionData]);
 

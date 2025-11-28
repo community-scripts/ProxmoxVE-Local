@@ -87,37 +87,59 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const [shouldSubscribe, setShouldSubscribe] = useState(false);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
-  const lastLogTimeRef = useRef<number>(Date.now());
+  const lastLogTimeRef = useRef<number>(0);
+  
+  // Initialize lastLogTimeRef in useEffect to avoid calling Date.now() during render
+  useEffect(() => {
+    if (lastLogTimeRef.current === 0) {
+      lastLogTimeRef.current = Date.now();
+    }
+  }, []);
   const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasReloadedRef = useRef<boolean>(false);
   const isUpdatingRef = useRef<boolean>(false);
   const isNetworkErrorRef = useRef<boolean>(false);
+  const updateSessionIdRef = useRef<string | null>(null);
+  const updateStartTimeRef = useRef<number | null>(null);
+  const logFileModifiedTimeRef = useRef<number | null>(null);
+  const isCompleteProcessedRef = useRef<boolean>(false);
   
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result) => {
       setUpdateResult({ success: result.success, message: result.message });
       
       if (result.success) {
-        // Start subscribing to update logs
-        setShouldSubscribe(true);
-        setUpdateLogs(['Update started...']);
+        // Start subscribing to update logs only if we're actually updating
+        if (isUpdatingRef.current) {
+          setShouldSubscribe(true);
+          setUpdateLogs(['Update started...']);
+        }
       } else {
         setIsUpdating(false);
         setShouldSubscribe(false); // Reset subscription on failure
+        updateSessionIdRef.current = null;
+        updateStartTimeRef.current = null;
+        logFileModifiedTimeRef.current = null;
+        isCompleteProcessedRef.current = false;
       }
     },
     onError: (error) => {
       setUpdateResult({ success: false, message: error.message });
       setIsUpdating(false);
       setShouldSubscribe(false); // Reset subscription on error
+      updateSessionIdRef.current = null;
+      updateStartTimeRef.current = null;
+      logFileModifiedTimeRef.current = null;
+      isCompleteProcessedRef.current = false;
     }
   });
 
-  // Poll for update logs
+  // Poll for update logs - only enabled when shouldSubscribe is true AND we're updating
   const { data: updateLogsData } = api.version.getUpdateLogs.useQuery(undefined, {
-    enabled: shouldSubscribe,
-    refetchInterval: 1000, // Poll every second
-    refetchIntervalInBackground: true,
+    enabled: shouldSubscribe && isUpdating,
+    refetchInterval: shouldSubscribe && isUpdating ? 1000 : false, // Poll every second only when updating
+    refetchIntervalInBackground: false, // Don't poll in background to prevent stale data
   });
 
   // Attempt to reconnect and reload page when server is back
@@ -126,8 +148,16 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const startReconnectAttempts = useCallback(() => {
     // CRITICAL: Stricter guard - check refs BEFORE starting reconnect attempts
     // Only start if we're actually updating and haven't already started
-    // Double-check isUpdating state to prevent false triggers from stale data
-    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current) {
+    // Double-check isUpdating state and session validity to prevent false triggers from stale data
+    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
+      return;
+    }
+    
+    // Validate session age before starting reconnection attempts
+    const sessionAge = Date.now() - updateStartTimeRef.current;
+    const MAX_SESSION_AGE = 30 * 60 * 1000; // 30 minutes
+    if (sessionAge > MAX_SESSION_AGE) {
+      // Session is stale, don't start reconnection
       return;
     }
     
@@ -137,9 +167,20 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       void (async () => {
         // Guard: Only proceed if we're still updating and in network error state
         // Check refs directly to avoid stale closures
-        if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current) {
+        if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
           // Clear interval if we're no longer updating
           if (!isUpdatingRef.current && reconnectIntervalRef.current) {
+            clearInterval(reconnectIntervalRef.current);
+            reconnectIntervalRef.current = null;
+          }
+          return;
+        }
+        
+        // Validate session is still valid
+        const currentSessionAge = Date.now() - updateStartTimeRef.current;
+        if (currentSessionAge > MAX_SESSION_AGE) {
+          // Session expired, stop reconnection attempts
+          if (reconnectIntervalRef.current) {
             clearInterval(reconnectIntervalRef.current);
             reconnectIntervalRef.current = null;
           }
@@ -150,8 +191,14 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
           // Try to fetch the root path to check if server is back
           const response = await fetch('/', { method: 'HEAD' });
           if (response.ok || response.status === 200) {
-            // Double-check we're still updating before reloading
-            if (!isUpdatingRef.current || hasReloadedRef.current) {
+            // Double-check we're still updating and session is valid before reloading
+            if (!isUpdatingRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
+              return;
+            }
+            
+            // Final session validation
+            const finalSessionAge = Date.now() - updateStartTimeRef.current;
+            if (finalSessionAge > MAX_SESSION_AGE) {
               return;
             }
             
@@ -159,13 +206,21 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
             hasReloadedRef.current = true;
             setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
             
-            // Clear interval and reload
+            // Clear interval
             if (reconnectIntervalRef.current) {
               clearInterval(reconnectIntervalRef.current);
               reconnectIntervalRef.current = null;
             }
             
-            setTimeout(() => {
+            // Clear any existing reload timeout
+            if (reloadTimeoutRef.current) {
+              clearTimeout(reloadTimeoutRef.current);
+              reloadTimeoutRef.current = null;
+            }
+            
+            // Set reload timeout
+            reloadTimeoutRef.current = setTimeout(() => {
+              reloadTimeoutRef.current = null;
               window.location.reload();
             }, 1000);
           }
@@ -180,21 +235,68 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   useEffect(() => {
     // CRITICAL: Only process update logs if we're actually updating
     // This prevents stale isComplete data from triggering reloads when not updating
-    if (!isUpdating) {
+    if (!isUpdating || !updateStartTimeRef.current) {
+      return;
+    }
+    
+    // CRITICAL: Validate session - only process logs from current update session
+    // Check that update started within last 30 minutes (reasonable window for update)
+    const sessionAge = Date.now() - updateStartTimeRef.current;
+    const MAX_SESSION_AGE = 30 * 60 * 1000; // 30 minutes
+    if (sessionAge > MAX_SESSION_AGE) {
+      // Session is stale, reset everything
+      setTimeout(() => {
+        setIsUpdating(false);
+        setShouldSubscribe(false);
+      }, 0);
+      updateSessionIdRef.current = null;
+      updateStartTimeRef.current = null;
+      logFileModifiedTimeRef.current = null;
+      isCompleteProcessedRef.current = false;
       return;
     }
     
     if (updateLogsData?.success && updateLogsData.logs) {
-      lastLogTimeRef.current = Date.now();
-      setUpdateLogs(updateLogsData.logs);
       
-      // CRITICAL: Only process isComplete if we're actually updating
-      // Double-check isUpdating state to prevent false triggers
-      if (updateLogsData.isComplete && isUpdating) {
-        setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
-        setIsNetworkError(true);
+      if (updateLogsData.logFileModifiedTime !== null && logFileModifiedTimeRef.current !== null) {
+        
+        if (updateLogsData.logFileModifiedTime < logFileModifiedTimeRef.current) {
+        
+          return;
+        }
+      } else if (updateLogsData.logFileModifiedTime !== null && updateStartTimeRef.current) {
+       
+        const timeDiff = updateLogsData.logFileModifiedTime - updateStartTimeRef.current;
+        if (timeDiff < -5000) {
+         
+        }
+        logFileModifiedTimeRef.current = updateLogsData.logFileModifiedTime;
+      }
+      
+      lastLogTimeRef.current = Date.now();
+      setTimeout(() => setUpdateLogs(updateLogsData.logs), 0);
+      
+      
+      if (
+        updateLogsData.isComplete && 
+        isUpdating && 
+        updateStartTimeRef.current && 
+        sessionAge < MAX_SESSION_AGE &&
+        !isCompleteProcessedRef.current
+      ) {
+        // Mark as processed immediately to prevent multiple triggers
+        isCompleteProcessedRef.current = true;
+        
+        // Stop polling immediately to prevent further stale data processing
+        setTimeout(() => setShouldSubscribe(false), 0);
+        
+        setTimeout(() => {
+          setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+          setIsNetworkError(true);
+        }, 0);
+        
         // Start reconnection attempts when we know update is complete
-        startReconnectAttempts();
+        setTimeout(() => startReconnectAttempts(), 0);
       }
     }
   }, [updateLogsData, startReconnectAttempts, isUpdating]);
@@ -218,8 +320,10 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
       const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
       
-      // Additional guard: check refs again before triggering
-      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdatingRef.current && !isNetworkErrorRef.current) {
+      // Additional guard: check refs again before triggering and validate session
+      const sessionAge = updateStartTimeRef.current ? Date.now() - updateStartTimeRef.current : Infinity;
+      const MAX_SESSION_AGE = 30 * 60 * 1000; // 30 minutes
+      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdatingRef.current && !isNetworkErrorRef.current && updateStartTimeRef.current && sessionAge < MAX_SESSION_AGE) {
         setIsNetworkError(true);
         setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
         
@@ -234,11 +338,25 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   // Keep refs in sync with state
   useEffect(() => {
     isUpdatingRef.current = isUpdating;
+    // CRITICAL: Reset shouldSubscribe immediately when isUpdating becomes false
+    // This prevents stale polling from continuing
+    if (!isUpdating) {
+      setTimeout(() => {
+        setShouldSubscribe(false);
+      }, 0);
+      // Reset completion processing flag when update stops
+      isCompleteProcessedRef.current = false;
+    }
   }, [isUpdating]);
 
   useEffect(() => {
     isNetworkErrorRef.current = isNetworkError;
   }, [isNetworkError]);
+
+  // Keep updateStartTime ref in sync
+  useEffect(() => {
+    updateStartTimeRef.current = updateStartTime;
+  }, [updateStartTime]);
 
   // Clear reconnect interval when update completes or component unmounts
   useEffect(() => {
@@ -248,8 +366,18 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         clearInterval(reconnectIntervalRef.current);
         reconnectIntervalRef.current = null;
       }
+      // Clear reload timeout if update stops
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+        reloadTimeoutRef.current = null;
+      }
       // Reset subscription to prevent stale polling
-      setShouldSubscribe(false);
+      setTimeout(() => {
+        setShouldSubscribe(false);
+      }, 0);
+      // Reset completion processing flag
+      isCompleteProcessedRef.current = false;
+      // Don't clear session refs here - they're cleared explicitly on unmount or new update
     }
     
     return () => {
@@ -257,8 +385,31 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
         clearInterval(reconnectIntervalRef.current);
         reconnectIntervalRef.current = null;
       }
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+        reloadTimeoutRef.current = null;
+      }
     };
   }, [isUpdating]);
+
+  // Cleanup on component unmount - reset all update-related state
+  useEffect(() => {
+    return () => {
+      // Clear all intervals
+      if (reconnectIntervalRef.current) {
+        clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
+      }
+      // Reset all refs and state
+      updateSessionIdRef.current = null;
+      updateStartTimeRef.current = null;
+      logFileModifiedTimeRef.current = null;
+      isCompleteProcessedRef.current = false;
+      hasReloadedRef.current = false;
+      isUpdatingRef.current = false;
+      isNetworkErrorRef.current = false;
+    };
+  }, []);
 
   const handleUpdate = () => {
     // Show confirmation modal instead of starting update directly
@@ -269,19 +420,34 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     // Close the confirmation modal
     setShowUpdateConfirmation(false);
     // Start the actual update process
+    const sessionId = `update_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
+    
     setIsUpdating(true);
     setUpdateResult(null);
     setIsNetworkError(false);
     setUpdateLogs([]);
-    setShouldSubscribe(false);
-    setUpdateStartTime(Date.now());
-    lastLogTimeRef.current = Date.now();
+    setShouldSubscribe(false); // Will be set to true in mutation onSuccess
+    setUpdateStartTime(startTime);
+    
+    // Set refs for session tracking
+    updateSessionIdRef.current = sessionId;
+    updateStartTimeRef.current = startTime;
+    lastLogTimeRef.current = startTime;
+    logFileModifiedTimeRef.current = null; // Will be set when we first see log file
+    isCompleteProcessedRef.current = false; // Reset completion flag
     hasReloadedRef.current = false; // Reset reload flag when starting new update
-    // Clear any existing reconnect interval
+    
+    // Clear any existing reconnect interval and reload timeout
     if (reconnectIntervalRef.current) {
       clearInterval(reconnectIntervalRef.current);
       reconnectIntervalRef.current = null;
     }
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current);
+      reloadTimeoutRef.current = null;
+    }
+    
     executeUpdate.mutate();
   };
 

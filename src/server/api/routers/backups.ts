@@ -29,6 +29,7 @@ export const backupsRouter = createTRPCRouter({
             storage_name: string;
             storage_type: string;
             discovered_at: Date;
+            server_id?: number;
             server_name: string | null;
             server_color: string | null;
           }>;

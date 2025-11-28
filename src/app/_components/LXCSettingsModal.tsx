@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -159,9 +159,13 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
   useEffect(() => {
     if (configData?.success) {
       populateFormData(configData);
-      setHasChanges(false);
+      startTransition(() => {
+        setHasChanges(false);
+      });
     } else if (configData && !configData.success) {
-      setError(String(configData.error ?? 'Failed to load configuration'));
+      startTransition(() => {
+        setError(String(configData.error ?? 'Failed to load configuration'));
+      });
     }
   }, [configData]);
 
