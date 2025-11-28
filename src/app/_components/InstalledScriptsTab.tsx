@@ -45,6 +45,7 @@ interface InstalledScript {
   container_status?: 'running' | 'stopped' | 'unknown';
   web_ui_ip: string | null;
   web_ui_port: number | null;
+  is_vm?: boolean;
 }
 
 export function InstalledScriptsTab() {
@@ -1077,22 +1078,34 @@ export function InstalledScriptsTab() {
         <h2 className="text-2xl font-bold text-foreground mb-4">Installed Scripts</h2>
         
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-info/10 border border-info/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-info">{stats.total}</div>
               <div className="text-sm text-info/80">Total Installations</div>
             </div>
             <div className="bg-success/10 border border-success/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-success">
-                {scriptsWithStatus.filter(script => script.container_status === 'running').length}
+                {scriptsWithStatus.filter(script => script.container_status === 'running' && !script.is_vm).length}
               </div>
               <div className="text-sm text-success/80">Running LXC</div>
             </div>
+            <div className="bg-success/10 border border-success/20 p-4 rounded-lg text-center">
+              <div className="text-2xl font-bold text-success">
+                {scriptsWithStatus.filter(script => script.container_status === 'running' && script.is_vm).length}
+              </div>
+              <div className="text-sm text-success/80">Running VMs</div>
+            </div>
             <div className="bg-error/10 border border-error/20 p-4 rounded-lg text-center">
               <div className="text-2xl font-bold text-error">
-                {scriptsWithStatus.filter(script => script.container_status === 'stopped').length}
+                {scriptsWithStatus.filter(script => script.container_status === 'stopped' && !script.is_vm).length}
               </div>
               <div className="text-sm text-error/80">Stopped LXC</div>
+            </div>
+            <div className="bg-error/10 border border-error/20 p-4 rounded-lg text-center">
+              <div className="text-2xl font-bold text-error">
+                {scriptsWithStatus.filter(script => script.container_status === 'stopped' && script.is_vm).length}
+              </div>
+              <div className="text-sm text-error/80">Stopped VMs</div>
             </div>
           </div>
         )}
@@ -1527,7 +1540,18 @@ export function InstalledScriptsTab() {
                           </div>
                         ) : (
                           <div>
-                            <div className="text-sm font-medium text-foreground">{script.script_name}</div>
+                            <div className="flex items-center gap-2">
+                              {script.container_id && (
+                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                  script.is_vm 
+                                    ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30' 
+                                    : 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                                }`}>
+                                  {script.is_vm ? 'VM' : 'LXC'}
+                                </span>
+                              )}
+                              <div className="text-sm font-medium text-foreground">{script.script_name}</div>
+                            </div>
                             <div className="text-sm text-muted-foreground">{script.script_path}</div>
                           </div>
                         )}
@@ -1683,7 +1707,7 @@ export function InstalledScriptsTab() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent className="w-48 bg-card border-border">
-                                    {script.container_id && (
+                                    {script.container_id && !script.is_vm && (
                                       <DropdownMenuItem
                                         onClick={() => handleUpdateScript(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
@@ -1701,7 +1725,7 @@ export function InstalledScriptsTab() {
                                         Backup
                                       </DropdownMenuItem>
                                     )}
-                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                    {script.container_id && script.execution_mode === 'ssh' && !script.is_vm && (
                                       <DropdownMenuItem
                                         onClick={() => handleOpenShell(script)}
                                         disabled={containerStatuses.get(script.id) === 'stopped'}
@@ -1728,7 +1752,7 @@ export function InstalledScriptsTab() {
                                         {autoDetectWebUIMutation.isPending ? 'Re-detect...' : 'Re-detect IP/Port'}
                                       </DropdownMenuItem>
                                     )}
-                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                    {script.container_id && script.execution_mode === 'ssh' && !script.is_vm && (
                                       <>
                                         <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
@@ -1739,6 +1763,11 @@ export function InstalledScriptsTab() {
                                           LXC Settings
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator className="bg-border" />
+                                      </>
+                                    )}
+                                    {script.container_id && script.execution_mode === 'ssh' && (
+                                      <>
+                                        {script.is_vm && <DropdownMenuSeparator className="bg-border" />}
                                         <DropdownMenuItem
                                           onClick={() => handleStartStop(script, (containerStatuses.get(script.id) ?? 'unknown') === 'running' ? 'stop' : 'start')}
                                           disabled={controllingScriptId === script.id || (containerStatuses.get(script.id) ?? 'unknown') === 'unknown'}
