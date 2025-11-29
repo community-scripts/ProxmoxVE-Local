@@ -6,30 +6,40 @@ export interface ToggleProps
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   label?: string;
+  labelPosition?: 'left' | 'right';
 }
 
 const Toggle = React.forwardRef<HTMLInputElement, ToggleProps>(
-  ({ className, checked, onCheckedChange, label, ...props }, ref) => {
+  ({ className, checked, onCheckedChange, label, labelPosition = 'right', ...props }, ref) => {
+    const toggleSwitch = (
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          className="sr-only"
+          checked={checked}
+          onChange={(e) => onCheckedChange?.(e.target.checked)}
+          ref={ref}
+          {...props}
+        />
+        <div className={cn(
+          "w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-gray-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform after:duration-300 after:ease-in-out after:shadow-md transition-colors duration-300 ease-in-out border-2 border-gray-300 dark:border-gray-600",
+          checked 
+            ? "bg-blue-500 dark:bg-blue-600 after:translate-x-full" 
+            : "bg-gray-300 dark:bg-gray-700",
+          className
+        )} />
+      </label>
+    );
+
     return (
       <div className="flex items-center space-x-3">
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={checked}
-            onChange={(e) => onCheckedChange?.(e.target.checked)}
-            ref={ref}
-            {...props}
-          />
-          <div className={cn(
-            "w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-gray-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform after:duration-300 after:ease-in-out after:shadow-md transition-colors duration-300 ease-in-out border-2 border-gray-300 dark:border-gray-600",
-            checked 
-              ? "bg-blue-500 dark:bg-blue-600 after:translate-x-full" 
-              : "bg-gray-300 dark:bg-gray-700",
-            className
-          )} />
-        </label>
-        {label && (
+        {label && labelPosition === 'left' && (
+          <span className="text-sm font-medium text-foreground">
+            {label}
+          </span>
+        )}
+        {toggleSwitch}
+        {label && labelPosition === 'right' && (
           <span className="text-sm font-medium text-foreground">
             {label}
           </span>

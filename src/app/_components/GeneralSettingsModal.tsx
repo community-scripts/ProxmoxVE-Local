@@ -1630,7 +1630,7 @@ export function GeneralSettingsModal({
                         https://github.com/owner/repo)
                       </p>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">
                       <div>
                         <p className="text-foreground text-sm font-medium">
                           Enable after adding
@@ -1644,6 +1644,7 @@ export function GeneralSettingsModal({
                         onCheckedChange={setNewRepoEnabled}
                         disabled={isAddingRepo}
                         label="Enable repository"
+                        labelPosition="left"
                       />
                     </div>
                     <Button
@@ -1739,44 +1740,7 @@ export function GeneralSettingsModal({
                                 {repo.enabled ? "• Enabled" : "• Disabled"}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Toggle
-                                checked={repo.enabled}
-                                onCheckedChange={async (enabled) => {
-                                  setMessage(null);
-                                  try {
-                                    const result =
-                                      await updateRepoMutation.mutateAsync({
-                                        id: repo.id,
-                                        enabled,
-                                      });
-                                    if (result.success) {
-                                      setMessage({
-                                        type: "success",
-                                        text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
-                                      });
-                                      await refetchRepositories();
-                                    } else {
-                                      setMessage({
-                                        type: "error",
-                                        text:
-                                          result.error ??
-                                          "Failed to update repository",
-                                      });
-                                    }
-                                  } catch (error) {
-                                    setMessage({
-                                      type: "error",
-                                      text:
-                                        error instanceof Error
-                                          ? error.message
-                                          : "Failed to update repository",
-                                    });
-                                  }
-                                }}
-                                disabled={updateRepoMutation.isPending}
-                                label={repo.enabled ? "Disable" : "Enable"}
-                              />
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <Button
                                 onClick={async () => {
                                   if (!repo.is_removable) {
@@ -1837,6 +1801,44 @@ export function GeneralSettingsModal({
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
+                              <Toggle
+                                checked={repo.enabled}
+                                onCheckedChange={async (enabled) => {
+                                  setMessage(null);
+                                  try {
+                                    const result =
+                                      await updateRepoMutation.mutateAsync({
+                                        id: repo.id,
+                                        enabled,
+                                      });
+                                    if (result.success) {
+                                      setMessage({
+                                        type: "success",
+                                        text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
+                                      });
+                                      await refetchRepositories();
+                                    } else {
+                                      setMessage({
+                                        type: "error",
+                                        text:
+                                          result.error ??
+                                          "Failed to update repository",
+                                      });
+                                    }
+                                  } catch (error) {
+                                    setMessage({
+                                      type: "error",
+                                      text:
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Failed to update repository",
+                                    });
+                                  }
+                                }}
+                                disabled={updateRepoMutation.isPending}
+                                label={repo.enabled ? "Disable" : "Enable"}
+                                labelPosition="left"
+                              />
                             </div>
                           </div>
                         ),
