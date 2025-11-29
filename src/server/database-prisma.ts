@@ -281,7 +281,8 @@ class DatabaseServicePrisma {
   async getAllInstalledScripts(): Promise<InstalledScriptWithServer[]> {
     const result = await prisma.installedScript.findMany({
       include: {
-        server: true
+        server: true,
+        lxc_config: true
       },
       orderBy: { installation_date: 'desc' }
     });
@@ -302,7 +303,8 @@ class DatabaseServicePrisma {
     const result = await prisma.installedScript.findMany({
       where: { server_id },
       include: {
-        server: true
+        server: true,
+        lxc_config: true
       },
       orderBy: { installation_date: 'desc' }
     });

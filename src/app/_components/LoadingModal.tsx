@@ -16,7 +16,7 @@ interface LoadingModalProps {
 
 export function LoadingModal({
   isOpen,
-  action: _action,
+  action,
   logs = [],
   isComplete = false,
   title,
@@ -63,6 +63,11 @@ export function LoadingModal({
               </>
             )}
           </div>
+
+          {/* Action text - displayed prominently */}
+          {action && (
+            <p className="text-foreground text-base font-medium">{action}</p>
+          )}
 
           {/* Static title text */}
           {title && <p className="text-muted-foreground text-sm">{title}</p>}

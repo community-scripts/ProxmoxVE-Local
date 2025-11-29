@@ -458,12 +458,116 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
       );
     });
     
-    // If LXC config exists, it's an LXC container
-    return !lxcConfigExists; // Return true if it's a VM (neither config exists defaults to false/LXC)
+
+    return false; // Always LXC since VM config doesn't exist
   } catch (error) {
     console.error('Error determining container type:', error);
     return false; // Default to LXC on error
   }
+}
+
+// Helper function to batch detect container types for all containers on a server
+// Returns a Map of container_id -> isVM (true for VM, false for LXC)
+async function batchDetectContainerTypes(server: Server): Promise<Map<string, boolean>> {
+  const containerTypeMap = new Map<string, boolean>();
+  
+  try {
+    // Import SSH services
+    const { default: SSHService } = await import('~/server/ssh-service');
+    const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+    const sshService = new SSHService();
+    const sshExecutionService = new SSHExecutionService();
+    
+    // Test SSH connection first
+    const connectionTest = await sshService.testSSHConnection(server);
+    if (!(connectionTest as any).success) {
+      console.warn(`SSH connection failed for server ${server.name}, skipping batch detection`);
+      return containerTypeMap; // Return empty map if SSH fails
+    }
+    
+    // Helper function to parse list output and extract IDs
+    const parseListOutput = (output: string): string[] => {
+      const ids: string[] = [];
+      const lines = output.split('\n').filter(line => line.trim());
+      
+      for (const line of lines) {
+        // Skip header lines
+        if (line.includes('VMID') || line.includes('CTID')) continue;
+        
+        // Extract first column (ID)
+        const parts = line.trim().split(/\s+/);
+        if (parts.length > 0) {
+          const id = parts[0]?.trim();
+          // Validate ID format (3-4 digits typically)
+          if (id && /^\d{3,4}$/.test(id)) {
+            ids.push(id);
+          }
+        }
+      }
+      
+      return ids;
+    };
+    
+    // Get containers from pct list
+    let pctOutput = '';
+    await new Promise<void>((resolve, reject) => {
+      void sshExecutionService.executeCommand(
+        server,
+        'pct list',
+        (data: string) => {
+          pctOutput += data;
+        },
+        (error: string) => {
+          console.error(`pct list error for server ${server.name}:`, error);
+          // Don't reject, just continue - might be no containers
+          resolve();
+        },
+        (_exitCode: number) => {
+          resolve();
+        }
+      );
+    });
+    
+    // Get VMs from qm list
+    let qmOutput = '';
+    await new Promise<void>((resolve, reject) => {
+      void sshExecutionService.executeCommand(
+        server,
+        'qm list',
+        (data: string) => {
+          qmOutput += data;
+        },
+        (error: string) => {
+          console.error(`qm list error for server ${server.name}:`, error);
+          // Don't reject, just continue - might be no VMs
+          resolve();
+        },
+        (_exitCode: number) => {
+          resolve();
+        }
+      );
+    });
+    
+    // Parse IDs from both lists
+    const containerIds = parseListOutput(pctOutput);
+    const vmIds = parseListOutput(qmOutput);
+    
+    // Mark all LXC containers as false (not VM)
+    for (const id of containerIds) {
+      containerTypeMap.set(id, false);
+    }
+    
+    // Mark all VMs as true (is VM)
+    for (const id of vmIds) {
+      containerTypeMap.set(id, true);
+    }
+    
+  } catch (error) {
+    console.error(`Error in batchDetectContainerTypes for server ${server.name}:`, error);
+    // Return empty map on error - individual checks will fall back to isVM()
+  }
+  
+  return containerTypeMap;
 }
 
 
@@ -475,13 +579,52 @@ export const installedScriptsRouter = createTRPCRouter({
         const db = getDatabase();
         const scripts = await db.getAllInstalledScripts();
         
+        // Group scripts by server_id for batch detection
+        const scriptsByServer = new Map<number, any[]>();
+        const serversMap = new Map<number, Server>();
+        
+        for (const script of scripts) {
+          if (script.server_id && script.server) {
+            if (!scriptsByServer.has(script.server_id)) {
+              scriptsByServer.set(script.server_id, []);
+              serversMap.set(script.server_id, script.server as Server);
+            }
+            scriptsByServer.get(script.server_id)!.push(script);
+          }
+        }
+        
+        // Batch detect container types for each server
+        const containerTypeMap = new Map<string, boolean>();
+        const batchDetectionPromises = Array.from(serversMap.entries()).map(async ([serverId, server]) => {
+          try {
+            const serverTypeMap = await batchDetectContainerTypes(server);
+            // Merge into main map with server-specific prefix to avoid collisions
+            // Actually, container IDs are unique across the cluster, so we can use them directly
+            for (const [containerId, isVM] of serverTypeMap.entries()) {
+              containerTypeMap.set(containerId, isVM);
+            }
+          } catch (error) {
+            console.error(`Error batch detecting types for server ${serverId}:`, error);
+            // Continue with other servers
+          }
+        });
+        
+        await Promise.all(batchDetectionPromises);
+        
         // Transform scripts to flatten server data for frontend compatibility
-         
-        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
-          // Determine if it's a VM or LXC
+        const transformedScripts = scripts.map((script: any) => {
+          // Determine if it's a VM or LXC from batch detection map, fall back to isVM() if not found
           let is_vm = false;
           if (script.container_id && script.server_id) {
-            is_vm = await isVM(script.id, script.container_id, script.server_id);
+            // First check if we have it in the batch detection map
+            if (containerTypeMap.has(script.container_id)) {
+              is_vm = containerTypeMap.get(script.container_id) ?? false;
+            } else {
+              // Fall back to checking LXCConfig in database (fast, no SSH needed)
+              // If LXCConfig exists, it's an LXC container
+              const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
+              is_vm = !hasLXCConfig; // If no LXCConfig, might be VM, but default to false for safety
+            }
           }
           
           return {
@@ -498,7 +641,7 @@ export const installedScriptsRouter = createTRPCRouter({
             is_vm,
             server: undefined // Remove nested server object
           };
-        }));
+        });
         
         return {
           success: true,
@@ -522,13 +665,31 @@ export const installedScriptsRouter = createTRPCRouter({
         const db = getDatabase();
         const scripts = await db.getInstalledScriptsByServer(input.serverId);
         
+        // Batch detect container types for this server
+        let containerTypeMap = new Map<string, boolean>();
+        if (scripts.length > 0 && scripts[0]?.server) {
+          try {
+            containerTypeMap = await batchDetectContainerTypes(scripts[0].server as Server);
+          } catch (error) {
+            console.error(`Error batch detecting types for server ${input.serverId}:`, error);
+            // Continue with empty map, will fall back to LXCConfig check
+          }
+        }
+        
         // Transform scripts to flatten server data for frontend compatibility
-         
-        const transformedScripts = await Promise.all(scripts.map(async (script: any) => {
-          // Determine if it's a VM or LXC
+        const transformedScripts = scripts.map((script: any) => {
+          // Determine if it's a VM or LXC from batch detection map, fall back to LXCConfig check if not found
           let is_vm = false;
           if (script.container_id && script.server_id) {
-            is_vm = await isVM(script.id, script.container_id, script.server_id);
+            // First check if we have it in the batch detection map
+            if (containerTypeMap.has(script.container_id)) {
+              is_vm = containerTypeMap.get(script.container_id) ?? false;
+            } else {
+              // Fall back to checking LXCConfig in database (fast, no SSH needed)
+              // If LXCConfig exists, it's an LXC container
+              const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
+              is_vm = !hasLXCConfig; // If no LXCConfig, might be VM, but default to false for safety
+            }
           }
           
           return {
@@ -545,7 +706,7 @@ export const installedScriptsRouter = createTRPCRouter({
             is_vm,
             server: undefined // Remove nested server object
           };
-        }));
+        });
         
         return {
           success: true,
