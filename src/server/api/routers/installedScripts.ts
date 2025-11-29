@@ -458,8 +458,8 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
       );
     });
     
-    // If LXC config exists, it's an LXC container
-    return !lxcConfigExists; // Return true if it's a VM (neither config exists defaults to false/LXC)
+
+    return false; // Always LXC since VM config doesn't exist
   } catch (error) {
     console.error('Error determining container type:', error);
     return false; // Default to LXC on error
