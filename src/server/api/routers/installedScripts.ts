@@ -442,22 +442,18 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
       return true; // VM config file exists
     }
     
-    // Check LXC config file
-    let lxcConfigExists = false;
+    // Check LXC config file (not needed for return value, but check for completeness)
     await new Promise<void>((resolve) => {
       void sshExecutionService.executeCommand(
         server as Server,
         `test -f "${lxcConfigPath}" && echo "exists" || echo "not_exists"`,
-        (data: string) => {
-          if (data.includes('exists')) {
-            lxcConfigExists = true;
-          }
+        (_data: string) => {
+          // Data handler not needed - just checking if file exists
         },
         () => resolve(),
         () => resolve()
       );
     });
-    
 
     return false; // Always LXC since VM config doesn't exist
   } catch (error) {
@@ -510,7 +506,7 @@ async function batchDetectContainerTypes(server: Server): Promise<Map<string, bo
     
     // Get containers from pct list
     let pctOutput = '';
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve) => {
       void sshExecutionService.executeCommand(
         server,
         'pct list',
@@ -530,7 +526,7 @@ async function batchDetectContainerTypes(server: Server): Promise<Map<string, bo
     
     // Get VMs from qm list
     let qmOutput = '';
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve) => {
       void sshExecutionService.executeCommand(
         server,
         'qm list',
@@ -2649,6 +2645,563 @@ EOFCONFIG`;
           success: false,
           error: error instanceof Error ? error.message : 'Failed to execute backup',
           executionId: null
+        };
+      }
+    }),
+
+  // Get next free ID from cluster (single ID for sequential cloning)
+  getClusterNextId: publicProcedure
+    .input(z.object({ 
+      serverId: z.number()
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            nextId: null
+          };
+        }
+
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        
+        let output = '';
+        await new Promise<void>((resolve, reject) => {
+          sshExecutionService.executeCommand(
+            server as Server,
+            'pvesh get /cluster/nextid',
+            (data: string) => {
+              output += data;
+            },
+            (error: string) => {
+              reject(new Error(`Failed to get next ID: ${error}`));
+            },
+            (exitCode: number) => {
+              if (exitCode === 0) {
+                resolve();
+              } else {
+                reject(new Error(`pvesh command failed with exit code ${exitCode}`));
+              }
+            }
+          );
+        });
+
+        const nextId = output.trim();
+        if (!nextId || !/^\d+$/.test(nextId)) {
+          return {
+            success: false,
+            error: 'Invalid next ID received',
+            nextId: null
+          };
+        }
+
+        return {
+          success: true,
+          nextId
+        };
+      } catch (error) {
+        console.error('Error in getClusterNextId:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get next ID',
+          nextId: null
+        };
+      }
+    }),
+
+  // Get container hostname/name
+  getContainerHostname: publicProcedure
+    .input(z.object({ 
+      containerId: z.string(),
+      serverId: z.number(),
+      containerType: z.enum(['lxc', 'vm'])
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            hostname: null
+          };
+        }
+
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        
+        const configPath = input.containerType === 'lxc' 
+          ? `/etc/pve/lxc/${input.containerId}.conf`
+          : `/etc/pve/qemu-server/${input.containerId}.conf`;
+        
+        let configContent = '';
+        await new Promise<void>((resolve) => {
+          sshExecutionService.executeCommand(
+            server as Server,
+            `cat "${configPath}" 2>/dev/null || echo ""`,
+            (data: string) => {
+              configContent += data;
+            },
+            () => resolve(), // Don't fail on error
+            () => resolve() // Always resolve
+          );
+        });
+
+        if (!configContent.trim()) {
+          return {
+            success: true,
+            hostname: null
+          };
+        }
+
+        // Parse config for hostname (LXC) or name (VM)
+        const lines = configContent.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (input.containerType === 'lxc' && trimmed.startsWith('hostname:')) {
+            const hostname = trimmed.substring(9).trim();
+            return {
+              success: true,
+              hostname
+            };
+          } else if (input.containerType === 'vm' && trimmed.startsWith('name:')) {
+            const name = trimmed.substring(5).trim();
+            return {
+              success: true,
+              hostname: name
+            };
+          }
+        }
+
+        return {
+          success: true,
+          hostname: null
+        };
+      } catch (error) {
+        console.error('Error in getContainerHostname:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get container hostname',
+          hostname: null
+        };
+      }
+    }),
+
+  // Get clone storages (rootdir or images content)
+  getCloneStorages: publicProcedure
+    .input(z.object({ 
+      serverId: z.number(), 
+      forceRefresh: z.boolean().optional().default(false) 
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            storages: [],
+            cached: false
+          };
+        }
+
+        const storageService = getStorageService();
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = getSSHExecutionService();
+        
+        // Test SSH connection first
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            storages: [],
+            cached: false
+          };
+        }
+
+        // Get server hostname to filter storages
+        let serverHostname = '';
+        try {
+          await new Promise<void>((resolve, reject) => {
+            sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => {
+                serverHostname += data;
+              },
+              (error: string) => {
+                reject(new Error(`Failed to get hostname: ${error}`));
+              },
+              (exitCode: number) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`hostname command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error('Error getting server hostname:', error);
+          // Continue without filtering if hostname can't be retrieved
+        }
+        
+        const normalizedHostname = serverHostname.trim().toLowerCase();
+        
+        // Check if we have cached data
+        const wasCached = !input.forceRefresh;
+        
+        // Fetch storages (will use cache if not forcing refresh)
+        const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
+        
+        // Filter storages by node hostname matching and content type (only rootdir for cloning)
+        const applicableStorages = allStorages.filter(storage => {
+          // Check content type - must have rootdir for cloning
+          const hasRootdir = storage.content.includes('rootdir');
+          if (!hasRootdir) {
+            return false;
+          }
+          
+          // If storage has no nodes specified, it's available on all nodes
+          if (!storage.nodes || storage.nodes.length === 0) {
+            return true;
+          }
+          
+          // If we couldn't get hostname, include all storages (fallback)
+          if (!normalizedHostname) {
+            return true;
+          }
+          
+          // Check if server hostname is in the nodes array (case-insensitive, trimmed)
+          const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
+          return normalizedNodes.includes(normalizedHostname);
+        });
+        
+        return {
+          success: true,
+          storages: applicableStorages,
+          cached: wasCached && applicableStorages.length > 0
+        };
+      } catch (error) {
+        console.error('Error in getCloneStorages:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch storages',
+          storages: [],
+          cached: false
+        };
+      }
+    }),
+
+  // Generate clone hostnames
+  generateCloneHostnames: publicProcedure
+    .input(z.object({ 
+      originalHostname: z.string(),
+      containerType: z.enum(['lxc', 'vm']),
+      serverId: z.number(),
+      count: z.number().min(1).max(100)
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            hostnames: []
+          };
+        }
+
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        
+        // Get all existing containers/VMs to find existing clones (check both LXC and VM)
+        const existingHostnames = new Set<string>();
+        
+        // Check LXC containers
+        let lxcOutput = '';
+        try {
+          await new Promise<void>((resolve) => {
+            sshExecutionService.executeCommand(
+              server as Server,
+              'pct list',
+              (data: string) => {
+                lxcOutput += data;
+              },
+              (error: string) => {
+                console.error(`pct list error for server ${server.name}:`, error);
+                resolve();
+              },
+              () => resolve()
+            );
+          });
+          
+          const lxcLines = lxcOutput.split('\n').filter(line => line.trim());
+          for (const line of lxcLines) {
+            if (line.includes('CTID') || line.includes('NAME')) continue;
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 3) {
+              const name = parts.slice(2).join(' ').trim();
+              if (name) {
+                existingHostnames.add(name.toLowerCase());
+              }
+            }
+          }
+        } catch {
+          // Continue even if LXC list fails
+        }
+        
+        // Check VMs
+        let vmOutput = '';
+        try {
+          await new Promise<void>((resolve) => {
+            sshExecutionService.executeCommand(
+              server as Server,
+              'qm list',
+              (data: string) => {
+                vmOutput += data;
+              },
+              (error: string) => {
+                console.error(`qm list error for server ${server.name}:`, error);
+                resolve();
+              },
+              () => resolve()
+            );
+          });
+          
+          const vmLines = vmOutput.split('\n').filter(line => line.trim());
+          for (const line of vmLines) {
+            if (line.includes('VMID') || line.includes('NAME')) continue;
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 3) {
+              const name = parts.slice(2).join(' ').trim();
+              if (name) {
+                existingHostnames.add(name.toLowerCase());
+              }
+            }
+          }
+        } catch {
+          // Continue even if VM list fails
+        }
+
+        // Find next available clone number
+        const clonePattern = new RegExp(`^${input.originalHostname.toLowerCase()}-clone-(\\d+)$`);
+        const existingCloneNumbers: number[] = [];
+        
+        for (const hostname of existingHostnames) {
+          const match = hostname.match(clonePattern);
+          if (match) {
+            existingCloneNumbers.push(parseInt(match[1] ?? '0', 10));
+          }
+        }
+
+        // Determine starting number
+        let nextNumber = 1;
+        if (existingCloneNumbers.length > 0) {
+          existingCloneNumbers.sort((a, b) => a - b);
+          const lastNumber = existingCloneNumbers[existingCloneNumbers.length - 1];
+          if (lastNumber !== undefined) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+
+        // Generate hostnames
+        const hostnames: string[] = [];
+        for (let i = 0; i < input.count; i++) {
+          hostnames.push(`${input.originalHostname}-clone-${nextNumber + i}`);
+        }
+
+        return {
+          success: true,
+          hostnames
+        };
+      } catch (error) {
+        console.error('Error in generateCloneHostnames:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to generate clone hostnames',
+          hostnames: []
+        };
+      }
+    }),
+
+  // Execute clone (prepare for websocket execution)
+  // Note: nextIds will be obtained sequentially during cloning in server.js
+  executeClone: publicProcedure
+    .input(z.object({ 
+      containerId: z.string(),
+      serverId: z.number(),
+      storage: z.string(),
+      cloneCount: z.number().min(1).max(100),
+      hostnames: z.array(z.string()),
+      containerType: z.enum(['lxc', 'vm'])
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            executionId: null
+          };
+        }
+
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const sshService = new SSHService();
+        
+        // Test SSH connection first
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            executionId: null
+          };
+        }
+
+        // Validate inputs
+        if (input.hostnames.length !== input.cloneCount) {
+          return {
+            success: false,
+            error: 'Hostnames count must match clone count',
+            executionId: null
+          };
+        }
+
+        // Generate execution ID for websocket tracking
+        const executionId = `clone_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        return {
+          success: true,
+          executionId,
+          containerId: input.containerId,
+          storage: input.storage,
+          cloneCount: input.cloneCount,
+          hostnames: input.hostnames,
+          containerType: input.containerType,
+          server: server as Server
+        };
+      } catch (error) {
+        console.error('Error in executeClone:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to execute clone',
+          executionId: null
+        };
+      }
+    }),
+
+  // Add cloned container to database
+  addClonedContainerToDatabase: publicProcedure
+    .input(z.object({ 
+      containerId: z.string(),
+      serverId: z.number(),
+      containerType: z.enum(['lxc', 'vm'])
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            scriptId: null
+          };
+        }
+
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        
+        // Read config file to get hostname/name
+        const configPath = input.containerType === 'lxc' 
+          ? `/etc/pve/lxc/${input.containerId}.conf`
+          : `/etc/pve/qemu-server/${input.containerId}.conf`;
+        
+        let configContent = '';
+        await new Promise<void>((resolve) => {
+          sshExecutionService.executeCommand(
+            server as Server,
+            `cat "${configPath}" 2>/dev/null || echo ""`,
+            (data: string) => {
+              configContent += data;
+            },
+            () => resolve(),
+            () => resolve()
+          );
+        });
+
+        if (!configContent.trim()) {
+          return {
+            success: false,
+            error: 'Config file not found',
+            scriptId: null
+          };
+        }
+
+        // Parse config for hostname/name
+        let hostname = '';
+        const lines = configContent.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (input.containerType === 'lxc' && trimmed.startsWith('hostname:')) {
+            hostname = trimmed.substring(9).trim();
+            break;
+          } else if (input.containerType === 'vm' && trimmed.startsWith('name:')) {
+            hostname = trimmed.substring(5).trim();
+            break;
+          }
+        }
+
+        if (!hostname) {
+          hostname = `${input.containerType}-${input.containerId}`;
+        }
+
+        // Create installed script record
+        const script = await db.createInstalledScript({
+          script_name: hostname,
+          script_path: `cloned/${hostname}`,
+          container_id: input.containerId,
+          server_id: input.serverId,
+          execution_mode: 'ssh',
+          status: 'success',
+          output_log: `Cloned container/VM`
+        });
+
+        // For LXC, store config in database
+        if (input.containerType === 'lxc') {
+          const parsedConfig = parseRawConfig(configContent);
+          await db.createLXCConfig(script.id, parsedConfig);
+        }
+
+        return {
+          success: true,
+          scriptId: script.id
+        };
+      } catch (error) {
+        console.error('Error in addClonedContainerToDatabase:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to add cloned container to database',
+          scriptId: null
         };
       }
     })

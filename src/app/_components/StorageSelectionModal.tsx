@@ -13,6 +13,10 @@ interface StorageSelectionModalProps {
   storages: Storage[];
   isLoading: boolean;
   onRefresh: () => void;
+  title?: string;
+  description?: string;
+  filterFn?: (storage: Storage) => boolean;
+  showBackupTag?: boolean;
 }
 
 export function StorageSelectionModal({
@@ -21,7 +25,11 @@ export function StorageSelectionModal({
   onSelect,
   storages,
   isLoading,
-  onRefresh
+  onRefresh,
+  title = 'Select Storage',
+  description = 'Select a storage to use.',
+  filterFn,
+  showBackupTag = true
 }: StorageSelectionModalProps) {
   const [selectedStorage, setSelectedStorage] = useState<Storage | null>(null);
   
@@ -41,8 +49,8 @@ export function StorageSelectionModal({
     onClose();
   };
 
-  // Filter to show only backup-capable storages
-  const backupStorages = storages.filter(s => s.supportsBackup);
+  // Filter storages using filterFn if provided, otherwise filter to show only backup-capable storages
+  const filteredStorages = filterFn ? storages.filter(filterFn) : storages.filter(s => s.supportsBackup);
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
@@ -51,7 +59,7 @@ export function StorageSelectionModal({
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <Database className="h-6 w-6 text-primary" />
-            <h2 className="text-2xl font-bold text-card-foreground">Select Backup Storage</h2>
+            <h2 className="text-2xl font-bold text-card-foreground">{title}</h2>
           </div>
           <Button
             onClick={handleClose}
@@ -72,7 +80,7 @@ export function StorageSelectionModal({
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
               <p className="text-muted-foreground">Loading storages...</p>
             </div>
-          ) : backupStorages.length === 0 ? (
+          ) : filteredStorages.length === 0 ? (
             <div className="text-center py-8">
               <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-foreground mb-2">No backup-capable storages found</p>
@@ -87,12 +95,12 @@ export function StorageSelectionModal({
           ) : (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Select a storage to use for the backup. Only storages that support backups are shown.
+                {description}
               </p>
 
               {/* Storage List */}
               <div className="space-y-2 max-h-96 overflow-y-auto mb-4">
-                {backupStorages.map((storage) => (
+                {filteredStorages.map((storage) => (
                   <div
                     key={storage.name}
                     onClick={() => setSelectedStorage(storage)}
@@ -106,9 +114,11 @@ export function StorageSelectionModal({
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium text-foreground">{storage.name}</h3>
-                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-success/20 text-success border border-success/30">
-                            Backup
-                          </span>
+                          {showBackupTag && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-success/20 text-success border border-success/30">
+                              Backup
+                            </span>
+                          )}
                           <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
                             {storage.type}
                           </span>
