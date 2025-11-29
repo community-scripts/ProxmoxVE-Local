@@ -709,6 +709,8 @@ export function InstalledScriptsTab() {
       return;
     }
 
+    const containerType = script.is_vm ? "VM" : "LXC";
+
     setConfirmationModal({
       isOpen: true,
       variant: "simple",
@@ -718,7 +720,7 @@ export function InstalledScriptsTab() {
         setControllingScriptId(script.id);
         setLoadingModal({
           isOpen: true,
-          action: `${action === "start" ? "Starting" : "Stopping"} container ${script.container_id}...`,
+          action: `${action === "start" ? "Starting" : "Stopping"} ${containerType}...`,
         });
         void controlContainerMutation.mutate({ id: script.id, action });
         setConfirmationModal(null);
