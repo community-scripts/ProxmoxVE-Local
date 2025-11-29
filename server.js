@@ -75,9 +75,13 @@ const handle = app.getRequestHandler();
  * @property {boolean} [isUpdate]
  * @property {boolean} [isShell]
  * @property {boolean} [isBackup]
+ * @property {boolean} [isClone]
  * @property {string} [containerId]
  * @property {string} [storage]
  * @property {string} [backupStorage]
+ * @property {number} [cloneCount]
+ * @property {string[]} [hostnames]
+ * @property {'lxc'|'vm'} [containerType]
  */
 
 class ScriptExecutionHandler {
@@ -295,12 +299,14 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, containerId, storage, backupStorage } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, containerId, storage, backupStorage, cloneCount, hostnames, containerType } = message;
 
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
-          if (isBackup && containerId && storage) {
+          if (isClone && containerId && storage && server && cloneCount && hostnames && containerType) {
+            await this.startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames);
+          } else if (isBackup && containerId && storage) {
             await this.startBackupExecution(ws, containerId, executionId, storage, mode, server);
           } else if (isUpdate && containerId) {
             await this.startUpdateExecution(ws, containerId, executionId, mode, server, backupStorage);
@@ -830,6 +836,422 @@ class ScriptExecutionHandler {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Start SSH clone execution
+   * Gets next IDs sequentially: get next ID → clone → get next ID → clone, etc.
+   * @param {ExtendedWebSocket} ws
+   * @param {string} containerId
+   * @param {string} executionId
+   * @param {string} storage
+   * @param {ServerInfo} server
+   * @param {'lxc'|'vm'} containerType
+   * @param {number} cloneCount
+   * @param {string[]} hostnames
+   */
+  async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames) {
+    const sshService = getSSHExecutionService();
+    
+    this.sendMessage(ws, {
+      type: 'start',
+      data: `Starting clone operation: Creating ${cloneCount} clone(s) of ${containerType.toUpperCase()} ${containerId}...`,
+      timestamp: Date.now()
+    });
+
+    try {
+      // Step 1: Stop source container/VM
+      this.sendMessage(ws, {
+        type: 'output',
+        data: `\n[Step 1/${4 + cloneCount}] Stopping source ${containerType.toUpperCase()} ${containerId}...\n`,
+        timestamp: Date.now()
+      });
+
+      const stopCommand = containerType === 'lxc' ? `pct stop ${containerId}` : `qm stop ${containerId}`;
+      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+        sshService.executeCommand(
+          server,
+          stopCommand,
+          /** @param {string} data */
+          (data) => {
+            this.sendMessage(ws, {
+              type: 'output',
+              data: data,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {string} error */
+          (error) => {
+            this.sendMessage(ws, {
+              type: 'error',
+              data: error,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {number} code */
+          (code) => {
+            if (code === 0) {
+              this.sendMessage(ws, {
+                type: 'output',
+                data: `\n[Step 1/${4 + cloneCount}] Source ${containerType.toUpperCase()} stopped successfully.\n`,
+                timestamp: Date.now()
+              });
+              resolve();
+            } else {
+              // Continue even if stop fails (might already be stopped)
+              this.sendMessage(ws, {
+                type: 'output',
+                data: `\n[Step 1/${4 + cloneCount}] Stop command completed with exit code ${code} (container may already be stopped).\n`,
+                timestamp: Date.now()
+              });
+              resolve();
+            }
+          }
+        );
+      }));
+
+      // Step 2: Clone for each clone count (get next ID sequentially before each clone)
+      const clonedIds = [];
+      for (let i = 0; i < cloneCount; i++) {
+        const cloneNumber = i + 1;
+        const hostname = hostnames[i];
+
+        // Get next ID for this clone
+        this.sendMessage(ws, {
+          type: 'output',
+          data: `\n[Step ${2 + i}/${4 + cloneCount}] Getting next available ID for clone ${cloneNumber}...\n`,
+          timestamp: Date.now()
+        });
+
+        let nextId = '';
+        try {
+          let output = '';
+          await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+            sshService.executeCommand(
+              server,
+              'pvesh get /cluster/nextid',
+              /** @param {string} data */
+              (data) => {
+                output += data;
+              },
+              /** @param {string} error */
+              (error) => {
+                reject(new Error(`Failed to get next ID: ${error}`));
+              },
+              /** @param {number} exitCode */
+              (exitCode) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`pvesh command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          }));
+
+          nextId = output.trim();
+          if (!nextId || !/^\d+$/.test(nextId)) {
+            throw new Error('Invalid next ID received');
+          }
+
+          this.sendMessage(ws, {
+            type: 'output',
+            data: `\n[Step ${2 + i}/${4 + cloneCount}] Got next ID: ${nextId}\n`,
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: `\n[Step ${2 + i}/${4 + cloneCount}] Failed to get next ID: ${error instanceof Error ? error.message : String(error)}\n`,
+            timestamp: Date.now()
+          });
+          throw error;
+        }
+
+        clonedIds.push(nextId);
+
+        // Clone the container/VM
+        this.sendMessage(ws, {
+          type: 'output',
+          data: `\n[Step ${2 + i}/${4 + cloneCount}] Cloning ${containerType.toUpperCase()} ${containerId} to ${nextId} with hostname ${hostname}...\n`,
+          timestamp: Date.now()
+        });
+
+        const cloneCommand = containerType === 'lxc'
+          ? `pct clone ${containerId} ${nextId} --hostname ${hostname} --storage ${storage}`
+          : `qm clone ${containerId} ${nextId} --name ${hostname} --storage ${storage}`;
+
+        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+          sshService.executeCommand(
+            server,
+            cloneCommand,
+            /** @param {string} data */
+            (data) => {
+              this.sendMessage(ws, {
+                type: 'output',
+                data: data,
+                timestamp: Date.now()
+              });
+            },
+            /** @param {string} error */
+            (error) => {
+              this.sendMessage(ws, {
+                type: 'error',
+                data: error,
+                timestamp: Date.now()
+              });
+            },
+            /** @param {number} code */
+            (code) => {
+              if (code === 0) {
+                this.sendMessage(ws, {
+                  type: 'output',
+                  data: `\n[Step ${2 + i}/${4 + cloneCount}] Clone ${cloneNumber} created successfully.\n`,
+                  timestamp: Date.now()
+                });
+                resolve();
+              } else {
+                this.sendMessage(ws, {
+                  type: 'error',
+                  data: `\nClone ${cloneNumber} failed with exit code: ${code}\n`,
+                  timestamp: Date.now()
+                });
+                reject(new Error(`Clone ${cloneNumber} failed with exit code ${code}`));
+              }
+            }
+          );
+        }));
+      }
+
+      // Step 3: Start source container/VM
+      this.sendMessage(ws, {
+        type: 'output',
+        data: `\n[Step ${2 + cloneCount + 1}/${4 + cloneCount}] Starting source ${containerType.toUpperCase()} ${containerId}...\n`,
+        timestamp: Date.now()
+      });
+
+      const startSourceCommand = containerType === 'lxc' ? `pct start ${containerId}` : `qm start ${containerId}`;
+      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve) => {
+        sshService.executeCommand(
+          server,
+          startSourceCommand,
+          /** @param {string} data */
+          (data) => {
+            this.sendMessage(ws, {
+              type: 'output',
+              data: data,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {string} error */
+          (error) => {
+            this.sendMessage(ws, {
+              type: 'error',
+              data: error,
+              timestamp: Date.now()
+            });
+          },
+          /** @param {number} code */
+          (code) => {
+            if (code === 0) {
+              this.sendMessage(ws, {
+                type: 'output',
+                data: `\n[Step ${2 + cloneCount + 1}/${4 + cloneCount}] Source ${containerType.toUpperCase()} started successfully.\n`,
+                timestamp: Date.now()
+              });
+            } else {
+              this.sendMessage(ws, {
+                type: 'output',
+                data: `\n[Step ${2 + cloneCount + 1}/${4 + cloneCount}] Start command completed with exit code ${code}.\n`,
+                timestamp: Date.now()
+              });
+            }
+            resolve();
+          }
+        );
+      }));
+
+      // Step 4: Start target containers/VMs
+      this.sendMessage(ws, {
+        type: 'output',
+        data: `\n[Step ${2 + cloneCount + 2}/${4 + cloneCount}] Starting cloned ${containerType.toUpperCase()}(s)...\n`,
+        timestamp: Date.now()
+      });
+
+      for (let i = 0; i < cloneCount; i++) {
+        const cloneNumber = i + 1;
+        const nextId = clonedIds[i];
+
+        const startTargetCommand = containerType === 'lxc' ? `pct start ${nextId}` : `qm start ${nextId}`;
+        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve) => {
+          sshService.executeCommand(
+            server,
+            startTargetCommand,
+            /** @param {string} data */
+            (data) => {
+              this.sendMessage(ws, {
+                type: 'output',
+                data: data,
+                timestamp: Date.now()
+              });
+            },
+            /** @param {string} error */
+            (error) => {
+              this.sendMessage(ws, {
+                type: 'error',
+                data: error,
+                timestamp: Date.now()
+              });
+            },
+            /** @param {number} code */
+            (code) => {
+              if (code === 0) {
+                this.sendMessage(ws, {
+                  type: 'output',
+                  data: `\nClone ${cloneNumber} (ID: ${nextId}) started successfully.\n`,
+                  timestamp: Date.now()
+                });
+              } else {
+                this.sendMessage(ws, {
+                  type: 'output',
+                  data: `\nClone ${cloneNumber} (ID: ${nextId}) start completed with exit code ${code}.\n`,
+                  timestamp: Date.now()
+                });
+              }
+              resolve();
+            }
+          );
+        }));
+      }
+
+      // Step 5: Add to database
+      this.sendMessage(ws, {
+        type: 'output',
+        data: `\n[Step ${2 + cloneCount + 3}/${4 + cloneCount}] Adding cloned ${containerType.toUpperCase()}(s) to database...\n`,
+        timestamp: Date.now()
+      });
+
+      for (let i = 0; i < cloneCount; i++) {
+        const nextId = clonedIds[i];
+        const hostname = hostnames[i];
+        
+        try {
+          // Read config file to get hostname/name
+          const configPath = containerType === 'lxc' 
+            ? `/etc/pve/lxc/${nextId}.conf`
+            : `/etc/pve/qemu-server/${nextId}.conf`;
+          
+          let configContent = '';
+          await new Promise(/** @type {(resolve: (value?: void) => void) => void} */ ((resolve) => {
+            sshService.executeCommand(
+              server,
+              `cat "${configPath}" 2>/dev/null || echo ""`,
+              /** @param {string} data */
+              (data) => {
+                configContent += data;
+              },
+              () => resolve(),
+              () => resolve()
+            );
+          }));
+
+          // Parse config for hostname/name
+          let finalHostname = hostname;
+          if (configContent.trim()) {
+            const lines = configContent.split('\n');
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (containerType === 'lxc' && trimmed.startsWith('hostname:')) {
+                finalHostname = trimmed.substring(9).trim();
+                break;
+              } else if (containerType === 'vm' && trimmed.startsWith('name:')) {
+                finalHostname = trimmed.substring(5).trim();
+                break;
+              }
+            }
+          }
+
+          if (!finalHostname) {
+            finalHostname = `${containerType}-${nextId}`;
+          }
+
+          // Create installed script record
+          const script = await this.db.createInstalledScript({
+            script_name: finalHostname,
+            script_path: `cloned/${finalHostname}`,
+            container_id: nextId,
+            server_id: server.id,
+            execution_mode: 'ssh',
+            status: 'success',
+            output_log: `Cloned ${containerType.toUpperCase()}`
+          });
+
+          // For LXC, store config in database
+          if (containerType === 'lxc' && configContent.trim()) {
+            // Simple config parser
+            /** @type {any} */
+            const configData = {};
+            const lines = configContent.split('\n');
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith('#')) continue;
+              
+              const [key, ...valueParts] = trimmed.split(':');
+              const value = valueParts.join(':').trim();
+              
+              if (key === 'hostname') configData.hostname = value;
+              else if (key === 'arch') configData.arch = value;
+              else if (key === 'cores') configData.cores = parseInt(value) || null;
+              else if (key === 'memory') configData.memory = parseInt(value) || null;
+              else if (key === 'swap') configData.swap = parseInt(value) || null;
+              else if (key === 'onboot') configData.onboot = parseInt(value) || null;
+              else if (key === 'ostype') configData.ostype = value;
+              else if (key === 'unprivileged') configData.unprivileged = parseInt(value) || null;
+              else if (key === 'tags') configData.tags = value;
+              else if (key === 'rootfs') {
+                const match = value.match(/^([^:]+):([^,]+)/);
+                if (match) {
+                  configData.rootfs_storage = match[1];
+                  const sizeMatch = value.match(/size=([^,]+)/);
+                  if (sizeMatch) {
+                    configData.rootfs_size = sizeMatch[1];
+                  }
+                }
+              }
+            }
+            
+            await this.db.createLXCConfig(script.id, configData);
+          }
+
+          this.sendMessage(ws, {
+            type: 'output',
+            data: `\nClone ${i + 1} (ID: ${nextId}, Hostname: ${finalHostname}) added to database successfully.\n`,
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: `\nError adding clone ${i + 1} (ID: ${nextId}) to database: ${error instanceof Error ? error.message : String(error)}\n`,
+            timestamp: Date.now()
+          });
+        }
+      }
+
+      this.sendMessage(ws, {
+        type: 'output',
+        data: `\n\n[Clone operation completed successfully!]\nCreated ${cloneCount} clone(s) of ${containerType.toUpperCase()} ${containerId}.\n`,
+        timestamp: Date.now()
+      });
+
+      this.activeExecutions.delete(executionId);
+    } catch (error) {
+      this.sendMessage(ws, {
+        type: 'error',
+        data: `\n\n[Clone operation failed!]\nError: ${error instanceof Error ? error.message : String(error)}\n`,
+        timestamp: Date.now()
+      });
+      this.activeExecutions.delete(executionId);
+    }
   }
 
   /**

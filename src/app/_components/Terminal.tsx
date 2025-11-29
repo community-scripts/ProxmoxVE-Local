@@ -13,9 +13,14 @@ interface TerminalProps {
   isUpdate?: boolean;
   isShell?: boolean;
   isBackup?: boolean;
+  isClone?: boolean;
   containerId?: string;
   storage?: string;
   backupStorage?: string;
+  executionId?: string;
+  cloneCount?: number;
+  hostnames?: string[];
+  containerType?: 'lxc' | 'vm';
 }
 
 interface TerminalMessage {
@@ -24,7 +29,7 @@ interface TerminalMessage {
   timestamp: number;
 }
 
-export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, isBackup = false, containerId, storage, backupStorage }: TerminalProps) {
+export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, isBackup = false, isClone = false, containerId, storage, backupStorage, executionId: propExecutionId, cloneCount, hostnames, containerType }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -39,7 +44,16 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   const fitAddonRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputHandlerRef = useRef<((data: string) => void) | null>(null);
-  const [executionId, setExecutionId] = useState(() => `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [executionId, setExecutionId] = useState(() => propExecutionId ?? `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  
+  // Update executionId when propExecutionId changes
+  useEffect(() => {
+    if (propExecutionId) {
+      setExecutionId(propExecutionId);
+    }
+  }, [propExecutionId]);
+  
+  const effectiveExecutionId = propExecutionId ?? executionId;
   const isConnectingRef = useRef<boolean>(false);
   const hasConnectedRef = useRef<boolean>(false);
 
@@ -277,7 +291,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         const message = {
           action: 'input',
-          executionId,
+          executionId: effectiveExecutionId,
           input: data
         };
         wsRef.current.send(JSON.stringify(message));
@@ -325,9 +339,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         
         // Only auto-start on initial connection, not on reconnections
         if (isInitialConnection && !isRunning) {
-          // Generate a new execution ID for the initial run
-          const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          setExecutionId(newExecutionId);
+          // Use propExecutionId if provided, otherwise generate a new one
+          const newExecutionId = propExecutionId ?? `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          if (!propExecutionId) {
+            setExecutionId(newExecutionId);
+          }
           
           const message = {
             action: 'start',
@@ -338,9 +354,13 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             isUpdate,
             isShell,
             isBackup,
+            isClone,
             containerId,
             storage,
-            backupStorage
+            backupStorage,
+            cloneCount,
+            hostnames,
+            containerType
           };
           ws.send(JSON.stringify(message));
         }
@@ -384,9 +404,11 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
-      // Generate a new execution ID for each script run
-      const newExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      setExecutionId(newExecutionId);
+      // Generate a new execution ID for each script run (unless propExecutionId is provided)
+      const newExecutionId = propExecutionId ?? `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (!propExecutionId) {
+        setExecutionId(newExecutionId);
+      }
       
       setIsStopped(false);
       wsRef.current.send(JSON.stringify({
@@ -397,7 +419,14 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         server,
         isUpdate,
         isShell,
-        containerId
+        isBackup,
+        isClone,
+        containerId,
+        storage,
+        backupStorage,
+        cloneCount,
+        hostnames,
+        containerType
       }));
     }
   };
