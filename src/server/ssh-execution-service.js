@@ -85,9 +85,10 @@ class SSHExecutionService {
    * @param {Function} onData - Callback for data output
    * @param {Function} onError - Callback for errors
    * @param {Function} onExit - Callback for process exit
+   * @param {Object} [envVars] - Optional environment variables to pass to the script
    * @returns {Promise<Object>} Process information
    */
-  async executeScript(server, scriptPath, onData, onError, onExit) {
+  async executeScript(server, scriptPath, onData, onError, onExit, envVars = {}) {
     try {
       await this.transferScriptsFolder(server, onData, onError);
       
@@ -98,8 +99,43 @@ class SSHExecutionService {
           // Build SSH command based on authentication type
           const { command, args } = this.buildSSHCommand(server);
           
+          // Format environment variables as var_name=value pairs
+          const envVarsString = Object.entries(envVars)
+            .map(([key, value]) => {
+              // Escape special characters in values
+              const escapedValue = String(value).replace(/'/g, "'\\''");
+              return `${key}='${escapedValue}'`;
+            })
+            .join(' ');
+          
+          // Build the command with environment variables
+          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=120 && export LINES=30 && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
+          
+          if (envVarsString) {
+            scriptCommand += ` && ${envVarsString} bash ${relativeScriptPath}`;
+          } else {
+            scriptCommand += ` && bash ${relativeScriptPath}`;
+          }
+          
+          // Log the full command that will be executed
+          console.log('='.repeat(80));
+          console.log(`[SSH Execution] Executing on host: ${server.ip} (${server.name || 'Unnamed'})`);
+          console.log(`[SSH Execution] Script path: ${scriptPath}`);
+          console.log(`[SSH Execution] Relative script path: ${relativeScriptPath}`);
+          if (Object.keys(envVars).length > 0) {
+            console.log(`[SSH Execution] Environment variables (${Object.keys(envVars).length} vars):`);
+            Object.entries(envVars).forEach(([key, value]) => {
+              console.log(`  ${key}=${String(value)}`);
+            });
+          } else {
+            console.log(`[SSH Execution] No environment variables provided`);
+          }
+          console.log(`[SSH Execution] Full command:`);
+          console.log(scriptCommand);
+          console.log('='.repeat(80));
+          
           // Add the script execution command to the args
-          args.push(`cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=120 && export LINES=30 && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1 && bash ${relativeScriptPath}`);
+          args.push(scriptCommand);
           
           // Use ptySpawn for proper terminal emulation and color support
           const sshCommand = ptySpawn(command, args, {

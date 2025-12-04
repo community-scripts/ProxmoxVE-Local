@@ -21,6 +21,7 @@ interface TerminalProps {
   cloneCount?: number;
   hostnames?: string[];
   containerType?: 'lxc' | 'vm';
+  envVars?: Record<string, string | number | boolean>;
 }
 
 interface TerminalMessage {
@@ -29,7 +30,7 @@ interface TerminalMessage {
   timestamp: number;
 }
 
-export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, isBackup = false, isClone = false, containerId, storage, backupStorage, executionId: propExecutionId, cloneCount, hostnames, containerType }: TerminalProps) {
+export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate = false, isShell = false, isBackup = false, isClone = false, containerId, storage, backupStorage, executionId: propExecutionId, cloneCount, hostnames, containerType, envVars }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -360,7 +361,8 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
             backupStorage,
             cloneCount,
             hostnames,
-            containerType
+            containerType,
+            envVars
           };
           ws.send(JSON.stringify(message));
         }
@@ -400,7 +402,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         wsRef.current.close();
       }
     };
-  }, [scriptPath, mode, server, isUpdate, isShell, containerId, isMobile]);  
+  }, [scriptPath, mode, server, isUpdate, isShell, containerId, isMobile, envVars]);  
 
   const startScript = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
@@ -417,6 +419,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
         executionId: newExecutionId,
         mode,
         server,
+        envVars,
         isUpdate,
         isShell,
         isBackup,

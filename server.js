@@ -299,7 +299,7 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, containerId, storage, backupStorage, cloneCount, hostnames, containerType } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars } = message;
 
     switch (action) {
       case 'start':
@@ -313,7 +313,7 @@ class ScriptExecutionHandler {
           } else if (isShell && containerId) {
             await this.startShellExecution(ws, containerId, executionId, mode, server);
           } else {
-            await this.startScriptExecution(ws, scriptPath, executionId, mode, server);
+            await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars);
           }
         } else {
           this.sendMessage(ws, {
@@ -351,8 +351,9 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {string} mode
    * @param {ServerInfo|null} server
+   * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null) {
+  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}) {
     /** @type {number|null} */
     let installationId = null;
     
@@ -381,7 +382,7 @@ class ScriptExecutionHandler {
 
       // Handle SSH execution
       if (mode === 'ssh' && server) {
-        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId);
+        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars);
         return;
       }
       
@@ -407,19 +408,30 @@ class ScriptExecutionHandler {
         return;
       }
 
+      // Format environment variables for local execution
+      // Convert envVars object to environment variables
+      const envWithVars = {
+        ...process.env,
+        TERM: 'xterm-256color', // Enable proper terminal support
+        FORCE_ANSI: 'true', // Allow ANSI codes for proper display
+        COLUMNS: '80', // Set terminal width
+        LINES: '24' // Set terminal height
+      };
+
+      // Add envVars to environment
+      if (envVars && typeof envVars === 'object') {
+        for (const [key, value] of Object.entries(envVars)) {
+          envWithVars[key] = String(value);
+        }
+      }
+
       // Start script execution with pty for proper TTY support
       const childProcess = ptySpawn('bash', [resolvedPath], {
         cwd: scriptsDir,
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color', // Enable proper terminal support
-          FORCE_ANSI: 'true', // Allow ANSI codes for proper display
-          COLUMNS: '80', // Set terminal width
-          LINES: '24' // Set terminal height
-        }
+        env: envWithVars
       });
 
       // pty handles encoding automatically
@@ -522,8 +534,9 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {ServerInfo} server
    * @param {number|null} installationId
+   * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null) {
+  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null, envVars = {}) {
     const sshService = getSSHExecutionService();
 
     // Send start message
@@ -612,7 +625,8 @@ class ScriptExecutionHandler {
           
           // Clean up
           this.activeExecutions.delete(executionId);
-        }
+        },
+        envVars
       ));
 
       // Store the execution with installation ID

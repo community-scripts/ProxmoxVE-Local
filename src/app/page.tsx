@@ -32,6 +32,7 @@ export default function Home() {
     name: string;
     mode?: "local" | "ssh";
     server?: Server;
+    envVars?: Record<string, string | number | boolean>;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
     "scripts" | "downloaded" | "installed" | "backups"
@@ -209,8 +210,9 @@ export default function Home() {
     scriptName: string,
     mode?: "local" | "ssh",
     server?: Server,
+    envVars?: Record<string, string | number | boolean>,
   ) => {
-    setRunningScript({ path: scriptPath, name: scriptName, mode, server });
+    setRunningScript({ path: scriptPath, name: scriptName, mode, server, envVars });
     // Scroll to terminal after a short delay to ensure it's rendered
     setTimeout(scrollToTerminal, 100);
   };
@@ -360,6 +362,7 @@ export default function Home() {
               onClose={handleCloseTerminal}
               mode={runningScript.mode}
               server={runningScript.server}
+              envVars={runningScript.envVars}
             />
           </div>
         )}

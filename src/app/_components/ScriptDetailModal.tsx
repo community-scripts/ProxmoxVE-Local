@@ -28,6 +28,7 @@ interface ScriptDetailModalProps {
     scriptName: string,
     mode?: "local" | "ssh",
     server?: Server,
+    envVars?: Record<string, string | number | boolean>,
   ) => void;
 }
 
@@ -183,7 +184,7 @@ export function ScriptDetailModal({
     setExecutionModeOpen(true);
   };
 
-  const handleExecuteScript = (mode: "local" | "ssh", server?: Server) => {
+  const handleExecuteScript = (mode: "local" | "ssh", server?: Server, envVars?: Record<string, string | number | boolean>) => {
     if (!script || !onInstallScript) return;
 
     // Find the script path based on selected version type
@@ -197,8 +198,8 @@ export function ScriptDetailModal({
       const scriptPath = `scripts/${scriptMethod.script}`;
       const scriptName = script.name;
 
-      // Pass execution mode and server info to the parent
-      onInstallScript(scriptPath, scriptName, mode, server);
+      // Pass execution mode, server info, and envVars to the parent
+      onInstallScript(scriptPath, scriptName, mode, server, envVars);
 
       onClose(); // Close the modal when starting installation
     }
@@ -935,6 +936,7 @@ export function ScriptDetailModal({
       {script && (
         <ExecutionModeModal
           scriptName={script.name}
+          script={script}
           isOpen={executionModeOpen}
           onClose={() => setExecutionModeOpen(false)}
           onExecute={handleExecuteScript}

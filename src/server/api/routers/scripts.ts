@@ -7,7 +7,10 @@ import { localScriptsService } from "~/server/services/localScripts";
 import { scriptDownloaderService } from "~/server/services/scriptDownloader.js";
 import { AutoSyncService } from "~/server/services/autoSyncService";
 import { repositoryService } from "~/server/services/repositoryService";
+import { getStorageService } from "~/server/services/storageService";
+import { getDatabase } from "~/server/database-prisma";
 import type { ScriptCard } from "~/types/script";
+import type { Server } from "~/types/server";
 
 export const scriptsRouter = createTRPCRouter({
   // Get all available scripts
@@ -635,6 +638,195 @@ export const scriptsRouter = createTRPCRouter({
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get auto-sync status',
           status: null
+        };
+      }
+    }),
+
+  // Get rootfs storages for a server (for container creation)
+  getRootfsStorages: publicProcedure
+    .input(z.object({ 
+      serverId: z.number(),
+      forceRefresh: z.boolean().optional().default(false)
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            storages: []
+          };
+        }
+
+        // Get server hostname to filter storages by node assignment
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        let serverHostname = '';
+        try {
+          await new Promise<void>((resolve, reject) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => {
+                serverHostname += data;
+              },
+              (error: string) => {
+                reject(new Error(`Failed to get hostname: ${error}`));
+              },
+              (exitCode: number) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`hostname command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error('Error getting server hostname:', error);
+          // Continue without filtering if hostname can't be retrieved
+        }
+        
+        const normalizedHostname = serverHostname.trim().toLowerCase();
+
+        const storageService = getStorageService();
+        const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
+        
+        // Filter storages by node hostname matching and content type (rootdir for containers)
+        const rootfsStorages = allStorages.filter(storage => {
+          // Check content type - must have rootdir for containers
+          const hasRootdir = storage.content.includes('rootdir');
+          if (!hasRootdir) {
+            return false;
+          }
+          
+          // If storage has no nodes specified, it's available on all nodes
+          if (!storage.nodes || storage.nodes.length === 0) {
+            return true;
+          }
+          
+          // If we couldn't get hostname, include all storages (fallback)
+          if (!normalizedHostname) {
+            return true;
+          }
+          
+          // Check if server hostname is in the nodes array (case-insensitive, trimmed)
+          const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
+          return normalizedNodes.includes(normalizedHostname);
+        });
+
+        return {
+          success: true,
+          storages: rootfsStorages.map(s => ({
+            name: s.name,
+            type: s.type,
+            content: s.content
+          }))
+        };
+      } catch (error) {
+        console.error('Error fetching rootfs storages:', error);
+        // Return empty array on error (as per plan requirement)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch storages',
+          storages: []
+        };
+      }
+    }),
+
+  // Get template storages for a server (for template storage selection)
+  getTemplateStorages: publicProcedure
+    .input(z.object({ 
+      serverId: z.number(),
+      forceRefresh: z.boolean().optional().default(false)
+    }))
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        
+        if (!server) {
+          return {
+            success: false,
+            error: 'Server not found',
+            storages: []
+          };
+        }
+
+        // Get server hostname to filter storages by node assignment
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshExecutionService = getSSHExecutionService();
+        let serverHostname = '';
+        try {
+          await new Promise<void>((resolve, reject) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => {
+                serverHostname += data;
+              },
+              (error: string) => {
+                reject(new Error(`Failed to get hostname: ${error}`));
+              },
+              (exitCode: number) => {
+                if (exitCode === 0) {
+                  resolve();
+                } else {
+                  reject(new Error(`hostname command failed with exit code ${exitCode}`));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          console.error('Error getting server hostname:', error);
+          // Continue without filtering if hostname can't be retrieved
+        }
+        
+        const normalizedHostname = serverHostname.trim().toLowerCase();
+
+        const storageService = getStorageService();
+        const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
+        
+        // Filter storages by node hostname matching and content type (vztmpl for templates)
+        const templateStorages = allStorages.filter(storage => {
+          // Check content type - must have vztmpl for templates
+          const hasVztmpl = storage.content.includes('vztmpl');
+          if (!hasVztmpl) {
+            return false;
+          }
+          
+          // If storage has no nodes specified, it's available on all nodes
+          if (!storage.nodes || storage.nodes.length === 0) {
+            return true;
+          }
+          
+          // If we couldn't get hostname, include all storages (fallback)
+          if (!normalizedHostname) {
+            return true;
+          }
+          
+          // Check if server hostname is in the nodes array (case-insensitive, trimmed)
+          const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
+          return normalizedNodes.includes(normalizedHostname);
+        });
+
+        return {
+          success: true,
+          storages: templateStorages.map(s => ({
+            name: s.name,
+            type: s.type,
+            content: s.content
+          }))
+        };
+      } catch (error) {
+        console.error('Error fetching template storages:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch storages',
+          storages: []
         };
       }
     })
