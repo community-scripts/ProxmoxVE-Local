@@ -1,48 +1,79 @@
-# Copyright (c) 2021-2025 michelroegl-brunner
-# Author: michelroegl-brunner
-# License: MIT
-# https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
+# Copyright (c) 2021-2025 community-scripts ORG
+# Author: tteck (tteckster)
+# Co-Author: MickLesk
+# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
+
+# ==============================================================================
+# INSTALL.FUNC - CONTAINER INSTALLATION & SETUP
+# ==============================================================================
+#
+# This file provides installation functions executed inside LXC containers
+# after creation. Handles:
+#
+#   - Network connectivity verification (IPv4/IPv6)
+#   - OS updates and package installation
+#   - DNS resolution checks
+#   - MOTD and SSH configuration
+#   - Container customization and auto-login
+#
+# Usage:
+#   - Sourced by <app>-install.sh scripts
+#   - Executes via pct exec inside container
+#   - Requires internet connectivity
+#
+# ==============================================================================
+
+# ==============================================================================
+# SECTION 1: INITIALIZATION
+# ==============================================================================
 
 if ! command -v curl >/dev/null 2>&1; then
   printf "\r\e[2K%b" '\033[93m Setup Source \033[m' >&2
-  apt-get update >/dev/null 2>&1
-  apt-get install -y curl >/dev/null 2>&1
+  apt update >/dev/null 2>&1
+  apt install -y curl >/dev/null 2>&1
 fi
-# core.func is included in FUNCTIONS_FILE_PATH
+source "$(dirname "${BASH_SOURCE[0]}")/core.func"
+source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
 load_functions
-# This function enables IPv6 if it's not disabled and sets verbose mode
+catch_errors
+
+# ==============================================================================
+# SECTION 2: NETWORK & CONNECTIVITY
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# verb_ip6()
+#
+# - Configures IPv6 based on DISABLEIPV6 variable
+# - If DISABLEIPV6=yes: disables IPv6 via sysctl
+# - Sets verbose mode via set_std_mode()
+# ------------------------------------------------------------------------------
 verb_ip6() {
   set_std_mode # Set STD mode based on VERBOSE
 
-  if [ "$DISABLEIPV6" == "yes" ]; then
-    echo "net.ipv6.conf.all.disable_ipv6 = 1" >>/etc/sysctl.conf
-    $STD sysctl -p
+  if [ "${IPV6_METHOD:-}" = "disable" ]; then
+    msg_info "Disabling IPv6 (this may affect some services)"
+    mkdir -p /etc/sysctl.d
+    $STD tee /etc/sysctl.d/99-disable-ipv6.conf >/dev/null <<EOF
+# Disable IPv6 (set by community-scripts)
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+    $STD sysctl -p /etc/sysctl.d/99-disable-ipv6.conf
+    msg_ok "Disabled IPv6"
   fi
 }
 
-# This function sets error handling options and defines the error_handler function to handle errors
-catch_errors() {
-  set -Eeuo pipefail
-  trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
-}
-
-# This function handles errors
-error_handler() {
-  printf "\e[?25h"
-  local exit_code="$?"
-  local line_number="$1"
-  local command="$2"
-  local error_message="${RD}[ERROR]${CL} in line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing command ${YW}$command${CL}"
-  echo -e "\n$error_message"
-  if [[ "$line_number" -eq 51 ]]; then
-    echo -e "The silent function has suppressed the error, run the script with verbose mode enabled, which will provide more detailed output.\n"
-    post_update_to_api "failed" "No error message, script ran in silent mode"
-  else
-    post_update_to_api "failed" "${command}"
-  fi
-}
-
-# This function sets up the Container OS by generating the locale, setting the timezone, and checking the network connection
+# ------------------------------------------------------------------------------
+# setting_up_container()
+#
+# - Verifies network connectivity via hostname -I
+# - Retries up to RETRY_NUM times with RETRY_EVERY seconds delay
+# - Removes Python EXTERNALLY-MANAGED restrictions
+# - Disables systemd-networkd-wait-online.service for faster boot
+# - Exits with error if network unavailable after retries
+# ------------------------------------------------------------------------------
 setting_up_container() {
   msg_info "Setting up Container OS"
   for ((i = RETRY_NUM; i > 0; i--)); do
@@ -64,8 +95,17 @@ setting_up_container() {
   msg_ok "Network Connected: ${BL}$(hostname -I)"
 }
 
-# This function checks the network connection by pinging a known IP address and prompts the user to continue if the internet is not connected
-# This function checks the network connection by pinging a known IP address and prompts the user to continue if the internet is not connected
+# ------------------------------------------------------------------------------
+# network_check()
+#
+# - Comprehensive network connectivity check for IPv4 and IPv6
+# - Tests connectivity to multiple DNS servers:
+#   * IPv4: 1.1.1.1 (Cloudflare), 8.8.8.8 (Google), 9.9.9.9 (Quad9)
+#   * IPv6: 2606:4700:4700::1111, 2001:4860:4860::8888, 2620:fe::fe
+# - Verifies DNS resolution for GitHub and Community-Scripts domains
+# - Prompts user to continue if no internet detected
+# - Uses fatal() on DNS resolution failure for critical hosts
+# ------------------------------------------------------------------------------
 network_check() {
   set +e
   trap - ERR
@@ -125,7 +165,19 @@ network_check() {
   trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
 }
 
-# This function updates the Container OS by running apt-get update and upgrade
+# ==============================================================================
+# SECTION 3: OS UPDATE & PACKAGE MANAGEMENT
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# update_os()
+#
+# - Updates container OS via apt-get update and dist-upgrade
+# - Configures APT cacher proxy if CACHER=yes (accelerates package downloads)
+# - Removes Python EXTERNALLY-MANAGED restrictions for pip
+# - Sources tools.func for additional setup functions after update
+# - Uses $STD wrapper to suppress output unless VERBOSE=yes
+# ------------------------------------------------------------------------------
 update_os() {
   msg_info "Updating Container OS"
   if [[ "$CACHER" == "yes" ]]; then
@@ -145,10 +197,27 @@ EOF
   rm -rf /usr/lib/python3.*/EXTERNALLY-MANAGED
   msg_ok "Updated Container OS"
 
-  # tools.func is included in FUNCTIONS_FILE_PATH
+  source "$(dirname "${BASH_SOURCE[0]}")/tools.func"
 }
 
-# This function modifies the message of the day (motd) and SSH settings
+# ==============================================================================
+# SECTION 4: MOTD & SSH CONFIGURATION
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# motd_ssh()
+#
+# - Configures Message of the Day (MOTD) with container information
+# - Creates /etc/profile.d/00_lxc-details.sh with:
+#   * Application name
+#   * Warning banner (DEV repository)
+#   * OS name and version
+#   * Hostname and IP address
+#   * GitHub repository link
+# - Disables executable flag on /etc/update-motd.d/* scripts
+# - Enables root SSH access if SSH_ROOT=yes
+# - Configures TERM environment variable for better terminal support
+# ------------------------------------------------------------------------------
 motd_ssh() {
   # Set terminal to 256-color mode
   grep -qxF "export TERM='xterm-256color'" /root/.bashrc || echo "export TERM='xterm-256color'" >>/root/.bashrc
@@ -180,7 +249,19 @@ motd_ssh() {
   fi
 }
 
-# This function customizes the container by modifying the getty service and enabling auto-login for the root user
+# ==============================================================================
+# SECTION 5: CONTAINER CUSTOMIZATION
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# customize()
+#
+# - Customizes container for passwordless root login if PASSWORD is empty
+# - Configures getty for auto-login via /etc/systemd/system/container-getty@1.service.d/override.conf
+# - Creates /usr/bin/update script for easy application updates
+# - Injects SSH authorized keys if SSH_AUTHORIZED_KEY variable is set
+# - Sets proper permissions on SSH directories and key files
+# ------------------------------------------------------------------------------
 customize() {
   if [[ "$PASSWORD" == "" ]]; then
     msg_info "Customizing Container"
