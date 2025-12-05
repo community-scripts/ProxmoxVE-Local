@@ -192,6 +192,8 @@ install_packages_with_retry() {
     if [[ $retry -le $max_retries ]]; then
       msg_warn "Package installation failed, retrying ($retry/$max_retries)..."
       sleep 2
+      # Fix any interrupted dpkg operations before retry
+      $STD dpkg --configure -a 2>/dev/null || true
       $STD apt update 2>/dev/null || true
     fi
   done
@@ -217,6 +219,8 @@ upgrade_packages_with_retry() {
     if [[ $retry -le $max_retries ]]; then
       msg_warn "Package upgrade failed, retrying ($retry/$max_retries)..."
       sleep 2
+            # Fix any interrupted dpkg operations before retry
+      $STD dpkg --configure -a 2>/dev/null || true
       $STD apt update 2>/dev/null || true
     fi
   done
@@ -1182,6 +1186,11 @@ cleanup_orphaned_sources() {
 # This should be called at the start of any setup function
 # ------------------------------------------------------------------------------
 ensure_apt_working() {
+  # Fix interrupted dpkg operations first
+  # This can happen if a previous installation was interrupted (e.g., by script error)
+  if [[ -f /var/lib/dpkg/lock-frontend ]] || dpkg --audit 2>&1 | grep -q "interrupted"; then
+    $STD dpkg --configure -a 2>/dev/null || true
+  fi
   # Clean up orphaned sources first
   cleanup_orphaned_sources
 
@@ -2944,12 +2953,12 @@ setup_mariadb() {
   # Resolve "latest" to actual version
   if [[ "$MARIADB_VERSION" == "latest" ]]; then
     if ! curl -fsI --max-time 10 http://mirror.mariadb.org/repo/ >/dev/null 2>&1; then
-      msg_warn "MariaDB mirror not reachable - trying mariadb_repo_setup fallback"
+       msg_warn "MariaDB mirror not reachable - trying mariadb_repo_setup fallback"
       # Try using official mariadb_repo_setup script as fallback
       if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
         msg_ok "MariaDB repository configured via mariadb_repo_setup"
         # Extract version from configured repo
-        MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")
+        MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")Expand commentComment on line R2948ResolvedCode has comments. Press enter to view.
       else
         msg_warn "mariadb_repo_setup failed - using hardcoded fallback version"
         MARIADB_VERSION="12.2"
@@ -2963,7 +2972,7 @@ setup_mariadb() {
         head -n1 || echo "")
 
       if [[ -z "$MARIADB_VERSION" ]]; then
-        msg_warn "Could not parse latest GA MariaDB version from mirror - trying mariadb_repo_setup"
+         msg_warn "Could not parse latest GA MariaDB version from mirror - trying mariadb_repo_setup"
         if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
           msg_ok "MariaDB repository configured via mariadb_repo_setup"
           MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")

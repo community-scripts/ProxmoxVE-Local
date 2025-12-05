@@ -2,26 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import type { Server } from '../../types/server';
+import type { Script } from '../../types/script';
 import { Button } from './ui/button';
 import { ColorCodedDropdown } from './ColorCodedDropdown';
 import { SettingsModal } from './SettingsModal';
+import { ConfigurationModal, type EnvVars } from './ConfigurationModal';
 import { useRegisterModal } from './modal/ModalStackProvider';
 
 
 interface ExecutionModeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onExecute: (mode: 'local' | 'ssh', server?: Server) => void;
+  onExecute: (mode: 'local' | 'ssh', server?: Server, envVars?: EnvVars) => void;
   scriptName: string;
+  script?: Script | null;
 }
 
-export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: ExecutionModeModalProps) {
+export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName, script }: ExecutionModeModalProps) {
   useRegisterModal(isOpen, { id: 'execution-mode-modal', allowEscape: true, onClose });
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [configMode, setConfigMode] = useState<'default' | 'advanced'>('default');
 
   useEffect(() => {
     if (isOpen) {
@@ -64,19 +69,25 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
     }
   };
 
-  const handleExecute = () => {
+  const handleConfigModeSelect = (mode: 'default' | 'advanced') => {
     if (!selectedServer) {
-      setError('Please select a server for SSH execution');
+      setError('Please select a server first');
       return;
     }
-    
-    onExecute('ssh', selectedServer);
+    setConfigMode(mode);
+    setConfigModalOpen(true);
+  };
+
+  const handleConfigConfirm = (envVars: EnvVars) => {
+    if (!selectedServer) return;
+    setConfigModalOpen(false);
+    onExecute('ssh', selectedServer, envVars);
     onClose();
   };
 
-
   const handleServerSelect = (server: Server | null) => {
     setSelectedServer(server);
+    setError(null); // Clear error when server is selected
   };
 
 
@@ -164,6 +175,31 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                   </div>
                 </div>
 
+                {/* Configuration Mode Selection */}
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Choose configuration mode:
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleConfigModeSelect('default')}
+                      variant="default"
+                      size="default"
+                      className="flex-1"
+                    >
+                      Default
+                    </Button>
+                    <Button
+                      onClick={() => handleConfigModeSelect('advanced')}
+                      variant="outline"
+                      size="default"
+                      className="flex-1"
+                    >
+                      Advanced (Beta)
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
                   <Button
@@ -172,13 +208,6 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     size="default"
                   >
                     Cancel
-                  </Button>
-                  <Button
-                    onClick={handleExecute}
-                    variant="default"
-                    size="default"
-                  >
-                    Install
                   </Button>
                 </div>
               </div>
@@ -204,6 +233,33 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                   />
                 </div>
 
+                {/* Configuration Mode Selection - only show when server is selected */}
+                {selectedServer && (
+                  <div className="space-y-3 pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Choose configuration mode:
+                    </p>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => handleConfigModeSelect('default')}
+                        variant="default"
+                        size="default"
+                        className="flex-1"
+                      >
+                        Default
+                      </Button>
+                      <Button
+                        onClick={() => handleConfigModeSelect('advanced')}
+                        variant="outline"
+                        size="default"
+                        className="flex-1"
+                      >
+                        Advanced
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
                   <Button
@@ -212,15 +268,6 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
                     size="default"
                   >
                     Cancel
-                  </Button>
-                  <Button
-                    onClick={handleExecute}
-                    disabled={!selectedServer}
-                    variant="default"
-                    size="default"
-                    className={!selectedServer ? 'bg-muted-foreground cursor-not-allowed' : ''}
-                  >
-                    Run on Server
                   </Button>
                 </div>
               </div>
@@ -233,6 +280,16 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName }: E
       <SettingsModal 
         isOpen={settingsModalOpen} 
         onClose={handleSettingsModalClose} 
+      />
+
+      {/* Configuration Modal */}
+      <ConfigurationModal
+        isOpen={configModalOpen}
+        onClose={() => setConfigModalOpen(false)}
+        onConfirm={handleConfigConfirm}
+        script={script ?? null}
+        server={selectedServer}
+        mode={configMode}
       />
     </>
   );
