@@ -82,6 +82,7 @@ const handle = app.getRequestHandler();
  * @property {number} [cloneCount]
  * @property {string[]} [hostnames]
  * @property {'lxc'|'vm'} [containerType]
+ * @property {Record<string, string|number|boolean>} [envVars]
  */
 
 class ScriptExecutionHandler {
@@ -421,7 +422,9 @@ class ScriptExecutionHandler {
       // Add envVars to environment
       if (envVars && typeof envVars === 'object') {
         for (const [key, value] of Object.entries(envVars)) {
-          envWithVars[key] = String(value);
+          /** @type {Record<string, string>} */
+          const envRecord = envWithVars;
+          envRecord[key] = String(value);
         }
       }
 

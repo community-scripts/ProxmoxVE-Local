@@ -75,7 +75,7 @@ export function ConfigurationModal({
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
         var_disk: resources?.hdd ?? 4,
-        var_unprivileged: resources?.privileged === false ? 1 : (resources?.privileged === true ? 0 : 1),
+        var_unprivileged: script?.privileged === false ? 1 : (script?.privileged === true ? 0 : 1),
 
         // Network defaults
         var_net: 'dhcp',
@@ -196,19 +196,19 @@ export function ConfigurationModal({
           newErrors.var_ipv6_static = 'Invalid IPv6 address';
         }
       }
-      if (!validatePositiveInt(advancedVars.var_cpu)) {
+      if (!validatePositiveInt(advancedVars.var_cpu as string | number | undefined)) {
         newErrors.var_cpu = 'Must be a positive integer';
       }
-      if (!validatePositiveInt(advancedVars.var_ram)) {
+      if (!validatePositiveInt(advancedVars.var_ram as string | number | undefined)) {
         newErrors.var_ram = 'Must be a positive integer';
       }
-      if (!validatePositiveInt(advancedVars.var_disk)) {
+      if (!validatePositiveInt(advancedVars.var_disk as string | number | undefined)) {
         newErrors.var_disk = 'Must be a positive integer';
       }
-      if (advancedVars.var_mtu && !validatePositiveInt(advancedVars.var_mtu)) {
+      if (advancedVars.var_mtu && !validatePositiveInt(advancedVars.var_mtu as string | number | undefined)) {
         newErrors.var_mtu = 'Must be a positive integer';
       }
-      if (advancedVars.var_vlan && !validatePositiveInt(advancedVars.var_vlan)) {
+      if (advancedVars.var_vlan && !validatePositiveInt(advancedVars.var_vlan as string | number | undefined)) {
         newErrors.var_vlan = 'Must be a positive integer';
       }
     }
@@ -237,7 +237,7 @@ export function ConfigurationModal({
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
         var_disk: resources?.hdd ?? 4,
-        var_unprivileged: resources?.privileged === false ? 1 : (resources?.privileged === true ? 0 : 1),
+        var_unprivileged: script?.privileged === false ? 1 : (script?.privileged === true ? 0 : 1),
       };
 
       if (containerStorage) {
@@ -385,7 +385,7 @@ export function ConfigurationModal({
                     <Input
                       type="number"
                       min="1"
-                      value={advancedVars.var_cpu ?? ''}
+                      value={typeof advancedVars.var_cpu === 'boolean' ? '' : (advancedVars.var_cpu ?? '')}
                       onChange={(e) => updateAdvancedVar('var_cpu', parseInt(e.target.value) || 1)}
                       className={errors.var_cpu ? 'border-destructive' : ''}
                     />
@@ -400,7 +400,7 @@ export function ConfigurationModal({
                     <Input
                       type="number"
                       min="1"
-                      value={advancedVars.var_ram ?? ''}
+                      value={typeof advancedVars.var_ram === 'boolean' ? '' : (advancedVars.var_ram ?? '')}
                       onChange={(e) => updateAdvancedVar('var_ram', parseInt(e.target.value) || 1024)}
                       className={errors.var_ram ? 'border-destructive' : ''}
                     />
@@ -415,7 +415,7 @@ export function ConfigurationModal({
                     <Input
                       type="number"
                       min="1"
-                      value={advancedVars.var_disk ?? ''}
+                      value={typeof advancedVars.var_disk === 'boolean' ? '' : (advancedVars.var_disk ?? '')}
                       onChange={(e) => updateAdvancedVar('var_disk', parseInt(e.target.value) || 4)}
                       className={errors.var_disk ? 'border-destructive' : ''}
                     />
@@ -428,7 +428,7 @@ export function ConfigurationModal({
                       Unprivileged
                     </label>
                     <select
-                      value={advancedVars.var_unprivileged ?? 1}
+                      value={typeof advancedVars.var_unprivileged === 'boolean' ? (advancedVars.var_unprivileged ? 0 : 1) : (advancedVars.var_unprivileged ?? 1)}
                       onChange={(e) => updateAdvancedVar('var_unprivileged', parseInt(e.target.value))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -448,7 +448,7 @@ export function ConfigurationModal({
                       Network Mode
                     </label>
                     <select
-                      value={(typeof advancedVars.var_net === 'string' && advancedVars.var_net.includes('/')) ? 'static' : (advancedVars.var_net ?? 'dhcp')}
+                      value={(typeof advancedVars.var_net === 'string' && advancedVars.var_net.includes('/')) ? 'static' : (typeof advancedVars.var_net === 'boolean' ? 'dhcp' : (advancedVars.var_net ?? 'dhcp'))}
                       onChange={(e) => {
                         if (e.target.value === 'static') {
                           updateAdvancedVar('var_net', 'static');
@@ -492,7 +492,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_brg ?? ''}
+                      value={typeof advancedVars.var_brg === 'boolean' ? '' : String(advancedVars.var_brg ?? '')}
                       onChange={(e) => updateAdvancedVar('var_brg', e.target.value)}
                       placeholder="vmbr0"
                     />
@@ -503,7 +503,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_gateway ?? ''}
+                      value={typeof advancedVars.var_gateway === 'boolean' ? '' : String(advancedVars.var_gateway ?? '')}
                       onChange={(e) => updateAdvancedVar('var_gateway', e.target.value)}
                       placeholder="Auto"
                       className={errors.var_gateway ? 'border-destructive' : ''}
@@ -517,7 +517,7 @@ export function ConfigurationModal({
                       IPv6 Method
                     </label>
                     <select
-                      value={advancedVars.var_ipv6_method ?? 'none'}
+                      value={typeof advancedVars.var_ipv6_method === 'boolean' ? 'none' : String(advancedVars.var_ipv6_method ?? 'none')}
                       onChange={(e) => {
                         updateAdvancedVar('var_ipv6_method', e.target.value);
                         // Clear IPv6 static when switching away from static
@@ -541,7 +541,7 @@ export function ConfigurationModal({
                       </label>
                       <Input
                         type="text"
-                        value={advancedVars.var_ipv6_static ?? ''}
+                        value={typeof advancedVars.var_ipv6_static === 'boolean' ? '' : String(advancedVars.var_ipv6_static ?? '')}
                         onChange={(e) => updateAdvancedVar('var_ipv6_static', e.target.value)}
                         placeholder="2001:db8::1/64"
                         className={errors.var_ipv6_static ? 'border-destructive' : ''}
@@ -558,7 +558,7 @@ export function ConfigurationModal({
                     <Input
                       type="number"
                       min="1"
-                      value={advancedVars.var_vlan ?? ''}
+                      value={typeof advancedVars.var_vlan === 'boolean' ? '' : String(advancedVars.var_vlan ?? '')}
                       onChange={(e) => updateAdvancedVar('var_vlan', e.target.value ? parseInt(e.target.value) : '')}
                       placeholder="None"
                       className={errors.var_vlan ? 'border-destructive' : ''}
@@ -574,7 +574,7 @@ export function ConfigurationModal({
                     <Input
                       type="number"
                       min="1"
-                      value={advancedVars.var_mtu ?? ''}
+                      value={typeof advancedVars.var_mtu === 'boolean' ? '' : String(advancedVars.var_mtu ?? '')}
                       onChange={(e) => updateAdvancedVar('var_mtu', e.target.value ? parseInt(e.target.value) : 1500)}
                       placeholder="1500"
                       className={errors.var_mtu ? 'border-destructive' : ''}
@@ -589,7 +589,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_mac ?? ''}
+                      value={typeof advancedVars.var_mac === 'boolean' ? '' : String(advancedVars.var_mac ?? '')}
                       onChange={(e) => updateAdvancedVar('var_mac', e.target.value)}
                       placeholder="Auto"
                       className={errors.var_mac ? 'border-destructive' : ''}
@@ -604,7 +604,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_ns ?? ''}
+                      value={typeof advancedVars.var_ns === 'boolean' ? '' : String(advancedVars.var_ns ?? '')}
                       onChange={(e) => updateAdvancedVar('var_ns', e.target.value)}
                       placeholder="Auto"
                       className={errors.var_ns ? 'border-destructive' : ''}
@@ -626,7 +626,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_hostname ?? ''}
+                      value={typeof advancedVars.var_hostname === 'boolean' ? '' : String(advancedVars.var_hostname ?? '')}
                       onChange={(e) => updateAdvancedVar('var_hostname', e.target.value)}
                       placeholder={slug}
                     />
@@ -637,7 +637,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="password"
-                      value={advancedVars.var_pw ?? ''}
+                      value={typeof advancedVars.var_pw === 'boolean' ? '' : String(advancedVars.var_pw ?? '')}
                       onChange={(e) => updateAdvancedVar('var_pw', e.target.value)}
                       placeholder="Random (empty = auto-login)"
                     />
@@ -648,7 +648,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_tags ?? ''}
+                      value={typeof advancedVars.var_tags === 'boolean' ? '' : String(advancedVars.var_tags ?? '')}
                       onChange={(e) => updateAdvancedVar('var_tags', e.target.value)}
                       placeholder="community-script"
                     />
@@ -665,7 +665,7 @@ export function ConfigurationModal({
                       Enable SSH
                     </label>
                     <select
-                      value={advancedVars.var_ssh ?? 'no'}
+                      value={typeof advancedVars.var_ssh === 'boolean' ? (advancedVars.var_ssh ? 'yes' : 'no') : String(advancedVars.var_ssh ?? 'no')}
                       onChange={(e) => updateAdvancedVar('var_ssh', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -679,7 +679,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_ssh_authorized_key ?? ''}
+                      value={typeof advancedVars.var_ssh_authorized_key === 'boolean' ? '' : String(advancedVars.var_ssh_authorized_key ?? '')}
                       onChange={(e) => updateAdvancedVar('var_ssh_authorized_key', e.target.value)}
                       placeholder="ssh-rsa AAAA..."
                     />
@@ -696,7 +696,7 @@ export function ConfigurationModal({
                       Nesting (Docker)
                     </label>
                     <select
-                      value={advancedVars.var_nesting ?? 1}
+                      value={typeof advancedVars.var_nesting === 'boolean' ? 1 : (advancedVars.var_nesting ?? 1)}
                       onChange={(e) => updateAdvancedVar('var_nesting', parseInt(e.target.value))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -709,7 +709,7 @@ export function ConfigurationModal({
                       FUSE
                     </label>
                     <select
-                      value={advancedVars.var_fuse ?? 0}
+                      value={typeof advancedVars.var_fuse === 'boolean' ? 0 : (advancedVars.var_fuse ?? 0)}
                       onChange={(e) => updateAdvancedVar('var_fuse', parseInt(e.target.value))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -722,7 +722,7 @@ export function ConfigurationModal({
                       Keyctl
                     </label>
                     <select
-                      value={advancedVars.var_keyctl ?? 0}
+                      value={typeof advancedVars.var_keyctl === 'boolean' ? 0 : (advancedVars.var_keyctl ?? 0)}
                       onChange={(e) => updateAdvancedVar('var_keyctl', parseInt(e.target.value))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -735,7 +735,7 @@ export function ConfigurationModal({
                       Mknod
                     </label>
                     <select
-                      value={advancedVars.var_mknod ?? 0}
+                      value={typeof advancedVars.var_mknod === 'boolean' ? 0 : (advancedVars.var_mknod ?? 0)}
                       onChange={(e) => updateAdvancedVar('var_mknod', parseInt(e.target.value))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -749,7 +749,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_mount_fs ?? ''}
+                      value={typeof advancedVars.var_mount_fs === 'boolean' ? '' : String(advancedVars.var_mount_fs ?? '')}
                       onChange={(e) => updateAdvancedVar('var_mount_fs', e.target.value)}
                       placeholder="nfs,cifs"
                     />
@@ -759,7 +759,7 @@ export function ConfigurationModal({
                       Protection
                     </label>
                     <select
-                      value={advancedVars.var_protection ?? 'no'}
+                      value={typeof advancedVars.var_protection === 'boolean' ? (advancedVars.var_protection ? 'yes' : 'no') : String(advancedVars.var_protection ?? 'no')}
                       onChange={(e) => updateAdvancedVar('var_protection', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -780,7 +780,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_timezone ?? ''}
+                      value={typeof advancedVars.var_timezone === 'boolean' ? '' : String(advancedVars.var_timezone ?? '')}
                       onChange={(e) => updateAdvancedVar('var_timezone', e.target.value)}
                       placeholder="System"
                     />
@@ -790,7 +790,7 @@ export function ConfigurationModal({
                       Verbose
                     </label>
                     <select
-                      value={advancedVars.var_verbose ?? 'no'}
+                      value={typeof advancedVars.var_verbose === 'boolean' ? (advancedVars.var_verbose ? 'yes' : 'no') : String(advancedVars.var_verbose ?? 'no')}
                       onChange={(e) => updateAdvancedVar('var_verbose', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -803,7 +803,7 @@ export function ConfigurationModal({
                       APT Cacher
                     </label>
                     <select
-                      value={advancedVars.var_apt_cacher ?? 'no'}
+                      value={typeof advancedVars.var_apt_cacher === 'boolean' ? (advancedVars.var_apt_cacher ? 'yes' : 'no') : String(advancedVars.var_apt_cacher ?? 'no')}
                       onChange={(e) => updateAdvancedVar('var_apt_cacher', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -817,7 +817,7 @@ export function ConfigurationModal({
                     </label>
                     <Input
                       type="text"
-                      value={advancedVars.var_apt_cacher_ip ?? ''}
+                      value={typeof advancedVars.var_apt_cacher_ip === 'boolean' ? '' : String(advancedVars.var_apt_cacher_ip ?? '')}
                       onChange={(e) => updateAdvancedVar('var_apt_cacher_ip', e.target.value)}
                       placeholder="192.168.1.10"
                       className={errors.var_apt_cacher_ip ? 'border-destructive' : ''}
@@ -838,7 +838,7 @@ export function ConfigurationModal({
                       Container Storage
                     </label>
                     <select
-                      value={advancedVars.var_container_storage ?? ''}
+                      value={typeof advancedVars.var_container_storage === 'boolean' ? '' : String(advancedVars.var_container_storage ?? '')}
                       onChange={(e) => updateAdvancedVar('var_container_storage', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >
@@ -860,7 +860,7 @@ export function ConfigurationModal({
                       Template Storage
                     </label>
                     <select
-                      value={advancedVars.var_template_storage ?? ''}
+                      value={typeof advancedVars.var_template_storage === 'boolean' ? '' : String(advancedVars.var_template_storage ?? '')}
                       onChange={(e) => updateAdvancedVar('var_template_storage', e.target.value)}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                     >

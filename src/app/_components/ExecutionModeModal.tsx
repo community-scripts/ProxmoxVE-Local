@@ -195,7 +195,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName, scr
                       size="default"
                       className="flex-1"
                     >
-                      Advanced
+                      Advanced (Beta)
                     </Button>
                   </div>
                 </div>
