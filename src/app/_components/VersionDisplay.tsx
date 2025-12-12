@@ -416,11 +416,20 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     setShowUpdateConfirmation(true);
   };
 
+  // Helper to generate secure random string
+  function getSecureRandomString(length: number): string {
+    const array = new Uint8Array(length);
+    window.crypto.getRandomValues(array);
+    // Convert to base36 string (alphanumeric)
+    return Array.from(array, b => b.toString(36)).join('').substr(0, length);
+  }
+
   const handleConfirmUpdate = () => {
     // Close the confirmation modal
     setShowUpdateConfirmation(false);
     // Start the actual update process
-    const sessionId = `update_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const randomSuffix = getSecureRandomString(9);
+    const sessionId = `update_${Date.now()}_${randomSuffix}`;
     const startTime = Date.now();
     
     setIsUpdating(true);
