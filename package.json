@@ -49,7 +49,7 @@
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.561.0",
-    "next": "^16.0.9",
+    "next": "^16.0.10",
     "node-cron": "^4.2.1",
     "node-pty": "^1.0.0",
     "react": "^19.2.0",
