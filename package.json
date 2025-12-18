@@ -53,7 +53,7 @@
     "node-cron": "^4.2.1",
     "node-pty": "^1.0.0",
     "react": "^19.2.3",
-    "react-dom": "^19.2.1",
+    "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "refractor": "^5.0.0",
