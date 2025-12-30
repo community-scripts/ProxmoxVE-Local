@@ -100,7 +100,7 @@ apt install -y nodejs
 ```bash
 # Clone the repository
 git clone https://github.com/community-scripts/ProxmoxVE-Local.git /opt/PVESciptslocal
-cd PVESciptslocal
+cd /opt/PVESciptslocal
 
 # Install dependencies and build
 npm install
