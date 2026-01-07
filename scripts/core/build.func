@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021-2025 community-scripts ORG
+# Copyright (c) 2021-2026 community-scripts ORG
 # Author: tteck (tteckster) | MickLesk | michelroegl-brunner
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/branch/main/LICENSE
 
@@ -205,7 +205,10 @@ update_motd_ip() {
 # - Falls back to warning if no keys provided
 # ------------------------------------------------------------------------------
 install_ssh_keys_into_ct() {
-  [[ "$SSH" != "yes" ]] && return 0
+  [[ "${SSH:-no}" != "yes" ]] && return 0
+
+  # Ensure SSH_KEYS_FILE is defined (may not be set if advanced_settings was skipped)
+  : "${SSH_KEYS_FILE:=}"
 
   if [[ -n "$SSH_KEYS_FILE" && -s "$SSH_KEYS_FILE" ]]; then
     msg_info "Installing selected SSH keys into CT ${CTID}"
@@ -286,6 +289,90 @@ find_host_ssh_keys() {
     IFS=:
     echo "${files[*]}"
   )
+}
+
+# ==============================================================================
+# SECTION 3B: IP RANGE SCANNING
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ip_to_int() / int_to_ip()
+#
+# - Converts IP address to integer and vice versa for range iteration
+# ------------------------------------------------------------------------------
+ip_to_int() {
+  local IFS=.
+  read -r i1 i2 i3 i4 <<<"$1"
+  echo $(((i1 << 24) + (i2 << 16) + (i3 << 8) + i4))
+}
+
+int_to_ip() {
+  local ip=$1
+  echo "$(((ip >> 24) & 0xFF)).$(((ip >> 16) & 0xFF)).$(((ip >> 8) & 0xFF)).$((ip & 0xFF))"
+}
+
+# ------------------------------------------------------------------------------
+# resolve_ip_from_range()
+#
+# - Takes an IP range in format "10.0.0.1/24-10.0.0.10/24"
+# - Pings each IP in the range to find the first available one
+# - Returns the first free IP with CIDR notation
+# - Sets NET_RESOLVED to the resolved IP or empty on failure
+# ------------------------------------------------------------------------------
+resolve_ip_from_range() {
+  local range="$1"
+  local ip_cidr_regex='^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$'
+  local ip_start ip_end
+
+  # Parse range: "10.0.0.1/24-10.0.0.10/24"
+  ip_start="${range%%-*}"
+  ip_end="${range##*-}"
+
+  if [[ ! "$ip_start" =~ $ip_cidr_regex ]] || [[ ! "$ip_end" =~ $ip_cidr_regex ]]; then
+    NET_RESOLVED=""
+    return 1
+  fi
+
+  local ip1="${ip_start%%/*}"
+  local ip2="${ip_end%%/*}"
+  local cidr="${ip_start##*/}"
+
+  local start_int=$(ip_to_int "$ip1")
+  local end_int=$(ip_to_int "$ip2")
+
+  for ((ip_int = start_int; ip_int <= end_int; ip_int++)); do
+    local ip=$(int_to_ip $ip_int)
+    msg_info "Checking IP: $ip"
+    if ! ping -c 1 -W 1 "$ip" >/dev/null 2>&1; then
+      NET_RESOLVED="$ip/$cidr"
+      msg_ok "Found free IP: ${BGN}$NET_RESOLVED${CL}"
+      return 0
+    fi
+  done
+
+  NET_RESOLVED=""
+  msg_error "No free IP found in range $range"
+  return 1
+}
+
+# ------------------------------------------------------------------------------
+# is_ip_range()
+#
+# - Checks if a string is an IP range (contains - and looks like IP/CIDR)
+# - Returns 0 if it's a range, 1 otherwise
+# ------------------------------------------------------------------------------
+is_ip_range() {
+  local value="$1"
+  local ip_start ip_end
+  if [[ "$value" == *-* ]] && [[ "$value" != "dhcp" ]]; then
+    local ip_cidr_regex='^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$'
+    ip_start="${value%%-*}"
+    ip_end="${value##*-}"
+    if [[ "$ip_start" =~ $ip_cidr_regex ]] && [[ "$ip_end" =~ $ip_cidr_regex ]]; then
+      return 0
+    fi
+  fi
+  return 1
 }
 
 # ==============================================================================
@@ -400,6 +487,18 @@ base_settings() {
   HN=${var_hostname:-$NSAPP}
   BRG=${var_brg:-"vmbr0"}
   NET=${var_net:-"dhcp"}
+
+  # Resolve IP range if NET contains a range (e.g., 192.168.1.100/24-192.168.1.200/24)
+  if is_ip_range "$NET"; then
+    msg_info "Scanning IP range: $NET"
+    if resolve_ip_from_range "$NET"; then
+      NET="$NET_RESOLVED"
+    else
+      msg_error "Could not find free IP in range. Falling back to DHCP."
+      NET="dhcp"
+    fi
+  fi
+
   IPV6_METHOD=${var_ipv6_method:-"none"}
   IPV6_STATIC=${var_ipv6_static:-""}
   GATE=${var_gateway:-""}
@@ -430,6 +529,15 @@ base_settings() {
   ENABLE_FUSE=${var_fuse:-"${1:-no}"}
   ENABLE_TUN=${var_tun:-"${1:-no}"}
 
+  # Additional settings that may be skipped if advanced_settings is not run (e.g., App Defaults)
+  ENABLE_GPU=${var_gpu:-"no"}
+  ENABLE_NESTING=${var_nesting:-"1"}
+  ENABLE_KEYCTL=${var_keyctl:-"0"}
+  ENABLE_MKNOD=${var_mknod:-"0"}
+  PROTECT_CT=${var_protection:-"no"}
+  CT_TIMEZONE=${var_timezone:-"$timezone"}
+  [[ "${CT_TIMEZONE:-}" == Etc/* ]] && CT_TIMEZONE="host" # pct doesn't accept Etc/* zones
+
   # Since these 2 are only defined outside of default_settings function, we add a temporary fallback. TODO: To align everything, we should add these as constant variables (e.g. OSTYPE and OSVERSION), but that would currently require updating the default_settings function for all existing scripts
   if [ -z "$var_os" ]; then
     var_os="debian"
@@ -445,15 +553,17 @@ base_settings() {
 # - Safe parser for KEY=VALUE lines from vars files
 # - Used by default_var_settings and app defaults loading
 # - Only loads whitelisted var_* keys
+# - Optional force parameter to override existing values (for app defaults)
 # ------------------------------------------------------------------------------
 load_vars_file() {
   local file="$1"
+  local force="${2:-no}" # If "yes", override existing variables
   [ -f "$file" ] || return 0
   msg_info "Loading defaults from ${file}"
 
   # Allowed var_* keys
   local VAR_WHITELIST=(
-    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_keyctl
+    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu var_keyctl
     var_gateway var_hostname var_ipv6_method var_mac var_mknod var_mount_fs var_mtu
     var_net var_nesting var_ns var_protection var_pw var_ram var_tags var_timezone var_tun var_unprivileged
     var_verbose var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage
@@ -478,6 +588,12 @@ load_vars_file() {
       [[ "$var_key" != var_* ]] && continue
       _is_whitelisted "$var_key" || continue
 
+      # Strip inline comments (anything after unquoted #)
+      # Only strip if not inside quotes
+      if [[ ! "$var_val" =~ ^[\"\'] ]]; then
+        var_val="${var_val%%#*}"
+      fi
+
       # Strip quotes
       if [[ "$var_val" =~ ^\"(.*)\"$ ]]; then
         var_val="${BASH_REMATCH[1]}"
@@ -485,8 +601,15 @@ load_vars_file() {
         var_val="${BASH_REMATCH[1]}"
       fi
 
-      # Set only if not already exported
-      [[ -z "${!var_key+x}" ]] && export "${var_key}=${var_val}"
+      # Trim trailing whitespace
+      var_val="${var_val%"${var_val##*[![:space:]]}"}"
+
+      # Set variable: force mode overrides existing, otherwise only set if empty
+      if [[ "$force" == "yes" ]]; then
+        export "${var_key}=${var_val}"
+      else
+        [[ -z "${!var_key+x}" ]] && export "${var_key}=${var_val}"
+      fi
     fi
   done <"$file"
   msg_ok "Loaded ${file}"
@@ -505,7 +628,7 @@ default_var_settings() {
   # Allowed var_* keys (alphabetically sorted)
   # Note: Removed var_ctid (can only exist once), var_ipv6_static (static IPs are unique)
   local VAR_WHITELIST=(
-    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_keyctl
+    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu var_keyctl
     var_gateway var_hostname var_ipv6_method var_mac var_mknod var_mount_fs var_mtu
     var_net var_nesting var_ns var_protection var_pw var_ram var_tags var_timezone var_tun var_unprivileged
     var_verbose var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage
@@ -667,7 +790,7 @@ get_app_defaults_path() {
 if ! declare -p VAR_WHITELIST >/dev/null 2>&1; then
   # Note: Removed var_ctid (can only exist once), var_ipv6_static (static IPs are unique)
   declare -ag VAR_WHITELIST=(
-    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse
+    var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu
     var_gateway var_hostname var_ipv6_method var_mac var_mtu
     var_net var_ns var_pw var_ram var_tags var_tun var_unprivileged
     var_verbose var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage
@@ -816,6 +939,7 @@ _build_current_app_vars_tmp() {
   _apt_cacher_ip="${APT_CACHER_IP:-}"
   _fuse="${ENABLE_FUSE:-no}"
   _tun="${ENABLE_TUN:-no}"
+  _gpu="${ENABLE_GPU:-no}"
   _nesting="${ENABLE_NESTING:-1}"
   _keyctl="${ENABLE_KEYCTL:-0}"
   _mknod="${ENABLE_MKNOD:-0}"
@@ -865,6 +989,7 @@ _build_current_app_vars_tmp() {
 
     [ -n "$_fuse" ] && echo "var_fuse=$(_sanitize_value "$_fuse")"
     [ -n "$_tun" ] && echo "var_tun=$(_sanitize_value "$_tun")"
+    [ -n "$_gpu" ] && echo "var_gpu=$(_sanitize_value "$_gpu")"
     [ -n "$_nesting" ] && echo "var_nesting=$(_sanitize_value "$_nesting")"
     [ -n "$_keyctl" ] && echo "var_keyctl=$(_sanitize_value "$_keyctl")"
     [ -n "$_mknod" ] && echo "var_mknod=$(_sanitize_value "$_mknod")"
@@ -1011,37 +1136,52 @@ advanced_settings() {
   # Initialize defaults
   TAGS="community-script;${var_tags:-}"
   local STEP=1
-  local MAX_STEP=19
+  local MAX_STEP=28
 
-  # Store values for back navigation
-  local _ct_type="${CT_TYPE:-1}"
+  # Store values for back navigation - inherit from var_* app defaults
+  local _ct_type="${var_unprivileged:-1}"
   local _pw=""
   local _pw_display="Automatic Login"
   local _ct_id="$NEXTID"
   local _hostname="$NSAPP"
-  local _disk_size="$var_disk"
-  local _core_count="$var_cpu"
-  local _ram_size="$var_ram"
-  local _bridge="vmbr0"
-  local _net="dhcp"
-  local _gate=""
-  local _ipv6_method="auto"
+  local _disk_size="${var_disk:-4}"
+  local _core_count="${var_cpu:-1}"
+  local _ram_size="${var_ram:-1024}"
+  local _bridge="${var_brg:-vmbr0}"
+  local _net="${var_net:-dhcp}"
+  local _gate="${var_gateway:-}"
+  local _ipv6_method="${var_ipv6_method:-auto}"
   local _ipv6_addr=""
   local _ipv6_gate=""
-  local _apt_cacher_ip=""
-  local _mtu=""
-  local _sd=""
-  local _ns=""
-  local _mac=""
-  local _vlan=""
+  local _apt_cacher="${var_apt_cacher:-no}"
+  local _apt_cacher_ip="${var_apt_cacher_ip:-}"
+  local _mtu="${var_mtu:-}"
+  local _sd="${var_searchdomain:-}"
+  local _ns="${var_ns:-}"
+  local _mac="${var_mac:-}"
+  local _vlan="${var_vlan:-}"
   local _tags="$TAGS"
-  local _enable_fuse="no"
-  local _verbose="no"
-  local _enable_keyctl="0"
-  local _enable_mknod="0"
-  local _mount_fs=""
-  local _protect_ct="no"
-  local _ct_timezone=""
+  local _enable_fuse="${var_fuse:-no}"
+  local _enable_tun="${var_tun:-no}"
+  local _enable_gpu="${var_gpu:-no}"
+  local _enable_nesting="${var_nesting:-1}"
+  local _verbose="${var_verbose:-no}"
+  local _enable_keyctl="${var_keyctl:-0}"
+  local _enable_mknod="${var_mknod:-0}"
+  local _mount_fs="${var_mount_fs:-}"
+  local _protect_ct="${var_protection:-no}"
+
+  # Detect host timezone for default (if not set via var_timezone)
+  local _host_timezone=""
+  if command -v timedatectl >/dev/null 2>&1; then
+    _host_timezone=$(timedatectl show --value --property=Timezone 2>/dev/null || echo "")
+  elif [ -f /etc/timezone ]; then
+    _host_timezone=$(cat /etc/timezone 2>/dev/null || echo "")
+  fi
+  # Map Etc/* timezones to "host" (pct doesn't accept Etc/* zones)
+  [[ "${_host_timezone:-}" == Etc/* ]] && _host_timezone="host"
+  local _ct_timezone="${var_timezone:-$_host_timezone}"
+  [[ "${_ct_timezone:-}" == Etc/* ]] && _ct_timezone="host"
 
   # Helper to show current progress
   show_progress() {
@@ -1289,9 +1429,10 @@ advanced_settings() {
       if result=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
         --title "IPv4 CONFIGURATION" \
         --ok-button "Next" --cancel-button "Back" \
-        --menu "\nSelect IPv4 Address Assignment:" 14 60 2 \
+        --menu "\nSelect IPv4 Address Assignment:" 16 65 3 \
         "dhcp" "Automatic (DHCP, recommended)" \
         "static" "Static (manual entry)" \
+        "range" "IP Range Scan (find first free IP)" \
         3>&1 1>&2 2>&3); then
 
         if [[ "$result" == "static" ]]; then
@@ -1320,6 +1461,42 @@ advanced_settings() {
               fi
             else
               whiptail --msgbox "Invalid IPv4 CIDR format.\nExample: 192.168.1.100/24" 8 58
+            fi
+          fi
+        elif [[ "$result" == "range" ]]; then
+          # IP Range Scan
+          local ip_range
+          if ip_range=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+            --title "IP RANGE SCAN" \
+            --ok-button "Scan" --cancel-button "Back" \
+            --inputbox "\nEnter IP range to scan for free address\n(e.g. 192.168.1.100/24-192.168.1.200/24)" 12 65 "" \
+            3>&1 1>&2 2>&3); then
+            if is_ip_range "$ip_range"; then
+              # Exit whiptail screen temporarily to show scan progress
+              clear
+              header_info
+              echo -e "${INFO}${BOLD}${DGN}Scanning IP range for free address...${CL}\n"
+              if resolve_ip_from_range "$ip_range"; then
+                # Get gateway
+                local gateway_ip
+                if gateway_ip=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+                  --title "GATEWAY IP" \
+                  --ok-button "Next" --cancel-button "Back" \
+                  --inputbox "\nFound free IP: $NET_RESOLVED\n\nEnter Gateway IP address" 12 58 "" \
+                  3>&1 1>&2 2>&3); then
+                  if [[ "$gateway_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+                    _net="$NET_RESOLVED"
+                    _gate=",gw=$gateway_ip"
+                    ((STEP++))
+                  else
+                    whiptail --msgbox "Invalid Gateway IP format." 8 58
+                  fi
+                fi
+              else
+                whiptail --msgbox "No free IP found in the specified range.\nAll IPs responded to ping." 10 58
+              fi
+            else
+              whiptail --msgbox "Invalid IP range format.\n\nExample: 192.168.1.100/24-192.168.1.200/24" 10 58
             fi
           fi
         else
@@ -1491,20 +1668,23 @@ advanced_settings() {
     # STEP 17: SSH Settings
     # ═══════════════════════════════════════════════════════════════════════════
     17)
-      configure_ssh_settings
+      configure_ssh_settings "Step $STEP/$MAX_STEP"
       # configure_ssh_settings handles its own flow, always advance
       ((STEP++))
       ;;
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 18: FUSE & Verbose Mode
+    # STEP 18: FUSE Support
     # ═══════════════════════════════════════════════════════════════════════════
     18)
+      local fuse_default_flag="--defaultno"
+      [[ "$_enable_fuse" == "yes" || "$_enable_fuse" == "1" ]] && fuse_default_flag=""
+
       if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
         --title "FUSE SUPPORT" \
         --ok-button "Next" --cancel-button "Back" \
-        --defaultno \
-        --yesno "\nEnable FUSE support?\n\nRequired for: rclone, mergerfs, AppImage, etc." 12 58; then
+        $fuse_default_flag \
+        --yesno "\nEnable FUSE support?\n\nRequired for: rclone, mergerfs, AppImage, etc.\n\n(App default: ${var_fuse:-no})" 14 58; then
         _enable_fuse="yes"
       else
         if [ $? -eq 1 ]; then
@@ -1514,25 +1694,255 @@ advanced_settings() {
           continue
         fi
       fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 19: TUN/TAP Support
+    # ═══════════════════════════════════════════════════════════════════════════
+    19)
+      local tun_default_flag="--defaultno"
+      [[ "$_enable_tun" == "yes" || "$_enable_tun" == "1" ]] && tun_default_flag=""
 
       if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
-        --title "VERBOSE MODE" \
-        --defaultno \
-        --yesno "\nEnable Verbose Mode?\n\nShows detailed output during installation." 12 58; then
-        _verbose="yes"
+        --title "TUN/TAP SUPPORT" \
+        --ok-button "Next" --cancel-button "Back" \
+        $tun_default_flag \
+        --yesno "\nEnable TUN/TAP device support?\n\nRequired for: VPN apps (WireGuard, OpenVPN, Tailscale),\nnetwork tunneling, and containerized networking.\n\n(App default: ${var_tun:-no})" 14 62; then
+        _enable_tun="yes"
       else
-        _verbose="no"
+        if [ $? -eq 1 ]; then
+          _enable_tun="no"
+        else
+          ((STEP--))
+          continue
+        fi
       fi
       ((STEP++))
       ;;
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # STEP 19: Confirmation
+    # STEP 20: Nesting Support
     # ═══════════════════════════════════════════════════════════════════════════
-    19)
+    20)
+      local nesting_default_flag=""
+      [[ "$_enable_nesting" == "0" || "$_enable_nesting" == "no" ]] && nesting_default_flag="--defaultno"
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "NESTING SUPPORT" \
+        --ok-button "Next" --cancel-button "Back" \
+        $nesting_default_flag \
+        --yesno "\nEnable Nesting?\n\nRequired for: Docker, LXC inside LXC, Podman,\nand other containerization tools.\n\n(App default: ${var_nesting:-1})" 14 58; then
+        _enable_nesting="1"
+      else
+        if [ $? -eq 1 ]; then
+          _enable_nesting="0"
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 21: GPU Passthrough
+    # ═══════════════════════════════════════════════════════════════════════════
+    21)
+      local gpu_default_flag="--defaultno"
+      [[ "$_enable_gpu" == "yes" ]] && gpu_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "GPU PASSTHROUGH" \
+        --ok-button "Next" --cancel-button "Back" \
+        $gpu_default_flag \
+        --yesno "\nEnable GPU Passthrough?\n\nAutomatically detects and passes through available GPUs\n(Intel/AMD/NVIDIA) for hardware acceleration.\n\nRecommended for: Media servers, AI/ML, Transcoding\n\n(App default: ${var_gpu:-no})" 16 62; then
+        _enable_gpu="yes"
+      else
+        if [ $? -eq 1 ]; then
+          _enable_gpu="no"
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 22: Keyctl Support (Docker/systemd)
+    # ═══════════════════════════════════════════════════════════════════════════
+    22)
+      local keyctl_default_flag="--defaultno"
+      [[ "$_enable_keyctl" == "1" ]] && keyctl_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "KEYCTL SUPPORT" \
+        --ok-button "Next" --cancel-button "Back" \
+        $keyctl_default_flag \
+        --yesno "\nEnable Keyctl support?\n\nRequired for: Docker containers, systemd-networkd,\nand kernel keyring operations.\n\nNote: Automatically enabled for unprivileged containers.\n\n(App default: ${var_keyctl:-0})" 16 62; then
+        _enable_keyctl="1"
+      else
+        if [ $? -eq 1 ]; then
+          _enable_keyctl="0"
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 23: APT Cacher Proxy
+    # ═══════════════════════════════════════════════════════════════════════════
+    23)
+      local apt_cacher_default_flag="--defaultno"
+      [[ "$_apt_cacher" == "yes" ]] && apt_cacher_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "APT CACHER PROXY" \
+        --ok-button "Next" --cancel-button "Back" \
+        $apt_cacher_default_flag \
+        --yesno "\nUse APT Cacher-NG proxy?\n\nSpeeds up package downloads by caching them locally.\nRequires apt-cacher-ng running on your network.\n\n(App default: ${var_apt_cacher:-no})" 14 62; then
+        _apt_cacher="yes"
+        # Ask for IP if enabled
+        if result=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+          --title "APT CACHER IP" \
+          --inputbox "\nEnter APT Cacher-NG server IP address:" 10 58 "$_apt_cacher_ip" \
+          3>&1 1>&2 2>&3); then
+          _apt_cacher_ip="$result"
+        fi
+      else
+        if [ $? -eq 1 ]; then
+          _apt_cacher="no"
+          _apt_cacher_ip=""
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 24: Container Timezone
+    # ═══════════════════════════════════════════════════════════════════════════
+    24)
+      local tz_hint="$_ct_timezone"
+      [[ -z "$tz_hint" ]] && tz_hint="(empty - will use host timezone)"
+
+      if result=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "CONTAINER TIMEZONE" \
+        --ok-button "Next" --cancel-button "Back" \
+        --inputbox "\nSet container timezone.\n\nExamples: Europe/Berlin, America/New_York, Asia/Tokyo\n\nHost timezone: ${_host_timezone:-unknown}\n\nLeave empty to inherit from host." 16 62 "$_ct_timezone" \
+        3>&1 1>&2 2>&3); then
+        _ct_timezone="$result"
+        [[ "${_ct_timezone:-}" == Etc/* ]] && _ct_timezone="host" # pct doesn't accept Etc/* zones
+        ((STEP++))
+      else
+        ((STEP--))
+      fi
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 25: Container Protection
+    # ═══════════════════════════════════════════════════════════════════════════
+    25)
+      local protect_default_flag="--defaultno"
+      [[ "$_protect_ct" == "yes" || "$_protect_ct" == "1" ]] && protect_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "CONTAINER PROTECTION" \
+        --ok-button "Next" --cancel-button "Back" \
+        $protect_default_flag \
+        --yesno "\nEnable Container Protection?\n\nPrevents accidental deletion of this container.\nYou must disable protection before removing.\n\n(App default: ${var_protection:-no})" 14 62; then
+        _protect_ct="yes"
+      else
+        if [ $? -eq 1 ]; then
+          _protect_ct="no"
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 26: Device Node Creation (mknod)
+    # ═══════════════════════════════════════════════════════════════════════════
+    26)
+      local mknod_default_flag="--defaultno"
+      [[ "$_enable_mknod" == "1" ]] && mknod_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "DEVICE NODE CREATION" \
+        --ok-button "Next" --cancel-button "Back" \
+        $mknod_default_flag \
+        --yesno "\nAllow device node creation (mknod)?\n\nRequired for: Creating device files inside container.\nExperimental feature (requires kernel 5.3+).\n\n(App default: ${var_mknod:-0})" 14 62; then
+        _enable_mknod="1"
+      else
+        if [ $? -eq 1 ]; then
+          _enable_mknod="0"
+        else
+          ((STEP--))
+          continue
+        fi
+      fi
+      ((STEP++))
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 27: Mount Filesystems
+    # ═══════════════════════════════════════════════════════════════════════════
+    27)
+      local mount_hint=""
+      [[ -n "$_mount_fs" ]] && mount_hint="$_mount_fs" || mount_hint="(none)"
+
+      if result=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "MOUNT FILESYSTEMS" \
+        --ok-button "Next" --cancel-button "Back" \
+        --inputbox "\nAllow specific filesystem mounts.\n\nComma-separated list: nfs, cifs, fuse, ext4, etc.\nLeave empty for defaults (none).\n\nCurrent: $mount_hint" 14 62 "$_mount_fs" \
+        3>&1 1>&2 2>&3); then
+        _mount_fs="$result"
+        ((STEP++))
+      else
+        ((STEP--))
+      fi
+      ;;
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 28: Verbose Mode & Confirmation
+    # ═══════════════════════════════════════════════════════════════════════════
+    28)
+      local verbose_default_flag="--defaultno"
+      [[ "$_verbose" == "yes" ]] && verbose_default_flag=""
+
+      if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
+        --title "VERBOSE MODE" \
+        $verbose_default_flag \
+        --yesno "\nEnable Verbose Mode?\n\nShows detailed output during installation." 12 58; then
+        _verbose="yes"
+      else
+        _verbose="no"
+      fi
       # Build summary
       local ct_type_desc="Unprivileged"
       [[ "$_ct_type" == "0" ]] && ct_type_desc="Privileged"
+
+      local nesting_desc="Disabled"
+      [[ "$_enable_nesting" == "1" ]] && nesting_desc="Enabled"
+
+      local keyctl_desc="Disabled"
+      [[ "$_enable_keyctl" == "1" ]] && keyctl_desc="Enabled"
+
+      local protect_desc="No"
+      [[ "$_protect_ct" == "yes" || "$_protect_ct" == "1" ]] && protect_desc="Yes"
+
+      local tz_display="${_ct_timezone:-Host TZ}"
+      local apt_display="${_apt_cacher:-no}"
+      [[ "$_apt_cacher" == "yes" && -n "$_apt_cacher_ip" ]] && apt_display="$_apt_cacher_ip"
 
       local summary="Container Type: $ct_type_desc
 Container ID: $_ct_id
@@ -1548,14 +1958,20 @@ Network:
   IPv4: $_net
   IPv6: $_ipv6_method
 
-Options:
-  FUSE: $_enable_fuse
+Features:
+  FUSE: $_enable_fuse | TUN: $_enable_tun
+  Nesting: $nesting_desc | Keyctl: $keyctl_desc
+  GPU: $_enable_gpu | Protection: $protect_desc
+
+Advanced:
+  Timezone: $tz_display
+  APT Cacher: $apt_display
   Verbose: $_verbose"
 
       if whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
         --title "CONFIRM SETTINGS" \
         --ok-button "Create LXC" --cancel-button "Back" \
-        --yesno "$summary\n\nCreate ${APP} LXC with these settings?" 26 58; then
+        --yesno "$summary\n\nCreate ${APP} LXC with these settings?" 32 62; then
         ((STEP++))
       else
         ((STEP--))
@@ -1582,7 +1998,30 @@ Options:
   IPV6_GATE="$_ipv6_gate"
   TAGS="$_tags"
   ENABLE_FUSE="$_enable_fuse"
+  ENABLE_TUN="$_enable_tun"
+  ENABLE_GPU="$_enable_gpu"
+  ENABLE_NESTING="$_enable_nesting"
+  ENABLE_KEYCTL="$_enable_keyctl"
+  ENABLE_MKNOD="$_enable_mknod"
+  ALLOW_MOUNT_FS="$_mount_fs"
+  PROTECT_CT="$_protect_ct"
+  CT_TIMEZONE="$_ct_timezone"
+  APT_CACHER="$_apt_cacher"
+  APT_CACHER_IP="$_apt_cacher_ip"
   VERBOSE="$_verbose"
+
+  # Update var_* based on user choice (for functions that check these)
+  var_gpu="$_enable_gpu"
+  var_fuse="$_enable_fuse"
+  var_tun="$_enable_tun"
+  var_nesting="$_enable_nesting"
+  var_keyctl="$_enable_keyctl"
+  var_mknod="$_enable_mknod"
+  var_mount_fs="$_mount_fs"
+  var_protection="$_protect_ct"
+  var_timezone="$_ct_timezone"
+  var_apt_cacher="$_apt_cacher"
+  var_apt_cacher_ip="$_apt_cacher_ip"
 
   # Format optional values
   [[ -n "$_mtu" ]] && MTU=",mtu=$_mtu" || MTU=""
@@ -1600,6 +2039,10 @@ Options:
   export UDHCPC_FIX
   export SSH_KEYS_FILE
 
+  # Exit alternate screen buffer before showing summary (so output remains visible)
+  tput rmcup 2>/dev/null || true
+  trap - RETURN
+
   # Display final summary
   echo -e "\n${INFO}${BOLD}${DGN}PVE Version ${PVEVERSION} (Kernel: ${KERNEL_VERSION})${CL}"
   echo -e "${OS}${BOLD}${DGN}Operating System: ${BGN}$var_os${CL}"
@@ -1613,7 +2056,14 @@ Options:
   echo -e "${BRIDGE}${BOLD}${DGN}Bridge: ${BGN}$BRG${CL}"
   echo -e "${NETWORK}${BOLD}${DGN}IPv4: ${BGN}$NET${CL}"
   echo -e "${NETWORK}${BOLD}${DGN}IPv6: ${BGN}$IPV6_METHOD${CL}"
-  echo -e "${FUSE}${BOLD}${DGN}FUSE Support: ${BGN}$ENABLE_FUSE${CL}"
+  echo -e "${FUSE}${BOLD}${DGN}FUSE Support: ${BGN}${ENABLE_FUSE:-no}${CL}"
+  [[ "${ENABLE_TUN:-no}" == "yes" ]] && echo -e "${NETWORK}${BOLD}${DGN}TUN/TAP Support: ${BGN}$ENABLE_TUN${CL}"
+  echo -e "${CONTAINERTYPE}${BOLD}${DGN}Nesting: ${BGN}$([ "${ENABLE_NESTING:-1}" == "1" ] && echo "Enabled" || echo "Disabled")${CL}"
+  [[ "${ENABLE_KEYCTL:-0}" == "1" ]] && echo -e "${CONTAINERTYPE}${BOLD}${DGN}Keyctl: ${BGN}Enabled${CL}"
+  echo -e "${GPU}${BOLD}${DGN}GPU Passthrough: ${BGN}${ENABLE_GPU:-no}${CL}"
+  [[ "${PROTECT_CT:-no}" == "yes" || "${PROTECT_CT:-no}" == "1" ]] && echo -e "${CONTAINERTYPE}${BOLD}${DGN}Protection: ${BGN}Enabled${CL}"
+  [[ -n "${CT_TIMEZONE:-}" ]] && echo -e "${INFO}${BOLD}${DGN}Timezone: ${BGN}$CT_TIMEZONE${CL}"
+  [[ "$APT_CACHER" == "yes" ]] && echo -e "${INFO}${BOLD}${DGN}APT Cacher: ${BGN}$APT_CACHER_IP${CL}"
   echo -e "${SEARCH}${BOLD}${DGN}Verbose Mode: ${BGN}$VERBOSE${CL}"
   echo -e "${CREATING}${BOLD}${RD}Creating a ${APP} LXC using the above advanced settings${CL}"
 }
@@ -1736,6 +2186,9 @@ echo_default() {
   echo -e "${DISKSIZE}${BOLD}${DGN}Disk Size: ${BGN}${DISK_SIZE} GB${CL}"
   echo -e "${CPUCORE}${BOLD}${DGN}CPU Cores: ${BGN}${CORE_COUNT}${CL}"
   echo -e "${RAMSIZE}${BOLD}${DGN}RAM Size: ${BGN}${RAM_SIZE} MiB${CL}"
+  if [[ -n "${var_gpu:-}" && "${var_gpu}" == "yes" ]]; then
+    echo -e "${GPU}${BOLD}${DGN}GPU Passthrough: ${BGN}Enabled${CL}"
+  fi
   if [ "$VERBOSE" == "yes" ]; then
     echo -e "${SEARCH}${BOLD}${DGN}Verbose Mode: ${BGN}Enabled${CL}"
   fi
@@ -1756,7 +2209,7 @@ install_script() {
   shell_check
   root_check
   arch_check
-  #ssh_check Removed in local as we always use SSH
+  ssh_check
   maxkeys_check
   diagnostics_check
 
@@ -1775,6 +2228,7 @@ install_script() {
   else
     timezone="UTC"
   fi
+  [[ "${timezone:-}" == Etc/* ]] && timezone="host" # pct doesn't accept Etc/* zones
 
   # Show APP Header
   header_info
@@ -1859,8 +2313,8 @@ install_script() {
         header_info
         echo -e "${DEFAULT}${BOLD}${BL}Using App Defaults for ${APP} on node $PVEHOST_NAME${CL}"
         METHOD="appdefaults"
+        load_vars_file "$(get_app_defaults_path)" "yes" # Force override script defaults
         base_settings
-        load_vars_file "$(get_app_defaults_path)"
         echo_default
         defaults_target="$(get_app_defaults_path)"
         break
@@ -2076,6 +2530,10 @@ ssh_discover_default_files() {
 }
 
 configure_ssh_settings() {
+  local step_info="${1:-}"
+  local backtitle="Proxmox VE Helper Scripts"
+  [[ -n "$step_info" ]] && backtitle="Proxmox VE Helper Scripts [${step_info}]"
+
   SSH_KEYS_FILE="$(mktemp)"
   : >"$SSH_KEYS_FILE"
 
@@ -2085,14 +2543,14 @@ configure_ssh_settings() {
 
   local ssh_key_mode
   if [[ "$default_key_count" -gt 0 ]]; then
-    ssh_key_mode=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "SSH KEY SOURCE" --menu \
+    ssh_key_mode=$(whiptail --backtitle "$backtitle" --title "SSH KEY SOURCE" --menu \
       "Provision SSH keys for root:" 14 72 4 \
       "found" "Select from detected keys (${default_key_count})" \
       "manual" "Paste a single public key" \
       "folder" "Scan another folder (path or glob)" \
       "none" "No keys" 3>&1 1>&2 2>&3) || exit_script
   else
-    ssh_key_mode=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "SSH KEY SOURCE" --menu \
+    ssh_key_mode=$(whiptail --backtitle "$backtitle" --title "SSH KEY SOURCE" --menu \
       "No host keys detected; choose manual/none:" 12 72 2 \
       "manual" "Paste a single public key" \
       "none" "No keys" 3>&1 1>&2 2>&3) || exit_script
@@ -2101,7 +2559,7 @@ configure_ssh_settings() {
   case "$ssh_key_mode" in
   found)
     local selection
-    selection=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "SELECT HOST KEYS" \
+    selection=$(whiptail --backtitle "$backtitle" --title "SELECT HOST KEYS" \
       --checklist "Select one or more keys to import:" 20 140 10 "${CHOICES[@]}" 3>&1 1>&2 2>&3) || exit_script
     for tag in $selection; do
       tag="${tag%\"}"
@@ -2112,13 +2570,13 @@ configure_ssh_settings() {
     done
     ;;
   manual)
-    SSH_AUTHORIZED_KEY="$(whiptail --backtitle "Proxmox VE Helper Scripts" \
+    SSH_AUTHORIZED_KEY="$(whiptail --backtitle "$backtitle" \
       --inputbox "Paste one SSH public key line (ssh-ed25519/ssh-rsa/...)" 10 72 --title "SSH Public Key" 3>&1 1>&2 2>&3)"
     [[ -n "$SSH_AUTHORIZED_KEY" ]] && printf '%s\n' "$SSH_AUTHORIZED_KEY" >>"$SSH_KEYS_FILE"
     ;;
   folder)
     local glob_path
-    glob_path=$(whiptail --backtitle "Proxmox VE Helper Scripts" \
+    glob_path=$(whiptail --backtitle "$backtitle" \
       --inputbox "Enter a folder or glob to scan (e.g. /root/.ssh/*.pub)" 10 72 --title "Scan Folder/Glob" 3>&1 1>&2 2>&3)
     if [[ -n "$glob_path" ]]; then
       shopt -s nullglob
@@ -2128,7 +2586,7 @@ configure_ssh_settings() {
         ssh_build_choices_from_files "${_scan_files[@]}"
         if [[ "$COUNT" -gt 0 ]]; then
           local folder_selection
-          folder_selection=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "SELECT FOLDER KEYS" \
+          folder_selection=$(whiptail --backtitle "$backtitle" --title "SELECT FOLDER KEYS" \
             --checklist "Select key(s) to import:" 20 78 10 "${CHOICES[@]}" 3>&1 1>&2 2>&3) || exit_script
           for tag in $folder_selection; do
             tag="${tag%\"}"
@@ -2138,10 +2596,10 @@ configure_ssh_settings() {
             [[ -n "$line" ]] && printf '%s\n' "$line" >>"$SSH_KEYS_FILE"
           done
         else
-          whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "No keys found in: $glob_path" 8 60
+          whiptail --backtitle "$backtitle" --msgbox "No keys found in: $glob_path" 8 60
         fi
       else
-        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Path/glob returned no files." 8 60
+        whiptail --backtitle "$backtitle" --msgbox "Path/glob returned no files." 8 60
       fi
     fi
     ;;
@@ -2155,12 +2613,9 @@ configure_ssh_settings() {
     printf '\n' >>"$SSH_KEYS_FILE"
   fi
 
-  if [[ -s "$SSH_KEYS_FILE" || "$PW" == -password* ]]; then
-    if (whiptail --backtitle "Proxmox VE Helper Scripts" --defaultno --title "SSH ACCESS" --yesno "Enable root SSH access?" 10 58); then
-      SSH="yes"
-    else
-      SSH="no"
-    fi
+  # Always show SSH access dialog - user should be able to enable SSH even without keys
+  if (whiptail --backtitle "$backtitle" --defaultno --title "SSH ACCESS" --yesno "Enable root SSH access?" 10 58); then
+    SSH="yes"
   else
     SSH="no"
   fi
@@ -2171,8 +2626,8 @@ configure_ssh_settings() {
 #
 # - Entry point of script
 # - On Proxmox host: calls install_script
-# - In silent mode: runs update_script
-# - Otherwise: shows update/setting menu
+# - In silent mode: runs update_script with automatic cleanup
+# - Otherwise: shows update/setting menu and runs update_script with cleanup
 # ------------------------------------------------------------------------------
 start() {
   source "$(dirname "${BASH_SOURCE[0]}")/tools.func"
@@ -2183,6 +2638,7 @@ start() {
     VERBOSE="no"
     set_std_mode
     update_script
+    cleanup_lxc
   else
     CHOICE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "${APP} LXC Update/Setting" --menu \
       "Support/Update functions for ${APP} LXC. Choose an option:" \
@@ -2207,6 +2663,7 @@ start() {
       ;;
     esac
     update_script
+    cleanup_lxc
   fi
 }
 
@@ -2278,15 +2735,23 @@ build_container() {
   none) ;;
   esac
 
-  # Build FEATURES string
-  if [ "$CT_TYPE" == "1" ]; then
-    FEATURES="keyctl=1,nesting=1"
-  else
+  # Build FEATURES string based on container type and user choices
+  FEATURES=""
+
+  # Nesting support (user configurable, default enabled)
+  if [ "${ENABLE_NESTING:-1}" == "1" ]; then
     FEATURES="nesting=1"
   fi
 
+  # Keyctl for unprivileged containers (needed for Docker)
+  if [ "$CT_TYPE" == "1" ]; then
+    [ -n "$FEATURES" ] && FEATURES="$FEATURES,"
+    FEATURES="${FEATURES}keyctl=1"
+  fi
+
   if [ "$ENABLE_FUSE" == "yes" ]; then
-    FEATURES="$FEATURES,fuse=1"
+    [ -n "$FEATURES" ] && FEATURES="$FEATURES,"
+    FEATURES="${FEATURES}fuse=1"
   fi
 
   # Build PCT_OPTIONS as string for export
@@ -2318,6 +2783,8 @@ build_container() {
   export PCT_OSTYPE="$var_os"
   export PCT_OSVERSION="$var_version"
   export PCT_DISK_SIZE="$DISK_SIZE"
+  export IPV6_METHOD="$IPV6_METHOD"
+  export ENABLE_GPU="$ENABLE_GPU"
 
   # DEV_MODE exports (optional, for debugging)
   export BUILD_LOG="$BUILD_LOG"
@@ -2332,9 +2799,14 @@ build_container() {
   export DEV_MODE_DRYRUN="${DEV_MODE_DRYRUN:-false}"
 
   # Build PCT_OPTIONS as multi-line string
-  PCT_OPTIONS_STRING="  -features $FEATURES
-  -hostname $HN
+  PCT_OPTIONS_STRING="  -hostname $HN
   -tags $TAGS"
+
+  # Only add -features if FEATURES is not empty
+  if [ -n "$FEATURES" ]; then
+    PCT_OPTIONS_STRING="  -features $FEATURES
+$PCT_OPTIONS_STRING"
+  fi
 
   # Add storage if specified
   if [ -n "$SD" ]; then
@@ -2362,10 +2834,12 @@ build_container() {
   -protection 1"
   fi
 
-  # Timezone flag (if var_timezone was set)
+  # Timezone (map Etc/* to "host" as pct doesn't accept them)
   if [ -n "${CT_TIMEZONE:-}" ]; then
+    local _pct_timezone="$CT_TIMEZONE"
+    [[ "$_pct_timezone" == Etc/* ]] && _pct_timezone="host"
     PCT_OPTIONS_STRING="$PCT_OPTIONS_STRING
-  -timezone $CT_TIMEZONE"
+  -timezone $_pct_timezone"
   fi
 
   # Password (already formatted)
@@ -2387,21 +2861,15 @@ build_container() {
   # GPU/USB PASSTHROUGH CONFIGURATION
   # ============================================================================
 
-  # List of applications that benefit from GPU acceleration
-  GPU_APPS=(
-    "immich" "channels" "emby" "ersatztv" "frigate"
-    "jellyfin" "plex" "scrypted" "tdarr" "unmanic"
-    "ollama" "fileflows" "open-webui" "tunarr" "debian"
-    "handbrake" "sunshine" "moonlight" "kodi" "stremio"
-    "viseron"
-  )
-
-  # Check if app needs GPU
+  # Check if GPU passthrough is enabled
+  # Returns true only if var_gpu is explicitly set to "yes"
+  # Can be set via:
+  #   - Environment variable: var_gpu=yes bash -c "..."
+  #   - CT script default: var_gpu="${var_gpu:-no}"
+  #   - Advanced settings wizard
+  #   - App defaults file: /usr/local/community-scripts/defaults/<app>.vars
   is_gpu_app() {
-    local app="${1,,}"
-    for gpu_app in "${GPU_APPS[@]}"; do
-      [[ "$app" == "${gpu_app,,}" ]] && return 0
-    done
+    [[ "${var_gpu:-no}" == "yes" ]] && return 0
     return 1
   }
 
@@ -2441,6 +2909,8 @@ build_container() {
     if echo "$pci_vga_info" | grep -q "\[10de:"; then
       msg_custom "🎮" "${GN}" "Detected NVIDIA GPU"
 
+      # Simple passthrough - just bind /dev/nvidia* devices if they exist
+      # Only include character devices (-c), skip directories like /dev/nvidia-caps
       for d in /dev/nvidia*; do
         [[ -c "$d" ]] && NVIDIA_DEVICES+=("$d")
       done
@@ -2489,8 +2959,13 @@ EOF
 
   # Configure GPU passthrough
   configure_gpu_passthrough() {
-    # Skip if not a GPU app and not privileged
-    if [[ "$CT_TYPE" != "0" ]] && ! is_gpu_app "$APP"; then
+    # Skip if:
+    # GPU passthrough is enabled when var_gpu="yes":
+    # - Set via environment variable: var_gpu=yes bash -c "..."
+    # - Set in CT script: var_gpu="${var_gpu:-no}"
+    # - Enabled in advanced_settings wizard
+    # - Configured in app defaults file
+    if ! is_gpu_app "$APP"; then
       return 0
     fi
 
@@ -2708,15 +3183,17 @@ EOF'
     pct exec "$CTID" -- ash -c "apk add bash newt curl openssh nano mc ncurses jq >/dev/null"
   else
     sleep 3
-    pct exec "$CTID" -- bash -c "sed -i '/$LANG/ s/^# //' /etc/locale.gen"
+    LANG=${LANG:-en_US.UTF-8}
+    pct exec "$CTID" -- bash -c "sed -i \"/$LANG/ s/^# //\" /etc/locale.gen"
     pct exec "$CTID" -- bash -c "locale_line=\$(grep -v '^#' /etc/locale.gen | grep -E '^[a-zA-Z]' | awk '{print \$1}' | head -n 1) && \
     echo LANG=\$locale_line >/etc/default/locale && \
     locale-gen >/dev/null && \
     export LANG=\$locale_line"
 
     if [[ -z "${tz:-}" ]]; then
-      tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Etc/UTC")
+      tz=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC")
     fi
+    [[ "${tz:-}" == Etc/* ]] && tz="UTC" # Normalize Etc/* to UTC for container setup
 
     if pct exec "$CTID" -- test -e "/usr/share/zoneinfo/$tz"; then
       # Set timezone using symlink (Debian 13+ compatible)
@@ -2959,11 +3436,11 @@ fix_gpu_gids() {
 
   # For privileged containers: also fix permissions inside container
   if [[ "$CT_TYPE" == "0" ]]; then
-     pct exec "$CTID" -- sh -c "
+    pct exec "$CTID" -- sh -c "
       if [ -d /dev/dri ]; then
         for dev in /dev/dri/*; do
           if [ -e \"\$dev\" ]; then
-             case \"\$dev\" in
+            case \"\$dev\" in
               *renderD*) chgrp ${render_gid} \"\$dev\" 2>/dev/null || true ;;
               *)         chgrp ${video_gid} \"\$dev\" 2>/dev/null || true ;;
             esac
@@ -3228,8 +3705,11 @@ create_lxc_container() {
     ;;
   esac
 
-  pvesm status -content rootdir 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$CONTAINER_STORAGE" || exit 213Add a comment on  line R3227Add diff commentMarkdown input:  edit mode selected.WritePreviewAdd a suggestionHeadingBoldItalicQuoteCodeLinkUnordered listNumbered listTask listMentionReferenceSaved repliesAdd FilesPaste, drop, or click to add filesCancelCommentStart a reviewReturn to code
+  pvesm status -content rootdir 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$CONTAINER_STORAGE" || exit 213
   msg_ok "Storage '$CONTAINER_STORAGE' ($STORAGE_TYPE) validated"
+
+  msg_info "Validating template storage '$TEMPLATE_STORAGE'"
+  TEMPLATE_TYPE=$(grep -E "^[^:]+: $TEMPLATE_STORAGE$" /etc/pve/storage.cfg | cut -d: -f1)
 
   if ! pvesm status -content vztmpl 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$TEMPLATE_STORAGE"; then
     msg_warn "Template storage '$TEMPLATE_STORAGE' may not support 'vztmpl'"
@@ -3266,12 +3746,9 @@ create_lxc_container() {
 
   msg_info "Searching for template '$TEMPLATE_SEARCH'"
 
-  # Build regex patterns outside awk/grep for clarity
-  SEARCH_PATTERN="^${TEMPLATE_SEARCH}"
-
   mapfile -t LOCAL_TEMPLATES < <(
     pveam list "$TEMPLATE_STORAGE" 2>/dev/null |
-      awk -v search="${SEARCH_PATTERN}" -v pattern="${TEMPLATE_PATTERN}" '$1 ~ search && $1 ~ pattern {print $1}' |
+      awk -v search="${TEMPLATE_SEARCH}" -v pattern="${TEMPLATE_PATTERN}" '$1 ~ search && $1 ~ pattern {print $1}' |
       sed 's|.*/||' | sort -t - -k 2 -V
   )
 
@@ -3280,11 +3757,19 @@ create_lxc_container() {
   msg_ok "Template search completed"
 
   set +u
-  mapfile -t ONLINE_TEMPLATES < <(pveam available -section system 2>/dev/null | grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' | awk '{print $2}' | grep -E "${SEARCH_PATTERN}.*${TEMPLATE_PATTERN}" | sort -t - -k 2 -V 2>/dev/null || true)
+  mapfile -t ONLINE_TEMPLATES < <(pveam available -section system 2>/dev/null | grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' | awk '{print $2}' | grep -E "^${TEMPLATE_SEARCH}.*${TEMPLATE_PATTERN}" | sort -t - -k 2 -V 2>/dev/null || true)
   set -u
 
   ONLINE_TEMPLATE=""
   [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]] && ONLINE_TEMPLATE="${ONLINE_TEMPLATES[-1]}"
+
+  if [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]]; then
+    count=0
+    for idx in "${!ONLINE_TEMPLATES[@]}"; do
+      ((count++))
+      [[ $count -ge 3 ]] && break
+    done
+  fi
 
   if [[ ${#LOCAL_TEMPLATES[@]} -gt 0 ]]; then
     TEMPLATE="${LOCAL_TEMPLATES[-1]}"
@@ -3321,13 +3806,12 @@ create_lxc_container() {
       if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#AVAILABLE_VERSIONS[@]} ]]; then
         PCT_OSVERSION="${AVAILABLE_VERSIONS[$((choice - 1))]}"
         TEMPLATE_SEARCH="${PCT_OSTYPE}-${PCT_OSVERSION}"
-        SEARCH_PATTERN="^${TEMPLATE_SEARCH}-"
 
         mapfile -t ONLINE_TEMPLATES < <(
           pveam available -section system 2>/dev/null |
             grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' |
-            awk -F'\t' '{print $1}' |
-            grep -E "${SEARCH_PATTERN}.*${TEMPLATE_PATTERN}" |
+            awk '{print $2}' |
+            grep -E "^${TEMPLATE_SEARCH}-.*${TEMPLATE_PATTERN}" |
             sort -t - -k 2 -V 2>/dev/null || true
         )
 
@@ -3388,31 +3872,21 @@ create_lxc_container() {
 
           # Retry template search with new version
           TEMPLATE_SEARCH="${PCT_OSTYPE}-${PCT_OSVERSION:-}"
-          SEARCH_PATTERN="^${TEMPLATE_SEARCH}-"
 
           mapfile -t LOCAL_TEMPLATES < <(
             pveam list "$TEMPLATE_STORAGE" 2>/dev/null |
-              awk -v search="${SEARCH_PATTERN}" -v pattern="${TEMPLATE_PATTERN}" '$1 ~ search && $1 ~ pattern {print $1}' |
+              awk -v search="${TEMPLATE_SEARCH}-" -v pattern="${TEMPLATE_PATTERN}" '$1 ~ search && $1 ~ pattern {print $1}' |
               sed 's|.*/||' | sort -t - -k 2 -V
           )
           mapfile -t ONLINE_TEMPLATES < <(
             pveam available -section system 2>/dev/null |
               grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' |
-              awk -F'\t' '{print $1}' |
-              grep -E "${SEARCH_PATTERN}.*${TEMPLATE_PATTERN}" |
+              awk '{print $2}' |
+              grep -E "^${TEMPLATE_SEARCH}-.*${TEMPLATE_PATTERN}" |
               sort -t - -k 2 -V 2>/dev/null || true
           )
           ONLINE_TEMPLATE=""
           [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]] && ONLINE_TEMPLATE="${ONLINE_TEMPLATES[-1]}"
-
-          if [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]]; then
-           count=0
-            for idx in "${!ONLINE_TEMPLATES[@]}"; do
-                ((count++))
-              [[ $count -ge 3 ]] && break
-            done
-            ONLINE_TEMPLATE="${ONLINE_TEMPLATES[$idx]}"
-          fi
 
           if [[ ${#LOCAL_TEMPLATES[@]} -gt 0 ]]; then
             TEMPLATE="${LOCAL_TEMPLATES[-1]}"
@@ -3522,7 +3996,6 @@ create_lxc_container() {
   if [[ "$PCT_OSTYPE" == "debian" ]]; then
     OSVER="$(parse_template_osver "$TEMPLATE")"
     if [[ -n "$OSVER" ]]; then
-      # Proactive, but without abort – only offer
       offer_lxc_stack_upgrade_and_maybe_retry "no" || true
     fi
   fi
@@ -3600,7 +4073,7 @@ create_lxc_container() {
             0) : ;; # success - container created, continue
             2)
               echo "Upgrade was declined. Please update and re-run:
-                apt update && apt install --only-upgrade pve-container lxc-pve"
+  apt update && apt install --only-upgrade pve-container lxc-pve"
               exit 231
               ;;
             3)
@@ -3632,12 +4105,12 @@ create_lxc_container() {
           0) : ;; # success - container created, continue
           2)
             echo "Upgrade was declined. Please update and re-run:
-              apt update && apt install --only-upgrade pve-container lxc-pve"
-            exit 213
+  apt update && apt install --only-upgrade pve-container lxc-pve"
+            exit 231
             ;;
           3)
             echo "Upgrade and/or retry failed. Please inspect: $LOGFILE"
-            exit 213
+            exit 231
             ;;
           esac
         else
