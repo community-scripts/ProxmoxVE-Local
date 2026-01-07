@@ -16,7 +16,7 @@ export function Footer({ onOpenReleaseNotes }: FooterProps) {
       <div className="container mx-auto px-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span>© 2024 PVE Scripts Local</span>
+            <span>© 2026 PVE Scripts Local</span>
             {versionData?.success && versionData.version && (
               <Button
                 variant="ghost"
