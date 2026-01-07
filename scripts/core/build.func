@@ -517,11 +517,16 @@ base_settings() {
     fi
   fi
 
-  MTU=${var_mtu:-""}
-  SD=${var_storage:-""}
-  NS=${var_ns:-""}
-  MAC=${var_mac:-""}
-  VLAN=${var_vlan:-""}
+  # Format optional network variables with proper prefixes for pct create
+  # Also strip any spaces from nameserver values (multiple IPs must be comma-separated without spaces)
+  local _ns_clean="${var_ns:-}"
+  _ns_clean="${_ns_clean// /}" # Remove all spaces from nameserver value
+
+  [[ -n "${var_mtu:-}" ]] && MTU=",mtu=${var_mtu}" || MTU=""
+  [[ -n "${var_searchdomain:-}" ]] && SD="-searchdomain=${var_searchdomain}" || SD=""
+  [[ -n "$_ns_clean" ]] && NS="-nameserver=${_ns_clean}" || NS=""
+  [[ -n "${var_mac:-}" ]] && MAC=",hwaddr=${var_mac}" || MAC=""
+  [[ -n "${var_vlan:-}" ]] && VLAN=",tag=${var_vlan}" || VLAN=""
   SSH=${var_ssh:-"no"}
   SSH_AUTHORIZED_KEY=${var_ssh_authorized_key:-""}
   UDHCPC_FIX=${var_udhcpc_fix:-""}
@@ -2023,10 +2028,11 @@ Advanced:
   var_apt_cacher="$_apt_cacher"
   var_apt_cacher_ip="$_apt_cacher_ip"
 
-  # Format optional values
+  # Format optional values (strip spaces from nameserver - multiple IPs must be comma-separated without spaces)
+  local _ns_clean="${_ns// /}"
   [[ -n "$_mtu" ]] && MTU=",mtu=$_mtu" || MTU=""
   [[ -n "$_sd" ]] && SD="-searchdomain=$_sd" || SD=""
-  [[ -n "$_ns" ]] && NS="-nameserver=$_ns" || NS=""
+  [[ -n "$_ns_clean" ]] && NS="-nameserver=$_ns_clean" || NS=""
   [[ -n "$_mac" ]] && MAC=",hwaddr=$_mac" || MAC=""
   [[ -n "$_vlan" ]] && VLAN=",tag=$_vlan" || VLAN=""
 
