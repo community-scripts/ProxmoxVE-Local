@@ -72,17 +72,17 @@ stop_all_services() {
   local service_patterns=("$@")
 
   for pattern in "${service_patterns[@]}"; do
-    # Find all matching services
+    # Find all matching services (grep || true to handle no matches)
+    local services
+    services=$(systemctl list-units --type=service --all 2>/dev/null |
+      grep -oE "${pattern}[^ ]*\.service" 2>/dev/null | sort -u) || true
 
-    systemctl list-units --type=service --all 2>/dev/null |
-      grep -oE "${pattern}[^ ]*\.service" |
-      sort -u |
+    if [[ -n "$services" ]]; then
       while read -r service; do
-
         $STD systemctl stop "$service" 2>/dev/null || true
         $STD systemctl disable "$service" 2>/dev/null || true
-      done
-
+      done <<<"$services"
+    fi
   done
 
 }
@@ -219,7 +219,7 @@ upgrade_packages_with_retry() {
     if [[ $retry -le $max_retries ]]; then
       msg_warn "Package upgrade failed, retrying ($retry/$max_retries)..."
       sleep 2
-            # Fix any interrupted dpkg operations before retry
+      # Fix any interrupted dpkg operations before retry
       $STD dpkg --configure -a 2>/dev/null || true
       $STD apt update 2>/dev/null || true
     fi
@@ -334,9 +334,9 @@ remove_old_tool_version() {
     $STD apt purge -y nodejs npm >/dev/null 2>&1 || true
     # Clean up npm global modules
     if command -v npm >/dev/null 2>&1; then
-      npm list -g 2>/dev/null | grep -oE '^  \S+' | awk '{print $1}' | while read -r module; do
+      npm list -g 2>/dev/null | grep -oE '^  \S+' | awk '{print $1}' 2>/dev/null | while read -r module; do
         npm uninstall -g "$module" >/dev/null 2>&1 || true
-      done
+      done || true
     fi
     cleanup_legacy_install "nodejs"
     cleanup_tool_keyrings "nodesource"
@@ -1167,7 +1167,7 @@ cleanup_orphaned_sources() {
 
     # Extract Signed-By path from .sources file
     local keyring_path
-    keyring_path=$(grep -E '^Signed-By:' "$sources_file" 2>/dev/null | awk '{print $2}')
+    keyring_path=$(grep -E '^Signed-By:' "$sources_file" 2>/dev/null | awk '{print $2}' 2>/dev/null || true)
 
     # If keyring doesn't exist, remove the .sources file
     if [[ -n "$keyring_path" ]] && [[ ! -f "$keyring_path" ]]; then
@@ -1191,6 +1191,7 @@ ensure_apt_working() {
   if [[ -f /var/lib/dpkg/lock-frontend ]] || dpkg --audit 2>&1 | grep -q "interrupted"; then
     $STD dpkg --configure -a 2>/dev/null || true
   fi
+
   # Clean up orphaned sources first
   cleanup_orphaned_sources
 
@@ -1221,6 +1222,7 @@ setup_deb822_repo() {
   local suite="$4"
   local component="${5:-main}"
   local architectures="${6-}" # optional
+  local enabled="${7-}"       # optional: "true" or "false"
 
   # Validate required parameters
   if [[ -z "$name" || -z "$gpg_url" || -z "$repo_url" || -z "$suite" ]]; then
@@ -1248,9 +1250,13 @@ setup_deb822_repo() {
     echo "Types: deb"
     echo "URIs: $repo_url"
     echo "Suites: $suite"
-    echo "Components: $component"
+    # Flat repositories (suite="./" or absolute path) must not have Components
+    if [[ "$suite" != "./" && -n "$component" ]]; then
+      echo "Components: $component"
+    fi
     [[ -n "$architectures" ]] && echo "Architectures: $architectures"
     echo "Signed-By: /etc/apt/keyrings/${name}.gpg"
+    [[ -n "$enabled" ]] && echo "Enabled: $enabled"
   } >/etc/apt/sources.list.d/${name}.sources
 
   $STD apt update
@@ -1452,15 +1458,32 @@ check_for_gh_release() {
 
   ensure_dependencies jq
 
-  # Fetch releases and exclude drafts/prereleases
-  local releases_json
-  releases_json=$(curl -fsSL --max-time 20 \
-    -H 'Accept: application/vnd.github+json' \
-    -H 'X-GitHub-Api-Version: 2022-11-28' \
-    "https://api.github.com/repos/${source}/releases") || {
-    msg_error "Unable to fetch releases for ${app}"
-    return 1
-  }
+  # Try /latest endpoint for non-pinned versions (most efficient)
+  local releases_json=""
+
+  if [[ -z "$pinned_version_in" ]]; then
+    releases_json=$(curl -fsSL --max-time 20 \
+      -H 'Accept: application/vnd.github+json' \
+      -H 'X-GitHub-Api-Version: 2022-11-28' \
+      "https://api.github.com/repos/${source}/releases/latest" 2>/dev/null)
+
+    if [[ $? -eq 0 ]] && [[ -n "$releases_json" ]]; then
+      # Wrap single release in array for consistent processing
+      releases_json="[$releases_json]"
+    fi
+  fi
+
+  # If no releases yet (pinned version OR /latest failed), fetch up to 100
+  if [[ -z "$releases_json" ]]; then
+    # Fetch releases and exclude drafts/prereleases
+    releases_json=$(curl -fsSL --max-time 20 \
+      -H 'Accept: application/vnd.github+json' \
+      -H 'X-GitHub-Api-Version: 2022-11-28' \
+      "https://api.github.com/repos/${source}/releases?per_page=100") || {
+      msg_error "Unable to fetch releases for ${app}"
+      return 1
+    }
+  fi
 
   mapfile -t raw_tags < <(jq -r '.[] | select(.draft==false and .prerelease==false) | .tag_name' <<<"$releases_json")
   if ((${#raw_tags[@]} == 0)); then
@@ -1734,12 +1757,13 @@ function fetch_and_deploy_gh_release() {
 
   ### Tarball Mode ###
   if [[ "$mode" == "tarball" || "$mode" == "source" ]]; then
-    url=$(echo "$json" | jq -r '.tarball_url // empty')
-    [[ -z "$url" ]] && url="https://github.com/$repo/archive/refs/tags/v$version.tar.gz"
+    # GitHub API's tarball_url/zipball_url can return HTTP 300 Multiple Choices
+    # when a branch and tag share the same name. Use explicit refs/tags/ URL instead.
+    local direct_tarball_url="https://github.com/$repo/archive/refs/tags/$tag_name.tar.gz"
     filename="${app_lc}-${version}.tar.gz"
 
-    curl $download_timeout -fsSL -o "$tmpdir/$filename" "$url" || {
-      msg_error "Download failed: $url"
+    curl $download_timeout -fsSL -o "$tmpdir/$filename" "$direct_tarball_url" || {
+      msg_error "Download failed: $direct_tarball_url"
       rm -rf "$tmpdir"
       return 1
     }
@@ -2049,7 +2073,7 @@ function setup_adminer() {
       return 1
     }
     local VERSION
-    VERSION=$(dpkg -s adminer 2>/dev/null | grep '^Version:' | awk '{print $2}')
+    VERSION=$(dpkg -s adminer 2>/dev/null | grep '^Version:' | awk '{print $2}' 2>/dev/null || echo 'unknown')
     cache_installed_version "adminer" "${VERSION:-unknown}"
     msg_ok "Setup Adminer (Debian/Ubuntu)"
   fi
@@ -2539,119 +2563,708 @@ function setup_gs() {
 # Sets up Hardware Acceleration on debian or ubuntu.
 #
 # Description:
-#   - Determites CPU/GPU/APU Vendor
-#   - Installs the correct libraries and packages
-#   - Sets up Hardware Acceleration
+#   - Detects all available GPUs (Intel, AMD, NVIDIA)
+#   - Allows user to select which GPU(s) to configure (with 60s timeout)
+#   - Installs the correct libraries and packages for each GPU type
+#   - Supports: Debian 11/12/13, Ubuntu 22.04/24.04
+#   - Intel: Legacy (Gen 6-8), Modern (Gen 9+), Arc
+#   - AMD: Discrete GPUs, APUs, ROCm compute
+#   - NVIDIA: Version-matched drivers from CUDA repository
 #
 # Notes:
-#   - Some things are fetched from intel repositories due to not being in debian repositories.
+#   - Some Intel packages are fetched from GitHub due to missing Debian packages
+#   - NVIDIA requires matching host driver version
 # ------------------------------------------------------------------------------
 function setup_hwaccel() {
+  # Check if user explicitly disabled GPU in advanced settings
+  # ENABLE_GPU is exported from build.func
+  if [[ "${ENABLE_GPU:-no}" == "no" ]]; then
+    return 0
+  fi
+
+  # Check if GPU passthrough is enabled (device nodes must exist)
+  if [[ ! -d /dev/dri && ! -e /dev/nvidia0 && ! -e /dev/kfd ]]; then
+    msg_warn "No GPU passthrough detected (/dev/dri, /dev/nvidia*, /dev/kfd not found) - skipping hardware acceleration setup"
+    return 0
+  fi
+
   msg_info "Setup Hardware Acceleration"
 
+  # Install pciutils if needed
   if ! command -v lspci &>/dev/null; then
     $STD apt -y update || {
-      msg_error "Failed to update package list"
-      return 1
+      msg_warn "Failed to update package list"
+      return 0
     }
     $STD apt -y install pciutils || {
-      msg_error "Failed to install pciutils"
-      return 1
+      msg_warn "Failed to install pciutils"
+      return 0
     }
   fi
 
-  # Detect GPU vendor (Intel, AMD, NVIDIA)
-  local gpu_vendor
-  gpu_vendor=$(lspci 2>/dev/null | grep -Ei 'vga|3d|display' | grep -Eo 'Intel|AMD|NVIDIA' | head -n1 || echo "")
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GPU Detection - Build list of all available GPUs with details
+  # ═══════════════════════════════════════════════════════════════════════════
+  local -a GPU_LIST=()
+  local -a GPU_TYPES=()
+  local -a GPU_NAMES=()
+  local gpu_count=0
 
-  # Detect CPU vendor (relevant for AMD APUs)
+  # Get all GPU entries from lspci
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local pci_addr gpu_name gpu_type=""
+
+    pci_addr=$(echo "$line" | awk '{print $1}')
+    gpu_name=$(echo "$line" | sed 's/^[^ ]* [^:]*: //')
+
+    # Determine GPU type
+    # Note: Use -w (word boundary) for ATI to avoid matching "CorporATIon"
+    if echo "$gpu_name" | grep -qi 'Intel'; then
+      gpu_type="INTEL"
+      # Subtype detection for Intel
+      # Order matters: Check Arc first, then Gen9+ (UHD/Iris/HD 5xx-6xx), then Legacy (HD 2xxx-5xxx)
+      # HD Graphics 530/630 = Gen 9 (Skylake/Kaby Lake) - 3 digits
+      # HD Graphics 4600/5500 = Gen 7-8 (Haswell/Broadwell) - 4 digits starting with 2-5
+      if echo "$gpu_name" | grep -qiE 'Arc|DG[12]'; then
+        gpu_type="INTEL_ARC"
+      elif echo "$gpu_name" | grep -qiE 'UHD|Iris|HD Graphics [5-6][0-9]{2}[^0-9]|HD Graphics [5-6][0-9]{2}$'; then
+        # HD Graphics 5xx/6xx (3 digits) = Gen 9+ (Skylake onwards)
+        gpu_type="INTEL_GEN9+"
+      elif echo "$gpu_name" | grep -qiE 'HD Graphics [2-5][0-9]{3}'; then
+        # HD Graphics 2xxx-5xxx (4 digits) = Gen 6-8 Legacy
+        gpu_type="INTEL_LEGACY"
+      fi
+    elif echo "$gpu_name" | grep -qiwE 'AMD|ATI|Radeon|Advanced Micro Devices'; then
+      gpu_type="AMD"
+    elif echo "$gpu_name" | grep -qi 'NVIDIA'; then
+      gpu_type="NVIDIA"
+    fi
+
+    if [[ -n "$gpu_type" ]]; then
+      GPU_LIST+=("$pci_addr")
+      GPU_TYPES+=("$gpu_type")
+      GPU_NAMES+=("$gpu_name")
+      ((gpu_count++)) || true
+    fi
+  done < <(lspci 2>/dev/null | grep -Ei 'vga|3d|display')
+
+  # Check for AMD APU via CPU vendor if no discrete GPU found
   local cpu_vendor
-  cpu_vendor=$(lscpu 2>/dev/null | grep -i 'Vendor ID' | awk '{print $3}' || echo "")
+  cpu_vendor=$(lscpu 2>/dev/null | grep -i 'Vendor ID' | awk '{print $3}' 2>/dev/null || echo "")
 
-  if [[ -z "$gpu_vendor" && -z "$cpu_vendor" ]]; then
-    msg_error "No GPU or CPU vendor detected (missing lspci/lscpu output)"
-    return 1
+  if [[ $gpu_count -eq 0 ]]; then
+    if [[ "$cpu_vendor" == "AuthenticAMD" ]]; then
+      GPU_LIST+=("integrated")
+      GPU_TYPES+=("AMD_APU")
+      GPU_NAMES+=("AMD APU (Integrated Graphics)")
+      ((gpu_count++)) || true
+    else
+      msg_warn "No GPU detected - skipping hardware acceleration setup"
+      return 0
+    fi
   fi
 
-  # Detect OS with fallbacks
-  local os_id os_codename
-  os_id=$(grep -oP '(?<=^ID=).+' /etc/os-release 2>/dev/null | tr -d '"' || grep '^ID=' /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"' || echo "debian")
-  os_codename=$(grep -oP '(?<=^VERSION_CODENAME=).+' /etc/os-release 2>/dev/null | tr -d '"' || grep '^VERSION_CODENAME=' /etc/os-release 2>/dev/null | cut -d'=' -f2 | tr -d '"' || echo "unknown")
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GPU Selection - Let user choose which GPU(s) to configure
+  # ═══════════════════════════════════════════════════════════════════════════
+  local -a SELECTED_INDICES=()
 
-  # Validate os_id
-  if [[ -z "$os_id" ]]; then
-    os_id="debian"
+  if [[ $gpu_count -eq 1 ]]; then
+    # Single GPU - auto-select
+    SELECTED_INDICES=(0)
+    msg_ok "Detected GPU: ${GPU_NAMES[0]} (${GPU_TYPES[0]})"
+  else
+    # Multiple GPUs - show selection menu
+    echo ""
+    msg_info "Multiple GPUs detected:"
+    echo ""
+    for i in "${!GPU_LIST[@]}"; do
+      local type_display="${GPU_TYPES[$i]}"
+      case "${GPU_TYPES[$i]}" in
+      INTEL_ARC) type_display="Intel Arc" ;;
+      INTEL_GEN9+) type_display="Intel Gen9+" ;;
+      INTEL_LEGACY) type_display="Intel Legacy" ;;
+      INTEL) type_display="Intel" ;;
+      AMD) type_display="AMD" ;;
+      AMD_APU) type_display="AMD APU" ;;
+      NVIDIA) type_display="NVIDIA" ;;
+      esac
+      printf "  %d) [%s] %s\n" "$((i + 1))" "$type_display" "${GPU_NAMES[$i]}"
+    done
+    printf "  A) Configure ALL GPUs\n"
+    echo ""
+
+    # Read with 60 second timeout
+    local selection=""
+    echo -n "Select GPU(s) to configure (1-${gpu_count}, A=all) [timeout 60s, default=all]: "
+    if read -r -t 60 selection; then
+      selection="${selection^^}" # uppercase
+    else
+      echo ""
+      msg_info "Timeout - configuring all GPUs automatically"
+      selection="A"
+    fi
+
+    # Parse selection
+    if [[ "$selection" == "A" || -z "$selection" ]]; then
+      # Select all
+      for i in "${!GPU_LIST[@]}"; do
+        SELECTED_INDICES+=("$i")
+      done
+    elif [[ "$selection" =~ ^[0-9,]+$ ]]; then
+      # Parse comma-separated numbers
+      IFS=',' read -ra nums <<<"$selection"
+      for num in "${nums[@]}"; do
+        num=$(echo "$num" | tr -d ' ')
+        if [[ "$num" =~ ^[0-9]+$ ]] && ((num >= 1 && num <= gpu_count)); then
+          SELECTED_INDICES+=("$((num - 1))")
+        fi
+      done
+    else
+      # Invalid - default to all
+      msg_warn "Invalid selection - configuring all GPUs"
+      for i in "${!GPU_LIST[@]}"; do
+        SELECTED_INDICES+=("$i")
+      done
+    fi
   fi
 
-  # Determine if we are on a VM or LXC
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OS Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+  local os_id os_codename os_version
+  os_id=$(grep -oP '(?<=^ID=).+' /etc/os-release 2>/dev/null | tr -d '"' || echo "debian")
+  os_codename=$(grep -oP '(?<=^VERSION_CODENAME=).+' /etc/os-release 2>/dev/null | tr -d '"' || echo "unknown")
+  os_version=$(grep -oP '(?<=^VERSION_ID=).+' /etc/os-release 2>/dev/null | tr -d '"' || echo "")
+  [[ -z "$os_id" ]] && os_id="debian"
+
   local in_ct="${CTTYPE:-0}"
 
-  case "$gpu_vendor" in
-  Intel)
-    if [[ "$os_id" == "ubuntu" ]]; then
-      $STD apt -y install intel-opencl-icd || {
-        msg_error "Failed to install intel-opencl-icd"
-        return 1
-      }
-    else
-      # For Debian: fetch Intel GPU drivers from GitHub
-      fetch_and_deploy_gh_release "" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-core-2_*_amd64.deb" || {
-        msg_warn "Failed to deploy Intel IGC core 2"
-      }
-      fetch_and_deploy_gh_release "" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-opencl-2_*_amd64.deb" || {
-        msg_warn "Failed to deploy Intel IGC OpenCL 2"
-      }
-      fetch_and_deploy_gh_release "" "intel/compute-runtime" "binary" "latest" "" "libigdgmm12_*_amd64.deb" || {
-        msg_warn "Failed to deploy Intel GDGMM12"
-      }
-      fetch_and_deploy_gh_release "" "intel/compute-runtime" "binary" "latest" "" "intel-opencl-icd_*_amd64.deb" || {
-        msg_warn "Failed to deploy Intel OpenCL ICD"
-      }
-    fi
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Process Selected GPUs
+  # ═══════════════════════════════════════════════════════════════════════════
+  for idx in "${SELECTED_INDICES[@]}"; do
+    local gpu_type="${GPU_TYPES[$idx]}"
+    local gpu_name="${GPU_NAMES[$idx]}"
 
-    $STD apt -y install va-driver-all ocl-icd-libopencl1 vainfo intel-gpu-tools || {
-      msg_error "Failed to install Intel GPU dependencies"
-      return 1
-    }
-    ;;
-  AMD)
-    $STD apt -y install mesa-va-drivers mesa-vdpau-drivers mesa-opencl-icd vainfo clinfo || {
-      msg_error "Failed to install AMD GPU dependencies"
-      return 1
-    }
+    msg_info "Configuring: ${gpu_name}"
 
-    # For AMD CPUs without discrete GPU (APUs)
-    if [[ "$cpu_vendor" == "AuthenticAMD" && -n "$gpu_vendor" ]]; then
-      $STD apt -y install libdrm-amdgpu1 firmware-amd-graphics || true
-    fi
-    ;;
-  NVIDIA)
-    # NVIDIA needs manual driver setup - skip for now
-    msg_info "NVIDIA GPU detected - manual driver setup required"
-    ;;
-  *)
-    # If no discrete GPU, but AMD CPU (e.g., Ryzen APU)
-    if [[ "$cpu_vendor" == "AuthenticAMD" ]]; then
-      $STD apt -y install mesa-opencl-icd ocl-icd-libopencl1 clinfo || {
-        msg_error "Failed to install Mesa OpenCL stack"
-        return 1
-      }
-    else
-      msg_warn "No supported GPU vendor detected - skipping GPU acceleration"
-    fi
-    ;;
-  esac
+    case "$gpu_type" in
+    # ─────────────────────────────────────────────────────────────────────────
+    # Intel Arc GPUs (DG1, DG2, Arc A-series)
+    # ─────────────────────────────────────────────────────────────────────────
+    INTEL_ARC)
+      _setup_intel_arc "$os_id" "$os_codename"
+      ;;
 
-  if [[ "$in_ct" == "0" ]]; then
-    chgrp video /dev/dri 2>/dev/null || true
-    chmod 755 /dev/dri 2>/dev/null || true
-    chmod 660 /dev/dri/* 2>/dev/null || true
-    $STD adduser "$(id -u -n)" video
-    $STD adduser "$(id -u -n)" render
-  fi
+    # ─────────────────────────────────────────────────────────────────────────
+    # Intel Gen 9+ (Skylake 2015+: UHD, Iris, HD 6xx+)
+    # ─────────────────────────────────────────────────────────────────────────
+    INTEL_GEN9+ | INTEL)
+      _setup_intel_modern "$os_id" "$os_codename"
+      ;;
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Intel Legacy (Gen 6-8: HD 2000-5999, Sandy Bridge to Broadwell)
+    # ─────────────────────────────────────────────────────────────────────────
+    INTEL_LEGACY)
+      _setup_intel_legacy "$os_id" "$os_codename"
+      ;;
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AMD Discrete GPUs
+    # ─────────────────────────────────────────────────────────────────────────
+    AMD)
+      _setup_amd_gpu "$os_id" "$os_codename"
+      ;;
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AMD APU (Integrated Graphics)
+    # ─────────────────────────────────────────────────────────────────────────
+    AMD_APU)
+      _setup_amd_apu "$os_id" "$os_codename"
+      ;;
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NVIDIA GPUs
+    # ─────────────────────────────────────────────────────────────────────────
+    NVIDIA)
+      _setup_nvidia_gpu "$os_id" "$os_codename" "$os_version"
+      ;;
+    esac
+  done
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Device Permissions
+  # ═══════════════════════════════════════════════════════════════════════════
+  _setup_gpu_permissions "$in_ct"
 
   cache_installed_version "hwaccel" "1.0"
   msg_ok "Setup Hardware Acceleration"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Intel Arc GPU Setup
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_intel_arc() {
+  local os_id="$1" os_codename="$2"
+
+  msg_info "Installing Intel Arc GPU drivers"
+
+  if [[ "$os_id" == "ubuntu" ]]; then
+    # Ubuntu 22.04+ has Arc support in HWE kernel
+    $STD apt -y install \
+      intel-media-va-driver-non-free \
+      intel-opencl-icd \
+      vainfo \
+      intel-gpu-tools 2>/dev/null || msg_warn "Some Intel Arc packages failed"
+
+  elif [[ "$os_id" == "debian" ]]; then
+    # Add non-free repos
+    _add_debian_nonfree "$os_codename"
+
+    # Arc requires latest drivers - fetch from GitHub
+    # Order matters: libigdgmm first (dependency), then IGC, then compute-runtime
+    msg_info "Fetching Intel compute-runtime for Arc support"
+
+    # libigdgmm - bundled in compute-runtime releases (Debian version often too old)
+    fetch_and_deploy_gh_release "libigdgmm12" "intel/compute-runtime" "binary" "latest" "" "libigdgmm12_*_amd64.deb" || true
+
+    # Intel Graphics Compiler (note: packages have -2 suffix)
+    fetch_and_deploy_gh_release "intel-igc-core" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-core-2_*_amd64.deb" || true
+    fetch_and_deploy_gh_release "intel-igc-opencl" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-opencl-2_*_amd64.deb" || true
+
+    # Compute Runtime (depends on IGC and gmmlib)
+    fetch_and_deploy_gh_release "intel-opencl-icd" "intel/compute-runtime" "binary" "latest" "" "intel-opencl-icd_*_amd64.deb" || true
+    fetch_and_deploy_gh_release "intel-level-zero-gpu" "intel/compute-runtime" "binary" "latest" "" "libze-intel-gpu1_*_amd64.deb" || true
+
+    $STD apt -y install \
+      intel-media-va-driver-non-free \
+      ocl-icd-libopencl1 \
+      libvpl2 \
+      vainfo \
+      intel-gpu-tools 2>/dev/null || msg_warn "Some Intel Arc packages failed"
+  fi
+
+  msg_ok "Intel Arc GPU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Intel Modern GPU Setup (Gen 9+)
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_intel_modern() {
+  local os_id="$1" os_codename="$2"
+
+  msg_info "Installing Intel Gen 9+ GPU drivers"
+
+  if [[ "$os_id" == "ubuntu" ]]; then
+    $STD apt -y install \
+      va-driver-all \
+      intel-media-va-driver \
+      ocl-icd-libopencl1 \
+      vainfo \
+      intel-gpu-tools 2>/dev/null || msg_warn "Some Intel packages failed"
+
+    # Try non-free driver for better codec support
+    $STD apt -y install intel-media-va-driver-non-free 2>/dev/null || true
+    $STD apt -y install intel-opencl-icd 2>/dev/null || true
+    $STD apt -y install libmfx-gen1.2 2>/dev/null || true
+
+  elif [[ "$os_id" == "debian" ]]; then
+    _add_debian_nonfree "$os_codename"
+
+    # For Trixie/Sid: Fetch from GitHub (Debian packages too old or missing)
+    if [[ "$os_codename" == "trixie" || "$os_codename" == "sid" ]]; then
+      msg_info "Fetching Intel compute-runtime from GitHub"
+
+      # libigdgmm first (bundled in compute-runtime releases)
+      fetch_and_deploy_gh_release "libigdgmm12" "intel/compute-runtime" "binary" "latest" "" "libigdgmm12_*_amd64.deb" || true
+
+      # Intel Graphics Compiler (note: packages have -2 suffix)
+      fetch_and_deploy_gh_release "intel-igc-core" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-core-2_*_amd64.deb" || true
+      fetch_and_deploy_gh_release "intel-igc-opencl" "intel/intel-graphics-compiler" "binary" "latest" "" "intel-igc-opencl-2_*_amd64.deb" || true
+
+      # Compute Runtime
+      fetch_and_deploy_gh_release "intel-opencl-icd" "intel/compute-runtime" "binary" "latest" "" "intel-opencl-icd_*_amd64.deb" || true
+    fi
+
+    $STD apt -y install \
+      intel-media-va-driver-non-free \
+      ocl-icd-libopencl1 \
+      vainfo \
+      libmfx-gen1.2 \
+      intel-gpu-tools 2>/dev/null || msg_warn "Some Intel packages failed"
+
+    # Bookworm has intel-opencl-icd in repos (compatible version)
+    [[ "$os_codename" == "bookworm" ]] && $STD apt -y install intel-opencl-icd libigdgmm12 2>/dev/null || true
+  fi
+
+  msg_ok "Intel Gen 9+ GPU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Intel Legacy GPU Setup (Gen 6-8)
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_intel_legacy() {
+  local os_id="$1" os_codename="$2"
+
+  msg_info "Installing Intel Legacy GPU drivers (Gen 6-8)"
+
+  # Legacy GPUs use i965 driver - stable repo packages only
+  $STD apt -y install \
+    va-driver-all \
+    i965-va-driver \
+    mesa-va-drivers \
+    ocl-icd-libopencl1 \
+    vainfo \
+    intel-gpu-tools 2>/dev/null || msg_warn "Some Intel legacy packages failed"
+
+  # beignet provides OpenCL for older Intel GPUs (if available)
+  $STD apt -y install beignet-opencl-icd 2>/dev/null || true
+
+  msg_ok "Intel Legacy GPU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AMD Discrete GPU Setup
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_amd_gpu() {
+  local os_id="$1" os_codename="$2"
+
+  msg_info "Installing AMD GPU drivers"
+
+  # Core Mesa drivers
+  $STD apt -y install \
+    mesa-va-drivers \
+    mesa-vdpau-drivers \
+    mesa-opencl-icd \
+    ocl-icd-libopencl1 \
+    libdrm-amdgpu1 \
+    vainfo \
+    clinfo 2>/dev/null || msg_warn "Some AMD packages failed"
+
+  # Firmware for AMD GPUs
+  if [[ "$os_id" == "debian" ]]; then
+    _add_debian_nonfree_firmware "$os_codename"
+    $STD apt -y install firmware-amd-graphics 2>/dev/null || msg_warn "AMD firmware not available"
+  fi
+  # Ubuntu includes AMD firmware in linux-firmware by default
+
+  # ROCm for compute (optional - large download)
+  # Uncomment if needed:
+  # $STD apt -y install rocm-opencl-runtime 2>/dev/null || true
+
+  msg_ok "AMD GPU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AMD APU Setup (Integrated Graphics)
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_amd_apu() {
+  local os_id="$1" os_codename="$2"
+
+  msg_info "Installing AMD APU drivers"
+
+  $STD apt -y install \
+    mesa-va-drivers \
+    mesa-vdpau-drivers \
+    mesa-opencl-icd \
+    ocl-icd-libopencl1 \
+    vainfo 2>/dev/null || msg_warn "Some AMD APU packages failed"
+
+  if [[ "$os_id" == "debian" ]]; then
+    _add_debian_nonfree_firmware "$os_codename"
+    $STD apt -y install firmware-amd-graphics 2>/dev/null || true
+  fi
+
+  msg_ok "AMD APU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NVIDIA GPU Setup
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_nvidia_gpu() {
+  local os_id="$1" os_codename="$2" os_version="$3"
+
+  msg_info "Installing NVIDIA GPU drivers"
+
+  # Detect host driver version (passed through via /proc)
+  local nvidia_host_version=""
+  if [[ -f /proc/driver/nvidia/version ]]; then
+    nvidia_host_version=$(grep "NVRM version:" /proc/driver/nvidia/version 2>/dev/null | awk '{print $8}')
+  fi
+
+  if [[ -z "$nvidia_host_version" ]]; then
+    msg_warn "NVIDIA host driver version not found in /proc/driver/nvidia/version"
+    msg_warn "Ensure NVIDIA drivers are installed on host and GPU passthrough is enabled"
+    $STD apt -y install va-driver-all vainfo 2>/dev/null || true
+    return 0
+  fi
+
+  msg_info "Host NVIDIA driver version: ${nvidia_host_version}"
+
+  if [[ "$os_id" == "debian" ]]; then
+    # Enable non-free components
+    if [[ -f /etc/apt/sources.list.d/debian.sources ]]; then
+      if ! grep -q "non-free" /etc/apt/sources.list.d/debian.sources 2>/dev/null; then
+        sed -i -E 's/Components: (.*)$/Components: \1 contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+      fi
+    fi
+
+    # Determine CUDA repository
+    local cuda_repo="debian12"
+    case "$os_codename" in
+    bullseye) cuda_repo="debian11" ;;
+    bookworm) cuda_repo="debian12" ;;
+    trixie | sid) cuda_repo="debian12" ;; # Forward compatible
+    esac
+
+    # Add NVIDIA CUDA repository
+    if [[ ! -f /usr/share/keyrings/cuda-archive-keyring.gpg ]]; then
+      msg_info "Adding NVIDIA CUDA repository (${cuda_repo})"
+      local cuda_keyring
+      cuda_keyring="$(mktemp)"
+      if curl -fsSL -o "$cuda_keyring" "https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/x86_64/cuda-keyring_1.1-1_all.deb" 2>/dev/null; then
+        $STD dpkg -i "$cuda_keyring" 2>/dev/null || true
+      else
+        msg_warn "Failed to download NVIDIA CUDA keyring"
+      fi
+      rm -f "$cuda_keyring"
+    fi
+
+    # Pin NVIDIA repo for version matching
+    cat <<'NVIDIA_PIN' >/etc/apt/preferences.d/nvidia-cuda-pin
+Package: *
+Pin: origin developer.download.nvidia.com
+Pin-Priority: 1001
+NVIDIA_PIN
+
+    $STD apt -y update
+
+    # Install version-matched NVIDIA libraries
+    local nvidia_pkgs="libcuda1=${nvidia_host_version}* libnvcuvid1=${nvidia_host_version}* libnvidia-encode1=${nvidia_host_version}* libnvidia-ml1=${nvidia_host_version}*"
+
+    msg_info "Installing NVIDIA libraries (version ${nvidia_host_version})"
+    if $STD apt -y install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
+      msg_ok "Installed version-matched NVIDIA libraries"
+    else
+      msg_warn "Version-pinned install failed - trying unpinned"
+      if $STD apt -y install --no-install-recommends libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null; then
+        msg_warn "Installed NVIDIA libraries (unpinned) - version mismatch may occur"
+      else
+        msg_warn "NVIDIA library installation failed"
+      fi
+    fi
+
+    $STD apt -y install --no-install-recommends nvidia-smi 2>/dev/null || true
+
+  elif [[ "$os_id" == "ubuntu" ]]; then
+    # Ubuntu versioning
+    local ubuntu_cuda_repo=""
+    case "$os_version" in
+    22.04) ubuntu_cuda_repo="ubuntu2204" ;;
+    24.04) ubuntu_cuda_repo="ubuntu2404" ;;
+    *) ubuntu_cuda_repo="ubuntu2204" ;; # Fallback
+    esac
+
+    # Add NVIDIA CUDA repository for Ubuntu
+    if [[ ! -f /usr/share/keyrings/cuda-archive-keyring.gpg ]]; then
+      msg_info "Adding NVIDIA CUDA repository (${ubuntu_cuda_repo})"
+      local cuda_keyring
+      cuda_keyring="$(mktemp)"
+      if curl -fsSL -o "$cuda_keyring" "https://developer.download.nvidia.com/compute/cuda/repos/${ubuntu_cuda_repo}/x86_64/cuda-keyring_1.1-1_all.deb" 2>/dev/null; then
+        $STD dpkg -i "$cuda_keyring" 2>/dev/null || true
+      else
+        msg_warn "Failed to download NVIDIA CUDA keyring"
+      fi
+      rm -f "$cuda_keyring"
+    fi
+
+    $STD apt -y update
+
+    # Try version-matched install
+    local nvidia_pkgs="libcuda1=${nvidia_host_version}* libnvcuvid1=${nvidia_host_version}* libnvidia-encode1=${nvidia_host_version}* libnvidia-ml1=${nvidia_host_version}*"
+    if $STD apt -y install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
+      msg_ok "Installed version-matched NVIDIA libraries"
+    else
+      # Fallback to Ubuntu repo packages
+      $STD apt -y install --no-install-recommends libnvidia-decode libnvidia-encode nvidia-utils 2>/dev/null || msg_warn "NVIDIA installation failed"
+    fi
+  fi
+
+  # VA-API for hybrid setups (Intel + NVIDIA)
+  $STD apt -y install va-driver-all vainfo 2>/dev/null || true
+
+  msg_ok "NVIDIA GPU configured"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Helper: Add Debian non-free repositories
+# ══════════════════════════════════════════════════════════════════════════════
+_add_debian_nonfree() {
+  local os_codename="$1"
+
+  [[ -f /etc/apt/sources.list.d/non-free.sources ]] && return 0
+
+  case "$os_codename" in
+  bullseye)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: bullseye bullseye-updates
+Components: non-free
+EOF
+    ;;
+  bookworm)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: bookworm bookworm-updates
+Components: non-free non-free-firmware
+EOF
+    ;;
+  trixie | sid)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie trixie-updates
+Components: non-free non-free-firmware
+
+Types: deb
+URIs: http://deb.debian.org/debian-security
+Suites: trixie-security
+Components: non-free non-free-firmware
+EOF
+    ;;
+  esac
+  $STD apt -y update
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Helper: Add Debian non-free-firmware repository
+# ══════════════════════════════════════════════════════════════════════════════
+_add_debian_nonfree_firmware() {
+  local os_codename="$1"
+
+  [[ -f /etc/apt/sources.list.d/non-free-firmware.sources ]] && return 0
+
+  case "$os_codename" in
+  bullseye)
+    # Debian 11 uses 'non-free' component (no separate non-free-firmware)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free-firmware.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: bullseye bullseye-updates
+Components: non-free
+
+Types: deb
+URIs: http://deb.debian.org/debian-security
+Suites: bullseye-security
+Components: non-free
+EOF
+    ;;
+  bookworm)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free-firmware.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: bookworm bookworm-updates
+Components: non-free-firmware
+
+Types: deb
+URIs: http://deb.debian.org/debian-security
+Suites: bookworm-security
+Components: non-free-firmware
+EOF
+    ;;
+  trixie | sid)
+    cat <<'EOF' >/etc/apt/sources.list.d/non-free-firmware.sources
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie trixie-updates
+Components: non-free-firmware
+
+Types: deb
+URIs: http://deb.debian.org/debian-security
+Suites: trixie-security
+Components: non-free-firmware
+EOF
+    ;;
+  esac
+  $STD apt -y update
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Helper: Setup GPU device permissions
+# ══════════════════════════════════════════════════════════════════════════════
+_setup_gpu_permissions() {
+  local in_ct="$1"
+
+  # /dev/dri permissions (Intel/AMD)
+  if [[ "$in_ct" == "0" && -d /dev/dri ]]; then
+    if ls /dev/dri/card* /dev/dri/renderD* &>/dev/null; then
+      chgrp video /dev/dri 2>/dev/null || true
+      chmod 755 /dev/dri 2>/dev/null || true
+      chmod 660 /dev/dri/* 2>/dev/null || true
+      $STD adduser "$(id -u -n)" video 2>/dev/null || true
+      $STD adduser "$(id -u -n)" render 2>/dev/null || true
+
+      # Sync GID with host
+      local host_video_gid host_render_gid
+      host_video_gid=$(getent group video | cut -d: -f3)
+      host_render_gid=$(getent group render | cut -d: -f3)
+      if [[ -n "$host_video_gid" ]]; then
+        sed -i "s/^video:x:[0-9]*:/video:x:$host_video_gid:/" /etc/group 2>/dev/null || true
+      fi
+      if [[ -n "$host_render_gid" ]]; then
+        sed -i "s/^render:x:[0-9]*:/render:x:$host_render_gid:/" /etc/group 2>/dev/null || true
+      fi
+
+      # Verify VA-API
+      if command -v vainfo &>/dev/null; then
+        if vainfo &>/dev/null; then
+          msg_info "VA-API verified and working"
+        else
+          msg_warn "vainfo test failed - check GPU passthrough"
+        fi
+      fi
+    fi
+  fi
+
+  # /dev/nvidia* permissions (NVIDIA)
+  if ls /dev/nvidia* &>/dev/null 2>&1; then
+    msg_info "Configuring NVIDIA device permissions"
+    for nvidia_dev in /dev/nvidia*; do
+      [[ -e "$nvidia_dev" ]] && {
+        chgrp video "$nvidia_dev" 2>/dev/null || true
+        chmod 666 "$nvidia_dev" 2>/dev/null || true
+      }
+    done
+    if [[ -d /dev/nvidia-caps ]]; then
+      chmod 755 /dev/nvidia-caps 2>/dev/null || true
+      for caps_dev in /dev/nvidia-caps/*; do
+        [[ -e "$caps_dev" ]] && {
+          chgrp video "$caps_dev" 2>/dev/null || true
+          chmod 666 "$caps_dev" 2>/dev/null || true
+        }
+      done
+    fi
+
+    # Verify nvidia-smi
+    if command -v nvidia-smi &>/dev/null; then
+      if nvidia-smi &>/dev/null; then
+        msg_info "nvidia-smi verified and working"
+      else
+        msg_warn "nvidia-smi test failed - check driver version match"
+      fi
+    fi
+  fi
+
+  # /dev/kfd permissions (AMD ROCm)
+  if [[ -e /dev/kfd ]]; then
+    chmod 666 /dev/kfd 2>/dev/null || true
+    msg_info "AMD ROCm compute device configured"
+  fi
 }
 
 # ------------------------------------------------------------------------------
@@ -2953,12 +3566,12 @@ setup_mariadb() {
   # Resolve "latest" to actual version
   if [[ "$MARIADB_VERSION" == "latest" ]]; then
     if ! curl -fsI --max-time 10 http://mirror.mariadb.org/repo/ >/dev/null 2>&1; then
-       msg_warn "MariaDB mirror not reachable - trying mariadb_repo_setup fallback"
+      msg_warn "MariaDB mirror not reachable - trying mariadb_repo_setup fallback"
       # Try using official mariadb_repo_setup script as fallback
       if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
         msg_ok "MariaDB repository configured via mariadb_repo_setup"
         # Extract version from configured repo
-        MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")Expand commentComment on line R2948ResolvedCode has comments. Press enter to view.
+        MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")
       else
         msg_warn "mariadb_repo_setup failed - using hardcoded fallback version"
         MARIADB_VERSION="12.2"
@@ -2972,7 +3585,7 @@ setup_mariadb() {
         head -n1 || echo "")
 
       if [[ -z "$MARIADB_VERSION" ]]; then
-         msg_warn "Could not parse latest GA MariaDB version from mirror - trying mariadb_repo_setup"
+        msg_warn "Could not parse latest GA MariaDB version from mirror - trying mariadb_repo_setup"
         if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
           msg_ok "MariaDB repository configured via mariadb_repo_setup"
           MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")
@@ -3075,6 +3688,31 @@ setup_mariadb() {
       return 1
     }
   fi
+
+  # Configure tmpfiles.d to ensure /run/mysqld directory is created on boot
+  # This fixes the issue where MariaDB fails to start after container reboot
+  msg_info "Configuring MariaDB runtime directory persistence"
+
+  # Create tmpfiles.d configuration with error handling
+  if ! printf '# Ensure /run/mysqld directory exists with correct permissions for MariaDB\nd /run/mysqld 0755 mysql mysql -\n' >/etc/tmpfiles.d/mariadb.conf; then
+    msg_warn "Failed to create /etc/tmpfiles.d/mariadb.conf - runtime directory may not persist on reboot"
+  fi
+
+  # Create the directory now if it doesn't exist
+  # Verify mysql user exists before attempting ownership change
+  if [[ ! -d /run/mysqld ]]; then
+    mkdir -p /run/mysqld
+    # Set permissions first (works regardless of user existence)
+    chmod 755 /run/mysqld
+    # Set ownership only if mysql user exists
+    if getent passwd mysql >/dev/null 2>&1; then
+      chown mysql:mysql /run/mysqld
+    else
+      msg_warn "mysql user not found - directory created with correct permissions but ownership not set"
+    fi
+  fi
+
+  msg_ok "Configured MariaDB runtime directory persistence"
 
   cache_installed_version "mariadb" "$MARIADB_VERSION"
   msg_ok "Setup MariaDB $MARIADB_VERSION"
@@ -3568,19 +4206,19 @@ function setup_nodejs() {
 
       # Check if the module is already installed
       if $STD npm list -g --depth=0 "$MODULE_NAME" 2>&1 | grep -q "$MODULE_NAME@"; then
-        MODULE_INSTALLED_VERSION="$($STD npm list -g --depth=0 "$MODULE_NAME" 2>&1 | grep "$MODULE_NAME@" | awk -F@ '{print $2}' | tr -d '[:space:]')"
+        MODULE_INSTALLED_VERSION="$(npm list -g --depth=0 "$MODULE_NAME" 2>&1 | grep "$MODULE_NAME@" | awk -F@ '{print $2}' 2>/dev/null | tr -d '[:space:]' || echo '')"
         if [[ "$MODULE_REQ_VERSION" != "latest" && "$MODULE_REQ_VERSION" != "$MODULE_INSTALLED_VERSION" ]]; then
           msg_info "Updating $MODULE_NAME from v$MODULE_INSTALLED_VERSION to v$MODULE_REQ_VERSION"
           if ! $STD npm install -g "${MODULE_NAME}@${MODULE_REQ_VERSION}" 2>/dev/null; then
             msg_warn "Failed to update $MODULE_NAME to version $MODULE_REQ_VERSION"
-            ((failed_modules++))
+            ((failed_modules++)) || true
             continue
           fi
         elif [[ "$MODULE_REQ_VERSION" == "latest" ]]; then
           msg_info "Updating $MODULE_NAME to latest version"
           if ! $STD npm install -g "${MODULE_NAME}@latest" 2>/dev/null; then
             msg_warn "Failed to update $MODULE_NAME to latest version"
-            ((failed_modules++))
+            ((failed_modules++)) || true
             continue
           fi
         fi
@@ -3588,7 +4226,7 @@ function setup_nodejs() {
         msg_info "Installing $MODULE_NAME@$MODULE_REQ_VERSION"
         if ! $STD npm install -g "${MODULE_NAME}@${MODULE_REQ_VERSION}" 2>/dev/null; then
           msg_warn "Failed to install $MODULE_NAME@$MODULE_REQ_VERSION"
-          ((failed_modules++))
+          ((failed_modules++)) || true
           continue
         fi
       fi
@@ -3687,7 +4325,7 @@ EOF
 
   # Get available PHP version from repository
   local AVAILABLE_PHP_VERSION=""
-  AVAILABLE_PHP_VERSION=$(apt-cache show "php${PHP_VERSION}" 2>/dev/null | grep -m1 "^Version:" | awk '{print $2}' | cut -d- -f1) || true
+  AVAILABLE_PHP_VERSION=$(apt-cache show "php${PHP_VERSION}" 2>/dev/null | grep -m1 "^Version:" | awk '{print $2}' 2>/dev/null | cut -d- -f1 || true)
 
   if [[ -z "$AVAILABLE_PHP_VERSION" ]]; then
     msg_error "PHP ${PHP_VERSION} not found in configured repositories"
@@ -4405,7 +5043,7 @@ function setup_rust() {
   # Get currently installed version
   local CURRENT_VERSION=""
   if command -v rustc &>/dev/null; then
-    CURRENT_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+    CURRENT_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}' 2>/dev/null) || true
   fi
 
   # Scenario 1: Rustup not installed - fresh install
@@ -4424,7 +5062,8 @@ function setup_rust() {
       return 1
     fi
 
-    local RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+    local RUST_VERSION
+    RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}' 2>/dev/null) || true
     if [[ -z "$RUST_VERSION" ]]; then
       msg_error "Failed to determine Rust version"
       return 1
@@ -4455,7 +5094,8 @@ function setup_rust() {
     # Ensure PATH is updated for current shell session
     export PATH="$CARGO_BIN:$PATH"
 
-    local RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+    local RUST_VERSION
+    RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}' 2>/dev/null) || true
     if [[ -z "$RUST_VERSION" ]]; then
       msg_error "Failed to determine Rust version after update"
       return 1
@@ -4487,7 +5127,7 @@ function setup_rust() {
 
       # Check if already installed
       if echo "$CRATE_LIST" | grep -q "^${NAME} "; then
-        INSTALLED_VER=$(echo "$CRATE_LIST" | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+        INSTALLED_VER=$(echo "$CRATE_LIST" | grep "^${NAME} " | head -1 | awk '{print $2}' 2>/dev/null | tr -d 'v:' || echo '')
 
         if [[ -n "$VER" && "$VER" != "$INSTALLED_VER" ]]; then
           msg_info "Upgrading $NAME from v$INSTALLED_VER to v$VER"
@@ -4502,7 +5142,7 @@ function setup_rust() {
             msg_error "Failed to upgrade $NAME"
             return 1
           }
-          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' 2>/dev/null | tr -d 'v:' || echo 'unknown')
           msg_ok "Upgraded $NAME to v$NEW_VER"
         else
           msg_ok "$NAME v$INSTALLED_VER already installed"
@@ -4520,7 +5160,7 @@ function setup_rust() {
             msg_error "Failed to install $NAME"
             return 1
           }
-          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' | tr -d 'v:')
+          local NEW_VER=$(cargo install --list 2>/dev/null | grep "^${NAME} " | head -1 | awk '{print $2}' 2>/dev/null | tr -d 'v:' || echo 'unknown')
           msg_ok "Installed $NAME v$NEW_VER"
         fi
       fi
@@ -4842,7 +5482,7 @@ function setup_docker() {
   # Install or upgrade Docker
   if [ "$docker_installed" = true ]; then
     msg_info "Checking for Docker updates"
-    DOCKER_LATEST_VERSION=$(apt-cache policy docker-ce | grep Candidate | awk '{print $2}' | cut -d':' -f2 | cut -d'-' -f1)
+    DOCKER_LATEST_VERSION=$(apt-cache policy docker-ce | grep Candidate | awk '{print $2}' 2>/dev/null | cut -d':' -f2 | cut -d'-' -f1 || echo '')
 
     if [ "$DOCKER_CURRENT_VERSION" != "$DOCKER_LATEST_VERSION" ]; then
       msg_info "Updating Docker $DOCKER_CURRENT_VERSION → $DOCKER_LATEST_VERSION"
