@@ -975,9 +975,6 @@ main() {
     # Check Node.js version
     check_node_version
 
-    #Update Node.js to 24
-    upgrade_node_to_24
-
     # Download and extract release
     local source_dir
     source_dir=$(download_release "$release_info")
