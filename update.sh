@@ -710,11 +710,14 @@ install_and_build() {
     log "Building application..."
     # Set NODE_ENV to production for build
     export NODE_ENV=production
+    # Unset TURBOPACK to prevent "Multiple bundler flags" error with --webpack
+    unset TURBOPACK 2>/dev/null || true
+    export TURBOPACK=''
 
     # Create temporary file for npm build output
     local build_log="/tmp/npm_build_$$.log"
 
-    if ! npm run build >"$build_log" 2>&1; then
+    if ! TURBOPACK='' npm run build >"$build_log" 2>&1; then
         log_error "Failed to build application"
         log_error "npm run build output:"
         cat "$build_log" | while read -r line; do
@@ -778,6 +781,23 @@ start_with_npm() {
     else
         log_error "Failed to start application with npm"
         return 1
+    fi
+}
+
+# Re-enable the systemd service on failure to prevent users from being locked out
+re_enable_service_on_failure() {
+    if check_service; then
+        log "Re-enabling systemd service after failure..."
+        if systemctl enable pvescriptslocal.service 2>/dev/null; then
+            log_success "Service re-enabled"
+            if systemctl start pvescriptslocal.service 2>/dev/null; then
+                log_success "Service started"
+            else
+                log_warning "Failed to start service - manual intervention may be required"
+            fi
+        else
+            log_warning "Failed to re-enable service - manual intervention may be required"
+        fi
     fi
 }
 
@@ -852,6 +872,9 @@ rollback() {
         log_error "No backup directory found for rollback"
     fi
 
+    # Re-enable the service so users aren't locked out
+    re_enable_service_on_failure
+
     log_error "Update failed. Please check the logs and try again."
     exit 1
 }
@@ -870,14 +893,14 @@ check_node_version() {
 
     log "Detected Node.js version: $current"
 
-    if ((major_version < 24)); then
+    if ((major_version == 24)); then
+        log_success "Node.js 24 already installed"
+    elif ((major_version < 24)); then
         log_warning "Node.js < 24 detected → upgrading to Node.js 24 LTS..."
         upgrade_node_to_24
-    elif ((major_version > 24)); then
+    else
         log_warning "Node.js > 24 detected → script tested only up to Node 24"
         log "Continuing anyway…"
-    else
-        log_success "Node.js 24 already installed"
     fi
 }
 
@@ -885,22 +908,39 @@ check_node_version() {
 upgrade_node_to_24() {
     log "Preparing Node.js 24 upgrade…"
 
-    # Remove old nodesource repo if it exists
+    # Remove old nodesource repo files if they exist
     if [ -f /etc/apt/sources.list.d/nodesource.list ]; then
+        log "Removing old nodesource.list file..."
         rm -f /etc/apt/sources.list.d/nodesource.list
     fi
+    if [ -f /etc/apt/sources.list.d/nodesource.sources ]; then
+        log "Removing old nodesource.sources file..."
+        rm -f /etc/apt/sources.list.d/nodesource.sources
+    fi
+
+    # Update apt cache first
+    log "Updating apt cache..."
+    apt-get update >>"$LOG_FILE" 2>&1 || true
 
     # Install NodeSource repo for Node.js 24
-    curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/node24_setup.sh
+    log "Downloading Node.js 24 setup script..."
+    if ! curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/node24_setup.sh; then
+        log_error "Failed to download Node.js 24 setup script"
+        re_enable_service_on_failure
+        exit 1
+    fi
+
     if ! bash /tmp/node24_setup.sh >/tmp/node24_setup.log 2>&1; then
         log_error "Failed to configure Node.js 24 repository"
         tail -20 /tmp/node24_setup.log | while read -r line; do log_error "$line"; done
+        re_enable_service_on_failure
         exit 1
     fi
 
     log "Installing Node.js 24…"
     if ! apt-get install -y nodejs >>"$LOG_FILE" 2>&1; then
         log_error "Failed to install Node.js 24"
+        re_enable_service_on_failure
         exit 1
     fi
 
