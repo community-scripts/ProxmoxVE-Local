@@ -1610,6 +1610,7 @@ class ScriptExecutionHandler {
 // TerminalHandler removed - not used by current application
 
 app.prepare().then(() => {
+  console.log('> Next.js app prepared successfully');
   const httpServer = createServer(async (req, res) => {
     try {
       // Be sure to pass `true` as the second argument to `url.parse`.
@@ -1715,4 +1716,9 @@ app.prepare().then(() => {
         autoSyncModule.setupGracefulShutdown();
       }
     });
+}).catch((err) => {
+  console.error('> Failed to start server:', err.message);
+  console.error('> If you see "Could not find a production build", run: npm run build');
+  console.error('> Full error:', err);
+  process.exit(1);
 });
