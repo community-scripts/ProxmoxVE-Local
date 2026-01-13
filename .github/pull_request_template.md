@@ -4,7 +4,7 @@
 
 
 ## 🔗 Related PR / Issue  
-Link: #
+Fixes: #
 
 
 ## ✅ Prerequisites  (**X** in brackets) 
