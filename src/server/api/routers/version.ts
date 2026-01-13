@@ -238,6 +238,27 @@ export const versionRouter = createTRPCRouter({
         // Clear/create the log file
         await writeFile(logPath, '', 'utf-8');
         
+        // Always fetch the latest update.sh from GitHub before running
+        // This ensures we always use the newest update script, avoiding
+        // the "chicken-and-egg" problem where old scripts can't update properly
+        const updateScriptUrl = 'https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/update.sh';
+        try {
+          const response = await fetch(updateScriptUrl);
+          if (response.ok) {
+            const latestScript = await response.text();
+            await writeFile(updateScriptPath, latestScript, { mode: 0o755 });
+            // Log that we fetched the latest script
+            await writeFile(logPath, '[INFO] Fetched latest update.sh from GitHub\n', { flag: 'a' });
+          } else {
+            // If fetch fails, log warning but continue with local script
+            await writeFile(logPath, `[WARNING] Could not fetch latest update.sh (HTTP ${response.status}), using local version\n`, { flag: 'a' });
+          }
+        } catch (fetchError) {
+          // If fetch fails, log warning but continue with local script
+          const errorMsg = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+          await writeFile(logPath, `[WARNING] Could not fetch latest update.sh: ${errorMsg}, using local version\n`, { flag: 'a' });
+        }
+        
         // Spawn the update script as a detached process using nohup
         // This allows it to run independently and kill the parent Node.js process
         // Redirect output to log file
