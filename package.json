@@ -73,7 +73,7 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.10.8",
+    "@types/node": "^24.10.9",
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
