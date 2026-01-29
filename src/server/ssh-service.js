@@ -169,16 +169,17 @@ class SSHService {
       const timeout = 10000;
       let resolved = false;
       
+      // Pass password via env so it is not embedded in the script (safe for special chars like {, $, ").
       const expectScript = `#!/usr/bin/expect -f
 set timeout 10
 spawn ssh -p ${ssh_port} -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o PasswordAuthentication=yes -o PubkeyAuthentication=no ${user}@${ip} "echo SSH_LOGIN_SUCCESS"
 expect {
   "password:" {
-    send "${password}\r"
+    send "$env(SSH_PASSWORD)\\r"
     exp_continue
   }
   "Password:" {
-    send "${password}\r"
+    send "$env(SSH_PASSWORD)\\r"
     exp_continue
   }
   "SSH_LOGIN_SUCCESS" {
@@ -193,7 +194,8 @@ expect {
 }`;
 
       const expectCommand = spawn('expect', ['-c', expectScript], {
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, SSH_PASSWORD: password ?? '' }
       });
 
       const timer = setTimeout(() => {
