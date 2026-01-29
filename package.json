@@ -91,7 +91,7 @@
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.53.0",
+    "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.17"
   },
   "ct3aMetadata": {
