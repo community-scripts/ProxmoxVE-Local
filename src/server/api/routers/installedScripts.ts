@@ -418,44 +418,46 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
       return false; // Default to LXC if SSH fails
     }
     
-    // Check both config file paths
-    const vmConfigPath = `/etc/pve/qemu-server/${containerId}.conf`;
-    const lxcConfigPath = `/etc/pve/lxc/${containerId}.conf`;
-    
-    // Check VM config file
-    let vmConfigExists = false;
-    await new Promise<void>((resolve) => {
-      void sshExecutionService.executeCommand(
-        server as Server,
-        `test -f "${vmConfigPath}" && echo "exists" || echo "not_exists"`,
-        (data: string) => {
-          if (data.includes('exists')) {
-            vmConfigExists = true;
-          }
-        },
-        () => resolve(),
-        () => resolve()
-      );
-    });
-    
-    if (vmConfigExists) {
-      return true; // VM config file exists
-    }
-    
-    // Check LXC config file (not needed for return value, but check for completeness)
-    await new Promise<void>((resolve) => {
-      void sshExecutionService.executeCommand(
-        server as Server,
-        `test -f "${lxcConfigPath}" && echo "exists" || echo "not_exists"`,
-        (_data: string) => {
-          // Data handler not needed - just checking if file exists
-        },
-        () => resolve(),
-        () => resolve()
-      );
-    });
+    // Node-specific paths (multi-node Proxmox: /etc/pve/nodes/NODENAME/...)
+    const nodeName = (server as Server).name;
+    const vmConfigPathNode = `/etc/pve/nodes/${nodeName}/qemu-server/${containerId}.conf`;
+    const lxcConfigPathNode = `/etc/pve/nodes/${nodeName}/lxc/${containerId}.conf`;
+    // Fallback for single-node or when server.name is not the Proxmox node name
+    const vmConfigPathFallback = `/etc/pve/qemu-server/${containerId}.conf`;
+    const lxcConfigPathFallback = `/etc/pve/lxc/${containerId}.conf`;
 
-    return false; // Always LXC since VM config doesn't exist
+    const checkPathExists = (path: string): Promise<boolean> =>
+      new Promise<boolean>((resolve) => {
+        let exists = false;
+        void sshExecutionService.executeCommand(
+          server as Server,
+          `test -f "${path}" && echo "exists" || echo "not_exists"`,
+          (data: string) => {
+            if (data.includes('exists')) exists = true;
+          },
+          () => resolve(exists),
+          () => resolve(exists)
+        );
+      });
+
+    // Prefer node-specific paths first
+    const vmConfigExistsNode = await checkPathExists(vmConfigPathNode);
+    if (vmConfigExistsNode) {
+      return true; // VM config file exists on node
+    }
+
+    const lxcConfigExistsNode = await checkPathExists(lxcConfigPathNode);
+    if (lxcConfigExistsNode) {
+      return false; // LXC config file exists on node
+    }
+
+    // Fallback: single-node or server.name not matching Proxmox node name
+    const vmConfigExistsFallback = await checkPathExists(vmConfigPathFallback);
+    if (vmConfigExistsFallback) {
+      return true;
+    }
+
+    return false; // LXC (or neither path exists)
   } catch (error) {
     console.error('Error determining container type:', error);
     return false; // Default to LXC on error
@@ -971,10 +973,11 @@ export const installedScriptsRouter = createTRPCRouter({
         };
 
         // Helper function to check config file for community-script tag and extract hostname/name
+        const nodeName = (server as Server).name;
         const checkConfigAndExtractInfo = async (id: string, isVM: boolean): Promise<any> => {
           const configPath = isVM 
-            ? `/etc/pve/qemu-server/${id}.conf`
-            : `/etc/pve/lxc/${id}.conf`;
+            ? `/etc/pve/nodes/${nodeName}/qemu-server/${id}.conf`
+            : `/etc/pve/nodes/${nodeName}/lxc/${id}.conf`;
           
           const readCommand = `cat "${configPath}" 2>/dev/null`;
           
@@ -1318,10 +1321,10 @@ export const installedScriptsRouter = createTRPCRouter({
                 
                 // Check if ID exists in either pct list (containers) or qm list (VMs)
                 if (!existingIds.has(containerId)) {
-                  // Also verify config file doesn't exist as a double-check
-                  // Check both container and VM config paths
-                  const checkContainerCommand = `test -f "/etc/pve/lxc/${containerId}.conf" && echo "exists" || echo "not_found"`;
-                  const checkVMCommand = `test -f "/etc/pve/qemu-server/${containerId}.conf" && echo "exists" || echo "not_found"`;
+                  // Also verify config file doesn't exist as a double-check (node-specific paths)
+                  const nodeName = (server as Server).name;
+                  const checkContainerCommand = `test -f "/etc/pve/nodes/${nodeName}/lxc/${containerId}.conf" && echo "exists" || echo "not_found"`;
+                  const checkVMCommand = `test -f "/etc/pve/nodes/${nodeName}/qemu-server/${containerId}.conf" && echo "exists" || echo "not_found"`;
                   
                   const configExists = await new Promise<boolean>((resolve) => {
                     let combinedOutput = '';
@@ -2237,8 +2240,9 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        // Read config file
-        const configPath = `/etc/pve/lxc/${script.container_id}.conf`;
+        // Read config file (node-specific path)
+        const nodeName = (server as Server).name;
+        const configPath = `/etc/pve/nodes/${nodeName}/lxc/${script.container_id}.conf`;
         const readCommand = `cat "${configPath}" 2>/dev/null`;
         let rawConfig = '';
         
@@ -2368,8 +2372,9 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        // Write config file using heredoc for safe escaping
-        const configPath = `/etc/pve/lxc/${script.container_id}.conf`;
+        // Write config file using heredoc for safe escaping (node-specific path)
+        const nodeName = (server as Server).name;
+        const configPath = `/etc/pve/nodes/${nodeName}/lxc/${script.container_id}.conf`;
         const writeCommand = `cat > "${configPath}" << 'EOFCONFIG'
 ${rawConfig}
 EOFCONFIG`;
@@ -2777,9 +2782,10 @@ EOFCONFIG`;
         const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
         const sshExecutionService = getSSHExecutionService();
         
+        const nodeName = (server as Server).name;
         const configPath = input.containerType === 'lxc' 
-          ? `/etc/pve/lxc/${input.containerId}.conf`
-          : `/etc/pve/qemu-server/${input.containerId}.conf`;
+          ? `/etc/pve/nodes/${nodeName}/lxc/${input.containerId}.conf`
+          : `/etc/pve/nodes/${nodeName}/qemu-server/${input.containerId}.conf`;
         
         let configContent = '';
         await new Promise<void>((resolve) => {
@@ -3171,10 +3177,11 @@ EOFCONFIG`;
         const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
         const sshExecutionService = getSSHExecutionService();
         
-        // Read config file to get hostname/name
+        // Read config file to get hostname/name (node-specific path)
+        const nodeName = (server as Server).name;
         const configPath = input.containerType === 'lxc' 
-          ? `/etc/pve/lxc/${input.containerId}.conf`
-          : `/etc/pve/qemu-server/${input.containerId}.conf`;
+          ? `/etc/pve/nodes/${nodeName}/lxc/${input.containerId}.conf`
+          : `/etc/pve/nodes/${nodeName}/qemu-server/${input.containerId}.conf`;
         
         let configContent = '';
         await new Promise<void>((resolve) => {

@@ -1153,10 +1153,11 @@ class ScriptExecutionHandler {
         const hostname = hostnames[i];
         
         try {
-          // Read config file to get hostname/name
+          // Read config file to get hostname/name (node-specific path)
+          const nodeName = server.name;
           const configPath = containerType === 'lxc' 
-            ? `/etc/pve/lxc/${nextId}.conf`
-            : `/etc/pve/qemu-server/${nextId}.conf`;
+            ? `/etc/pve/nodes/${nodeName}/lxc/${nextId}.conf`
+            : `/etc/pve/nodes/${nodeName}/qemu-server/${nextId}.conf`;
           
           let configContent = '';
           await new Promise(/** @type {(resolve: (value?: void) => void) => void} */ ((resolve) => {
