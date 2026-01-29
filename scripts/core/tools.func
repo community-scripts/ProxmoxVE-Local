@@ -184,7 +184,10 @@ install_packages_with_retry() {
   local retry=0
 
   while [[ $retry -le $max_retries ]]; do
-    if $STD apt install -y "${packages[@]}" 2>/dev/null; then
+    if DEBIAN_FRONTEND=noninteractive $STD apt install -y \
+      -o Dpkg::Options::="--force-confdef" \
+      -o Dpkg::Options::="--force-confold" \
+      "${packages[@]}" 2>/dev/null; then
       return 0
     fi
 
@@ -211,7 +214,10 @@ upgrade_packages_with_retry() {
   local retry=0
 
   while [[ $retry -le $max_retries ]]; do
-    if $STD apt install --only-upgrade -y "${packages[@]}" 2>/dev/null; then
+    if DEBIAN_FRONTEND=noninteractive $STD apt install --only-upgrade -y \
+      -o Dpkg::Options::="--force-confdef" \
+      -o Dpkg::Options::="--force-confold" \
+      "${packages[@]}" 2>/dev/null; then
       return 0
     fi
 
@@ -568,7 +574,8 @@ EOF
       msg_error "Failed to download PHP keyring"
       return 1
     }
-    dpkg -i /tmp/debsuryorg-archive-keyring.deb >/dev/null 2>&1 || {
+    # Don't use /dev/null redirection for dpkg as it may use background processes
+    dpkg -i /tmp/debsuryorg-archive-keyring.deb >>"$(get_active_logfile)" 2>&1 || {
       msg_error "Failed to install PHP keyring"
       rm -f /tmp/debsuryorg-archive-keyring.deb
       return 1
@@ -1838,8 +1845,9 @@ function fetch_and_deploy_gh_release() {
     }
 
     chmod 644 "$tmpdir/$filename"
-    $STD apt install -y "$tmpdir/$filename" || {
-      $STD dpkg -i "$tmpdir/$filename" || {
+    # SYSTEMD_OFFLINE=1 prevents systemd-tmpfiles failures in unprivileged LXC (Debian 13+/systemd 257+)
+    SYSTEMD_OFFLINE=1 $STD apt install -y "$tmpdir/$filename" || {
+      SYSTEMD_OFFLINE=1 $STD dpkg -i "$tmpdir/$filename" || {
         msg_error "Both apt and dpkg installation failed"
         rm -rf "$tmpdir"
         return 1
@@ -1894,7 +1902,7 @@ function fetch_and_deploy_gh_release() {
         rm -rf "$tmpdir" "$unpack_tmp"
         return 1
       }
-    elif [[ "$filename" == *.tar.* || "$filename" == *.tgz ]]; then
+    elif [[ "$filename" == *.tar.* || "$filename" == *.tgz || "$filename" == *.txz ]]; then
       tar --no-same-owner -xf "$tmpdir/$filename" -C "$unpack_tmp" || {
         msg_error "Failed to extract TAR archive"
         rm -rf "$tmpdir" "$unpack_tmp"
@@ -1996,50 +2004,6 @@ function fetch_and_deploy_gh_release() {
   echo "$version" >"$version_file"
   msg_ok "Deployed: $app ($version)"
   rm -rf "$tmpdir"
-}
-
-# ------------------------------------------------------------------------------
-# Loads LOCAL_IP from persistent store or detects if missing.
-#
-# Description:
-#   - Loads from /run/local-ip.env or performs runtime lookup
-# ------------------------------------------------------------------------------
-
-function import_local_ip() {
-  local IP_FILE="/run/local-ip.env"
-  if [[ -f "$IP_FILE" ]]; then
-    # shellcheck disable=SC1090
-    source "$IP_FILE"
-  fi
-
-  if [[ -z "${LOCAL_IP:-}" ]]; then
-    get_current_ip() {
-      local targets=("8.8.8.8" "1.1.1.1" "192.168.1.1" "10.0.0.1" "172.16.0.1" "default")
-      local ip
-
-      for target in "${targets[@]}"; do
-        if [[ "$target" == "default" ]]; then
-          ip=$(ip route get 1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
-        else
-          ip=$(ip route get "$target" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
-        fi
-        if [[ -n "$ip" ]]; then
-          echo "$ip"
-          return 0
-        fi
-      done
-
-      return 1
-    }
-
-    LOCAL_IP="$(get_current_ip || true)"
-    if [[ -z "$LOCAL_IP" ]]; then
-      msg_error "Could not determine LOCAL_IP"
-      return 1
-    fi
-  fi
-
-  export LOCAL_IP
 }
 
 # ------------------------------------------------------------------------------
@@ -2669,6 +2633,7 @@ function setup_hwaccel() {
   # GPU Selection - Let user choose which GPU(s) to configure
   # ═══════════════════════════════════════════════════════════════════════════
   local -a SELECTED_INDICES=()
+  local install_nvidia_drivers="yes"
 
   if [[ $gpu_count -eq 1 ]]; then
     # Single GPU - auto-select
@@ -2677,7 +2642,7 @@ function setup_hwaccel() {
   else
     # Multiple GPUs - show selection menu
     echo ""
-    msg_info "Multiple GPUs detected:"
+    msg_custom "⚠" "${YW}" "Multiple GPUs detected:"
     echo ""
     for i in "${!GPU_LIST[@]}"; do
       local type_display="${GPU_TYPES[$i]}"
@@ -2727,6 +2692,30 @@ function setup_hwaccel() {
       for i in "${!GPU_LIST[@]}"; do
         SELECTED_INDICES+=("$i")
       done
+    fi
+  fi
+
+  # Ask whether to install NVIDIA drivers in the container
+  local nvidia_selected="no"
+  for idx in "${SELECTED_INDICES[@]}"; do
+    if [[ "${GPU_TYPES[$idx]}" == "NVIDIA" ]]; then
+      nvidia_selected="yes"
+      break
+    fi
+  done
+
+  if [[ "$nvidia_selected" == "yes" ]]; then
+    if [[ -n "${INSTALL_NVIDIA_DRIVERS:-}" ]]; then
+      install_nvidia_drivers="${INSTALL_NVIDIA_DRIVERS}"
+    else
+      echo ""
+      msg_custom "🎮" "${GN}" "NVIDIA GPU passthrough detected"
+      local nvidia_reply=""
+      read -r -t 60 -p "${TAB3}⚙️ Install NVIDIA driver libraries in the container? [Y/n] (auto-yes in 60s): " nvidia_reply || nvidia_reply=""
+      case "${nvidia_reply,,}" in
+      n | no) install_nvidia_drivers="no" ;;
+      *) install_nvidia_drivers="yes" ;;
+      esac
     fi
   fi
 
@@ -2790,7 +2779,11 @@ function setup_hwaccel() {
     # NVIDIA GPUs
     # ─────────────────────────────────────────────────────────────────────────
     NVIDIA)
-      _setup_nvidia_gpu "$os_id" "$os_codename" "$os_version"
+      if [[ "$install_nvidia_drivers" == "yes" ]]; then
+        _setup_nvidia_gpu "$os_id" "$os_codename" "$os_version"
+      else
+        msg_warn "Skipping NVIDIA driver installation (user opted to install manually)"
+      fi
       ;;
     esac
   done
@@ -2920,8 +2913,15 @@ _setup_intel_legacy() {
     vainfo \
     intel-gpu-tools 2>/dev/null || msg_warn "Some Intel legacy packages failed"
 
-  # beignet provides OpenCL for older Intel GPUs (if available)
-  $STD apt -y install beignet-opencl-icd 2>/dev/null || true
+  # beignet provides OpenCL for older Intel GPUs (Sandy Bridge to Broadwell)
+  # Note: beignet-opencl-icd was removed in Debian 12+ and Ubuntu 22.04+
+  # Check if package is available before attempting installation
+  if apt-cache show beignet-opencl-icd &>/dev/null; then
+    $STD apt -y install beignet-opencl-icd 2>/dev/null || msg_warn "beignet-opencl-icd installation failed (optional)"
+  else
+    msg_warn "beignet-opencl-icd not available - OpenCL support for legacy Intel GPU limited"
+    msg_warn "Note: Hardware video encoding/decoding (VA-API) still works without OpenCL"
+  fi
 
   msg_ok "Intel Legacy GPU configured"
 }
@@ -2989,16 +2989,24 @@ _setup_nvidia_gpu() {
 
   msg_info "Installing NVIDIA GPU drivers"
 
+  # Prevent interactive dialogs (e.g., "Mismatching nvidia kernel module" whiptail)
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+
   # Detect host driver version (passed through via /proc)
+  # Format varies by driver type:
+  #   Proprietary: "NVRM version: NVIDIA UNIX x86_64 Kernel Module  550.54.14  Thu..."
+  #   Open:        "NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  590.48.01  Release..."
+  # Use regex to extract version number (###.##.## pattern)
   local nvidia_host_version=""
   if [[ -f /proc/driver/nvidia/version ]]; then
-    nvidia_host_version=$(grep "NVRM version:" /proc/driver/nvidia/version 2>/dev/null | awk '{print $8}')
+    nvidia_host_version=$(grep -oP '\d{3,}\.\d+\.\d+' /proc/driver/nvidia/version 2>/dev/null | head -1)
   fi
 
   if [[ -z "$nvidia_host_version" ]]; then
     msg_warn "NVIDIA host driver version not found in /proc/driver/nvidia/version"
     msg_warn "Ensure NVIDIA drivers are installed on host and GPU passthrough is enabled"
-    $STD apt -y install va-driver-all vainfo 2>/dev/null || true
+    $STD apt-get -y install va-driver-all vainfo 2>/dev/null || true
     return 0
   fi
 
@@ -3011,53 +3019,115 @@ _setup_nvidia_gpu() {
         sed -i -E 's/Components: (.*)$/Components: \1 contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
       fi
     fi
+    $STD apt-get -y update 2>/dev/null || msg_warn "apt update failed - continuing anyway"
 
-    # Determine CUDA repository
-    local cuda_repo="debian12"
-    case "$os_codename" in
-    bullseye) cuda_repo="debian11" ;;
-    bookworm) cuda_repo="debian12" ;;
-    trixie | sid) cuda_repo="debian12" ;; # Forward compatible
-    esac
+    # For Debian 13 Trixie/Sid: Use Debian's own nvidia packages first (better compatibility)
+    # NVIDIA's CUDA repo targets Debian 12 and may not have amd64 packages for Trixie
+    if [[ "$os_codename" == "trixie" || "$os_codename" == "sid" ]]; then
+      msg_info "Debian ${os_codename}: Using Debian's NVIDIA packages"
 
-    # Add NVIDIA CUDA repository
-    if [[ ! -f /usr/share/keyrings/cuda-archive-keyring.gpg ]]; then
-      msg_info "Adding NVIDIA CUDA repository (${cuda_repo})"
-      local cuda_keyring
-      cuda_keyring="$(mktemp)"
-      if curl -fsSL -o "$cuda_keyring" "https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/x86_64/cuda-keyring_1.1-1_all.deb" 2>/dev/null; then
-        $STD dpkg -i "$cuda_keyring" 2>/dev/null || true
+      # Extract major version for flexible matching (580.126.09 -> 580)
+      local nvidia_major_version="${nvidia_host_version%%.*}"
+
+      # Check what versions are actually available
+      local available_version=""
+      available_version=$(apt-cache madison libcuda1 2>/dev/null | awk '{print $3}' | grep -E "^${nvidia_major_version}\." | head -1 || true)
+
+      if [[ -n "$available_version" ]]; then
+        msg_info "Found available NVIDIA version: ${available_version}"
+        local nvidia_pkgs="libcuda1=${available_version} libnvcuvid1=${available_version} libnvidia-encode1=${available_version} libnvidia-ml1=${available_version}"
+        if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
+          msg_ok "Installed NVIDIA libraries (${available_version})"
+        else
+          msg_warn "Failed to install NVIDIA ${available_version} - trying unversioned"
+          $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null || true
+        fi
       else
-        msg_warn "Failed to download NVIDIA CUDA keyring"
+        # No matching major version - try latest available or unversioned
+        msg_warn "No NVIDIA packages for version ${nvidia_major_version}.x found in repos"
+        available_version=$(apt-cache madison libcuda1 2>/dev/null | awk '{print $3}' | head -1 || true)
+        if [[ -n "$available_version" ]]; then
+          msg_info "Trying latest available: ${available_version} (may cause version mismatch)"
+          $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
+            libcuda1="${available_version}" libnvcuvid1="${available_version}" \
+            libnvidia-encode1="${available_version}" libnvidia-ml1="${available_version}" 2>/dev/null ||
+            $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
+              libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null ||
+            msg_warn "NVIDIA library installation failed - GPU compute may not work"
+        else
+          msg_warn "No NVIDIA packages available in Debian repos - GPU support disabled"
+        fi
       fi
-      rm -f "$cuda_keyring"
-    fi
+      $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends nvidia-smi 2>/dev/null || true
 
-    # Pin NVIDIA repo for version matching
-    cat <<'NVIDIA_PIN' >/etc/apt/preferences.d/nvidia-cuda-pin
+    else
+      # Debian 11/12: Use NVIDIA CUDA repository for version matching
+      local cuda_repo="debian12"
+      case "$os_codename" in
+      bullseye) cuda_repo="debian11" ;;
+      bookworm) cuda_repo="debian12" ;;
+      esac
+
+      # Add NVIDIA CUDA repository
+      if [[ ! -f /usr/share/keyrings/cuda-archive-keyring.gpg ]]; then
+        msg_info "Adding NVIDIA CUDA repository (${cuda_repo})"
+        local cuda_keyring
+        cuda_keyring="$(mktemp)"
+        if curl -fsSL -o "$cuda_keyring" "https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/x86_64/cuda-keyring_1.1-1_all.deb" 2>/dev/null; then
+          $STD dpkg -i "$cuda_keyring" 2>/dev/null || true
+        else
+          msg_warn "Failed to download NVIDIA CUDA keyring"
+        fi
+        rm -f "$cuda_keyring"
+      fi
+
+      # Pin NVIDIA repo for version matching
+      cat <<'NVIDIA_PIN' >/etc/apt/preferences.d/nvidia-cuda-pin
 Package: *
 Pin: origin developer.download.nvidia.com
 Pin-Priority: 1001
 NVIDIA_PIN
 
-    $STD apt -y update
+      $STD apt-get -y update 2>/dev/null || msg_warn "apt update failed - continuing anyway"
 
-    # Install version-matched NVIDIA libraries
-    local nvidia_pkgs="libcuda1=${nvidia_host_version}* libnvcuvid1=${nvidia_host_version}* libnvidia-encode1=${nvidia_host_version}* libnvidia-ml1=${nvidia_host_version}*"
+      # Extract major version for flexible matching (580.126.09 -> 580)
+      local nvidia_major_version="${nvidia_host_version%%.*}"
 
-    msg_info "Installing NVIDIA libraries (version ${nvidia_host_version})"
-    if $STD apt -y install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
-      msg_ok "Installed version-matched NVIDIA libraries"
-    else
-      msg_warn "Version-pinned install failed - trying unpinned"
-      if $STD apt -y install --no-install-recommends libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null; then
-        msg_warn "Installed NVIDIA libraries (unpinned) - version mismatch may occur"
+      # Check what versions are actually available in CUDA repo
+      local available_version=""
+      available_version=$(apt-cache madison libcuda1 2>/dev/null | awk '{print $3}' | grep -E "^${nvidia_major_version}\." | head -1 || true)
+
+      if [[ -n "$available_version" ]]; then
+        msg_info "Installing NVIDIA libraries (version ${available_version})"
+        local nvidia_pkgs="libcuda1=${available_version} libnvcuvid1=${available_version} libnvidia-encode1=${available_version} libnvidia-ml1=${available_version}"
+        if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
+          msg_ok "Installed version-matched NVIDIA libraries"
+        else
+          msg_warn "Version-pinned install failed - trying unpinned"
+          $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null ||
+            msg_warn "NVIDIA library installation failed"
+        fi
       else
-        msg_warn "NVIDIA library installation failed"
+        msg_warn "No NVIDIA packages for version ${nvidia_major_version}.x in CUDA repo (host: ${nvidia_host_version})"
+        # Try latest available version
+        available_version=$(apt-cache madison libcuda1 2>/dev/null | awk '{print $3}' | head -1 || true)
+        if [[ -n "$available_version" ]]; then
+          msg_info "Trying latest available: ${available_version} (version mismatch warning)"
+          if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
+            libcuda1="${available_version}" libnvcuvid1="${available_version}" \
+            libnvidia-encode1="${available_version}" libnvidia-ml1="${available_version}" 2>/dev/null; then
+            msg_ok "Installed NVIDIA libraries (${available_version}) - version differs from host"
+          else
+            $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends libcuda1 libnvcuvid1 libnvidia-encode1 libnvidia-ml1 2>/dev/null ||
+              msg_warn "NVIDIA library installation failed"
+          fi
+        else
+          msg_warn "No NVIDIA packages available in CUDA repo - GPU support disabled"
+        fi
       fi
-    fi
 
-    $STD apt -y install --no-install-recommends nvidia-smi 2>/dev/null || true
+      $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends nvidia-smi 2>/dev/null || true
+    fi
 
   elif [[ "$os_id" == "ubuntu" ]]; then
     # Ubuntu versioning
@@ -3081,20 +3151,45 @@ NVIDIA_PIN
       rm -f "$cuda_keyring"
     fi
 
-    $STD apt -y update
+    $STD apt-get -y update 2>/dev/null || msg_warn "apt update failed - continuing anyway"
 
-    # Try version-matched install
-    local nvidia_pkgs="libcuda1=${nvidia_host_version}* libnvcuvid1=${nvidia_host_version}* libnvidia-encode1=${nvidia_host_version}* libnvidia-ml1=${nvidia_host_version}*"
-    if $STD apt -y install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
-      msg_ok "Installed version-matched NVIDIA libraries"
+    # Extract major version for flexible matching
+    local nvidia_major_version="${nvidia_host_version%%.*}"
+
+    # Check what versions are available
+    local available_version=""
+    available_version=$(apt-cache madison libcuda1 2>/dev/null | awk '{print $3}' | grep -E "^${nvidia_major_version}\." | head -1 || true)
+
+    if [[ -n "$available_version" ]]; then
+      msg_info "Installing NVIDIA libraries (version ${available_version})"
+      local nvidia_pkgs="libcuda1=${available_version} libnvcuvid1=${available_version} libnvidia-encode1=${available_version} libnvidia-ml1=${available_version}"
+      if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends $nvidia_pkgs 2>/dev/null; then
+        msg_ok "Installed version-matched NVIDIA libraries"
+      else
+        # Fallback to Ubuntu repo packages with versioned nvidia-utils
+        msg_warn "CUDA repo install failed - trying Ubuntu native packages (nvidia-utils-${nvidia_major_version})"
+        if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
+          libnvidia-decode-${nvidia_major_version} libnvidia-encode-${nvidia_major_version} nvidia-utils-${nvidia_major_version} 2>/dev/null; then
+          msg_ok "Installed Ubuntu NVIDIA packages (${nvidia_major_version})"
+        else
+          msg_warn "NVIDIA driver installation failed - please install manually: apt install nvidia-utils-${nvidia_major_version}"
+        fi
+      fi
     else
-      # Fallback to Ubuntu repo packages
-      $STD apt -y install --no-install-recommends libnvidia-decode libnvidia-encode nvidia-utils 2>/dev/null || msg_warn "NVIDIA installation failed"
+      msg_warn "No NVIDIA packages for version ${nvidia_major_version}.x in CUDA repo"
+      # Fallback to Ubuntu repo packages with versioned nvidia-utils
+      msg_info "Trying Ubuntu native packages (nvidia-utils-${nvidia_major_version})"
+      if $STD apt-get -y -o Dpkg::Options::="--force-confold" install --no-install-recommends \
+        libnvidia-decode-${nvidia_major_version} libnvidia-encode-${nvidia_major_version} nvidia-utils-${nvidia_major_version} 2>/dev/null; then
+        msg_ok "Installed Ubuntu NVIDIA packages (${nvidia_major_version})"
+      else
+        msg_warn "NVIDIA driver installation failed - please install manually: apt install nvidia-utils-${nvidia_major_version}"
+      fi
     fi
   fi
 
   # VA-API for hybrid setups (Intel + NVIDIA)
-  $STD apt -y install va-driver-all vainfo 2>/dev/null || true
+  $STD apt-get -y install va-driver-all vainfo 2>/dev/null || true
 
   msg_ok "NVIDIA GPU configured"
 }
@@ -3496,16 +3591,34 @@ IP_FILE="/run/local-ip.env"
 mkdir -p "$(dirname "$IP_FILE")"
 
 get_current_ip() {
-    local targets=("8.8.8.8" "1.1.1.1" "192.168.1.1" "10.0.0.1" "172.16.0.1" "default")
     local ip
 
-    for target in "${targets[@]}"; do
+    # Try IPv4 targets first
+    local ipv4_targets=("8.8.8.8" "1.1.1.1" "192.168.1.1" "10.0.0.1" "172.16.0.1" "default")
+    for target in "${ipv4_targets[@]}"; do
         if [[ "$target" == "default" ]]; then
             ip=$(ip route get 1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
         else
             ip=$(ip route get "$target" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
         fi
         if [[ -n "$ip" ]]; then
+            echo "$ip"
+            return 0
+        fi
+    done
+
+    # IPv6 fallback: Try direct interface lookup for eth0
+    ip=$(ip -6 addr show eth0 scope global 2>/dev/null | awk '/inet6 / {print $2}' | cut -d/ -f1 | head -n1)
+    if [[ -n "$ip" && "$ip" =~ : ]]; then
+        echo "$ip"
+        return 0
+    fi
+
+    # IPv6 fallback: Use routing table with IPv6 targets (Google DNS, Cloudflare DNS)
+    local ipv6_targets=("2001:4860:4860::8888" "2606:4700:4700::1111")
+    for target in "${ipv6_targets[@]}"; do
+        ip=$(ip -6 route get "$target" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+        if [[ -n "$ip" && "$ip" =~ : ]]; then
             echo "$ip"
             return 0
         fi
@@ -3549,57 +3662,144 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
-# Installs or updates MariaDB from official repo.
+# Installs or updates MariaDB.
 #
 # Description:
+#   - Uses Debian/Ubuntu distribution packages by default (most reliable)
+#   - Only uses official MariaDB repository when a specific version is requested
 #   - Detects current MariaDB version and replaces it if necessary
 #   - Preserves existing database data
-#   - Dynamically determines latest GA version if "latest" is given
 #
 # Variables:
-#   MARIADB_VERSION - MariaDB version to install (e.g. 10.11, latest) (default: latest)
+#   MARIADB_VERSION - MariaDB version to install (optional)
+#                     - Not set or "latest": Uses distribution packages (recommended)
+#                     - Specific version (e.g. "11.4", "12.2"): Uses MariaDB official repo
 # ------------------------------------------------------------------------------
 
 setup_mariadb() {
   local MARIADB_VERSION="${MARIADB_VERSION:-latest}"
+  local USE_DISTRO_PACKAGES=false
 
-  # Resolve "latest" to actual version
-  if [[ "$MARIADB_VERSION" == "latest" ]]; then
-    if ! curl -fsI --max-time 10 http://mirror.mariadb.org/repo/ >/dev/null 2>&1; then
-      msg_warn "MariaDB mirror not reachable - trying mariadb_repo_setup fallback"
-      # Try using official mariadb_repo_setup script as fallback
-      if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
-        msg_ok "MariaDB repository configured via mariadb_repo_setup"
-        # Extract version from configured repo
-        MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")
-      else
-        msg_warn "mariadb_repo_setup failed - using hardcoded fallback version"
-        MARIADB_VERSION="12.2"
-      fi
-    else
-      MARIADB_VERSION=$(curl -fsSL --max-time 15 http://mirror.mariadb.org/repo/ 2>/dev/null |
-        grep -Eo '[0-9]+\.[0-9]+\.[0-9]+/' |
-        grep -vE 'rc/|rolling/' |
-        sed 's|/||' |
-        sort -Vr |
-        head -n1 || echo "")
+  # Ensure non-interactive mode for all apt operations
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+  export NEEDRESTART_SUSPEND=1
 
-      if [[ -z "$MARIADB_VERSION" ]]; then
-        msg_warn "Could not parse latest GA MariaDB version from mirror - trying mariadb_repo_setup"
-        if curl -fsSL --max-time 15 https://r.mariadb.com/downloads/mariadb_repo_setup 2>/dev/null | bash -s -- --skip-verify >/dev/null 2>&1; then
-          msg_ok "MariaDB repository configured via mariadb_repo_setup"
-          MARIADB_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+\.[0-9]+' /etc/apt/sources.list.d/mariadb.list 2>/dev/null | head -n1 || echo "12.2")
-        else
-          msg_warn "mariadb_repo_setup failed - using hardcoded fallback version"
-          MARIADB_VERSION="12.2"
-        fi
-      fi
-    fi
+  # Determine installation method:
+  # - "latest" or empty: Use distribution packages (avoids mirror issues)
+  # - Specific version: Use MariaDB official repository
+  if [[ "$MARIADB_VERSION" == "latest" || -z "$MARIADB_VERSION" ]]; then
+    USE_DISTRO_PACKAGES=true
+    msg_info "Setup MariaDB (distribution packages)"
+  else
+    msg_info "Setup MariaDB $MARIADB_VERSION (official repository)"
   fi
 
   # Get currently installed version
   local CURRENT_VERSION=""
   CURRENT_VERSION=$(is_tool_installed "mariadb" 2>/dev/null) || true
+
+  # Pre-configure debconf to prevent any interactive prompts during install/upgrade
+  debconf-set-selections <<EOF
+mariadb-server mariadb-server/feedback boolean false
+mariadb-server mariadb-server/root_password password
+mariadb-server mariadb-server/root_password_again password
+EOF
+
+  # If specific version requested, also configure version-specific debconf
+  if [[ "$USE_DISTRO_PACKAGES" == "false" ]]; then
+    local MARIADB_MAJOR_MINOR
+    MARIADB_MAJOR_MINOR=$(echo "$MARIADB_VERSION" | awk -F. '{print $1"."$2}')
+    if [[ -n "$MARIADB_MAJOR_MINOR" ]]; then
+      debconf-set-selections <<EOF
+mariadb-server-$MARIADB_MAJOR_MINOR mariadb-server/feedback boolean false
+mariadb-server-$MARIADB_MAJOR_MINOR mariadb-server/root_password password
+mariadb-server-$MARIADB_MAJOR_MINOR mariadb-server/root_password_again password
+EOF
+    fi
+  fi
+
+  # ============================================================================
+  # DISTRIBUTION PACKAGES PATH (default, most reliable)
+  # ============================================================================
+  if [[ "$USE_DISTRO_PACKAGES" == "true" ]]; then
+    # Check if MariaDB was previously installed from official repo
+    local HAD_MARIADB_REPO=false
+    if [[ -f /etc/apt/sources.list.d/mariadb.sources ]] || [[ -f /etc/apt/sources.list.d/mariadb.list ]]; then
+      HAD_MARIADB_REPO=true
+      msg_info "Removing MariaDB official repository (switching to distribution packages)"
+    fi
+
+    # Clean up any existing MariaDB repository files to avoid conflicts
+    cleanup_old_repo_files "mariadb"
+
+    # If we had a repo, we need to refresh APT cache
+    if [[ "$HAD_MARIADB_REPO" == "true" ]]; then
+      $STD apt update || msg_warn "APT update had issues, continuing..."
+    fi
+
+    # Ensure APT is working
+    ensure_apt_working || return 1
+
+    # Check if installed version is from official repo and higher than distro version
+    # In this case, we keep the existing installation to avoid data issues
+    if [[ -n "$CURRENT_VERSION" ]]; then
+      # Get available distro version
+      local DISTRO_VERSION=""
+      DISTRO_VERSION=$(apt-cache policy mariadb-server 2>/dev/null | grep -E "Candidate:" | awk '{print $2}' | grep -oP '^\d+:\K\d+\.\d+\.\d+' || echo "")
+
+      if [[ -n "$DISTRO_VERSION" ]]; then
+        # Compare versions - if current is higher, keep it
+        local CURRENT_MAJOR DISTRO_MAJOR
+        CURRENT_MAJOR=$(echo "$CURRENT_VERSION" | awk -F. '{print $1}')
+        DISTRO_MAJOR=$(echo "$DISTRO_VERSION" | awk -F. '{print $1}')
+
+        if [[ "$CURRENT_MAJOR" -gt "$DISTRO_MAJOR" ]]; then
+          msg_warn "MariaDB $CURRENT_VERSION is already installed (higher than distro $DISTRO_VERSION)"
+          msg_warn "Keeping existing installation to preserve data integrity"
+          msg_warn "To use distribution packages, manually remove MariaDB first"
+          _setup_mariadb_runtime_dir
+          cache_installed_version "mariadb" "$CURRENT_VERSION"
+          msg_ok "Setup MariaDB $CURRENT_VERSION (existing installation kept)"
+          return 0
+        fi
+      fi
+    fi
+
+    # Install or upgrade MariaDB from distribution packages
+    if ! install_packages_with_retry "mariadb-server" "mariadb-client"; then
+      msg_error "Failed to install MariaDB packages from distribution"
+      return 1
+    fi
+
+    # Get installed version for caching
+    local INSTALLED_VERSION=""
+    INSTALLED_VERSION=$(mariadb --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1 || echo "distro")
+
+    # Configure runtime directory and finish
+    _setup_mariadb_runtime_dir
+    cache_installed_version "mariadb" "$INSTALLED_VERSION"
+    msg_ok "Setup MariaDB $INSTALLED_VERSION (distribution packages)"
+    return 0
+  fi
+
+  # ============================================================================
+  # OFFICIAL REPOSITORY PATH (only when specific version requested)
+  # ============================================================================
+
+  # First, check if there's an old/broken repository that needs cleanup
+  if [[ -f /etc/apt/sources.list.d/mariadb.sources ]] || [[ -f /etc/apt/sources.list.d/mariadb.list ]]; then
+    local OLD_REPO_VERSION=""
+    OLD_REPO_VERSION=$(grep -oP 'repo/\K[0-9]+\.[0-9]+(\.[0-9]+)?' /etc/apt/sources.list.d/mariadb.sources 2>/dev/null || \
+                       grep -oP 'repo/\K[0-9]+\.[0-9]+(\.[0-9]+)?' /etc/apt/sources.list.d/mariadb.list 2>/dev/null || echo "")
+
+    # Check if old repo points to a different version
+    if [[ -n "$OLD_REPO_VERSION" ]] && [[ "${OLD_REPO_VERSION%.*}" != "${MARIADB_VERSION%.*}" ]]; then
+      msg_info "Cleaning up old MariaDB repository (was: $OLD_REPO_VERSION, requested: $MARIADB_VERSION)"
+      cleanup_old_repo_files "mariadb"
+      $STD apt update || msg_warn "APT update had issues, continuing..."
+    fi
+  fi
 
   # Scenario 1: Already installed at target version - just update packages
   if [[ -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$MARIADB_VERSION" ]]; then
@@ -3639,9 +3839,7 @@ setup_mariadb() {
     remove_old_tool_version "mariadb"
   fi
 
-  # Scenario 3: Fresh install or version change
-  msg_info "Setup MariaDB $MARIADB_VERSION"
-
+  # Scenario 3: Fresh install or version change with specific version
   # Prepare repository (cleanup + validation)
   prepare_repository_setup "mariadb" || {
     msg_error "Failed to prepare MariaDB repository"
@@ -3667,31 +3865,39 @@ setup_mariadb() {
     return 1
   }
 
-  # Set debconf selections for all potential versions
-  local MARIADB_MAJOR_MINOR
-  MARIADB_MAJOR_MINOR=$(echo "$MARIADB_VERSION" | awk -F. '{print $1"."$2}')
-  if [[ -n "$MARIADB_MAJOR_MINOR" ]]; then
-    echo "mariadb-server-$MARIADB_MAJOR_MINOR mariadb-server/feedback boolean false" | debconf-set-selections
-  fi
-
   # Install packages with retry logic
-  export DEBIAN_FRONTEND=noninteractive
   if ! install_packages_with_retry "mariadb-server" "mariadb-client"; then
-    # Fallback: try without specific version
-    msg_warn "Failed to install MariaDB packages from upstream repo, trying distro fallback..."
+    # Fallback: try distribution packages
+    msg_warn "Failed to install MariaDB $MARIADB_VERSION from official repo, falling back to distribution packages..."
     cleanup_old_repo_files "mariadb"
     $STD apt update || {
       msg_warn "APT update also failed, continuing with cache"
     }
-    install_packages_with_retry "mariadb-server" "mariadb-client" || {
-      msg_error "Failed to install MariaDB packages (both upstream and distro)"
+    if install_packages_with_retry "mariadb-server" "mariadb-client"; then
+      local FALLBACK_VERSION=""
+      FALLBACK_VERSION=$(mariadb --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1 || echo "distro")
+      msg_warn "Installed MariaDB $FALLBACK_VERSION from distribution instead of requested $MARIADB_VERSION"
+      _setup_mariadb_runtime_dir
+      cache_installed_version "mariadb" "$FALLBACK_VERSION"
+      msg_ok "Setup MariaDB $FALLBACK_VERSION (fallback to distribution packages)"
+      return 0
+    else
+      msg_error "Failed to install MariaDB packages (both official repo and distribution)"
       return 1
-    }
+    fi
   fi
 
+  _setup_mariadb_runtime_dir
+  cache_installed_version "mariadb" "$MARIADB_VERSION"
+  msg_ok "Setup MariaDB $MARIADB_VERSION"
+}
+
+# ------------------------------------------------------------------------------
+# Helper function: Configure MariaDB runtime directory persistence
+# ------------------------------------------------------------------------------
+_setup_mariadb_runtime_dir() {
   # Configure tmpfiles.d to ensure /run/mysqld directory is created on boot
   # This fixes the issue where MariaDB fails to start after container reboot
-  msg_info "Configuring MariaDB runtime directory persistence"
 
   # Create tmpfiles.d configuration with error handling
   if ! printf '# Ensure /run/mysqld directory exists with correct permissions for MariaDB\nd /run/mysqld 0755 mysql mysql -\n' >/etc/tmpfiles.d/mariadb.conf; then
@@ -3711,11 +3917,6 @@ setup_mariadb() {
       msg_warn "mysql user not found - directory created with correct permissions but ownership not set"
     fi
   fi
-
-  msg_ok "Configured MariaDB runtime directory persistence"
-
-  cache_installed_version "mariadb" "$MARIADB_VERSION"
-  msg_ok "Setup MariaDB $MARIADB_VERSION"
 }
 
 # ------------------------------------------------------------------------------
@@ -3814,6 +4015,11 @@ function setup_mongodb() {
   local DISTRO_ID DISTRO_CODENAME
   DISTRO_ID=$(get_os_info id)
   DISTRO_CODENAME=$(get_os_info codename)
+
+  # Ensure non-interactive mode for all apt operations
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+  export NEEDRESTART_SUSPEND=1
 
   # Check AVX support
   if ! grep -qm1 'avx[^ ]*' /proc/cpuinfo; then
@@ -3933,6 +4139,11 @@ function setup_mysql() {
   DISTRO_ID=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
   DISTRO_CODENAME=$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release)
 
+  # Ensure non-interactive mode for all apt operations
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+  export NEEDRESTART_SUSPEND=1
+
   # Get currently installed version
   local CURRENT_VERSION=""
   CURRENT_VERSION=$(is_tool_installed "mysql" 2>/dev/null) || true
@@ -4027,7 +4238,6 @@ EOF
   ensure_apt_working || return 1
 
   # Try multiple package names with retry logic
-  export DEBIAN_FRONTEND=noninteractive
   local mysql_install_success=false
 
   if apt-cache search "^mysql-server$" 2>/dev/null | grep -q . &&
@@ -4315,11 +4525,20 @@ EOF
     return 1
   }
 
-  manage_tool_repository "php" "$PHP_VERSION" "" "https://packages.sury.org/debsuryorg-archive-keyring.deb" || {
-    msg_error "Failed to setup PHP repository"
-    return 1
-  }
-
+  # Use different repository based on OS
+  if [[ "$DISTRO_ID" == "ubuntu" ]]; then
+    # Ubuntu: Use ondrej/php PPA
+    msg_info "Adding ondrej/php PPA for Ubuntu"
+    $STD apt install -y software-properties-common
+    # Don't use $STD for add-apt-repository as it uses background processes
+    add-apt-repository -y ppa:ondrej/php >>"$(get_active_logfile)" 2>&1
+  else
+    # Debian: Use Sury repository
+    manage_tool_repository "php" "$PHP_VERSION" "" "https://packages.sury.org/debsuryorg-archive-keyring.deb" || {
+      msg_error "Failed to setup PHP repository"
+      return 1
+    }
+  fi
   ensure_apt_working || return 1
   $STD apt update
 
@@ -4342,6 +4561,14 @@ EOF
 
   if [[ "$PHP_FPM" == "YES" ]]; then
     MODULE_LIST+=" php${PHP_VERSION}-fpm"
+    # Create systemd override for PHP-FPM to fix runtime directory issues in LXC containers
+    mkdir -p /etc/systemd/system/php${PHP_VERSION}-fpm.service.d/
+    cat <<EOF >/etc/systemd/system/php${PHP_VERSION}-fpm.service.d/override.conf
+[Service]
+RuntimeDirectory=php
+RuntimeDirectoryMode=0755
+EOF
+    $STD systemctl daemon-reload
   fi
 
   # install apache2 with PHP support if requested
@@ -4465,6 +4692,11 @@ function setup_postgresql() {
   local DISTRO_ID DISTRO_CODENAME
   DISTRO_ID=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
   DISTRO_CODENAME=$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release)
+
+  # Ensure non-interactive mode for all apt operations
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+  export NEEDRESTART_SUSPEND=1
 
   # Get currently installed version
   local CURRENT_PG_VERSION=""
@@ -4905,6 +5137,146 @@ function setup_ruby() {
 }
 
 # ------------------------------------------------------------------------------
+# Installs or updates MeiliSearch search engine.
+#
+# Description:
+#   - Fresh install: Downloads binary, creates config/service, starts
+#   - Update: Checks for new release, updates binary if available
+#   - Waits for service to be ready before returning
+#   - Exports API keys for use by caller
+#
+# Variables:
+#   MEILISEARCH_BIND     - Bind address (default: 127.0.0.1:7700)
+#   MEILISEARCH_ENV      - Environment: production/development (default: production)
+#   MEILISEARCH_DB_PATH  - Database path (default: /var/lib/meilisearch/data)
+#
+# Exports:
+#   MEILISEARCH_MASTER_KEY  - The master key for admin access
+#   MEILISEARCH_API_KEY     - The default search API key
+#   MEILISEARCH_API_KEY_UID - The UID of the default API key
+#
+# Example (install script):
+#   setup_meilisearch
+#
+# Example (CT update_script):
+#   setup_meilisearch
+# ------------------------------------------------------------------------------
+
+function setup_meilisearch() {
+  local MEILISEARCH_BIND="${MEILISEARCH_BIND:-127.0.0.1:7700}"
+  local MEILISEARCH_ENV="${MEILISEARCH_ENV:-production}"
+  local MEILISEARCH_DB_PATH="${MEILISEARCH_DB_PATH:-/var/lib/meilisearch/data}"
+  local MEILISEARCH_DUMP_DIR="${MEILISEARCH_DUMP_DIR:-/var/lib/meilisearch/dumps}"
+  local MEILISEARCH_SNAPSHOT_DIR="${MEILISEARCH_SNAPSHOT_DIR:-/var/lib/meilisearch/snapshots}"
+
+  # Get bind address for health checks
+  local MEILISEARCH_HOST="${MEILISEARCH_BIND%%:*}"
+  local MEILISEARCH_PORT="${MEILISEARCH_BIND##*:}"
+  [[ "$MEILISEARCH_HOST" == "0.0.0.0" ]] && MEILISEARCH_HOST="127.0.0.1"
+
+  # Update mode: MeiliSearch already installed
+  if [[ -f /usr/bin/meilisearch ]]; then
+    if check_for_gh_release "meilisearch" "meilisearch/meilisearch"; then
+      msg_info "Updating MeiliSearch"
+      systemctl stop meilisearch
+      fetch_and_deploy_gh_release "meilisearch" "meilisearch/meilisearch" "binary"
+      systemctl start meilisearch
+      msg_ok "Updated MeiliSearch"
+    fi
+    return 0
+  fi
+
+  # Fresh install
+  msg_info "Setup MeiliSearch"
+
+  # Install binary
+  fetch_and_deploy_gh_release "meilisearch" "meilisearch/meilisearch" "binary" || {
+    msg_error "Failed to install MeiliSearch binary"
+    return 1
+  }
+
+  # Download default config
+  curl -fsSL https://raw.githubusercontent.com/meilisearch/meilisearch/latest/config.toml -o /etc/meilisearch.toml || {
+    msg_error "Failed to download MeiliSearch config"
+    return 1
+  }
+
+  # Generate master key
+  MEILISEARCH_MASTER_KEY=$(openssl rand -base64 12)
+  export MEILISEARCH_MASTER_KEY
+
+  # Configure
+  sed -i \
+    -e "s|^env =.*|env = \"${MEILISEARCH_ENV}\"|" \
+    -e "s|^# master_key =.*|master_key = \"${MEILISEARCH_MASTER_KEY}\"|" \
+    -e "s|^db_path =.*|db_path = \"${MEILISEARCH_DB_PATH}\"|" \
+    -e "s|^dump_dir =.*|dump_dir = \"${MEILISEARCH_DUMP_DIR}\"|" \
+    -e "s|^snapshot_dir =.*|snapshot_dir = \"${MEILISEARCH_SNAPSHOT_DIR}\"|" \
+    -e 's|^# no_analytics = true|no_analytics = true|' \
+    -e "s|^http_addr =.*|http_addr = \"${MEILISEARCH_BIND}\"|" \
+    /etc/meilisearch.toml
+
+  # Create data directories
+  mkdir -p "${MEILISEARCH_DB_PATH}" "${MEILISEARCH_DUMP_DIR}" "${MEILISEARCH_SNAPSHOT_DIR}"
+
+  # Create systemd service
+  cat <<EOF >/etc/systemd/system/meilisearch.service
+[Unit]
+Description=Meilisearch
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/meilisearch --config-file-path /etc/meilisearch.toml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Enable and start service
+  systemctl daemon-reload
+  systemctl enable -q --now meilisearch
+
+  # Wait for MeiliSearch to be ready (up to 30 seconds)
+  for i in {1..30}; do
+    if curl -s -o /dev/null -w "%{http_code}" "http://${MEILISEARCH_HOST}:${MEILISEARCH_PORT}/health" 2>/dev/null | grep -q "200"; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Verify service is running
+  if ! systemctl is-active --quiet meilisearch; then
+    msg_error "MeiliSearch service failed to start"
+    return 1
+  fi
+
+  # Get API keys with retry logic
+  MEILISEARCH_API_KEY=""
+  for i in {1..10}; do
+    MEILISEARCH_API_KEY=$(curl -s -X GET "http://${MEILISEARCH_HOST}:${MEILISEARCH_PORT}/keys" \
+      -H "Authorization: Bearer ${MEILISEARCH_MASTER_KEY}" 2>/dev/null | \
+      grep -o '"key":"[^"]*"' | head -n 1 | sed 's/"key":"//;s/"//') || true
+    [[ -n "$MEILISEARCH_API_KEY" ]] && break
+    sleep 2
+  done
+
+  MEILISEARCH_API_KEY_UID=$(curl -s -X GET "http://${MEILISEARCH_HOST}:${MEILISEARCH_PORT}/keys" \
+    -H "Authorization: Bearer ${MEILISEARCH_MASTER_KEY}" 2>/dev/null | \
+    grep -o '"uid":"[^"]*"' | head -n 1 | sed 's/"uid":"//;s/"//') || true
+
+  export MEILISEARCH_API_KEY
+  export MEILISEARCH_API_KEY_UID
+
+  # Cache version
+  local MEILISEARCH_VERSION
+  MEILISEARCH_VERSION=$(/usr/bin/meilisearch --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
+  cache_installed_version "meilisearch" "${MEILISEARCH_VERSION:-unknown}"
+
+  msg_ok "Setup MeiliSearch ${MEILISEARCH_VERSION:-}"
+}
+
+# ------------------------------------------------------------------------------
 # Installs or upgrades ClickHouse database server.
 #
 # Description:
@@ -4922,6 +5294,11 @@ function setup_clickhouse() {
   local DISTRO_ID DISTRO_CODENAME
   DISTRO_ID=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
   DISTRO_CODENAME=$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release)
+
+  # Ensure non-interactive mode for all apt operations
+  export DEBIAN_FRONTEND=noninteractive
+  export NEEDRESTART_MODE=a
+  export NEEDRESTART_SUSPEND=1
 
   # Resolve "latest" version
   if [[ "$CLICKHOUSE_VERSION" == "latest" ]]; then
@@ -4985,7 +5362,6 @@ function setup_clickhouse() {
     "main"
 
   # Install packages with retry logic
-  export DEBIAN_FRONTEND=noninteractive
   $STD apt update || {
     msg_error "APT update failed for ClickHouse repository"
     return 1
