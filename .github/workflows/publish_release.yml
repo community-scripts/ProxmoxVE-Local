@@ -31,20 +31,24 @@ jobs:
           echo "Found draft version: ${{ steps.draft.outputs.tag_name }}"
 
       
-      - name: Create branch and commit VERSION
+      - name: Create branch and commit VERSION and package.json
         run: |
           branch="update-version-${{ steps.draft.outputs.tag_name }}"
           # Delete remote branch if exists
           git push origin --delete "$branch" || echo "No remote branch to delete"
           git fetch origin main
           git checkout -b "$branch" origin/main
-          # Write VERSION file and timestamp to ensure a diff
+          # Version without 'v' prefix (e.g. v1.2.3 -> 1.2.3)
           version="${{ steps.draft.outputs.tag_name }}"
-          echo "$version" | sed 's/^v//' > VERSION
-          git add VERSION
+          version_plain=$(echo "$version" | sed 's/^v//')
+          # Write VERSION file
+          echo "$version_plain" > VERSION
+          # Update package.json version
+          jq --arg v "$version_plain" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+          git add VERSION package.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: add VERSION $version" --allow-empty
+          git commit -m "chore: bump version to $version_plain (VERSION + package.json)" --allow-empty
 
       - name: Push changes
         run: |
@@ -57,8 +61,8 @@ jobs:
             pr_url=$(gh pr create \
             --base main \
             --head update-version-${{ steps.draft.outputs.tag_name }} \
-            --title "chore: add VERSION ${{ steps.draft.outputs.tag_name }}" \
-            --body "Adds VERSION file for release ${{ steps.draft.outputs.tag_name }}" \
+            --title "chore: bump version to ${{ steps.draft.outputs.tag_name }} (VERSION + package.json)" \
+            --body "Updates VERSION file and package.json version for release ${{ steps.draft.outputs.tag_name }}" \
             --label automated)
     
             pr_number=$(echo "$pr_url" | awk -F/ '{print $NF}')
