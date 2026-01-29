@@ -109,6 +109,7 @@ export function ConfigurationModal({
         var_mknod: 0,
         var_mount_fs: '',
         var_protection: 'no',
+        var_tun: 'no',
 
         // System
         var_timezone: '',
@@ -805,6 +806,20 @@ export function ConfigurationModal({
                       <option value={0}>Disabled</option>
                       <option value={1}>Enabled</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      TUN/TAP (VPN)
+                    </label>
+                    <select
+                      value={typeof advancedVars.var_tun === 'boolean' ? (advancedVars.var_tun ? 'yes' : 'no') : String(advancedVars.var_tun ?? 'no')}
+                      onChange={(e) => updateAdvancedVar('var_tun', e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">For Tailscale, WireGuard, OpenVPN</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
