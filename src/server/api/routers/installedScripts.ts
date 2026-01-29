@@ -2068,32 +2068,72 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        // Get the script's interface_port from metadata (prioritize metadata over existing database values)
-        let detectedPort = 80; // Default fallback
-        
+        // Resolve app slug from /usr/bin/update (community-scripts) when available; else from hostname/suffix.
+        let slugFromUpdate: string | null = null;
         try {
-          // Import localScriptsService to get script metadata
+          const updateCommand = `pct exec ${scriptData.container_id} -- cat /usr/bin/update 2>/dev/null`;
+          let updateOutput = '';
+          await new Promise<void>((resolve) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              updateCommand,
+              (data: string) => { updateOutput += data; },
+              () => {},
+              () => resolve()
+            );
+          });
+          const ctSlugMatch = /ct\/([a-zA-Z0-9_.-]+)\.sh/.exec(updateOutput);
+          if (ctSlugMatch?.[1]) {
+            slugFromUpdate = ctSlugMatch[1].trim().toLowerCase();
+            console.log('🔍 Slug from /usr/bin/update:', slugFromUpdate);
+          }
+        } catch {
+          // Container may not be from community-scripts; use hostname fallback
+        }
+
+        // Get the script's interface_port from metadata. Primary: slug from /usr/bin/update; fallback: hostname/suffix.
+        let detectedPort = 80; // Default fallback
+
+        try {
           const { localScriptsService } = await import('~/server/services/localScripts');
-          
-          // Get all scripts and find the one matching our script name
           const allScripts = await localScriptsService.getAllScripts();
-          
-          // Extract script slug from script_name (remove .sh extension)
-          const scriptSlug = scriptData.script_name.replace(/\.sh$/, '');
-          console.log('🔍 Looking for script with slug:', scriptSlug);
-          
-          const scriptMetadata = allScripts.find(script => script.slug === scriptSlug);
-          
+
+          const nameFromHostname = scriptData.script_name.replace(/\.sh$/, '').toLowerCase();
+
+          // Primary: slug from /usr/bin/update (community-scripts)
+          let scriptMetadata =
+            slugFromUpdate != null
+              ? allScripts.find((s) => s.slug === slugFromUpdate)
+              : undefined;
+          if (scriptMetadata) {
+            console.log('🔍 Using slug from /usr/bin/update for metadata:', scriptMetadata.slug);
+          }
+
+          // Fallback: exact hostname then hostname ends with slug (longest wins)
+          if (!scriptMetadata) {
+            scriptMetadata = allScripts.find((script) => script.slug === nameFromHostname);
+            if (!scriptMetadata) {
+              const suffixMatches = allScripts.filter((script) => nameFromHostname.endsWith(script.slug));
+              scriptMetadata =
+                suffixMatches.length > 0
+                  ? suffixMatches.reduce((a, b) => (a.slug.length >= b.slug.length ? a : b))
+                  : undefined;
+              if (scriptMetadata) {
+                console.log('🔍 Matched metadata by slug suffix in hostname:', scriptMetadata.slug);
+              }
+            }
+          }
+
           if (scriptMetadata?.interface_port) {
             detectedPort = scriptMetadata.interface_port;
             console.log('📋 Found interface_port in metadata:', detectedPort);
           } else {
             console.log('📋 No interface_port found in metadata, using default port 80');
-            detectedPort = 80; // Default to port 80 if no metadata port found
+            detectedPort = 80;
           }
         } catch (error) {
           console.log('⚠️ Error getting script metadata, using default port 80:', error);
-          detectedPort = 80; // Default to port 80 if metadata lookup fails
+          detectedPort = 80;
         }
         
         console.log('🎯 Final detected port:', detectedPort);
