@@ -250,9 +250,16 @@ class RestoreService {
     const targetFolder = `/var/lib/vz/dump/vzdump-lxc-${ctId}-${snapshotNameForPath}`;
     const targetTar = `${targetFolder}.tar`;
     
-    // Use PBS_PASSWORD env var and add timeout for long downloads
+    // Use PBS_PASSWORD env var and add timeout for long downloads; PBS_FINGERPRINT when set for cert validation
     const escapedPassword = credential.pbs_password.replace(/'/g, "'\\''");
-    const restoreCommand = `PBS_PASSWORD='${escapedPassword}' PBS_REPOSITORY='${repository}' timeout 300 proxmox-backup-client restore "${snapshotPath}" root.pxar "${targetFolder}" --repository '${repository}' 2>&1`;
+    const fingerprint = credential.pbs_fingerprint?.trim() ?? '';
+    const escapedFingerprint = fingerprint ? fingerprint.replace(/'/g, "'\\''") : '';
+    const restoreEnvParts = [`PBS_PASSWORD='${escapedPassword}'`, `PBS_REPOSITORY='${repository}'`];
+    if (escapedFingerprint) {
+      restoreEnvParts.push(`PBS_FINGERPRINT='${escapedFingerprint}'`);
+    }
+    const restoreEnvStr = restoreEnvParts.join(' ');
+    const restoreCommand = `${restoreEnvStr} timeout 300 proxmox-backup-client restore "${snapshotPath}" root.pxar "${targetFolder}" --repository '${repository}' 2>&1`;
     
     let output = '';
     let exitCode = 0;

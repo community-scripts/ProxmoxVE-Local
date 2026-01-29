@@ -327,13 +327,16 @@ class BackupService {
     // PBS supports PBS_PASSWORD and PBS_REPOSITORY environment variables for non-interactive login
     const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
     
-    // Escape password for shell safety (single quotes)
+    // Escape password and fingerprint for shell safety (single quotes)
     const escapedPassword = credential.pbs_password.replace(/'/g, "'\\''");
-    
-    // Use PBS_PASSWORD environment variable for non-interactive authentication
-    // Auto-accept fingerprint by piping "y" to stdin
-    // PBS will use PBS_PASSWORD env var if available, avoiding interactive prompt
-    const fullCommand = `echo "y" | PBS_PASSWORD='${escapedPassword}' PBS_REPOSITORY='${repository}' timeout 10 proxmox-backup-client login --repository ${repository} 2>&1`;
+    const fingerprint = credential.pbs_fingerprint?.trim() ?? '';
+    const escapedFingerprint = fingerprint ? fingerprint.replace(/'/g, "'\\''") : '';
+    const envParts = [`PBS_PASSWORD='${escapedPassword}'`, `PBS_REPOSITORY='${repository}'`];
+    if (escapedFingerprint) {
+      envParts.push(`PBS_FINGERPRINT='${escapedFingerprint}'`);
+    }
+    const envStr = envParts.join(' ');
+    const fullCommand = `${envStr} timeout 10 proxmox-backup-client login --repository ${repository} 2>&1`;
     
     console.log(`[BackupService] Logging into PBS: ${repository}`);
     
@@ -419,9 +422,12 @@ class BackupService {
     
     // Build full repository string: root@pam@<IP>:<DATASTORE>
     const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
-    
+    const fingerprint = credential.pbs_fingerprint?.trim() ?? '';
+    const escapedFingerprint = fingerprint ? fingerprint.replace(/'/g, "'\\''") : '';
+    const snapshotEnvParts = escapedFingerprint ? [`PBS_FINGERPRINT='${escapedFingerprint}'`] : [];
+    const snapshotEnvStr = snapshotEnvParts.length ? snapshotEnvParts.join(' ') + ' ' : '';
     // Use correct command: snapshot list ct/<CT_ID> --repository <full_repo_string>
-    const command = `timeout 30 proxmox-backup-client snapshot list ct/${ctId} --repository ${repository} 2>&1 || echo "PBS_ERROR"`;
+    const command = `${snapshotEnvStr}timeout 30 proxmox-backup-client snapshot list ct/${ctId} --repository ${repository} 2>&1 || echo "PBS_ERROR"`;
     let output = '';
     
     console.log(`[BackupService] Discovering PBS backups for CT ${ctId} on repository ${repository}`);
