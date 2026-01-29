@@ -66,7 +66,10 @@ export function DownloadedScriptsTab({
       setUpdateResult({
         successCount: data.successful?.length ?? 0,
         failCount: data.failed?.length ?? 0,
-        failed: data.failed ?? [],
+        failed: (data.failed ?? []).map((f) => ({
+          slug: f.slug,
+          error: f.error ?? "Unknown error",
+        })),
       });
       setTimeout(() => setUpdateResult(null), 8000);
     },
