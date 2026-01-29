@@ -199,6 +199,17 @@ export function ConfigurationModal({
     return !isNaN(num) && num > 0;
   };
 
+  const validateHostname = (hostname: string): boolean => {
+    if (!hostname || hostname.length > 253) return false;
+    const label = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
+    const labels = hostname.split('.');
+    return labels.length >= 1 && labels.every(l => l.length >= 1 && l.length <= 63 && label.test(l));
+  };
+
+  const validateAptCacherAddress = (value: string): boolean => {
+    return validateIPv4(value) || validateHostname(value);
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -216,8 +227,8 @@ export function ConfigurationModal({
       if (advancedVars.var_ns && !validateIPv4(advancedVars.var_ns as string)) {
         newErrors.var_ns = 'Invalid IPv4 address';
       }
-      if (advancedVars.var_apt_cacher_ip && !validateIPv4(advancedVars.var_apt_cacher_ip as string)) {
-        newErrors.var_apt_cacher_ip = 'Invalid IPv4 address';
+      if (advancedVars.var_apt_cacher_ip && !validateAptCacherAddress(advancedVars.var_apt_cacher_ip as string)) {
+        newErrors.var_apt_cacher_ip = 'Invalid IPv4 address or hostname';
       }
       // Validate IPv4 CIDR if network mode is static
       const netValue = advancedVars.var_net;
@@ -904,13 +915,13 @@ export function ConfigurationModal({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      APT Cacher IP
+                      APT Cacher host or IP
                     </label>
                     <Input
                       type="text"
                       value={typeof advancedVars.var_apt_cacher_ip === 'boolean' ? '' : String(advancedVars.var_apt_cacher_ip ?? '')}
                       onChange={(e) => updateAdvancedVar('var_apt_cacher_ip', e.target.value)}
-                      placeholder="192.168.1.10"
+                      placeholder="192.168.1.10 or apt-cacher.internal"
                       className={errors.var_apt_cacher_ip ? 'border-destructive' : ''}
                     />
                     {errors.var_apt_cacher_ip && (
