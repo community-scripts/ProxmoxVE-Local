@@ -58,6 +58,11 @@ export function ConfigurationModal({
   // Advanced mode state
   const [advancedVars, setAdvancedVars] = useState<EnvVars>({});
 
+  // Discovered SSH keys on the Proxmox host (advanced mode only)
+  const [discoveredSshKeys, setDiscoveredSshKeys] = useState<string[]>([]);
+  const [discoveredSshKeysLoading, setDiscoveredSshKeysLoading] = useState(false);
+  const [discoveredSshKeysError, setDiscoveredSshKeysError] = useState<string | null>(null);
+
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -71,7 +76,6 @@ export function ConfigurationModal({
     } else {
       // Advanced mode: all vars with defaults
       const defaults: EnvVars = {
-        var_ctid: '', // Empty = use next available ID
         // Resources from JSON
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
@@ -88,7 +92,6 @@ export function ConfigurationModal({
         var_mtu: 1500,
         var_mac: '',
         var_ns: '',
-        var_searchdomain: '',
 
         // Identity
         var_hostname: slug,
@@ -120,6 +123,38 @@ export function ConfigurationModal({
       setAdvancedVars(defaults);
     }
   }, [actualScript, server, mode, resources, slug]);
+
+  // Discover SSH keys on the Proxmox host when advanced mode is open
+  useEffect(() => {
+    if (!server?.id || !isOpen || mode !== 'advanced') {
+      setDiscoveredSshKeys([]);
+      setDiscoveredSshKeysError(null);
+      return;
+    }
+    let cancelled = false;
+    setDiscoveredSshKeysLoading(true);
+    setDiscoveredSshKeysError(null);
+    fetch(`/api/servers/${server.id}/discover-ssh-keys`)
+      .then((res) => {
+        if (!res.ok) throw new Error(res.status === 404 ? 'Server not found' : res.statusText);
+        return res.json();
+      })
+      .then((data: { keys?: string[] }) => {
+        if (!cancelled && Array.isArray(data.keys)) setDiscoveredSshKeys(data.keys);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDiscoveredSshKeys([]);
+          setDiscoveredSshKeysError(err instanceof Error ? err.message : 'Could not detect keys');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDiscoveredSshKeysLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [server?.id, isOpen, mode]);
 
   // Validation functions
   const validateIPv4 = (ip: string): boolean => {
@@ -213,14 +248,6 @@ export function ConfigurationModal({
       if (advancedVars.var_vlan && !validatePositiveInt(advancedVars.var_vlan as string | number | undefined)) {
         newErrors.var_vlan = 'Must be a positive integer';
       }
-      // Container ID (CTID): if set, must be integer >= 100
-      const ctidVal = advancedVars.var_ctid;
-      if (ctidVal !== '' && ctidVal !== undefined && typeof ctidVal !== 'boolean') {
-        const ctidNum = typeof ctidVal === 'string' ? parseInt(ctidVal, 10) : ctidVal;
-        if (isNaN(ctidNum) || ctidNum < 100) {
-          newErrors.var_ctid = 'Must be 100 or greater';
-        }
-      }
     }
 
     setErrors(newErrors);
@@ -285,18 +312,23 @@ export function ConfigurationModal({
       if ((hasPassword || hasSSHKey) && envVars.var_ssh !== 'no') {
         envVars.var_ssh = 'yes';
       }
+
+      // Normalize var_tags: accept both comma and semicolon, output comma-separated
+      const rawTags = envVars.var_tags;
+      if (typeof rawTags === 'string' && rawTags.trim() !== '') {
+        envVars.var_tags = rawTags
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(',');
+      }
     }
 
     // Remove empty string values (but keep 0, false, etc.)
     const cleaned: EnvVars = {};
     for (const [key, value] of Object.entries(envVars)) {
       if (value !== '' && value !== undefined) {
-        // Send var_ctid as number so the script receives a numeric ID
-        if (key === 'var_ctid') {
-          cleaned[key] = Number(value);
-        } else {
-          cleaned[key] = value;
-        }
+        cleaned[key] = value;
       }
     }
 
@@ -389,35 +421,6 @@ export function ConfigurationModal({
           ) : (
             /* Advanced Mode */
             <div className="space-y-6">
-              {/* Container ID (CTID) - at top so user can set a specific ID */}
-              <div>
-                <h3 className="text-lg font-medium text-foreground mb-4">Container ID (CTID)</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Container ID (CTID)
-                    </label>
-                    <Input
-                      type="number"
-                      min="100"
-                      value={typeof advancedVars.var_ctid === 'boolean' ? '' : (advancedVars.var_ctid ?? '')}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        updateAdvancedVar('var_ctid', v === '' ? '' : parseInt(v, 10) || '');
-                      }}
-                      placeholder="Auto (next available)"
-                      className={errors.var_ctid ? 'border-destructive' : ''}
-                    />
-                    {errors.var_ctid && (
-                      <p className="mt-1 text-xs text-destructive">{errors.var_ctid}</p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Leave empty to use the next available ID. Must be 100 or greater.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Resources */}
               <div>
                 <h3 className="text-lg font-medium text-foreground mb-4">Resources</h3>
@@ -657,17 +660,6 @@ export function ConfigurationModal({
                       <p className="mt-1 text-xs text-destructive">{errors.var_ns}</p>
                     )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      DNS Search Domain
-                    </label>
-                    <Input
-                      type="text"
-                      value={typeof advancedVars.var_searchdomain === 'boolean' ? '' : String(advancedVars.var_searchdomain ?? '')}
-                      onChange={(e) => updateAdvancedVar('var_searchdomain', e.target.value)}
-                      placeholder="e.g. local, home.lan"
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -699,13 +691,13 @@ export function ConfigurationModal({
                   </div>
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      Tags (comma-separated)
+                      Tags (comma or semicolon separated)
                     </label>
                     <Input
                       type="text"
                       value={typeof advancedVars.var_tags === 'boolean' ? '' : String(advancedVars.var_tags ?? '')}
                       onChange={(e) => updateAdvancedVar('var_tags', e.target.value)}
-                      placeholder="community-script"
+                      placeholder="e.g. tag1; tag2"
                     />
                   </div>
                 </div>
@@ -732,11 +724,40 @@ export function ConfigurationModal({
                     <label className="block text-sm font-medium text-foreground mb-2">
                       SSH Authorized Key
                     </label>
+                    {discoveredSshKeysLoading && (
+                      <p className="text-sm text-muted-foreground mb-2">Detecting SSH keys...</p>
+                    )}
+                    {discoveredSshKeysError && !discoveredSshKeysLoading && (
+                      <p className="text-sm text-muted-foreground mb-2">Could not detect keys on host</p>
+                    )}
+                    {discoveredSshKeys.length > 0 && !discoveredSshKeysLoading && (
+                      <div className="mb-2">
+                        <label htmlFor="discover-ssh-key" className="sr-only">Use detected key</label>
+                        <select
+                          id="discover-ssh-key"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none mb-2"
+                          value=""
+                          onChange={(e) => {
+                            const idx = e.target.value;
+                            if (idx === '') return;
+                            const key = discoveredSshKeys[Number(idx)];
+                            if (key) updateAdvancedVar('var_ssh_authorized_key', key);
+                          }}
+                        >
+                          <option value="">— Select or paste below —</option>
+                          {discoveredSshKeys.map((key, i) => (
+                            <option key={i} value={i}>
+                              {key.length > 44 ? `${key.slice(0, 44)}...` : key}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <Input
                       type="text"
                       value={typeof advancedVars.var_ssh_authorized_key === 'boolean' ? '' : String(advancedVars.var_ssh_authorized_key ?? '')}
                       onChange={(e) => updateAdvancedVar('var_ssh_authorized_key', e.target.value)}
-                      placeholder="ssh-rsa AAAA..."
+                      placeholder="Or paste a public key: ssh-rsa AAAA..."
                     />
                   </div>
                 </div>
