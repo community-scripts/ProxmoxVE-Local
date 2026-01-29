@@ -71,6 +71,7 @@ export function ConfigurationModal({
     } else {
       // Advanced mode: all vars with defaults
       const defaults: EnvVars = {
+        var_ctid: '', // Empty = use next available ID
         // Resources from JSON
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
@@ -211,6 +212,14 @@ export function ConfigurationModal({
       if (advancedVars.var_vlan && !validatePositiveInt(advancedVars.var_vlan as string | number | undefined)) {
         newErrors.var_vlan = 'Must be a positive integer';
       }
+      // Container ID (CTID): if set, must be integer >= 100
+      const ctidVal = advancedVars.var_ctid;
+      if (ctidVal !== '' && ctidVal !== undefined) {
+        const ctidNum = typeof ctidVal === 'string' ? parseInt(ctidVal, 10) : ctidVal;
+        if (isNaN(ctidNum) || ctidNum < 100) {
+          newErrors.var_ctid = 'Must be 100 or greater';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -281,7 +290,12 @@ export function ConfigurationModal({
     const cleaned: EnvVars = {};
     for (const [key, value] of Object.entries(envVars)) {
       if (value !== '' && value !== undefined) {
-        cleaned[key] = value;
+        // Send var_ctid as number so the script receives a numeric ID
+        if (key === 'var_ctid') {
+          cleaned[key] = Number(value);
+        } else {
+          cleaned[key] = value;
+        }
       }
     }
 
@@ -374,6 +388,35 @@ export function ConfigurationModal({
           ) : (
             /* Advanced Mode */
             <div className="space-y-6">
+              {/* Container ID (CTID) - at top so user can set a specific ID */}
+              <div>
+                <h3 className="text-lg font-medium text-foreground mb-4">Container ID (CTID)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Container ID (CTID)
+                    </label>
+                    <Input
+                      type="number"
+                      min="100"
+                      value={typeof advancedVars.var_ctid === 'boolean' ? '' : (advancedVars.var_ctid ?? '')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        updateAdvancedVar('var_ctid', v === '' ? '' : parseInt(v, 10) || '');
+                      }}
+                      placeholder="Auto (next available)"
+                      className={errors.var_ctid ? 'border-destructive' : ''}
+                    />
+                    {errors.var_ctid && (
+                      <p className="mt-1 text-xs text-destructive">{errors.var_ctid}</p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Leave empty to use the next available ID. Must be 100 or greater.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Resources */}
               <div>
                 <h3 className="text-lg font-medium text-foreground mb-4">Resources</h3>
