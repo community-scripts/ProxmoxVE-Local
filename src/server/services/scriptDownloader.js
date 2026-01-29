@@ -1,6 +1,7 @@
 // Real JavaScript implementation for script downloading
 import { join } from 'path';
 import { writeFile, mkdir, access, readFile, unlink } from 'fs/promises';
+import { downloadRawFile } from '../lib/gitProvider/index.js';
 
 export class ScriptDownloaderService {
   constructor() {
@@ -82,51 +83,18 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * Extract repository path from GitHub URL
-   * @param {string} repoUrl - The GitHub repository URL
-   * @returns {string}
-   */
-  extractRepoPath(repoUrl) {
-    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
-    if (!match) {
-      throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
-    }
-    return `${match[1]}/${match[2]}`;
-  }
-
-  /**
-   * Download a file from GitHub
-   * @param {string} repoUrl - The GitHub repository URL
+   * Download a file from the repository (GitHub, GitLab, Bitbucket, or custom)
+   * @param {string} repoUrl - The repository URL
    * @param {string} filePath - The file path within the repository
    * @param {string} [branch] - The branch to download from
    * @returns {Promise<string>}
    */
-  async downloadFileFromGitHub(repoUrl, filePath, branch = 'main') {
-    this.initializeConfig();
+  async downloadFileFromRepo(repoUrl, filePath, branch = 'main') {
     if (!repoUrl) {
       throw new Error('Repository URL is not set');
     }
-
-    const repoPath = this.extractRepoPath(repoUrl);
-    const url = `https://raw.githubusercontent.com/${repoPath}/${branch}/${filePath}`;
-    
-    /** @type {Record<string, string>} */
-    const headers = {
-      'User-Agent': 'PVEScripts-Local/1.0',
-    };
-    
-    // Add GitHub token authentication if available
-    if (process.env.GITHUB_TOKEN) {
-      headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
-    }
-    
-    console.log(`Downloading from GitHub: ${url}`);
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      throw new Error(`Failed to download ${filePath} from ${repoUrl}: ${response.status} ${response.statusText}`);
-    }
-
-    return response.text();
+    console.log(`Downloading from repository: ${repoUrl} (${filePath})`);
+    return downloadRawFile(repoUrl, filePath, branch);
   }
 
   /**
@@ -184,9 +152,8 @@ export class ScriptDownloaderService {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
-              // Download from GitHub using the script's repository URL
               console.log(`Downloading script file: ${scriptPath} from ${repoUrl}`);
-              const content = await this.downloadFileFromGitHub(repoUrl, scriptPath, branch);
+              const content = await this.downloadFileFromRepo(repoUrl, scriptPath, branch);
               
               // Determine target directory based on script path
               let targetDir;
@@ -250,7 +217,7 @@ export class ScriptDownloaderService {
         const installScriptName = `${script.slug}-install.sh`;
         try {
           console.log(`Downloading install script: install/${installScriptName} from ${repoUrl}`);
-          const installContent = await this.downloadFileFromGitHub(repoUrl, `install/${installScriptName}`, branch);
+          const installContent = await this.downloadFileFromRepo(repoUrl, `install/${installScriptName}`, branch);
           const localInstallPath = join(this.scriptsDirectory, 'install', installScriptName);
           await writeFile(localInstallPath, installContent, 'utf-8');
           files.push(`install/${installScriptName}`);
@@ -274,7 +241,7 @@ export class ScriptDownloaderService {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
         try {
           console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName} from ${repoUrl}`);
-          const alpineInstallContent = await this.downloadFileFromGitHub(repoUrl, `install/${alpineInstallScriptName}`, branch);
+          const alpineInstallContent = await this.downloadFileFromRepo(repoUrl, `install/${alpineInstallScriptName}`, branch);
           const localAlpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
           await writeFile(localAlpineInstallPath, alpineInstallContent, 'utf-8');
           files.push(`install/${alpineInstallScriptName}`);
@@ -681,7 +648,7 @@ export class ScriptDownloaderService {
       console.log(`[Comparison] Local file size: ${localContent.length} bytes`);
       
       // Download remote content from the script's repository
-      const remoteContent = await this.downloadFileFromGitHub(repoUrl, remotePath, branch);
+      const remoteContent = await this.downloadFileFromRepo(repoUrl, remotePath, branch);
       console.log(`[Comparison] Remote file size: ${remoteContent.length} bytes`);
       
       // Apply modification only for CT scripts, not for other script types
@@ -739,7 +706,7 @@ export class ScriptDownloaderService {
             // Find the corresponding script path in install_methods
             const method = script.install_methods?.find(m => m.script === filePath);
             if (method?.script) {
-              const downloadedContent = await this.downloadFileFromGitHub(repoUrl, method.script, branch);
+              const downloadedContent = await this.downloadFileFromRepo(repoUrl, method.script, branch);
               remoteContent = this.modifyScriptContent(downloadedContent);
             }
           } catch {
@@ -756,7 +723,7 @@ export class ScriptDownloaderService {
         }
 
         try {
-          remoteContent = await this.downloadFileFromGitHub(repoUrl, filePath, branch);
+          remoteContent = await this.downloadFileFromRepo(repoUrl, filePath, branch);
         } catch {
           // Error downloading remote install script
         }

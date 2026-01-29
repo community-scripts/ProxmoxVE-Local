@@ -2,6 +2,7 @@
 import { writeFile, mkdir, readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { repositoryService } from './repositoryService.js';
+import { listDirectory, downloadRawFile } from '../lib/gitProvider/index.js';
 
 // Get environment variables
 const getEnv = () => ({
@@ -28,76 +29,9 @@ class GitHubJsonService {
     }
   }
 
-  getBaseUrl(repoUrl) {
-    const urlMatch = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
-    if (!urlMatch) {
-      throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
-    }
-    
-    const [, owner, repo] = urlMatch;
-    return `https://api.github.com/repos/${owner}/${repo}`;
-  }
-
-  extractRepoPath(repoUrl) {
-    const match = /github\.com\/([^\/]+)\/([^\/]+)/.exec(repoUrl);
-    if (!match) {
-      throw new Error('Invalid GitHub repository URL');
-    }
-    return `${match[1]}/${match[2]}`;
-  }
-
-  async fetchFromGitHub(repoUrl, endpoint) {
-    const baseUrl = this.getBaseUrl(repoUrl);
-    const env = getEnv();
-    
-    const headers = {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'PVEScripts-Local/1.0',
-    };
-    
-    if (env.GITHUB_TOKEN) {
-      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
-    }
-    
-    const response = await fetch(`${baseUrl}${endpoint}`, { headers });
-
-    if (!response.ok) {
-      if (response.status === 403) {
-        const error = new Error(`GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN for higher limits. Status: ${response.status} ${response.statusText}`);
-        error.name = 'RateLimitError';
-        throw error;
-      }
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
   async downloadJsonFile(repoUrl, filePath) {
     this.initializeConfig();
-    const repoPath = this.extractRepoPath(repoUrl);
-    const rawUrl = `https://raw.githubusercontent.com/${repoPath}/${this.branch}/${filePath}`;
-    const env = getEnv();
-    
-    const headers = {
-      'User-Agent': 'PVEScripts-Local/1.0',
-    };
-    
-    if (env.GITHUB_TOKEN) {
-      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
-    }
-    
-    const response = await fetch(rawUrl, { headers });
-    if (!response.ok) {
-      if (response.status === 403) {
-        const error = new Error(`GitHub rate limit exceeded while downloading ${filePath}. Consider setting GITHUB_TOKEN for higher limits.`);
-        error.name = 'RateLimitError';
-        throw error;
-      }
-      throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
-    }
-
-    const content = await response.text();
+    const content = await downloadRawFile(repoUrl, filePath, this.branch);
     const script = JSON.parse(content);
     script.repository_url = repoUrl;
     return script;
@@ -105,16 +39,13 @@ class GitHubJsonService {
 
   async getJsonFiles(repoUrl) {
     this.initializeConfig();
-    
     try {
-      const files = await this.fetchFromGitHub(
-        repoUrl,
-        `/contents/${this.jsonFolder}?ref=${this.branch}`
-      );
-      
-      return files.filter(file => file.name.endsWith('.json'));
+      const entries = await listDirectory(repoUrl, this.jsonFolder, this.branch);
+      return entries
+        .filter((e) => e.type === 'file' && e.name.endsWith('.json'))
+        .map((e) => ({ name: e.name, path: e.path }));
     } catch (error) {
-      console.error(`Error fetching JSON files from GitHub (${repoUrl}):`, error);
+      console.error(`Error fetching JSON files from repository (${repoUrl}):`, error);
       throw new Error(`Failed to fetch script files from repository: ${repoUrl}`);
     }
   }

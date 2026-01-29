@@ -23,8 +23,11 @@ export const env = createEnv({
     ALLOWED_SCRIPT_PATHS: z.string().default("scripts/"),
     // WebSocket Configuration
     WEBSOCKET_PORT: z.string().default("3001"),
-    // GitHub Configuration
+    // Git provider tokens (optional, for private repos)
     GITHUB_TOKEN: z.string().optional(),
+    GITLAB_TOKEN: z.string().optional(),
+    BITBUCKET_APP_PASSWORD: z.string().optional(),
+    BITBUCKET_TOKEN: z.string().optional(),
     // Authentication Configuration
     AUTH_USERNAME: z.string().optional(),
     AUTH_PASSWORD_HASH: z.string().optional(),
@@ -62,8 +65,10 @@ export const env = createEnv({
     ALLOWED_SCRIPT_PATHS: process.env.ALLOWED_SCRIPT_PATHS,
     // WebSocket Configuration
     WEBSOCKET_PORT: process.env.WEBSOCKET_PORT,
-    // GitHub Configuration
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+    GITLAB_TOKEN: process.env.GITLAB_TOKEN,
+    BITBUCKET_APP_PASSWORD: process.env.BITBUCKET_APP_PASSWORD,
+    BITBUCKET_TOKEN: process.env.BITBUCKET_TOKEN,
     // Authentication Configuration
     AUTH_USERNAME: process.env.AUTH_USERNAME,
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH,

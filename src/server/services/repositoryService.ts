@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/prefer-regexp-exec */
 import { prisma } from '../db';
+import { isValidRepositoryUrl, REPO_URL_ERROR_MESSAGE } from '../lib/repositoryUrlValidation';
 
 export class RepositoryService {
   /**
@@ -93,9 +93,8 @@ export class RepositoryService {
     enabled?: boolean;
     priority?: number;
   }) {
-    // Validate GitHub URL
-    if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
-      throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
+    if (!isValidRepositoryUrl(data.url)) {
+      throw new Error(REPO_URL_ERROR_MESSAGE);
     }
 
     // Check for duplicates
@@ -130,10 +129,9 @@ export class RepositoryService {
     url?: string;
     priority?: number;
   }) {
-    // If updating URL, validate it
     if (data.url) {
-      if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
-        throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
+      if (!isValidRepositoryUrl(data.url)) {
+        throw new Error(REPO_URL_ERROR_MESSAGE);
       }
 
       // Check for duplicates (excluding current repo)
