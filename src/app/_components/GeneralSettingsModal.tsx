@@ -1617,7 +1617,7 @@ export function GeneralSettingsModal({
                       <Input
                         id="new-repo-url"
                         type="url"
-                        placeholder="https://github.com/owner/repo"
+                        placeholder="https://github.com/owner/repo or https://git.example.com/owner/repo"
                         value={newRepoUrl}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                           setNewRepoUrl(e.target.value)
@@ -1626,8 +1626,9 @@ export function GeneralSettingsModal({
                         className="w-full"
                       />
                       <p className="text-muted-foreground mt-1 text-xs">
-                        Enter a GitHub repository URL (e.g.,
-                        https://github.com/owner/repo)
+                        Supported: GitHub, GitLab, Bitbucket, or custom Git
+                        servers (e.g. https://github.com/owner/repo,
+                        https://gitlab.com/owner/repo)
                       </p>
                     </div>
                     <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">

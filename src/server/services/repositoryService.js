@@ -1,5 +1,6 @@
 // JavaScript wrapper for repositoryService (for use with node server.js)
 import { prisma } from '../db.js';
+import { isValidRepositoryUrl, REPO_URL_ERROR_MESSAGE } from '../lib/repositoryUrlValidation.js';
 
 class RepositoryService {
   /**
@@ -89,9 +90,8 @@ class RepositoryService {
    * Create a new repository
    */
   async createRepository(data) {
-    // Validate GitHub URL
-    if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
-      throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
+    if (!isValidRepositoryUrl(data.url)) {
+      throw new Error(REPO_URL_ERROR_MESSAGE);
     }
 
     // Check for duplicates
@@ -122,10 +122,9 @@ class RepositoryService {
    * Update repository
    */
   async updateRepository(id, data) {
-    // If updating URL, validate it
     if (data.url) {
-      if (!data.url.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+$/)) {
-        throw new Error('Invalid GitHub repository URL. Format: https://github.com/owner/repo');
+      if (!isValidRepositoryUrl(data.url)) {
+        throw new Error(REPO_URL_ERROR_MESSAGE);
       }
 
       // Check for duplicates (excluding current repo)
