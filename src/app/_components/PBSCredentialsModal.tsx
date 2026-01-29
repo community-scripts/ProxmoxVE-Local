@@ -270,22 +270,21 @@ export function PBSCredentialsModal({
                 htmlFor="pbs-fingerprint"
                 className="text-foreground mb-1 block text-sm font-medium"
               >
-                Fingerprint <span className="text-error">*</span>
+                Fingerprint
               </label>
               <input
                 type="text"
                 id="pbs-fingerprint"
                 value={pbsFingerprint}
                 onChange={(e) => setPbsFingerprint(e.target.value)}
-                required
                 disabled={isLoading}
                 className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
                 placeholder="e.g., 7b:e5:87:38:5e:16:05:d1:12:22:7f:73:d2:e2:d0:cf:8c:cb:28:e2:74:0c:78:91:1a:71:74:2e:79:20:5a:02"
               />
               <p className="text-muted-foreground mt-1 text-xs">
-                Server fingerprint for auto-acceptance. You can find this on
-                your PBS dashboard by clicking the &quot;Show Fingerprint&quot;
-                button.
+                Leave empty if PBS uses a trusted CA (e.g. Let&apos;s Encrypt).
+                For self-signed certificates, enter the server fingerprint from
+                the PBS dashboard (&quot;Show Fingerprint&quot;).
               </p>
             </div>
 
