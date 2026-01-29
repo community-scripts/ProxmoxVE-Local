@@ -88,6 +88,7 @@ export function ConfigurationModal({
         var_mtu: 1500,
         var_mac: '',
         var_ns: '',
+        var_searchdomain: '',
 
         // Identity
         var_hostname: slug,
@@ -214,7 +215,7 @@ export function ConfigurationModal({
       }
       // Container ID (CTID): if set, must be integer >= 100
       const ctidVal = advancedVars.var_ctid;
-      if (ctidVal !== '' && ctidVal !== undefined) {
+      if (ctidVal !== '' && ctidVal !== undefined && typeof ctidVal !== 'boolean') {
         const ctidNum = typeof ctidVal === 'string' ? parseInt(ctidVal, 10) : ctidVal;
         if (isNaN(ctidNum) || ctidNum < 100) {
           newErrors.var_ctid = 'Must be 100 or greater';
@@ -655,6 +656,17 @@ export function ConfigurationModal({
                     {errors.var_ns && (
                       <p className="mt-1 text-xs text-destructive">{errors.var_ns}</p>
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      DNS Search Domain
+                    </label>
+                    <Input
+                      type="text"
+                      value={typeof advancedVars.var_searchdomain === 'boolean' ? '' : String(advancedVars.var_searchdomain ?? '')}
+                      onChange={(e) => updateAdvancedVar('var_searchdomain', e.target.value)}
+                      placeholder="e.g. local, home.lan"
+                    />
                   </div>
                 </div>
               </div>
