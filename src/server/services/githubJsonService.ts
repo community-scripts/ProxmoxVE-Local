@@ -1,4 +1,4 @@
-import { writeFile, mkdir, readdir, readFile } from 'fs/promises';
+import { writeFile, mkdir, readdir, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { env } from '../../env.js';
 import type { Script, ScriptCard, GitHubFile } from '../../types/script';
@@ -158,7 +158,7 @@ export class GitHubJsonService {
   /**
    * Sync JSON files from a specific repository
    */
-  async syncJsonFilesForRepo(repoUrl: string): Promise<{ success: boolean; message: string; count: number; syncedFiles: string[] }> {
+  async syncJsonFilesForRepo(repoUrl: string): Promise<{ success: boolean; message: string; count: number; syncedFiles: string[]; deletedFiles: string[] }> {
     try {
       console.log(`Starting JSON sync from repository: ${repoUrl}`);
       
@@ -170,28 +170,45 @@ export class GitHubJsonService {
       const localFiles = await this.getLocalJsonFiles();
       console.log(`Found ${localFiles.length} local JSON files`);
       
+      // Delete local JSON files that belong to this repo but are no longer in the remote
+      const remoteFilenames = new Set(githubFiles.map((f) => f.name));
+      const deletedFiles = await this.deleteLocalFilesRemovedFromRepo(repoUrl, remoteFilenames);
+      if (deletedFiles.length > 0) {
+        console.log(`Removed ${deletedFiles.length} obsolete JSON file(s) no longer in ${repoUrl}`);
+      }
+      
       // Compare and find files that need syncing
       // For multi-repo support, we need to check if file exists AND if it's from this repo
       const filesToSync = await this.findFilesToSyncForRepo(repoUrl, githubFiles, localFiles);
       console.log(`Found ${filesToSync.length} files that need syncing from ${repoUrl}`);
       
       if (filesToSync.length === 0) {
+        const msg =
+          deletedFiles.length > 0
+            ? `All JSON files are up to date for repository: ${repoUrl}. Removed ${deletedFiles.length} obsolete file(s).`
+            : `All JSON files are up to date for repository: ${repoUrl}`;
         return {
           success: true,
-          message: `All JSON files are up to date for repository: ${repoUrl}`,
+          message: msg,
           count: 0,
-          syncedFiles: []
+          syncedFiles: [],
+          deletedFiles
         };
       }
       
       // Download and save only the files that need syncing
       const syncedFiles = await this.syncSpecificFiles(repoUrl, filesToSync);
       
+      const msg =
+        deletedFiles.length > 0
+          ? `Successfully synced ${syncedFiles.length} JSON files from ${repoUrl}, removed ${deletedFiles.length} obsolete file(s).`
+          : `Successfully synced ${syncedFiles.length} JSON files from ${repoUrl}`;
       return {
         success: true,
-        message: `Successfully synced ${syncedFiles.length} JSON files from ${repoUrl}`,
+        message: msg,
         count: syncedFiles.length,
-        syncedFiles
+        syncedFiles,
+        deletedFiles
       };
     } catch (error) {
       console.error(`JSON sync failed for ${repoUrl}:`, error);
@@ -199,7 +216,8 @@ export class GitHubJsonService {
         success: false,
         message: `Failed to sync JSON files from ${repoUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         count: 0,
-        syncedFiles: []
+        syncedFiles: [],
+        deletedFiles: []
       };
     }
   }
@@ -207,7 +225,7 @@ export class GitHubJsonService {
   /**
    * Sync JSON files from all enabled repositories (main repo has priority)
    */
-  async syncJsonFiles(): Promise<{ success: boolean; message: string; count: number; syncedFiles: string[] }> {
+  async syncJsonFiles(): Promise<{ success: boolean; message: string; count: number; syncedFiles: string[]; deletedFiles: string[] }> {
     try {
       console.log('Starting multi-repository JSON sync...');
       
@@ -218,13 +236,15 @@ export class GitHubJsonService {
           success: false,
           message: 'No enabled repositories found',
           count: 0,
-          syncedFiles: []
+          syncedFiles: [],
+          deletedFiles: []
         };
       }
 
       console.log(`Found ${enabledRepos.length} enabled repositories`);
       
       const allSyncedFiles: string[] = [];
+      const allDeletedFiles: string[] = [];
       const processedSlugs = new Set<string>(); // Track slugs we've already processed
       let totalSynced = 0;
 
@@ -236,6 +256,7 @@ export class GitHubJsonService {
           const result = await this.syncJsonFilesForRepo(repo.url);
           
           if (result.success) {
+            allDeletedFiles.push(...(result.deletedFiles ?? []));
             // Only count files that weren't already processed from a higher priority repo
             const newFiles = result.syncedFiles.filter(file => {
               const slug = file.replace('.json', '');
@@ -259,11 +280,16 @@ export class GitHubJsonService {
       // Also update existing files that don't have repository_url set (backward compatibility)
       await this.updateExistingFilesWithRepositoryUrl();
 
+      const msg =
+        allDeletedFiles.length > 0
+          ? `Successfully synced ${totalSynced} JSON files from ${enabledRepos.length} repositories, removed ${allDeletedFiles.length} obsolete file(s).`
+          : `Successfully synced ${totalSynced} JSON files from ${enabledRepos.length} repositories`;
       return {
         success: true,
-        message: `Successfully synced ${totalSynced} JSON files from ${enabledRepos.length} repositories`,
+        message: msg,
         count: totalSynced,
-        syncedFiles: allSyncedFiles
+        syncedFiles: allSyncedFiles,
+        deletedFiles: allDeletedFiles
       };
     } catch (error) {
       console.error('Multi-repository JSON sync failed:', error);
@@ -271,7 +297,8 @@ export class GitHubJsonService {
         success: false,
         message: `Failed to sync JSON files: ${error instanceof Error ? error.message : 'Unknown error'}`,
         count: 0,
-        syncedFiles: []
+        syncedFiles: [],
+        deletedFiles: []
       };
     }
   }
@@ -314,6 +341,36 @@ export class GitHubJsonService {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Delete local JSON files that belong to this repo but are no longer in the remote list.
+   * Returns the list of deleted filenames.
+   */
+  private async deleteLocalFilesRemovedFromRepo(repoUrl: string, remoteFilenames: Set<string>): Promise<string[]> {
+    this.initializeConfig();
+    const localFiles = await this.getLocalJsonFiles();
+    const deletedFiles: string[] = [];
+
+    for (const file of localFiles) {
+      try {
+        const filePath = join(this.localJsonDirectory!, file);
+        const content = await readFile(filePath, 'utf-8');
+        const script = JSON.parse(content) as Script;
+
+        if (script.repository_url === repoUrl && !remoteFilenames.has(file)) {
+          await unlink(filePath);
+          const slug = file.replace(/\.json$/, '');
+          this.scriptCache.delete(slug);
+          deletedFiles.push(file);
+          console.log(`Removed obsolete script JSON: ${file} (no longer in ${repoUrl})`);
+        }
+      } catch {
+        // If we can't read or parse the file, skip (do not delete)
+      }
+    }
+
+    return deletedFiles;
   }
 
   /**
