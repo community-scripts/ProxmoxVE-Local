@@ -80,6 +80,7 @@ export function InstalledScriptsTab() {
     id: number;
     containerId: string;
     server?: any;
+    containerType?: 'lxc' | 'vm';
   } | null>(null);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const [showStorageSelection, setShowStorageSelection] = useState(false);
@@ -1167,6 +1168,7 @@ export function InstalledScriptsTab() {
       id: script.id,
       containerId: script.container_id,
       server: server,
+      containerType: script.is_vm ? 'vm' : 'lxc',
     });
   };
 
@@ -1452,6 +1454,13 @@ export function InstalledScriptsTab() {
       {/* Shell Terminal */}
       {openingShell && (
         <div className="mb-8" data-terminal="shell">
+          {openingShell.containerType === 'vm' && (
+            <p className="text-muted-foreground mb-2 text-sm">
+              VM shell uses the Proxmox serial console. The VM must have a
+              serial port configured (e.g. <code className="bg-muted rounded px-1">qm set {openingShell.containerId} -serial0 socket</code>).
+              Detach with <kbd className="bg-muted rounded px-1">Ctrl+O</kbd>.
+            </p>
+          )}
           <Terminal
             scriptPath={`shell-${openingShell.containerId}`}
             onClose={handleCloseShellTerminal}
@@ -1459,6 +1468,7 @@ export function InstalledScriptsTab() {
             server={openingShell.server}
             isShell={true}
             containerId={openingShell.containerId}
+            containerType={openingShell.containerType}
           />
         </div>
       )}
@@ -1538,7 +1548,7 @@ export function InstalledScriptsTab() {
           >
             {showAutoDetectForm
               ? "Cancel Auto-Detect"
-              : '🔍 Auto-Detect LXC Containers (Must contain a tag with "community-script")'}
+              : '🔍 Auto-Detect Containers & VMs (tag: community-script)'}
           </Button>
           <Button
             onClick={() => {
@@ -1764,12 +1774,11 @@ export function InstalledScriptsTab() {
           </div>
         )}
 
-        {/* Auto-Detect LXC Containers Form */}
+        {/* Auto-Detect Containers & VMs Form */}
         {showAutoDetectForm && (
           <div className="bg-card border-border mb-6 rounded-lg border p-4 shadow-sm sm:p-6">
             <h3 className="text-foreground mb-4 text-lg font-semibold sm:mb-6">
-              Auto-Detect LXC Containers (Must contain a tag with
-              &quot;community-script&quot;)
+              Auto-Detect Containers &amp; VMs (tag: community-script)
             </h3>
             <div className="space-y-4 sm:space-y-6">
               <div className="bg-muted/30 border-muted rounded-lg border p-4">
@@ -1795,12 +1804,12 @@ export function InstalledScriptsTab() {
                       <p>This feature will:</p>
                       <ul className="mt-1 list-inside list-disc space-y-1">
                         <li>Connect to the selected server via SSH</li>
-                        <li>Scan all LXC config files in /etc/pve/lxc/</li>
+                        <li>Scan LXC configs in /etc/pve/lxc/ and VM configs in /etc/pve/qemu-server/</li>
                         <li>
-                          Find containers with &quot;community-script&quot; in
+                          Find containers and VMs with &quot;community-script&quot; in
                           their tags
                         </li>
-                        <li>Extract the container ID and hostname</li>
+                        <li>Extract the container/VM ID and hostname or name</li>
                         <li>Add them as installed script entries</li>
                       </ul>
                     </div>
@@ -2302,6 +2311,11 @@ export function InstalledScriptsTab() {
                                             "stopped"
                                           }
                                           className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                          title={
+                                            script.is_vm
+                                              ? "VM serial console (requires serial port; detach with Ctrl+O)"
+                                              : undefined
+                                          }
                                         >
                                           Shell
                                         </DropdownMenuItem>
