@@ -3,6 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
@@ -56,6 +57,8 @@ const handle = app.getRequestHandler();
  * @property {string} user
  * @property {string} password
  * @property {number} [id]
+ * @property {string} [auth_type]
+ * @property {string} [ssh_key_path]
  */
 
 /**
@@ -296,6 +299,20 @@ class ScriptExecutionHandler {
   }
 
   /**
+   * Resolve full server from DB when client sends server with id but no ssh_key_path (e.g. for Shell/Update over SSH).
+   * @param {ServerInfo|null} server - Server from WebSocket message
+   * @returns {Promise<ServerInfo|null>} Same server or full server from DB
+   */
+  async resolveServerForSSH(server) {
+    if (!server?.id) return server;
+    if (server.auth_type === 'key' && (!server.ssh_key_path || !existsSync(server.ssh_key_path))) {
+      const full = await this.db.getServerById(server.id);
+      return /** @type {ServerInfo|null} */ (full ?? server);
+    }
+    return server;
+  }
+
+  /**
    * @param {ExtendedWebSocket} ws
    * @param {WebSocketMessage} message
    */
@@ -305,16 +322,21 @@ class ScriptExecutionHandler {
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
+          let serverToUse = server;
+          if (serverToUse?.id) {
+            serverToUse = await this.resolveServerForSSH(serverToUse) ?? serverToUse;
+          }
+          const resolved = serverToUse ?? server;
           if (isClone && containerId && storage && server && cloneCount && hostnames && containerType) {
-            await this.startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames);
+            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */ (resolved), containerType, cloneCount, hostnames);
           } else if (isBackup && containerId && storage) {
-            await this.startBackupExecution(ws, containerId, executionId, storage, mode, server);
+            await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
           } else if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, server, backupStorage);
+            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage);
           } else if (isShell && containerId) {
-            await this.startShellExecution(ws, containerId, executionId, mode, server, containerType);
+            await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
           } else {
-            await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars);
+            await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars);
           }
         } else {
           this.sendMessage(ws, {
