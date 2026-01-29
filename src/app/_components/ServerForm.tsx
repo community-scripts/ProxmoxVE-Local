@@ -438,6 +438,11 @@ export function ServerForm({
             {errors.password && (
               <p className="text-destructive mt-1 text-sm">{errors.password}</p>
             )}
+            <p className="text-muted-foreground mt-1 text-xs">
+              SSH key is recommended when possible. Special characters (e.g.{" "}
+              <code className="rounded bg-muted px-0.5">{"{ } $ \" '"}</code>) are
+              supported.
+            </p>
           </div>
         )}
 

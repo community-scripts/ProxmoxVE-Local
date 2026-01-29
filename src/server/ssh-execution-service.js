@@ -1,6 +1,8 @@
 import { spawn } from 'child_process';
 import { spawn as ptySpawn } from 'node-pty';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, chmodSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 
 /**
@@ -194,26 +196,45 @@ class SSHExecutionService {
    */
   async transferScriptsFolder(server, onData, onError) {
     const { ip, user, password, auth_type = 'password', ssh_key_passphrase, ssh_key_path, ssh_port = 22 } = server;
-    
+
+    const cleanupTempFile = (/** @type {string | null} */ tempPath) => {
+      if (tempPath) {
+        try {
+          unlinkSync(tempPath);
+        } catch (_) {
+          // ignore
+        }
+      }
+    };
+
     return new Promise((resolve, reject) => {
+      /** @type {string | null} */
+      let tempPath = null;
       try {
-        // Build rsync command based on authentication type
+        // Build rsync command based on authentication type.
+        // Use sshpass -f with a temp file so password/passphrase never go through the shell (safe for special chars like {, $, ").
         let rshCommand;
         if (auth_type === 'key') {
           if (!ssh_key_path || !existsSync(ssh_key_path)) {
             throw new Error('SSH key file not found');
           }
-          
+
           if (ssh_key_passphrase) {
-            rshCommand = `sshpass -P passphrase -p ${ssh_key_passphrase} ssh -i ${ssh_key_path} -p ${ssh_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+            tempPath = join(tmpdir(), `sshpass-${process.pid}-${Date.now()}.tmp`);
+            writeFileSync(tempPath, ssh_key_passphrase);
+            chmodSync(tempPath, 0o600);
+            rshCommand = `sshpass -P passphrase -f ${tempPath} ssh -i ${ssh_key_path} -p ${ssh_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
           } else {
             rshCommand = `ssh -i ${ssh_key_path} -p ${ssh_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
           }
         } else {
           // Password authentication
-          rshCommand = `sshpass -p ${password} ssh -p ${ssh_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+          tempPath = join(tmpdir(), `sshpass-${process.pid}-${Date.now()}.tmp`);
+          writeFileSync(tempPath, password ?? '');
+          chmodSync(tempPath, 0o600);
+          rshCommand = `sshpass -f ${tempPath} ssh -p ${ssh_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
         }
-        
+
         const rsyncCommand = spawn('rsync', [
           '-avz',
           '--delete',
@@ -226,31 +247,31 @@ class SSHExecutionService {
           stdio: ['pipe', 'pipe', 'pipe']
         });
 
-      rsyncCommand.stdout.on('data', (/** @type {Buffer} */ data) => {
-        // Ensure proper UTF-8 encoding for ANSI colors
-        const output = data.toString('utf8');
-        onData(output);
-      });
+        rsyncCommand.stdout.on('data', (/** @type {Buffer} */ data) => {
+          const output = data.toString('utf8');
+          onData(output);
+        });
 
-      rsyncCommand.stderr.on('data', (/** @type {Buffer} */ data) => {
-        // Ensure proper UTF-8 encoding for ANSI colors
-        const output = data.toString('utf8');
-        onError(output);
-      });
+        rsyncCommand.stderr.on('data', (/** @type {Buffer} */ data) => {
+          const output = data.toString('utf8');
+          onError(output);
+        });
 
-      rsyncCommand.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`rsync failed with code ${code}`));
-        }
-      });
+        rsyncCommand.on('close', (code) => {
+          cleanupTempFile(tempPath);
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`rsync failed with code ${code}`));
+          }
+        });
 
-      rsyncCommand.on('error', (error) => {
-        reject(error);
-      });
-      
+        rsyncCommand.on('error', (error) => {
+          cleanupTempFile(tempPath);
+          reject(error);
+        });
       } catch (error) {
+        cleanupTempFile(tempPath);
         reject(error);
       }
     });
