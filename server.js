@@ -312,7 +312,7 @@ class ScriptExecutionHandler {
           } else if (isUpdate && containerId) {
             await this.startUpdateExecution(ws, containerId, executionId, mode, server, backupStorage);
           } else if (isShell && containerId) {
-            await this.startShellExecution(ws, containerId, executionId, mode, server);
+            await this.startShellExecution(ws, containerId, executionId, mode, server, containerType);
           } else {
             await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars);
           }
@@ -1474,21 +1474,21 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {string} mode
    * @param {ServerInfo|null} server
+   * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null) {
+  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null, containerType = 'lxc') {
     try {
-      
-      // Send start message
+      const typeLabel = containerType === 'vm' ? 'VM' : 'container';
       this.sendMessage(ws, {
         type: 'start',
-        data: `Starting shell session for container ${containerId}...`,
+        data: `Starting shell session for ${typeLabel} ${containerId}...`,
         timestamp: Date.now()
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHShellExecution(ws, containerId, executionId, server);
+        await this.startSSHShellExecution(ws, containerId, executionId, server, containerType);
       } else {
-        await this.startLocalShellExecution(ws, containerId, executionId);
+        await this.startLocalShellExecution(ws, containerId, executionId, containerType);
       }
 
     } catch (error) {
@@ -1505,12 +1505,12 @@ class ScriptExecutionHandler {
    * @param {ExtendedWebSocket} ws
    * @param {string} containerId
    * @param {string} executionId
+   * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startLocalShellExecution(ws, containerId, executionId) {
+  async startLocalShellExecution(ws, containerId, executionId, containerType = 'lxc') {
     const { spawn } = await import('node-pty');
-    
-    // Create a shell process that will run pct enter
-    const childProcess = spawn('bash', ['-c', `pct enter ${containerId}`], {
+    const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
+    const childProcess = spawn('bash', ['-c', shellCommand], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
@@ -1553,14 +1553,15 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    * @param {ServerInfo} server
+   * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startSSHShellExecution(ws, containerId, executionId, server) {
+  async startSSHShellExecution(ws, containerId, executionId, server, containerType = 'lxc') {
     const sshService = getSSHExecutionService();
-    
+    const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
     try {
       const execution = await sshService.executeCommand(
         server,
-        `pct enter ${containerId}`,
+        shellCommand,
         /** @param {string} data */
         (data) => {
           this.sendMessage(ws, {

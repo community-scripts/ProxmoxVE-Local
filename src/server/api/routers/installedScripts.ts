@@ -1060,7 +1060,7 @@ export const installedScriptsRouter = createTRPCRouter({
               reject(new Error(`pct list failed: ${error}`));
             },
             (_exitCode: number) => {
-              resolve();
+              setImmediate(() => resolve());
             }
           );
         });
@@ -1079,7 +1079,7 @@ export const installedScriptsRouter = createTRPCRouter({
               reject(new Error(`qm list failed: ${error}`));
             },
             (_exitCode: number) => {
-              resolve();
+              setImmediate(() => resolve());
             }
           );
         });
