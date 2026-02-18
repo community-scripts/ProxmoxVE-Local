@@ -60,6 +60,13 @@ export function ConfigurationModal({
   );
   const installDefaults = installDefaultsData?.defaults as Record<string, string | number | null> | null | undefined;
 
+  // Fetch bridge profiles for the selected server
+  const { data: bridgeProfilesData } = api.bridgeProfiles.getForServer.useQuery(
+    { serverId: server?.id ?? null },
+    { enabled: isOpen && mode === 'advanced' }
+  );
+  const bridgeProfiles = bridgeProfilesData?.profiles ?? [];
+
   // Get resources from JSON
   const resources = actualScript?.install_methods?.[0]?.resources;
   const slug = actualScript?.slug ?? "";
@@ -718,18 +725,40 @@ export function ConfigurationModal({
                     <label className="text-foreground mb-2 block text-sm font-medium">
                       Bridge
                     </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_brg === "boolean"
-                          ? ""
-                          : String(advancedVars.var_brg ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_brg", e.target.value)
-                      }
-                      placeholder="vmbr0"
-                    />
+                    {bridgeProfiles.length > 0 ? (
+                      <select
+                        value={typeof advancedVars.var_brg === 'boolean' ? '' : String(advancedVars.var_brg ?? '')}
+                        onChange={(e) => {
+                          const selected = e.target.value;
+                          updateAdvancedVar('var_brg', selected);
+                          const match = bridgeProfiles.find((bp: { name: string }) => bp.name === selected);
+                          if (match) {
+                            if (match.gateway) updateAdvancedVar('var_gateway', match.gateway);
+                            if (match.nameserver) updateAdvancedVar('var_ns', match.nameserver);
+                          }
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                      >
+                        <option value="">Select bridge...</option>
+                        {bridgeProfiles.map((bp: { id: number; name: string; gateway: string | null; nameserver: string | null }) => (
+                          <option key={bp.id} value={bp.name}>
+                            {bp.name}{bp.gateway ? ` (GW: ${bp.gateway})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        type="text"
+                        value={typeof advancedVars.var_brg === 'boolean' ? '' : String(advancedVars.var_brg ?? '')}
+                        onChange={(e) => updateAdvancedVar('var_brg', e.target.value)}
+                        placeholder="vmbr0"
+                      />
+                    )}
+                    {bridgeProfiles.length > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Selecting a bridge auto-fills Gateway and DNS.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="text-foreground mb-2 block text-sm font-medium">

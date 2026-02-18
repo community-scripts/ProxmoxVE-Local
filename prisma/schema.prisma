@@ -44,6 +44,7 @@ model Server {
   backups            Backup[]
   pbs_credentials    PBSStorageCredential[]
   install_default    InstallDefault?
+  bridge_profiles    BridgeProfile[]
   
   @@map("servers")
 }
@@ -193,4 +194,19 @@ model InstallDefault {
   updated_at            DateTime @updatedAt
 
   @@map("install_defaults")
+}
+
+model BridgeProfile {
+  id          Int      @id @default(autoincrement())
+  name        String   // Bridge name (e.g. vmbr0, vmbr1)
+  gateway     String?  // Gateway IP address
+  nameserver  String?  // DNS Nameserver IP
+  server_id   Int?     // null = global, int = per-server
+  server      Server?  @relation(fields: [server_id], references: [id], onDelete: Cascade)
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([name, server_id])
+  @@map("bridge_profiles")
 }

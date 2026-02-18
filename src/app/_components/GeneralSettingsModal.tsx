@@ -1906,6 +1906,13 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
   // Form state
   const [formData, setFormData] = useState<Record<string, string | number | null>>({});
 
+  // Bridge profile state
+  const [bridgeEditId, setBridgeEditId] = useState<number | null>(null);
+  const [bridgeName, setBridgeName] = useState("");
+  const [bridgeGateway, setBridgeGateway] = useState("");
+  const [bridgeNameserver, setBridgeNameserver] = useState("");
+  const [bridgeShowForm, setBridgeShowForm] = useState(false);
+
   // Fetch servers list
   const { data: serversData } = api.servers.getAllServers.useQuery();
 
@@ -1916,9 +1923,18 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
       { enabled: true }
     );
 
-  // Upsert mutation
+  // Fetch bridge profiles for selected server
+  const { data: bridgeData, refetch: refetchBridges } =
+    api.bridgeProfiles.getForServer.useQuery(
+      { serverId: selectedServerId },
+      { enabled: true }
+    );
+
+  // Mutations
   const upsertMutation = api.installDefaults.upsert.useMutation();
   const deleteMutation = api.installDefaults.delete.useMutation();
+  const bridgeUpsertMutation = api.bridgeProfiles.upsert.useMutation();
+  const bridgeDeleteMutation = api.bridgeProfiles.delete.useMutation();
 
   // Load form data when defaults are fetched
   useEffect(() => {
@@ -2007,7 +2023,82 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
     }
   };
 
+  // Bridge handlers
+  const resetBridgeForm = () => {
+    setBridgeEditId(null);
+    setBridgeName("");
+    setBridgeGateway("");
+    setBridgeNameserver("");
+    setBridgeShowForm(false);
+  };
+
+  const handleBridgeSave = async () => {
+    if (!bridgeName.trim()) return;
+    setMessage(null);
+    try {
+      const result = await bridgeUpsertMutation.mutateAsync({
+        id: bridgeEditId ?? undefined,
+        name: bridgeName.trim(),
+        gateway: bridgeGateway.trim() || null,
+        nameserver: bridgeNameserver.trim() || null,
+        serverId: selectedServerId,
+      });
+      if (result.success) {
+        setMessage({ type: "success", text: `Bridge "${bridgeName}" saved!` });
+        resetBridgeForm();
+        await refetchBridges();
+      } else {
+        setMessage({ type: "error", text: result.error ?? "Failed to save bridge" });
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save bridge",
+      });
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleBridgeDelete = async (id: number) => {
+    setMessage(null);
+    try {
+      const result = await bridgeDeleteMutation.mutateAsync({ id });
+      if (result.success) {
+        setMessage({ type: "success", text: "Bridge deleted." });
+        await refetchBridges();
+      } else {
+        setMessage({ type: "error", text: result.error ?? "Failed to delete bridge" });
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to delete bridge",
+      });
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleBridgeEdit = (profile: { id: number; name: string; gateway: string | null; nameserver: string | null }) => {
+    setBridgeEditId(profile.id);
+    setBridgeName(profile.name);
+    setBridgeGateway(profile.gateway ?? "");
+    setBridgeNameserver(profile.nameserver ?? "");
+    setBridgeShowForm(true);
+  };
+
+  // When a bridge is selected in the dropdown, populate gateway and DNS
+  const handleBridgeSelect = (bridgeNameValue: string) => {
+    updateField("var_brg", bridgeNameValue || null);
+    const profiles = bridgeData?.profiles ?? [];
+    const match = profiles.find((p: { name: string }) => p.name === bridgeNameValue);
+    if (match) {
+      if (match.gateway) updateField("var_gateway", match.gateway);
+      if (match.nameserver) updateField("var_ns", match.nameserver);
+    }
+  };
+
   const servers = serversData?.servers ?? [];
+  const bridges = bridgeData?.profiles ?? [];
   const strVal = (key: string) => (formData[key] as string) ?? "";
   const numVal = (key: string) => formData[key] as number | null;
 
@@ -2051,20 +2142,154 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
           )}
         </div>
 
+        {/* Bridge Profiles Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h4 className="text-foreground font-medium">Bridge Profiles</h4>
+              <p className="text-muted-foreground text-xs">
+                Define bridges with their gateway and DNS. Select a bridge below to auto-fill network settings.
+              </p>
+            </div>
+            {!bridgeShowForm && (
+              <Button
+                onClick={() => { resetBridgeForm(); setBridgeShowForm(true); }}
+                size="sm"
+                variant="outline"
+              >
+                + Add Bridge
+              </Button>
+            )}
+          </div>
+
+          {/* Bridge list */}
+          {bridges.length > 0 && (
+            <div className="mb-3 overflow-hidden rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-3 py-2 text-left font-medium text-foreground">Bridge</th>
+                    <th className="px-3 py-2 text-left font-medium text-foreground">Gateway</th>
+                    <th className="px-3 py-2 text-left font-medium text-foreground">DNS</th>
+                    <th className="px-3 py-2 text-right font-medium text-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bridges.map((bp: { id: number; name: string; gateway: string | null; nameserver: string | null; server_id: number | null }) => (
+                    <tr key={bp.id} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2 font-mono text-foreground">
+                        {bp.name}
+                        {bp.server_id === null && selectedServerId !== null && (
+                          <span className="ml-1 text-xs text-muted-foreground">(global)</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{bp.gateway || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{bp.nameserver || "—"}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => handleBridgeEdit(bp)}
+                          className="mr-2 text-xs text-blue-500 hover:text-blue-700"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleBridgeDelete(bp.id)}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {bridges.length === 0 && !bridgeShowForm && (
+            <p className="text-muted-foreground mb-3 text-sm">
+              No bridge profiles configured. Add a bridge to auto-fill gateway and DNS when selecting it.
+            </p>
+          )}
+
+          {/* Bridge add/edit form */}
+          {bridgeShowForm && (
+            <div className="rounded-md border border-border bg-muted/30 p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-foreground mb-1 block text-xs font-medium">Bridge Name</label>
+                  <Input
+                    type="text"
+                    value={bridgeName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBridgeName(e.target.value)}
+                    placeholder="vmbr0"
+                  />
+                </div>
+                <div>
+                  <label className="text-foreground mb-1 block text-xs font-medium">Gateway IP</label>
+                  <Input
+                    type="text"
+                    value={bridgeGateway}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBridgeGateway(e.target.value)}
+                    placeholder="10.0.10.254"
+                  />
+                </div>
+                <div>
+                  <label className="text-foreground mb-1 block text-xs font-medium">DNS Nameserver</label>
+                  <Input
+                    type="text"
+                    value={bridgeNameserver}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBridgeNameserver(e.target.value)}
+                    placeholder="10.0.10.254"
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={handleBridgeSave} size="sm" disabled={!bridgeName.trim()}>
+                  {bridgeEditId ? "Update" : "Add"} Bridge
+                </Button>
+                <Button onClick={resetBridgeForm} size="sm" variant="outline">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Network Section */}
         <div className="border-border mb-4 rounded-lg border p-4">
           <h4 className="text-foreground mb-3 font-medium">Network</h4>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="text-foreground mb-1 block text-sm">Bridge</label>
-              <Input
-                type="text"
-                value={strVal("var_brg")}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  updateField("var_brg", e.target.value || null)
-                }
-                placeholder="vmbr0"
-              />
+              {bridges.length > 0 ? (
+                <select
+                  value={strVal("var_brg") || ""}
+                  onChange={(e) => handleBridgeSelect(e.target.value)}
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                >
+                  <option value="">— Not set —</option>
+                  {bridges.map((bp: { id: number; name: string; gateway: string | null; nameserver: string | null }) => (
+                    <option key={bp.id} value={bp.name}>
+                      {bp.name}{bp.gateway ? ` (GW: ${bp.gateway})` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  type="text"
+                  value={strVal("var_brg")}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    updateField("var_brg", e.target.value || null)
+                  }
+                  placeholder="vmbr0"
+                />
+              )}
+              {bridges.length > 0 && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Selecting a bridge auto-fills Gateway and DNS.
+                </p>
+              )}
             </div>
             <div>
               <label className="text-foreground mb-1 block text-sm">Network Mode</label>
