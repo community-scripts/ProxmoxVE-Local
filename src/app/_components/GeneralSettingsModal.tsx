@@ -2262,11 +2262,14 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="text-foreground mb-1 block text-sm">Bridge</label>
-              {bridges.length > 0 ? (
+              {bridges.length > 0 && (
                 <select
-                  value={strVal("var_brg") || ""}
-                  onChange={(e) => handleBridgeSelect(e.target.value)}
-                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  value={bridges.some((bp: { name: string }) => bp.name === strVal("var_brg")) ? strVal("var_brg") : "__custom__"}
+                  onChange={(e) => {
+                    if (e.target.value === "__custom__") return;
+                    handleBridgeSelect(e.target.value);
+                  }}
+                  className="border-input bg-background text-foreground focus:ring-ring mb-2 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
                 >
                   <option value="">— Not set —</option>
                   {bridges.map((bp: { id: number; name: string; gateway: string | null; nameserver: string | null }) => (
@@ -2274,8 +2277,10 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
                       {bp.name}{bp.gateway ? ` (GW: ${bp.gateway})` : ""}
                     </option>
                   ))}
+                  <option value="__custom__">Custom...</option>
                 </select>
-              ) : (
+              )}
+              {(bridges.length === 0 || !bridges.some((bp: { name: string }) => bp.name === strVal("var_brg"))) && (
                 <Input
                   type="text"
                   value={strVal("var_brg")}
@@ -2287,7 +2292,7 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
               )}
               {bridges.length > 0 && (
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Selecting a bridge auto-fills Gateway and DNS.
+                  Select a profile or choose &quot;Custom&quot; to enter manually.
                 </p>
               )}
             </div>
