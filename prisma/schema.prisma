@@ -43,6 +43,7 @@ model Server {
   installed_scripts  InstalledScript[]
   backups            Backup[]
   pbs_credentials    PBSStorageCredential[]
+  install_default    InstallDefault?
   
   @@map("servers")
 }
@@ -145,4 +146,51 @@ model Repository {
   updated_at  DateTime @updatedAt
   
   @@map("repositories")
+}
+
+model InstallDefault {
+  id                    Int      @id @default(autoincrement())
+  name                  String   @default("Global")
+  server_id             Int?     @unique
+
+  // Network
+  var_brg               String?  // Bridge (e.g. vmbr0, vmbr1)
+  var_gateway           String?  // Gateway IP
+  var_ns                String?  // DNS Nameserver
+  var_net_mode          String?  // 'dhcp' or 'static'
+  var_vlan              String?  // VLAN ID
+  var_mtu               Int?     // MTU (default 1500)
+  var_ipv6_method       String?  // 'auto', 'dhcp', 'static', 'none'
+
+  // Identity
+  var_tags              String?  // Default Tags (comma-separated)
+  var_pw                String?  // Default Root Password
+
+  // SSH
+  var_ssh               String?  // 'yes' or 'no'
+  var_ssh_authorized_key String? // SSH Public Key
+
+  // Features
+  var_nesting           Int?     // 0 or 1
+  var_fuse              Int?     // 0 or 1
+  var_keyctl            Int?     // 0 or 1
+  var_tun               String?  // 'yes' or 'no'
+  var_protection        String?  // 'yes' or 'no'
+
+  // System
+  var_timezone          String?  // e.g. Europe/Berlin
+  var_verbose           String?  // 'yes' or 'no'
+  var_apt_cacher        String?  // 'yes' or 'no'
+  var_apt_cacher_ip     String?  // APT Cacher IP/Hostname
+
+  // Storage
+  var_container_storage String?  // e.g. local-zfs
+  var_template_storage  String?  // e.g. local
+
+  server                Server?  @relation(fields: [server_id], references: [id], onDelete: Cascade)
+
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  @@map("install_defaults")
 }

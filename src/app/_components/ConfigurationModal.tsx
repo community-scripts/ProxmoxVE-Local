@@ -53,6 +53,13 @@ export function ConfigurationModal({
       { enabled: !!server?.id && isOpen && mode === "advanced" },
     );
 
+  // Fetch installation defaults (merged: server > global > null)
+  const { data: installDefaultsData } = api.installDefaults.getForServer.useQuery(
+    { serverId: server?.id ?? null },
+    { enabled: isOpen && mode === 'advanced' }
+  );
+  const installDefaults = installDefaultsData?.defaults as Record<string, string | number | null> | null | undefined;
+
   // Get resources from JSON
   const resources = actualScript?.install_methods?.[0]?.resources;
   const slug = actualScript?.slug ?? "";
@@ -74,6 +81,12 @@ export function ConfigurationModal({
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Helper: get install default or hardcoded fallback
+  const dflt = (key: string, hardcoded: string | number): string | number => {
+    const val = installDefaults?.[key];
+    return (val !== null && val !== undefined) ? val : hardcoded;
+  };
+
   // Initialize defaults when script/server data is available
   useEffect(() => {
     if (!actualScript || !server) return;
@@ -82,9 +95,10 @@ export function ConfigurationModal({
       // Default mode: minimal vars
       setContainerStorage("");
     } else {
-      // Advanced mode: all vars with defaults
+      // Advanced mode: merge Install Defaults > Hardcoded
+      // Resources always come from script metadata (never from install defaults)
       const defaults: EnvVars = {
-        // Resources from JSON
+        // Resources from JSON (not overridable by install defaults)
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
         var_disk: resources?.hdd ?? 4,
@@ -95,48 +109,48 @@ export function ConfigurationModal({
               ? 0
               : 1,
 
-        // Network defaults
-        var_net: "dhcp",
-        var_brg: "vmbr0",
-        var_gateway: "",
-        var_ipv6_method: "none",
-        var_ipv6_static: "",
-        var_vlan: "",
-        var_mtu: 1500,
-        var_mac: "",
-        var_ns: "",
+        // Network defaults — install defaults > hardcoded
+        var_net: dflt('var_net_mode', 'dhcp') as string,
+        var_brg: dflt('var_brg', 'vmbr0') as string,
+        var_gateway: dflt('var_gateway', '') as string,
+        var_ipv6_method: dflt('var_ipv6_method', 'none') as string,
+        var_ipv6_static: '',
+        var_vlan: dflt('var_vlan', '') as string | number,
+        var_mtu: dflt('var_mtu', 1500) as number,
+        var_mac: '',
+        var_ns: dflt('var_ns', '') as string,
 
         // Identity
         var_hostname: slug,
-        var_pw: "",
-        var_tags: "community-script",
+        var_pw: dflt('var_pw', '') as string,
+        var_tags: dflt('var_tags', 'community-script') as string,
 
         // SSH
-        var_ssh: "no",
-        var_ssh_authorized_key: "",
+        var_ssh: dflt('var_ssh', 'no') as string,
+        var_ssh_authorized_key: dflt('var_ssh_authorized_key', '') as string,
 
         // Features
-        var_nesting: 1,
-        var_fuse: 0,
-        var_keyctl: 0,
+        var_nesting: dflt('var_nesting', 1) as number,
+        var_fuse: dflt('var_fuse', 0) as number,
+        var_keyctl: dflt('var_keyctl', 0) as number,
         var_mknod: 0,
-        var_mount_fs: "",
-        var_protection: "no",
-        var_tun: "no",
+        var_mount_fs: '',
+        var_protection: dflt('var_protection', 'no') as string,
+        var_tun: dflt('var_tun', 'no') as string,
 
         // System
-        var_timezone: "",
-        var_verbose: "no",
-        var_apt_cacher: "no",
-        var_apt_cacher_ip: "",
+        var_timezone: dflt('var_timezone', '') as string,
+        var_verbose: dflt('var_verbose', 'no') as string,
+        var_apt_cacher: dflt('var_apt_cacher', 'no') as string,
+        var_apt_cacher_ip: dflt('var_apt_cacher_ip', '') as string,
 
         // Storage
-        var_container_storage: "",
-        var_template_storage: "",
+        var_container_storage: dflt('var_container_storage', '') as string,
+        var_template_storage: dflt('var_template_storage', '') as string,
       };
       setAdvancedVars(defaults);
     }
-  }, [actualScript, server, mode, resources, slug]);
+  }, [actualScript, server, mode, resources, slug, installDefaults]);
 
   // Discover SSH keys on the Proxmox host when advanced mode is open
   useEffect(() => {

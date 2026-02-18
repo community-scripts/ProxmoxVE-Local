@@ -42,7 +42,7 @@ export function GeneralSettingsModal({
   const { theme, setTheme } = useTheme();
   const { isAuthenticated, expirationTime, checkAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "general" | "github" | "auth" | "auto-sync" | "repositories"
+    "general" | "github" | "auth" | "auto-sync" | "repositories" | "defaults"
   >("general");
   const [sessionExpirationDisplay, setSessionExpirationDisplay] =
     useState<string>("");
@@ -746,6 +746,18 @@ export function GeneralSettingsModal({
               }`}
             >
               Repositories
+            </Button>
+            <Button
+              onClick={() => setActiveTab("defaults")}
+              variant="ghost"
+              size="null"
+              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                activeTab === "defaults"
+                  ? "border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+              }`}
+            >
+              Defaults
             </Button>
           </nav>
         </div>
@@ -1867,7 +1879,482 @@ export function GeneralSettingsModal({
               </div>
             </div>
           )}
+
+          {activeTab === "defaults" && (
+            <DefaultsTabContent
+              message={message}
+              setMessage={setMessage}
+            />
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Defaults Tab Component ──────────────────────────────────────────────────
+
+interface DefaultsTabContentProps {
+  message: { type: "success" | "error"; text: string } | null;
+  setMessage: (msg: { type: "success" | "error"; text: string } | null) => void;
+}
+
+function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
+  const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState<Record<string, string | number | null>>({});
+
+  // Fetch servers list
+  const { data: serversData } = api.servers.getAllServers.useQuery();
+
+  // Fetch raw defaults for editing (no merging)
+  const { data: defaultsData, refetch: refetchDefaults } =
+    api.installDefaults.getByServerId.useQuery(
+      { serverId: selectedServerId },
+      { enabled: true }
+    );
+
+  // Upsert mutation
+  const upsertMutation = api.installDefaults.upsert.useMutation();
+  const deleteMutation = api.installDefaults.delete.useMutation();
+
+  // Load form data when defaults are fetched
+  useEffect(() => {
+    if (defaultsData?.defaults) {
+      const d = defaultsData.defaults;
+      setFormData({
+        var_brg: d.var_brg ?? null,
+        var_gateway: d.var_gateway ?? null,
+        var_ns: d.var_ns ?? null,
+        var_net_mode: d.var_net_mode ?? null,
+        var_vlan: d.var_vlan ?? null,
+        var_mtu: d.var_mtu ?? null,
+        var_ipv6_method: d.var_ipv6_method ?? null,
+        var_tags: d.var_tags ?? null,
+        var_pw: d.var_pw ?? null,
+        var_ssh: d.var_ssh ?? null,
+        var_ssh_authorized_key: d.var_ssh_authorized_key ?? null,
+        var_nesting: d.var_nesting ?? null,
+        var_fuse: d.var_fuse ?? null,
+        var_keyctl: d.var_keyctl ?? null,
+        var_tun: d.var_tun ?? null,
+        var_protection: d.var_protection ?? null,
+        var_timezone: d.var_timezone ?? null,
+        var_verbose: d.var_verbose ?? null,
+        var_apt_cacher: d.var_apt_cacher ?? null,
+        var_apt_cacher_ip: d.var_apt_cacher_ip ?? null,
+        var_container_storage: d.var_container_storage ?? null,
+        var_template_storage: d.var_template_storage ?? null,
+      });
+    } else {
+      setFormData({});
+    }
+  }, [defaultsData]);
+
+  const updateField = (key: string, value: string | number | null) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      const result = await upsertMutation.mutateAsync({
+        serverId: selectedServerId,
+        name: selectedServerId === null ? "Global" : undefined,
+        ...formData,
+      } as Parameters<typeof upsertMutation.mutateAsync>[0]);
+
+      if (result.success) {
+        setMessage({ type: "success", text: "Installation defaults saved!" });
+        await refetchDefaults();
+      } else {
+        setMessage({ type: "error", text: result.error ?? "Failed to save defaults" });
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save defaults",
+      });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleReset = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      const result = await deleteMutation.mutateAsync({ serverId: selectedServerId });
+      if (result.success) {
+        setFormData({});
+        setMessage({ type: "success", text: "Defaults removed." });
+        await refetchDefaults();
+      } else {
+        setMessage({ type: "error", text: result.error ?? "Failed to remove defaults" });
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to remove defaults",
+      });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const servers = serversData?.servers ?? [];
+  const strVal = (key: string) => (formData[key] as string) ?? "";
+  const numVal = (key: string) => formData[key] as number | null;
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
+          Installation Defaults
+        </h3>
+        <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+          Pre-fill Advanced Configuration fields when installing scripts.
+          Server-specific defaults override global defaults. Empty fields use
+          the hardcoded application defaults.
+        </p>
+
+        {/* Server Selector */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <label className="text-foreground mb-2 block text-sm font-medium">
+            Apply defaults to
+          </label>
+          <select
+            value={selectedServerId === null ? "global" : String(selectedServerId)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedServerId(val === "global" ? null : Number(val));
+            }}
+            className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+          >
+            <option value="global">Global (all servers)</option>
+            {servers.map((s: { id: number; name: string }) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          {selectedServerId !== null && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Server defaults override global defaults. Leave fields empty to
+              fall back to global.
+            </p>
+          )}
+        </div>
+
+        {/* Network Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">Network</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Bridge</label>
+              <Input
+                type="text"
+                value={strVal("var_brg")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_brg", e.target.value || null)
+                }
+                placeholder="vmbr0"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Network Mode</label>
+              <select
+                value={strVal("var_net_mode") || ""}
+                onChange={(e) => updateField("var_net_mode", e.target.value || null)}
+                className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              >
+                <option value="">— Not set —</option>
+                <option value="dhcp">DHCP</option>
+                <option value="static">Static</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Gateway</label>
+              <Input
+                type="text"
+                value={strVal("var_gateway")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_gateway", e.target.value || null)
+                }
+                placeholder="Auto"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">DNS Nameserver</label>
+              <Input
+                type="text"
+                value={strVal("var_ns")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_ns", e.target.value || null)
+                }
+                placeholder="Auto"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">VLAN</label>
+              <Input
+                type="text"
+                value={strVal("var_vlan")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_vlan", e.target.value || null)
+                }
+                placeholder="None"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">MTU</label>
+              <Input
+                type="number"
+                value={numVal("var_mtu") ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_mtu", e.target.value ? parseInt(e.target.value) : null)
+                }
+                placeholder="1500"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">IPv6 Method</label>
+              <select
+                value={strVal("var_ipv6_method") || ""}
+                onChange={(e) => updateField("var_ipv6_method", e.target.value || null)}
+                className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              >
+                <option value="">— Not set —</option>
+                <option value="none">None</option>
+                <option value="auto">Auto</option>
+                <option value="dhcp">DHCP</option>
+                <option value="static">Static</option>
+                <option value="disable">Disable</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Identity Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">Identity</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Tags</label>
+              <Input
+                type="text"
+                value={strVal("var_tags")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_tags", e.target.value || null)
+                }
+                placeholder="community-script"
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Comma-separated tags
+              </p>
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Root Password</label>
+              <Input
+                type="password"
+                value={strVal("var_pw")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_pw", e.target.value || null)
+                }
+                placeholder="Empty = auto-login"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SSH Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">SSH Access</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Enable SSH</label>
+              <select
+                value={strVal("var_ssh") || ""}
+                onChange={(e) => updateField("var_ssh", e.target.value || null)}
+                className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              >
+                <option value="">— Not set —</option>
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">SSH Authorized Key</label>
+              <Input
+                type="text"
+                value={strVal("var_ssh_authorized_key")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_ssh_authorized_key", e.target.value || null)
+                }
+                placeholder="ssh-rsa AAAA..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">Container Features</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              { key: "var_nesting", label: "Nesting (Docker)", isInt: true },
+              { key: "var_fuse", label: "FUSE", isInt: true },
+              { key: "var_keyctl", label: "Keyctl", isInt: true },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-foreground mb-1 block text-sm">{label}</label>
+                <select
+                  value={numVal(key) !== null && numVal(key) !== undefined ? String(numVal(key)) : ""}
+                  onChange={(e) =>
+                    updateField(key, e.target.value !== "" ? parseInt(e.target.value) : null)
+                  }
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                >
+                  <option value="">— Not set —</option>
+                  <option value="0">Disabled</option>
+                  <option value="1">Enabled</option>
+                </select>
+              </div>
+            ))}
+            {[
+              { key: "var_tun", label: "TUN/TAP (VPN)" },
+              { key: "var_protection", label: "Protection" },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-foreground mb-1 block text-sm">{label}</label>
+                <select
+                  value={strVal(key) || ""}
+                  onChange={(e) => updateField(key, e.target.value || null)}
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                >
+                  <option value="">— Not set —</option>
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* System Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">System Configuration</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Timezone</label>
+              <Input
+                type="text"
+                value={strVal("var_timezone")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_timezone", e.target.value || null)
+                }
+                placeholder="System default"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Verbose</label>
+              <select
+                value={strVal("var_verbose") || ""}
+                onChange={(e) => updateField("var_verbose", e.target.value || null)}
+                className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              >
+                <option value="">— Not set —</option>
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">APT Cacher</label>
+              <select
+                value={strVal("var_apt_cacher") || ""}
+                onChange={(e) => updateField("var_apt_cacher", e.target.value || null)}
+                className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              >
+                <option value="">— Not set —</option>
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">APT Cacher IP</label>
+              <Input
+                type="text"
+                value={strVal("var_apt_cacher_ip")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_apt_cacher_ip", e.target.value || null)
+                }
+                placeholder="192.168.1.10"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Storage Section */}
+        <div className="border-border mb-4 rounded-lg border p-4">
+          <h4 className="text-foreground mb-3 font-medium">Storage</h4>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Container Storage</label>
+              <Input
+                type="text"
+                value={strVal("var_container_storage")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_container_storage", e.target.value || null)
+                }
+                placeholder="Auto (e.g. local-zfs)"
+              />
+            </div>
+            <div>
+              <label className="text-foreground mb-1 block text-sm">Template Storage</label>
+              <Input
+                type="text"
+                value={strVal("var_template_storage")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  updateField("var_template_storage", e.target.value || null)
+                }
+                placeholder="Auto (e.g. local)"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={isSaving} size="sm">
+            {isSaving ? "Saving..." : "Save Defaults"}
+          </Button>
+          <Button
+            onClick={handleReset}
+            disabled={isSaving}
+            variant="outline"
+            size="sm"
+          >
+            Reset to Empty
+          </Button>
+        </div>
+
+        {/* Message Display */}
+        {message && (
+          <div
+            className={`mt-4 rounded-md p-3 text-sm ${
+              message.type === "success"
+                ? "bg-success/10 text-success-foreground border-success/20 border"
+                : "bg-error/10 text-error-foreground border-error/20 border"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
       </div>
     </div>
   );
