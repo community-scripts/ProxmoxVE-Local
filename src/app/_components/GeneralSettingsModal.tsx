@@ -2266,7 +2266,10 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
                 <select
                   value={bridges.some((bp: { name: string }) => bp.name === strVal("var_brg")) ? strVal("var_brg") : "__custom__"}
                   onChange={(e) => {
-                    if (e.target.value === "__custom__") return;
+                    if (e.target.value === "__custom__") {
+                      updateField("var_brg", "");
+                      return;
+                    }
                     handleBridgeSelect(e.target.value);
                   }}
                   className="border-input bg-background text-foreground focus:ring-ring mb-2 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
