@@ -54,6 +54,7 @@ export function ConfigurationModal({
     );
 
   // Fetch installation defaults (merged: server > global > null)
+  // Only load in advanced mode where user can configure settings
   const { data: installDefaultsData } = api.installDefaults.getForServer.useQuery(
     { serverId: server?.id ?? null },
     { enabled: isOpen && mode === 'advanced' }
@@ -106,6 +107,7 @@ export function ConfigurationModal({
       // Resources always come from script metadata (never from install defaults)
       const defaults: EnvVars = {
         // Resources from JSON (not overridable by install defaults)
+        var_ctid: '',
         var_cpu: resources?.cpu ?? 1,
         var_ram: resources?.ram ?? 1024,
         var_disk: resources?.hdd ?? 4,
@@ -346,6 +348,13 @@ export function ConfigurationModal({
         )
       ) {
         newErrors.var_vlan = "Must be a positive integer";
+      }
+      // Validate CT ID if provided (optional, 100-999999999)
+      if (advancedVars.var_ctid) {
+        const ctid = Number(advancedVars.var_ctid);
+        if (!Number.isInteger(ctid) || ctid < 100 || ctid > 999999999) {
+          newErrors.var_ctid = 'Must be an integer >= 100';
+        }
       }
     }
 
@@ -651,6 +660,22 @@ export function ConfigurationModal({
                       <option value={1}>Yes (Unprivileged)</option>
                       <option value={0}>No (Privileged)</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      CT/VM ID
+                    </label>
+                    <Input
+                      type="number"
+                      min="100"
+                      placeholder="Auto"
+                      value={typeof advancedVars.var_ctid === 'boolean' ? '' : (advancedVars.var_ctid ?? '')}
+                      onChange={(e) => updateAdvancedVar('var_ctid', e.target.value ? parseInt(e.target.value) : '')}
+                      className={errors.var_ctid ? 'border-destructive' : ''}
+                    />
+                    {errors.var_ctid && (
+                      <p className="mt-1 text-xs text-destructive">{errors.var_ctid}</p>
+                    )}
                   </div>
                 </div>
               </div>
