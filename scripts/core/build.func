@@ -999,14 +999,19 @@ base_settings() {
 	MTU=${var_mtu:-""}
 	_sd_val="${var_searchdomain:-""}"
 	[[ -n "$_sd_val" ]] && SD="-searchdomain=$_sd_val" || SD=""
-	_ns_val="${var_ns:-""}"
-	[[ -n "$_ns_val" ]] && NS="-nameserver=$_ns_val" || NS=""
+	[[ -n "${var_ns:-}" ]] && NS="-nameserver=${var_ns}" || NS=""
 	MAC=${var_mac:-""}
 	VLAN=${var_vlan:-""}
 	SSH=${var_ssh:-"no"}
 	SSH_AUTHORIZED_KEY=${var_ssh_authorized_key:-""}
 	UDHCPC_FIX=${var_udhcpc_fix:-""}
-	TAGS="community-script,${var_tags:-}"
+	if [[ -n "${var_tags:-}" && "${var_tags}" != *"community-script"* ]]; then
+		TAGS="community-script,${var_tags}"
+	elif [[ -n "${var_tags:-}" ]]; then
+		TAGS="${var_tags}"
+	else
+		TAGS="community-script"
+	fi
 	ENABLE_FUSE=${var_fuse:-"${1:-no}"}
 	ENABLE_TUN=${var_tun:-"${1:-no}"}
 
