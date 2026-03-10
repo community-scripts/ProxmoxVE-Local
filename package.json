@@ -59,7 +59,7 @@
     "refractor": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
-    "strip-ansi": "^7.1.2",
+    "strip-ansi": "^7.2.0",
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.4.0",
     "ws": "^8.19.0",
