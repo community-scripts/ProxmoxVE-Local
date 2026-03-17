@@ -2,15 +2,103 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
-import { githubJsonService } from "~/server/services/githubJsonService";
-import { localScriptsService } from "~/server/services/localScripts";
 import { scriptDownloaderService } from "~/server/services/scriptDownloader.js";
 import { AutoSyncService } from "~/server/services/autoSyncService";
-import { repositoryService } from "~/server/services/repositoryService";
 import { getStorageService } from "~/server/services/storageService";
 import { getDatabase } from "~/server/database-prisma";
-import type { ScriptCard } from "~/types/script";
+import {
+  getScriptCards,
+  getScriptBySlug as pbGetScriptBySlug,
+  getAllScripts as pbGetAllScripts,
+  getMetadata as pbGetMetadata,
+  type PBScript,
+  type PBScriptCard,
+} from "~/server/services/pbScripts";
+import type { Script, ScriptCard } from "~/types/script";
 import type { Server } from "~/types/server";
+
+// ---------------------------------------------------------------------------
+// Mapper: PocketBase record → internal Script type (used by scriptDownloader)
+// ---------------------------------------------------------------------------
+function pbToScript(pb: PBScript): Script {
+  return {
+    name: pb.name,
+    slug: pb.slug,
+    categories: pb.categories.map((c) => c.name),
+    date_created: pb.script_created,
+    type: pb.type,
+    updateable: pb.updateable,
+    privileged: pb.privileged,
+    interface_port: pb.port,
+    documentation: pb.documentation,
+    website: pb.website,
+    logo: pb.logo,
+    config_path: pb.config_path,
+    description: pb.description,
+    install_methods: pb.install_methods_json.map((m) => ({
+      type: m.type,
+      resources: m.resources,
+      config_path: m.config_path,
+    })),
+    default_credentials: {
+      username: pb.default_user,
+      password: pb.default_passwd,
+    },
+    notes: pb.notes_json,
+    is_dev: pb.is_dev,
+    is_disabled: pb.is_disabled,
+    is_deleted: pb.is_deleted,
+    has_arm: pb.has_arm,
+    version: pb.version,
+  };
+}
+
+function pbCardToScriptCard(pb: PBScriptCard): ScriptCard {
+  return {
+    name: pb.name,
+    slug: pb.slug,
+    description: pb.description,
+    logo: pb.logo,
+    type: pb.type,
+    updateable: pb.updateable,
+    website: pb.website,
+    categoryNames: pb.categories.map((c) => c.name),
+    date_created: pb.script_created,
+    interface_port: pb.port,
+    is_dev: pb.is_dev,
+    is_disabled: pb.is_disabled,
+    is_deleted: pb.is_deleted,
+    has_arm: pb.has_arm,
+    // Derive install basenames from type + slug (same convention as the website)
+    install_basenames: deriveInstallBasenames(pb.type, pb.slug),
+  };
+}
+
+/**
+ * Derive the expected install file basenames from script type + slug.
+ * Mirrors ProxmoxVE-Frontend/lib/install-command.ts conventions.
+ */
+function deriveInstallBasenames(type: string, slug: string): string[] {
+  const t = (type || "ct").toLowerCase().trim();
+  const basenames: string[] = [];
+
+  if (t === "ct" || t === "lxc") {
+    basenames.push(slug); // ct/{slug}.sh
+    basenames.push(`alpine-${slug}`); // ct/alpine-{slug}.sh (optional)
+  } else if (t === "pve") {
+    basenames.push(slug); // tools/pve/{slug}.sh
+  } else if (t === "addon") {
+    basenames.push(slug); // tools/addon/{slug}.sh
+  } else if (t === "vm") {
+    basenames.push(slug); // vm/{slug}.sh
+  } else if (t === "turnkey") {
+    basenames.push(slug); // turnkey/{slug}.sh
+  } else {
+    basenames.push(slug);
+  }
+
+  return basenames;
+}
 
 export const scriptsRouter = createTRPCRouter({
   // Get all available scripts
@@ -83,13 +171,13 @@ export const scriptsRouter = createTRPCRouter({
       return scriptManager.getScriptsDirectoryInfo();
     }),
 
-  // Local script routes (using scripts/json directory)
-  // Get all script cards from local directory
+  // Local script routes (using PocketBase)
+  // Get all script cards for the UI listing
   getScriptCards: publicProcedure
     .query(async () => {
       try {
-        const cards = await localScriptsService.getScriptCards();
-        return { success: true, cards };
+        const cards = await getScriptCards();
+        return { success: true, cards: cards.map(pbCardToScriptCard) };
       } catch (error) {
         console.error('Error in getScriptCards:', error);
         return {
@@ -100,12 +188,12 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Get all scripts from GitHub (1 API call + raw downloads)
+  // Get all scripts from PocketBase
   getAllScripts: publicProcedure
     .query(async () => {
       try {
-        const scripts = await localScriptsService.getAllScripts();
-        return { success: true, scripts };
+        const pbScripts = await pbGetAllScripts();
+        return { success: true, scripts: pbScripts.map(pbToScript) };
       } catch (error) {
         return {
           success: false,
@@ -115,32 +203,16 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Get script by slug from GitHub (1 API call + raw downloads)
+  // Get script by slug from PocketBase
   getScriptBySlug: publicProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       try {
-        console.log('getScriptBySlug called with slug:', input.slug);
-        console.log('githubJsonService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(githubJsonService)));
-        console.log('githubJsonService.getScriptBySlug type:', typeof githubJsonService.getScriptBySlug);
-        
-        if (typeof githubJsonService.getScriptBySlug !== 'function') {
-          return {
-            success: false,
-            error: 'getScriptBySlug method is not available on githubJsonService',
-            script: null
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', script: null };
         }
-        
-        const script = await githubJsonService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            script: null
-          };
-        }
-        return { success: true, script };
+        return { success: true, script: pbToScript(pb) };
       } catch (error) {
         console.error('Error in getScriptBySlug:', error);
         return {
@@ -151,11 +223,11 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Get metadata (categories and other metadata)
+  // Get metadata (categories and script types) from PocketBase
   getMetadata: publicProcedure
     .query(async () => {
       try {
-        const metadata = await localScriptsService.getMetadata();
+        const metadata = await pbGetMetadata();
         return { success: true, metadata };
       } catch (error) {
         console.error('Error in getMetadata:', error);
@@ -167,81 +239,18 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Get script cards with category information
+  // Get script cards with category information from PocketBase
   getScriptCardsWithCategories: publicProcedure
     .query(async () => {
       try {
-        const [cards, metadata, enabledRepos] = await Promise.all([
-          localScriptsService.getScriptCards(),
-          localScriptsService.getMetadata(),
-          repositoryService.getEnabledRepositories()
-        ]);
+        // PocketBase already returns category names expanded on each card
+        const cards = await getScriptCards();
+        const scriptCards = cards.map(pbCardToScriptCard);
 
-        // Get all scripts to access their categories
-        const scripts = await localScriptsService.getAllScripts();
-        
-        // Create a set of enabled repository URLs for fast lookup
-        const enabledRepoUrls = new Set(enabledRepos.map((repo: { url: string }) => repo.url));
-        
-        // Create category ID to name mapping
-        const categoryMap: Record<number, string> = {};
-        if (metadata?.categories) {
-          metadata.categories.forEach((cat: any) => {
-            categoryMap[cat.id] = cat.name;
-          });
-        }
+        // Also return the category list for the sidebar filter
+        const metadata = await pbGetMetadata();
 
-        // Enhance cards with category information and additional script data
-        const cardsWithCategories = cards.map((card: ScriptCard) => {
-          const script = scripts.find(s => s.slug === card.slug);
-          const categoryNames: string[] = script?.categories?.map(id => categoryMap[id]).filter((name): name is string => typeof name === 'string') ?? [];
-          
-          // Extract OS and version from first install method
-          const firstInstallMethod = script?.install_methods?.[0];
-          const os = firstInstallMethod?.resources?.os;
-          const version = firstInstallMethod?.resources?.version;
-          // Extract install basenames for robust local matching (e.g., execute.sh -> execute)
-          const install_basenames = (script?.install_methods ?? [])
-            .map(m => m?.script)
-            .filter((p): p is string => typeof p === 'string')
-            .map(p => {
-              const parts = p.split('/');
-              const file = parts[parts.length - 1] ?? '';
-              return file.replace(/\.(sh|bash|py|js|ts)$/i, '');
-            });
-          
-          return {
-            ...card,
-            categories: script?.categories ?? [],
-            categoryNames: categoryNames,
-            // Add date_created from script
-            date_created: script?.date_created,
-            // Add OS and version from install methods
-            os: os,
-            version: version,
-            // Add interface port
-            interface_port: script?.interface_port,
-            install_basenames,
-            // Add repository_url from script
-            repository_url: script?.repository_url ?? card.repository_url,
-          } as ScriptCard;
-        });
-
-        // Filter cards to only include scripts from enabled repositories
-        // For backward compatibility, include scripts without repository_url
-        const filteredCards = cardsWithCategories.filter((card: ScriptCard) => {
-          const repoUrl = card.repository_url;
-          
-          // If script has no repository_url, include it for backward compatibility
-          if (!repoUrl) {
-            return true;
-          }
-          
-          // Only include scripts from enabled repositories
-          return enabledRepoUrls.has(repoUrl);
-        });
-
-        return { success: true, cards: filteredCards, metadata };
+        return { success: true, cards: scriptCards, metadata };
       } catch (error) {
         console.error('Error in getScriptCardsWithCategories:', error);
         return {
@@ -253,45 +262,26 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Resync scripts from GitHub (1 API call + raw downloads)
+  // PocketBase is always up to date – this is a no-op kept for API compatibility
   resyncScripts: publicProcedure
     .mutation(async () => {
-      try {
-        // Sync JSON files using 1 API call + raw downloads
-        const result = await githubJsonService.syncJsonFiles();
-        
-        return { 
-          success: result.success, 
-          message: result.message,
-          count: result.count
-        };
-      } catch (error) {
-        console.error('Error in resyncScripts:', error);
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to resync scripts. Make sure REPO_URL is set.',
-          count: 0
-        };
-      }
+      return {
+        success: true,
+        message: 'Script catalog is served directly from PocketBase and is always up to date.',
+        count: 0
+      };
     }),
 
-  // Load script files from GitHub
+  // Load script files from the community repository
   loadScript: publicProcedure
     .input(z.object({ slug: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        // Get the script details
-        const script = await localScriptsService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            files: []
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', files: [] };
         }
-
-        // Load the script files
-        const result = await scriptDownloaderService.loadScript(script);
+        const result = await scriptDownloaderService.loadScript(pbToScript(pb));
         return result;
       } catch (error) {
         console.error('Error in loadScript:', error);
@@ -303,7 +293,7 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // Load multiple scripts from GitHub
+  // Load multiple scripts from the community repository
   loadMultipleScripts: publicProcedure
     .input(z.object({ slugs: z.array(z.string()) }))
     .mutation(async ({ input }) => {
@@ -313,15 +303,12 @@ export const scriptsRouter = createTRPCRouter({
 
         for (const slug of input.slugs) {
           try {
-            // Get the script details
-            const script = await localScriptsService.getScriptBySlug(slug);
-            if (!script) {
+            const pb = await pbGetScriptBySlug(slug);
+            if (!pb) {
               failed.push({ slug, error: 'Script not found' });
               continue;
             }
-
-            // Load the script files
-            const result = await scriptDownloaderService.loadScript(script);
+            const result = await scriptDownloaderService.loadScript(pbToScript(pb));
             if (result.success) {
               successful.push({ slug, files: result.files });
             } else {
@@ -360,22 +347,12 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       try {
-        const script = await localScriptsService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            ctExists: false,
-            installExists: false,
-            files: []
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', ctExists: false, installExists: false, files: [] };
         }
-
-        const result = await scriptDownloaderService.checkScriptExists(script);
-        return {
-          success: true,
-          ...result
-        };
+        const result = await scriptDownloaderService.checkScriptExists(pbToScript(pb));
+        return { success: true, ...result };
       } catch (error) {
         console.error('Error in checkScriptFiles:', error);
         return {
@@ -393,18 +370,11 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        // Get the script details
-        const script = await localScriptsService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            deletedFiles: []
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', deletedFiles: [] };
         }
-
-        // Delete the script files
-        const result = await scriptDownloaderService.deleteScript(script);
+        const result = await scriptDownloaderService.deleteScript(pbToScript(pb));
         return result;
       } catch (error) {
         console.error('Error in deleteScript:', error);
@@ -421,21 +391,12 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       try {
-        const script = await localScriptsService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            hasDifferences: false,
-            differences: []
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', hasDifferences: false, differences: [] };
         }
-
-        const result = await scriptDownloaderService.compareScriptContent(script);
-        return {
-          success: true,
-          ...result
-        };
+        const result = await scriptDownloaderService.compareScriptContent(pbToScript(pb));
+        return { success: true, ...result };
       } catch (error) {
         console.error('Error in compareScriptContent:', error);
         return {
@@ -452,20 +413,12 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slug: z.string(), filePath: z.string() }))
     .query(async ({ input }) => {
       try {
-        const script = await localScriptsService.getScriptBySlug(input.slug);
-        if (!script) {
-          return {
-            success: false,
-            error: 'Script not found',
-            diff: null
-          };
+        const pb = await pbGetScriptBySlug(input.slug);
+        if (!pb) {
+          return { success: false, error: 'Script not found', diff: null };
         }
-
-        const result = await scriptDownloaderService.getScriptDiff(script, input.filePath);
-        return {
-          success: true,
-          ...result
-        };
+        const result = await scriptDownloaderService.getScriptDiff(pbToScript(pb), input.filePath);
+        return { success: true, ...result };
       } catch (error) {
         console.error('Error in getScriptDiff:', error);
         return {

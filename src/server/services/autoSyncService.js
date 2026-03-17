@@ -1,5 +1,4 @@
 import cron from 'node-cron';
-import { githubJsonService } from './githubJsonService.js';
 import { scriptDownloaderService } from './scriptDownloader.js';
 import { appriseService } from './appriseService.js';
 import { readFile, writeFile, readFileSync, writeFileSync } from 'fs';
@@ -328,7 +327,8 @@ export class AutoSyncService {
   }
 
   /**
-   * Execute auto-sync process
+   * Execute auto-sync process using PocketBase as the source of truth.
+   * PocketBase is always up to date, so no JSON sync is needed.
    */
   async executeAutoSync() {
     // Check global lock first
@@ -349,17 +349,44 @@ export class AutoSyncService {
     
     try {
       console.log('Starting auto-sync execution...');
-      
-      // Step 1: Sync JSON files
-      console.log('Syncing JSON files...');
-      const syncResult = await githubJsonService.syncJsonFiles();
-      
-      if (!syncResult.success) {
-        throw new Error(`JSON sync failed: ${syncResult.message}`);
-      }
-      
+
+      // Step 1: Fetch all scripts from PocketBase (always up to date)
+      console.log('Fetching scripts from PocketBase...');
+      const { getAllScripts: pbGetAllScripts } = await import('./pbScripts.js');
+      const pbScripts = await pbGetAllScripts();
+      console.log(`Retrieved ${pbScripts.length} scripts from PocketBase`);
+
+      // Map PocketBase records to the internal Script format used by scriptDownloader
+      const { scriptDownloaderService: sds } = await import('./scriptDownloader.js');
+      const allScripts = pbScripts.map(pb => ({
+        name: pb.name,
+        slug: pb.slug,
+        type: pb.type,
+        updateable: pb.updateable,
+        privileged: pb.privileged,
+        interface_port: pb.port,
+        documentation: pb.documentation,
+        website: pb.website,
+        logo: pb.logo,
+        config_path: pb.config_path,
+        description: pb.description,
+        date_created: pb.script_created,
+        categories: pb.categories.map(c => c.name),
+        install_methods: pb.install_methods_json.map(m => ({
+          type: m.type,
+          resources: m.resources,
+          config_path: m.config_path,
+        })),
+        default_credentials: { username: pb.default_user, password: pb.default_passwd },
+        notes: pb.notes_json,
+        is_dev: pb.is_dev,
+        is_disabled: pb.is_disabled,
+        is_deleted: pb.is_deleted,
+        has_arm: pb.has_arm,
+        version: pb.version,
+      }));
+
       const results = {
-        jsonSync: syncResult,
         newScripts: /** @type {any[]} */ ([]),
         updatedScripts: /** @type {any[]} */ ([]),
         errors: /** @type {string[]} */ ([])
@@ -369,63 +396,32 @@ export class AutoSyncService {
       const settings = this.loadSettings();
       
       if (settings.autoDownloadNew || settings.autoUpdateExisting) {
-        console.log('Processing synced JSON files for script downloads...');
+        console.log('Checking scripts for auto-download/update...');
+
+        // Separate new (not yet downloaded) from already-downloaded scripts
+        const newScripts = [];
+        const existingScripts = [];
         
-        // Only process scripts for files that were actually synced
-        if (syncResult.syncedFiles && syncResult.syncedFiles.length > 0) {
-          console.log(`Processing ${syncResult.syncedFiles.length} synced JSON files for script downloads...`);
-          
-          // Get scripts only for the synced files
-          const localScriptsService = await import('./localScripts');
-          const syncedScripts = [];
-          
-          for (const filename of syncResult.syncedFiles) {
-            try {
-              // Extract slug from filename (remove .json extension)
-              const slug = filename.replace('.json', '');
-              const script = await localScriptsService.localScriptsService.getScriptBySlug(slug);
-              if (script) {
-                syncedScripts.push(script);
-              }
-            } catch (error) {
-              console.warn(`Error loading script from ${filename}:`, error);
+        for (const script of allScripts) {
+          try {
+            if (!script || !script.slug) continue;
+            const isDownloaded = await scriptDownloaderService.isScriptDownloaded(script);
+            if (!isDownloaded) {
+              newScripts.push(script);
+            } else {
+              existingScripts.push(script);
             }
+          } catch (error) {
+            console.warn(`Error checking script ${script?.slug || 'unknown'}:`, error);
+            if (script && script.slug) newScripts.push(script);
           }
-          
-          console.log(`Found ${syncedScripts.length} scripts from synced JSON files`);
-          
-          // Filter to only truly NEW scripts (not previously downloaded)
-          const newScripts = [];
-          const existingScripts = [];
-          
-          for (const script of syncedScripts) {
-            try {
-              // Validate script object
-              if (!script || !script.slug) {
-                console.warn('Invalid script object found, skipping:', script);
-                continue;
-              }
-              
-              const isDownloaded = await scriptDownloaderService.isScriptDownloaded(script);
-              if (!isDownloaded) {
-                newScripts.push(script);
-              } else {
-                existingScripts.push(script);
-              }
-            } catch (error) {
-              console.warn(`Error checking script ${script?.slug || 'unknown'}:`, error);
-              // Treat as new script if we can't check
-              if (script && script.slug) {
-                newScripts.push(script);
-              }
-            }
-          }
-          
-          console.log(`Found ${newScripts.length} new scripts and ${existingScripts.length} existing scripts from synced files`);
+        }
+        
+        console.log(`Found ${newScripts.length} new scripts and ${existingScripts.length} existing scripts`);
           
           // Download new scripts
-          if (settings.autoDownloadNew && newScripts.length > 0) {
-            console.log(`Auto-downloading ${newScripts.length} new scripts...`);
+        if (settings.autoDownloadNew && newScripts.length > 0) {
+          console.log(`Auto-downloading ${newScripts.length} new scripts...`);
             const downloaded = [];
             const errors = [];
             
@@ -433,7 +429,7 @@ export class AutoSyncService {
               try {
                 const result = await scriptDownloaderService.loadScript(script);
                 if (result.success) {
-                  downloaded.push(script); // Store full script object for category grouping
+                  downloaded.push(script);
                   console.log(`Downloaded script: ${script.name || script.slug}`);
                 } else {
                   errors.push(`${script.name || script.slug}: ${result.message}`);
@@ -450,17 +446,16 @@ export class AutoSyncService {
           }
           
           // Update existing scripts
-          if (settings.autoUpdateExisting && existingScripts.length > 0) {
-            console.log(`Auto-updating ${existingScripts.length} existing scripts...`);
+        if (settings.autoUpdateExisting && existingScripts.length > 0) {
+          console.log(`Auto-updating ${existingScripts.length} existing scripts...`);
             const updated = [];
             const errors = [];
             
             for (const script of existingScripts) {
               try {
-                // Always update existing scripts when auto-update is enabled
                 const result = await scriptDownloaderService.loadScript(script);
                 if (result.success) {
-                  updated.push(script); // Store full script object for category grouping
+                  updated.push(script);
                   console.log(`Updated script: ${script.name || script.slug}`);
                 } else {
                   errors.push(`${script.name || script.slug}: ${result.message}`);
@@ -475,9 +470,6 @@ export class AutoSyncService {
             results.updatedScripts = updated;
             results.errors.push(...errors);
           }
-        } else {
-          console.log('No JSON files were synced, skipping script download/update');
-        }
       } else {
         console.log('Auto-download/update disabled, skipping script processing');
       }
@@ -494,7 +486,7 @@ export class AutoSyncService {
       const updatedSettings = { 
         ...settings, 
         lastAutoSync: lastSyncTime,
-        lastAutoSyncError: '' // Clear any previous errors on successful sync
+        lastAutoSyncError: ''
       };
       this.saveSettings(updatedSettings);
       
@@ -511,22 +503,15 @@ export class AutoSyncService {
     } catch (error) {
       console.error('Auto-sync execution failed:', error);
       
-      // Check if it's a rate limit error
-      const isRateLimitError = error instanceof Error && error.name === 'RateLimitError';
       const errorMessage = error instanceof Error ? error.message : String(error);
       
       // Send error notification if enabled
       const settings = this.loadSettings();
       if (settings.notificationEnabled && settings.appriseUrls && settings.appriseUrls.length > 0) {
         try {
-          const notificationTitle = isRateLimitError ? 'Auto-Sync Rate Limited' : 'Auto-Sync Failed';
-          const notificationMessage = isRateLimitError 
-            ? `GitHub API rate limit exceeded. Please set a GITHUB_TOKEN in your .env file for higher rate limits. Error: ${errorMessage}`
-            : `Auto-sync failed with error: ${errorMessage}`;
-            
           await appriseService.sendNotification(
-            notificationTitle,
-            notificationMessage,
+            'Auto-Sync Failed',
+            `Auto-sync failed with error: ${errorMessage}`,
             settings.appriseUrls || []
           );
         } catch (notifError) {
@@ -536,65 +521,44 @@ export class AutoSyncService {
       
       // Store the error in settings for UI display
       const errorSettings = this.loadSettings();
-      const errorToStore = isRateLimitError 
-        ? `GitHub API rate limit exceeded. Please set a GITHUB_TOKEN in your .env file for higher rate limits.`
-        : errorMessage;
-      
       const updatedErrorSettings = { 
         ...errorSettings, 
-        lastAutoSyncError: errorToStore,
+        lastAutoSyncError: errorMessage,
         lastAutoSyncErrorTime: this.safeToISOString(new Date())
       };
       this.saveSettings(updatedErrorSettings);
       
       return {
         success: false,
-        message: errorToStore,
+        message: errorMessage,
         error: errorMessage,
-        isRateLimitError
       };
     } finally {
       this.isRunning = false;
-      globalAutoSyncLock = false; // Release global lock
+      globalAutoSyncLock = false;
     }
   }
 
   /**
-   * Load categories from metadata.json
-   */
-  loadCategories() {
-    try {
-      const metadataPath = join(process.cwd(), 'scripts', 'json', 'metadata.json');
-      const metadataContent = readFileSync(metadataPath, 'utf8');
-      const metadata = JSON.parse(metadataContent);
-      return metadata.categories || [];
-    } catch (error) {
-      console.error('Error loading categories:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Group scripts by category
+   * Group scripts by category name.
+   * Scripts coming from PocketBase already have category names (strings).
    * @param {Array<any>} scripts - Array of script objects
-   * @param {Array<any>} categories - Array of category objects
    */
-  groupScriptsByCategory(scripts, categories) {
-    const categoryMap = new Map();
-    categories.forEach(cat => categoryMap.set(cat.id, cat.name));
-    
+  groupScriptsByCategory(scripts) {
     const grouped = new Map();
     
     scripts.forEach(script => {
-      // Validate script object
       if (!script || !script.name) {
         console.warn('Invalid script object in groupScriptsByCategory, skipping:', script);
         return;
       }
       
-      const scriptCategories = script.categories || [0]; // Default to Miscellaneous (id: 0)
-      scriptCategories.forEach((/** @type {number} */ catId) => {
-        const categoryName = categoryMap.get(catId) || 'Miscellaneous';
+      // categories is now an array of strings (category names) from PocketBase
+      const categoryNames = Array.isArray(script.categories) && script.categories.length > 0
+        ? script.categories.map(c => typeof c === 'string' ? c : (c?.name ?? 'Miscellaneous'))
+        : ['Miscellaneous'];
+
+      categoryNames.forEach(categoryName => {
         if (!grouped.has(categoryName)) {
           grouped.set(categoryName, []);
         }
@@ -619,43 +583,13 @@ export class AutoSyncService {
     const title = 'ProxmoxVE-Local - Auto-Sync Completed';
     let body = `Auto-sync completed successfully.\n\n`;
     
-    // Add JSON sync info
-    // @ts-ignore - Dynamic property access
-    if (results.jsonSync) {
-      // @ts-ignore - Dynamic property access
-      const syncedCount = results.jsonSync.count || 0;
-      // @ts-ignore - Dynamic property access
-      const syncedFiles = results.jsonSync.syncedFiles || [];
-      
-      // Calculate up-to-date count (total files - synced files)
-      // We can't easily get total file count from the sync result, so just show synced count
-      if (syncedCount > 0) {
-        body += `JSON Files: ${syncedCount} synced\n`;
-      } else {
-        body += `JSON Files: All up-to-date\n`;
-      }
-      
-      // @ts-ignore - Dynamic property access
-      if (results.jsonSync.errors?.length > 0) {
-        // @ts-ignore - Dynamic property access
-        body += `JSON Errors: ${results.jsonSync.errors.length}\n`;
-      }
-      body += '\n';
-    }
-    
-    // Load categories for grouping
-    const categories = this.loadCategories();
-    
     // @ts-ignore - Dynamic property access
     if (results.newScripts?.length > 0) {
       // @ts-ignore - Dynamic property access
       body += `New scripts downloaded: ${results.newScripts.length}\n`;
       
-      // Group new scripts by category
       // @ts-ignore - Dynamic property access
-      const newScriptsGrouped = this.groupScriptsByCategory(results.newScripts, categories);
-      
-      // Sort categories by name for consistent ordering
+      const newScriptsGrouped = this.groupScriptsByCategory(results.newScripts);
       const sortedCategories = Array.from(newScriptsGrouped.keys()).sort();
       
       sortedCategories.forEach(categoryName => {
@@ -673,11 +607,8 @@ export class AutoSyncService {
       // @ts-ignore - Dynamic property access
       body += `Scripts updated: ${results.updatedScripts.length}\n`;
       
-      // Group updated scripts by category
       // @ts-ignore - Dynamic property access
-      const updatedScriptsGrouped = this.groupScriptsByCategory(results.updatedScripts, categories);
-      
-      // Sort categories by name for consistent ordering
+      const updatedScriptsGrouped = this.groupScriptsByCategory(results.updatedScripts);
       const sortedCategories = Array.from(updatedScriptsGrouped.keys()).sort();
       
       sortedCategories.forEach(categoryName => {

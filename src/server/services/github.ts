@@ -10,7 +10,7 @@ export class GitHubService {
   constructor() {
     this.repoUrl = env.REPO_URL ?? "";
     this.branch = env.REPO_BRANCH;
-    this.jsonFolder = env.JSON_FOLDER;
+    this.jsonFolder = process.env.JSON_FOLDER ?? 'json';
     
     // Only validate GitHub URL if it's provided
     if (this.repoUrl) {

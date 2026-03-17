@@ -11,12 +11,13 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    // Repository Configuration
+    // PocketBase Configuration
+    PB_URL: z.string().url().default("https://pocketbase.community-scripts.org"),
+    // Repository Configuration (for downloading script files)
     REPO_URL: z.string().url().optional(),
    
     REPO_BRANCH: z.string().default("main"),
     SCRIPTS_DIRECTORY: z.string().default("scripts"),
-    JSON_FOLDER: z.string().default("json"),
     ALLOWED_SCRIPT_EXTENSIONS: z.string().default(".sh,.py,.js,.ts,.bash"),
     // Security
     MAX_SCRIPT_EXECUTION_TIME: z.string().default("300000"), // 5 minutes in ms
@@ -53,12 +54,13 @@ export const env = createEnv({
    */
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
-    // Repository Configuration
+    // PocketBase Configuration
+    PB_URL: process.env.PB_URL,
+    // Repository Configuration (for downloading script files)
     REPO_URL: process.env.REPO_URL,
    
     REPO_BRANCH: process.env.REPO_BRANCH,
     SCRIPTS_DIRECTORY: process.env.SCRIPTS_DIRECTORY,
-    JSON_FOLDER: process.env.JSON_FOLDER,
     ALLOWED_SCRIPT_EXTENSIONS: process.env.ALLOWED_SCRIPT_EXTENSIONS,
     // Security
     MAX_SCRIPT_EXECUTION_TIME: process.env.MAX_SCRIPT_EXECUTION_TIME,

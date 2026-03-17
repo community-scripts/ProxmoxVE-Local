@@ -7,9 +7,17 @@ export interface ScriptResources {
 }
 
 export interface ScriptInstallMethod {
+  /** Method type: "default", "alpine", etc. */
   type: string;
-  script: string;
   resources: ScriptResources;
+  config_path?: string;
+  /**
+   * Optional install script file path (e.g. "ct/adguard.sh").
+   * Present in user-defined local JSON scripts.
+   * For PocketBase-sourced scripts this field is absent; the downloader derives
+   * the path from the script type and slug via `deriveScriptPath()`.
+   */
+  script?: string;
 }
 
 export interface ScriptCredentials {
@@ -25,20 +33,33 @@ export interface ScriptNote {
 export interface Script {
   name: string;
   slug: string;
-  categories: number[];
+  /**
+   * Category names (strings) when coming from PocketBase, or legacy
+   * numeric IDs when coming from local JSON files.
+   */
+  categories: string[] | number[];
+  /** ISO date string (maps to PocketBase script_created). */
   date_created: string;
+  /** Script type slug: "ct", "vm", "pve", "addon", "turnkey". */
   type: string;
   updateable: boolean;
   privileged: boolean;
+  /** Web UI port (maps to PocketBase port field). */
   interface_port: number | null;
   documentation: string | null;
   website: string | null;
   logo: string | null;
-  config_path: string;
+  config_path: string | null;
   description: string;
   install_methods: ScriptInstallMethod[];
   default_credentials: ScriptCredentials;
-  notes: (ScriptNote | string)[];
+  notes: ScriptNote[];
+  is_dev?: boolean;
+  is_disabled?: boolean;
+  is_deleted?: boolean;
+  has_arm?: boolean;
+  version?: string | null;
+  /** Only present for user-defined local scripts. */
   repository_url?: string;
 }
 
@@ -47,23 +68,29 @@ export interface ScriptCard {
   slug: string;
   description: string;
   logo: string | null;
+  /** Script type slug: "ct", "vm", "pve", "addon", "turnkey". */
   type: string;
   updateable: boolean;
   website: string | null;
-  source?: 'github' | 'local';
   isDownloaded?: boolean;
   isUpToDate?: boolean;
   localPath?: string;
-  // Additional properties added by API
-  categories?: number[];
+  /** Category names for display / filtering. */
   categoryNames?: string[];
   date_created?: string;
   os?: string;
   version?: string;
   interface_port?: number | null;
-  // Optional: basenames of install scripts (without extension)
+  /**
+   * Basenames of expected install script files (without extension).
+   * Used to match a card against scripts already downloaded to disk.
+   * Derived from the script type + slug convention.
+   */
   install_basenames?: string[];
-  repository_url?: string;
+  is_dev?: boolean;
+  is_disabled?: boolean;
+  is_deleted?: boolean;
+  has_arm?: boolean;
 }
 
 export interface GitHubFile {
