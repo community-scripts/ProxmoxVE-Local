@@ -18,7 +18,7 @@ export class GitHubJsonService {
   private initializeConfig() {
     if (this.branch === null) {
       this.branch = env.REPO_BRANCH;
-      this.jsonFolder = env.JSON_FOLDER;
+      this.jsonFolder = process.env.JSON_FOLDER ?? 'json';
       this.localJsonDirectory = join(process.cwd(), 'scripts', 'json');
     }
   }

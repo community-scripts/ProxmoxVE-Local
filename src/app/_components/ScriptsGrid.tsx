@@ -175,7 +175,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         if (!scriptMap.has(script.slug)) {
           scriptMap.set(script.slug, {
             ...script,
-            source: "github" as const,
             isDownloaded: false, // Will be updated by status check
             isUpToDate: false, // Will be updated by status check
           });
@@ -341,22 +340,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         return filters.selectedTypes.some(
           (type) => type.toLowerCase() === mappedType,
         );
-      });
-    }
-
-    // Filter by repositories
-    if (filters.selectedRepositories.length > 0) {
-      scripts = scripts.filter((script) => {
-        if (!script) return false;
-        const repoUrl = script.repository_url;
-
-        // If script has no repository_url, exclude it when filtering by repositories
-        if (!repoUrl) {
-          return false;
-        }
-
-        // Only include scripts from selected repositories
-        return filters.selectedRepositories.includes(repoUrl);
       });
     }
 

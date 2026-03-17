@@ -98,17 +98,79 @@ export class ScriptDownloaderService {
   }
 
   /**
-   * Get repository URL for a script
+   * Get repository URL for a script.
+   * PocketBase-sourced community scripts always use the default community repo.
+   * User-defined local scripts may carry an explicit repository_url.
    * @param {import('~/types/script').Script} script - The script object
    * @returns {string}
    */
   getRepoUrlForScript(script) {
-    // Use repository_url from script if available, otherwise fallback to env or default
     if (script.repository_url) {
       return script.repository_url;
     }
     this.initializeConfig();
     return this.repoUrl;
+  }
+
+  /**
+   * Derive the install script file path from the script type slug and method type.
+   * Mirrors the convention used in ProxmoxVE-Frontend/lib/install-command.ts.
+   *
+   * Examples:
+   *   ("ct", "default", "adguard")  → "ct/adguard.sh"
+   *   ("ct", "alpine",  "adguard")  → "ct/alpine-adguard.sh"
+   *   ("pve", "default", "foo")     → "tools/pve/foo.sh"
+   *   ("addon", "default", "bar")   → "tools/addon/bar.sh"
+   *   ("vm", "default", "ubuntu")   → "vm/ubuntu.sh"
+   *
+   * @param {string} scriptType  - Script type slug: "ct"|"lxc"|"pve"|"addon"|"vm"|"turnkey"
+   * @param {string} methodType  - Install method type: "default"|"alpine"|…
+   * @param {string} slug        - Script slug
+   * @returns {string | null}
+   */
+  deriveScriptPath(scriptType, methodType, slug) {
+    const type = (scriptType || 'ct').toLowerCase().trim();
+    const method = (methodType || 'default').toLowerCase().trim();
+
+    if (method === 'alpine') {
+      // Alpine variants only exist for CT/LXC scripts
+      if (type === 'ct' || type === 'lxc') {
+        return `ct/alpine-${slug}.sh`;
+      }
+      return null;
+    }
+
+    switch (type) {
+      case 'ct':
+      case 'lxc':
+        return `ct/${slug}.sh`;
+      case 'pve':
+        return `tools/pve/${slug}.sh`;
+      case 'addon':
+        return `tools/addon/${slug}.sh`;
+      case 'vm':
+        return `vm/${slug}.sh`;
+      case 'turnkey':
+        return `turnkey/${slug}.sh`;
+      default:
+        return `ct/${slug}.sh`;
+    }
+  }
+
+  /**
+   * Resolve the install script file path for a method.
+   * Prefers the explicit `method.script` field (user-defined local scripts),
+   * otherwise derives the path from script type + method type + slug.
+   *
+   * @param {import('~/types/script').Script} script
+   * @param {import('~/types/script').ScriptInstallMethod} method
+   * @returns {string | null}
+   */
+  resolveScriptPath(script, method) {
+    if (method.script) {
+      return method.script;
+    }
+    return this.deriveScriptPath(script.type, method.type, script.slug);
   }
 
   /**
@@ -147,8 +209,8 @@ export class ScriptDownloaderService {
 
       if (script.install_methods?.length) {
         for (const method of script.install_methods) {
-          if (method.script) {
-            const scriptPath = method.script;
+          const scriptPath = this.resolveScriptPath(script, method);
+          if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
@@ -211,8 +273,9 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Only download install script for CT scripts
-      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
+      // Only download install script for CT/LXC scripts
+      const scriptTypeNorm = (script.type || 'ct').toLowerCase();
+      const hasCtScript = scriptTypeNorm === 'ct' || scriptTypeNorm === 'lxc';
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         try {
@@ -228,13 +291,12 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Download alpine install script if alpine variant exists (only for CT scripts)
-      const hasAlpineCtVariant = script.install_methods?.some(
-        method => method.type === 'alpine' && method.script?.startsWith('ct/')
-      );
+      // Download alpine install script if alpine variant exists (only for CT/LXC scripts)
+      const hasAlpineCtVariant = hasCtScript &&
+        script.install_methods?.some(method => method.type === 'alpine');
       console.log(`[${script.slug}] Checking for alpine variant:`, {
         hasAlpineCtVariant,
-        installMethods: script.install_methods?.map(m => ({ type: m.type, script: m.script }))
+        installMethods: script.install_methods?.map(m => ({ type: m.type }))
       });
       
       if (hasAlpineCtVariant) {
@@ -282,8 +344,8 @@ export class ScriptDownloaderService {
 
     // Check if ALL script files are downloaded
     for (const method of script.install_methods) {
-      if (method.script) {
-        const scriptPath = method.script;
+      const scriptPath = this.resolveScriptPath(script, method);
+      if (scriptPath) {
         const fileName = scriptPath.split('/').pop();
         
         if (fileName) {
@@ -344,8 +406,8 @@ export class ScriptDownloaderService {
       // Check scripts based on their install methods
       if (script.install_methods?.length) {
         for (const method of script.install_methods) {
-          if (method.script) {
-            const scriptPath = method.script;
+          const scriptPath = this.resolveScriptPath(script, method);
+          if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
@@ -380,11 +442,7 @@ export class ScriptDownloaderService {
               try {
                 await access(filePath);
                 files.push(`${finalTargetDir}/${fileName}`);
-                
-                // Set ctExists for all script types (CT, tools, vm) for UI consistency
-                if (scriptPath.startsWith('ct/') || scriptPath.startsWith('tools/') || scriptPath.startsWith('vm/')) {
-                  ctExists = true;
-                }
+                ctExists = true;
               } catch {
                 // File doesn't exist
               }
@@ -393,8 +451,9 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Check for install script for CT scripts
-      const hasCtScript = script.install_methods?.some(method => method.script?.startsWith('ct/'));
+      // Check for install script for CT/LXC scripts
+      const chkTypeNorm = (script.type || 'ct').toLowerCase();
+      const hasCtScript = chkTypeNorm === 'ct' || chkTypeNorm === 'lxc';
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         const installPath = join(this.scriptsDirectory, 'install', installScriptName);
@@ -408,10 +467,9 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Check alpine install script if alpine variant exists (only for CT scripts)
-      const hasAlpineCtVariant = script.install_methods?.some(
-        method => method.type === 'alpine' && method.script?.startsWith('ct/')
-      );
+      // Check alpine install script if alpine variant exists (only for CT/LXC scripts)
+      const hasAlpineCtVariant = hasCtScript &&
+        script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
         const alpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
@@ -516,8 +574,8 @@ export class ScriptDownloaderService {
       // Compare scripts only if they exist locally
       if (localFilesExist.ctExists && script.install_methods?.length) {
         for (const method of script.install_methods) {
-          if (method.script) {
-            const scriptPath = method.script;
+          const scriptPath = this.resolveScriptPath(script, method);
+          if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
             
             if (fileName) {
@@ -585,10 +643,10 @@ export class ScriptDownloaderService {
         );
       }
 
-      // Compare alpine install script if alpine variant exists (only for CT scripts)
-      const hasAlpineCtVariant = script.install_methods?.some(
-        method => method.type === 'alpine' && method.script?.startsWith('ct/')
-      );
+      // Compare alpine install script if alpine variant exists (only for CT/LXC scripts)
+      const cmpTypeNorm = (script.type || 'ct').toLowerCase();
+      const hasAlpineCtVariant = (cmpTypeNorm === 'ct' || cmpTypeNorm === 'lxc') &&
+        script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
         const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
         const alpineInstallScriptPath = `install/${alpineInstallScriptName}`;
@@ -704,10 +762,15 @@ export class ScriptDownloaderService {
 
           try {
             // Find the corresponding script path in install_methods
-            const method = script.install_methods?.find(m => m.script === filePath);
-            if (method?.script) {
-              const downloadedContent = await this.downloadFileFromRepo(repoUrl, method.script, branch);
-              remoteContent = this.modifyScriptContent(downloadedContent);
+            const method = script.install_methods?.find(
+              m => this.resolveScriptPath(script, m) === filePath
+            );
+            if (method) {
+              const resolvedPath = this.resolveScriptPath(script, method);
+              if (resolvedPath) {
+                const downloadedContent = await this.downloadFileFromRepo(repoUrl, resolvedPath, branch);
+                remoteContent = this.modifyScriptContent(downloadedContent);
+              }
             }
           } catch {
             // Error downloading remote CT script
