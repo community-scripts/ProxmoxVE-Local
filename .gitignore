@@ -14,7 +14,7 @@
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
 db.sqlite
-data/settings.db
+data/*.db
 
 # prisma generated client
 /prisma/generated/
@@ -26,6 +26,9 @@ data/ssh-keys/
 /.next/
 /out/
 next-env.d.ts
+
+# cached logos (downloaded at runtime)
+/public/logos/
 
 # production
 /build
