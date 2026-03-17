@@ -32,7 +32,7 @@ export class LocalScriptsService {
   /** Returns all scripts from PocketBase (community scripts) merged with any local JSON user scripts. */
   async getAllScripts(): Promise<Script[]> {
     try {
-      const { getAllScripts: pbGetAll } = await import('./pbScripts.js');
+      const { getAllScripts: pbGetAll } = await import('./pbScripts');
       const pbScripts = await pbGetAll();
 
       const communityScripts: Script[] = pbScripts.map(pb => ({
@@ -108,7 +108,7 @@ export class LocalScriptsService {
   /** Fetches a script by slug, preferring PocketBase then local JSON. */
   async getScriptBySlug(slug: string): Promise<Script | null> {
     try {
-      const { getScriptBySlug: pbGetBySlug } = await import('./pbScripts.js');
+      const { getScriptBySlug: pbGetBySlug } = await import('./pbScripts');
       const pb = await pbGetBySlug(slug);
       if (pb) {
         return {
@@ -154,7 +154,7 @@ export class LocalScriptsService {
 
   async getMetadata(): Promise<unknown> {
     try {
-      const { getMetadata } = await import('./pbScripts.js');
+      const { getMetadata } = await import('./pbScripts');
       return await getMetadata();
     } catch {
       return {};

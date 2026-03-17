@@ -3,7 +3,7 @@
  * Mirrors ProxmoxVE-Frontend/lib/pb-queries-server.ts.
  * All queries are unauthenticated (public API).
  */
-import { getPb } from "./pbService.js";
+import { getPb } from "./pbService";
 
 // ---------------------------------------------------------------------------
 // Types
