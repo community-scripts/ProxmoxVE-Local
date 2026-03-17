@@ -203,7 +203,6 @@ export function DownloadedScriptsTab({
         if (!scriptMap.has(script.slug)) {
           scriptMap.set(script.slug, {
             ...script,
-            source: "github" as const,
             isDownloaded: false, // Will be updated by status check
             isUpToDate: false, // Will be updated by status check
           });

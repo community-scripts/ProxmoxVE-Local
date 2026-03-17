@@ -352,7 +352,7 @@ export class AutoSyncService {
 
       // Step 1: Fetch all scripts from PocketBase (always up to date)
       console.log('Fetching scripts from PocketBase...');
-      const { getAllScripts: pbGetAllScripts } = await import('./pbScripts.js');
+      const { getAllScripts: pbGetAllScripts } = await import('./pbScripts');
       const pbScripts = await pbGetAllScripts();
       console.log(`Retrieved ${pbScripts.length} scripts from PocketBase`);
 
