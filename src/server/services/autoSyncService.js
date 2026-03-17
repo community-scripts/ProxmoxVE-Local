@@ -122,7 +122,11 @@ export class AutoSyncService {
       
       return settings;
     } catch (error) {
-      console.error('Error loading auto-sync settings:', error);
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        // .env file doesn't exist — return defaults silently
+      } else {
+        console.error('Error loading auto-sync settings:', error);
+      }
       return {
         autoSyncEnabled: false,
         syncIntervalType: 'predefined',
