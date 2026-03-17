@@ -1210,7 +1210,7 @@ export function GeneralSettingsModal({
                         Enable Auto-Sync
                       </h4>
                       <p className="text-muted-foreground text-sm">
-                        Automatically sync JSON files from GitHub at specified
+                        Automatically sync scripts from PocketBase at specified
                         intervals
                       </p>
                     </div>

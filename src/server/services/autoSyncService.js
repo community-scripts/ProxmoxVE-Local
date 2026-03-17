@@ -360,6 +360,18 @@ export class AutoSyncService {
       const pbScripts = await pbGetAllScripts();
       console.log(`Retrieved ${pbScripts.length} scripts from PocketBase`);
 
+      // Step 1b: Cache logos locally
+      try {
+        const { cacheLogos } = await import('./logoCacheService');
+        const logoEntries = pbScripts
+          .filter(pb => pb.logo)
+          .map(pb => ({ slug: pb.slug, url: /** @type {string} */ (pb.logo) }));
+        const logoResult = await cacheLogos(logoEntries);
+        console.log(`Logo cache: ${logoResult.downloaded} new, ${logoResult.skipped} cached, ${logoResult.errors} errors`);
+      } catch (logoErr) {
+        console.warn('Logo caching failed (non-fatal):', logoErr);
+      }
+
       // Map PocketBase records to the internal Script format used by scriptDownloader
       const { scriptDownloaderService: sds } = await import('./scriptDownloader.js');
       const allScripts = pbScripts.map(pb => ({

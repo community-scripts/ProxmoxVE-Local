@@ -808,6 +808,16 @@ export function ScriptDetailModal({
                           </dd>
                         </div>
                       </div>
+                      {method.config_path && (
+                        <div className="mt-2 text-xs sm:text-sm">
+                          <dt className="text-muted-foreground font-medium">
+                            Config Path
+                          </dt>
+                          <dd className="text-foreground font-mono text-xs break-all">
+                            {method.config_path}
+                          </dd>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -16,6 +16,7 @@ import {
 } from "~/server/services/pbScripts";
 import type { Script, ScriptCard } from "~/types/script";
 import type { Server } from "~/types/server";
+import { cacheLogos, getLocalLogoPath } from "~/server/services/logoCacheService";
 
 // ---------------------------------------------------------------------------
 // Mapper: PocketBase record → internal Script type (used by scriptDownloader)
@@ -177,7 +178,14 @@ export const scriptsRouter = createTRPCRouter({
     .query(async () => {
       try {
         const cards = await getScriptCards();
-        return { success: true, cards: cards.map(pbCardToScriptCard) };
+        return {
+          success: true,
+          cards: cards.map((c) => {
+            const card = pbCardToScriptCard(c);
+            card.logo = getLocalLogoPath(c.slug, card.logo);
+            return card;
+          }),
+        };
       } catch (error) {
         console.error('Error in getScriptCards:', error);
         return {
@@ -212,7 +220,9 @@ export const scriptsRouter = createTRPCRouter({
         if (!pb) {
           return { success: false, error: 'Script not found', script: null };
         }
-        return { success: true, script: pbToScript(pb) };
+        const script = pbToScript(pb);
+        script.logo = getLocalLogoPath(pb.slug, script.logo);
+        return { success: true, script };
       } catch (error) {
         console.error('Error in getScriptBySlug:', error);
         return {
@@ -245,7 +255,11 @@ export const scriptsRouter = createTRPCRouter({
       try {
         // PocketBase already returns category names expanded on each card
         const cards = await getScriptCards();
-        const scriptCards = cards.map(pbCardToScriptCard);
+        const scriptCards = cards.map((c) => {
+          const card = pbCardToScriptCard(c);
+          card.logo = getLocalLogoPath(c.slug, card.logo);
+          return card;
+        });
 
         // Also return the category list for the sidebar filter
         const metadata = await pbGetMetadata();
@@ -262,15 +276,29 @@ export const scriptsRouter = createTRPCRouter({
       }
     }),
 
-  // PocketBase is always up to date – this is a no-op kept for API compatibility
+  // Sync: cache logos locally from PocketBase script data
   resyncScripts: publicProcedure
     .mutation(async () => {
-      return {
-        success: true,
-        message: 'Script catalog is served directly from PocketBase and is always up to date.',
-        count: 0,
-        error: undefined as string | undefined,
-      };
+      try {
+        const cards = await getScriptCards();
+        const entries = cards
+          .filter((c) => c.logo)
+          .map((c) => ({ slug: c.slug, url: c.logo! }));
+        const result = await cacheLogos(entries);
+        return {
+          success: true,
+          message: `Logo cache updated: ${result.downloaded} downloaded, ${result.skipped} cached, ${result.errors} errors.`,
+          count: result.downloaded,
+          error: undefined as string | undefined,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: 'Failed to sync logos',
+          count: 0,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
     }),
 
   // Load script files from the community repository

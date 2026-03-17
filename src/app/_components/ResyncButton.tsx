@@ -104,7 +104,7 @@ export function ResyncButton() {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="text-sm text-muted-foreground font-medium">
-        Sync scripts with configured repositories
+        Sync scripts and cache logos locally
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ export function ResyncButton() {
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>Sync Json Files</span>
+                <span>Sync Scripts</span>
               </>
             )}
           </Button>

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && next build --webpack",
+    "build": "prisma generate && node --import tsx scripts/cache-logos.ts && next build --webpack",
     "check": "eslint . && tsc --noEmit",
     "dev": "next dev --webpack",
     "dev:server": "node --import tsx server.js",
