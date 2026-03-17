@@ -344,22 +344,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       });
     }
 
-    // Filter by repositories
-    if (filters.selectedRepositories.length > 0) {
-      scripts = scripts.filter((script) => {
-        if (!script) return false;
-        const repoUrl = script.repository_url;
-
-        // If script has no repository_url, exclude it when filtering by repositories
-        if (!repoUrl) {
-          return false;
-        }
-
-        // Only include scripts from selected repositories
-        return filters.selectedRepositories.includes(repoUrl);
-      });
-    }
-
     // Exclude newest scripts from main grid when no filters are active (they'll be shown in carousel)
     if (!hasActiveFilters) {
       const newestScriptSlugs = new Set(

@@ -87,6 +87,8 @@ export interface ScriptCard {
    * Derived from the script type + slug convention.
    */
   install_basenames?: string[];
+  /** Repository URL – optional, only set for user-local JSON scripts. */
+  repository_url?: string;
   is_dev?: boolean;
   is_disabled?: boolean;
   is_deleted?: boolean;

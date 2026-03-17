@@ -346,22 +346,6 @@ export function DownloadedScriptsTab({
       });
     }
 
-    // Filter by repositories
-    if (filters.selectedRepositories.length > 0) {
-      scripts = scripts.filter((script) => {
-        if (!script) return false;
-        const repoUrl = script.repository_url;
-
-        // If script has no repository_url, exclude it when filtering by repositories
-        if (!repoUrl) {
-          return false;
-        }
-
-        // Only include scripts from selected repositories
-        return filters.selectedRepositories.includes(repoUrl);
-      });
-    }
-
     // Apply sorting
     scripts.sort((a, b) => {
       if (!a || !b) return 0;
