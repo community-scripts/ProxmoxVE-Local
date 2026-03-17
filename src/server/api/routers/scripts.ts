@@ -268,7 +268,8 @@ export const scriptsRouter = createTRPCRouter({
       return {
         success: true,
         message: 'Script catalog is served directly from PocketBase and is always up to date.',
-        count: 0
+        count: 0,
+        error: undefined as string | undefined,
       };
     }),
 

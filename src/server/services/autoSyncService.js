@@ -555,10 +555,10 @@ export class AutoSyncService {
       
       // categories is now an array of strings (category names) from PocketBase
       const categoryNames = Array.isArray(script.categories) && script.categories.length > 0
-        ? script.categories.map(c => typeof c === 'string' ? c : (c?.name ?? 'Miscellaneous'))
+        ? script.categories.map((/** @type {any} */ c) => typeof c === 'string' ? c : (c?.name ?? 'Miscellaneous'))
         : ['Miscellaneous'];
 
-      categoryNames.forEach(categoryName => {
+      categoryNames.forEach((/** @type {string} */ categoryName) => {
         if (!grouped.has(categoryName)) {
           grouped.set(categoryName, []);
         }
