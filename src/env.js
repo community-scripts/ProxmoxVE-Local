@@ -12,7 +12,7 @@ export const env = createEnv({
       .enum(["development", "test", "production"])
       .default("development"),
     // PocketBase Configuration
-    PB_URL: z.string().url().default("https://pocketbase.community-scripts.org"),
+    PB_URL: z.string().url().default("https://db.community-scripts.org"),
     // Repository Configuration (for downloading script files)
     REPO_URL: z.string().url().optional(),
    
