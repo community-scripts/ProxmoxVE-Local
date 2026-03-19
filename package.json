@@ -83,7 +83,7 @@
     "@vitest/ui": "^4.1.0",
     "baseline-browser-mapping": "^2.10.8",
     "eslint": "^10.0.3",
-    "eslint-config-next": "^16.1.7",
+    "eslint-config-next": "^16.2.0",
     "jsdom": "^29.0.0",
     "next": ">=16.1.7",
     "postcss": "^8.5.8",
