@@ -12,10 +12,8 @@ export interface ScriptInstallMethod {
   resources: ScriptResources;
   config_path?: string;
   /**
-   * Optional install script file path (e.g. "ct/adguard.sh").
-   * Present in user-defined local JSON scripts.
-   * For PocketBase-sourced scripts this field is absent; the downloader derives
-   * the path from the script type and slug via `deriveScriptPath()`.
+   * Install script file path (e.g. "ct/adguard.sh").
+   * For PocketBase-sourced scripts, this is derived by the backend.
    */
   script?: string;
 }

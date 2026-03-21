@@ -392,6 +392,7 @@ export class AutoSyncService {
           type: m.type,
           resources: m.resources,
           config_path: m.config_path,
+          script: sds.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
         })),
         default_credentials: { username: pb.default_user, password: pb.default_passwd },
         notes: pb.notes_json,

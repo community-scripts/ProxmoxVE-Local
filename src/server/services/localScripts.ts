@@ -1,6 +1,7 @@
 ﻿import { readFile, readdir, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import type { Script, ScriptCard } from '~/types/script';
+import { scriptDownloaderService } from './scriptDownloader.js';
 
 export class LocalScriptsService {
   private scriptsDirectory: string;
@@ -58,6 +59,7 @@ export class LocalScriptsService {
           type: m.type,
           resources: m.resources,
           config_path: m.config_path,
+          script: scriptDownloaderService.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
         })),
         notes: pb.notes_json.map(n => ({ text: n.text, type: n.type })),
       }));
@@ -135,6 +137,7 @@ export class LocalScriptsService {
             type: m.type,
             resources: m.resources,
             config_path: m.config_path,
+            script: scriptDownloaderService.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
           })),
           notes: pb.notes_json.map(n => ({ text: n.text, type: n.type })),
         };
