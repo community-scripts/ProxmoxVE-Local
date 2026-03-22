@@ -24,6 +24,7 @@ export interface PBScriptType {
 
 export interface PBInstallMethod {
   type: string; // "default", "alpine", etc.
+  script?: string; // e.g. "ct/adguard.sh" – present in local JSON scripts, absent in PocketBase records
   resources: {
     cpu: number;
     ram: number;

@@ -19,6 +19,21 @@ import {
 import { Button } from "./ui/button";
 import { useRegisterModal } from "./modal/ModalStackProvider";
 
+function deriveScriptPath(scriptType: string, methodType: string, slug: string): string {
+  const type = (scriptType || "ct").toLowerCase().trim();
+  const method = (methodType || "default").toLowerCase().trim();
+  if (method === "alpine" && (type === "ct" || type === "lxc")) return `ct/alpine-${slug}.sh`;
+  switch (type) {
+    case "ct":
+    case "lxc": return `ct/${slug}.sh`;
+    case "pve": return `tools/pve/${slug}.sh`;
+    case "addon": return `tools/addon/${slug}.sh`;
+    case "vm": return `vm/${slug}.sh`;
+    case "turnkey": return `turnkey/${slug}.sh`;
+    default: return `ct/${slug}.sh`;
+  }
+}
+
 interface ScriptDetailModalProps {
   script: Script | null;
   isOpen: boolean;
@@ -190,12 +205,12 @@ export function ScriptDetailModal({
     // Find the script path based on selected version type
     const versionType = selectedVersionType ?? "default";
     const scriptMethod =
-      script.install_methods?.find(
-        (method) => method.type === versionType && method.script,
-      ) ?? script.install_methods?.find((method) => method.script);
+      script.install_methods?.find((method) => method.type === versionType) ??
+      script.install_methods?.[0];
 
-    if (scriptMethod?.script) {
-      const scriptPath = `scripts/${scriptMethod.script}`;
+    if (scriptMethod) {
+      const scriptFile = scriptMethod.script ?? deriveScriptPath(script.type, scriptMethod.type, script.slug);
+      const scriptPath = `scripts/${scriptFile}`;
       const scriptName = script.name;
 
       // Pass execution mode, server info, and envVars to the parent
