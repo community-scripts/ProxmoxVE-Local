@@ -1,8 +1,7 @@
-import { readdir, stat, readFile } from 'fs/promises';
+import { readdir, stat, readFile, access } from 'fs/promises';
 import { join, resolve, extname } from 'path';
 import { env } from '~/env.js';
 import { spawn, type ChildProcess } from 'child_process';
-import { localScriptsService } from '~/server/services/localScripts';
 
 export interface ScriptInfo {
   name: string;
@@ -130,13 +129,14 @@ export class ScriptManager {
             // Extract slug from filename (remove .sh extension)
             const slug = file.replace(/\.sh$/, '');
             
-            // Try to get logo from JSON data
+            // Try to get logo from local cache (avoids per-script HTTP calls to PocketBase)
             let logo: string | undefined;
             try {
-              const scriptData = await localScriptsService.getScriptBySlug(slug);
-              logo = scriptData?.logo ?? undefined;
+              const logoPath = join(process.cwd(), 'public', 'logos', `${slug}.webp`);
+              await access(logoPath);
+              logo = `/logos/${slug}.webp`;
             } catch {
-              // JSON file might not exist, that's okay
+              // Logo not cached locally, that's okay
             }
             
             scripts.push({
@@ -217,13 +217,14 @@ export class ScriptManager {
             // Extract slug from filename (remove .sh extension)
             const slug = file.replace(/\.sh$/, '');
             
-            // Try to get logo from JSON data
+            // Try to get logo from local cache (avoids per-script HTTP calls to PocketBase)
             let logo: string | undefined;
             try {
-              const scriptData = await localScriptsService.getScriptBySlug(slug);
-              logo = scriptData?.logo ?? undefined;
+              const logoPath = join(process.cwd(), 'public', 'logos', `${slug}.webp`);
+              await access(logoPath);
+              logo = `/logos/${slug}.webp`;
             } catch {
-              // JSON file might not exist, that's okay
+              // Logo not cached locally, that's okay
             }
             
             scripts.push({
