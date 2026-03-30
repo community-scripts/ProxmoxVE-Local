@@ -81,7 +81,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.1.0",
     "@vitest/ui": "^4.1.0",
-    "baseline-browser-mapping": "^2.10.8",
+    "baseline-browser-mapping": "^2.10.12",
     "eslint": "^10.0.3",
     "eslint-config-next": "^16.2.0",
     "jsdom": "^29.0.0",
