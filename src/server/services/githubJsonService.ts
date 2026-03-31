@@ -252,9 +252,9 @@ export class GitHubJsonService {
       // Process repos in priority order (lower priority number = higher priority)
       for (const repo of enabledRepos) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           console.log(`Syncing from repository: ${repo.url} (priority: ${repo.priority})`);
           
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           const result = await this.syncJsonFilesForRepo(repo.url);
           
           if (result.success) {

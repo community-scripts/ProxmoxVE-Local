@@ -18,7 +18,7 @@ export class GitHubProvider implements GitProvider {
         const err = new Error(
           `GitHub API rate limit exceeded. Consider setting GITHUB_TOKEN. Status: ${response.status} ${response.statusText}`
         );
-        (err as Error).name = 'RateLimitError';
+        err.name = 'RateLimitError';
         throw err;
       }
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
@@ -50,7 +50,7 @@ export class GitHubProvider implements GitProvider {
         const err = new Error(
           `GitHub rate limit exceeded while downloading ${filePath}. Consider setting GITHUB_TOKEN.`
         );
-        (err as Error).name = 'RateLimitError';
+        err.name = 'RateLimitError';
         throw err;
       }
       throw new Error(`Failed to download ${filePath}: ${response.status} ${response.statusText}`);
