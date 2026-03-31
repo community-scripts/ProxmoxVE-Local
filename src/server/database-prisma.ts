@@ -329,7 +329,7 @@ class DatabaseServicePrisma {
     if (web_ui_ip !== undefined) updateFields.web_ui_ip = web_ui_ip;
     if (web_ui_port !== undefined) updateFields.web_ui_port = web_ui_port;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+     
     if (Object.keys(updateFields).length === 0) {
       return { changes: 0 };
     }

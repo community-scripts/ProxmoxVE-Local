@@ -117,7 +117,7 @@ export class GitHubJsonService {
       for (const repo of enabledRepos) {
         try {
           this.initializeConfig();
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+           
           const script = await this.downloadJsonFile(repo.url, `${this.jsonFolder!}/${slug}.json`);
           return script;
         } catch {
@@ -254,7 +254,7 @@ export class GitHubJsonService {
         try {
           console.log(`Syncing from repository: ${repo.url} (priority: ${repo.priority})`);
           
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+           
           const result = await this.syncJsonFilesForRepo(repo.url);
           
           if (result.success) {

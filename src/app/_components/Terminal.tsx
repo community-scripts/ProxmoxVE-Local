@@ -289,7 +289,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
     const terminal = xtermRef.current;
     
     const handleData = (data: string) => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
         const message = {
           action: 'input',
           executionId: effectiveExecutionId,
@@ -311,7 +311,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   useEffect(() => {
     // Prevent multiple connections in React Strict Mode
-    if (hasConnectedRef.current || isConnectingRef.current || (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)) {
+    if (hasConnectedRef.current || isConnectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
@@ -405,7 +405,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   }, [scriptPath, mode, server, isUpdate, isShell, containerId, isMobile, envVars]);  
 
   const startScript = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isRunning) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && !isRunning) {
       // Generate a new execution ID for each script run (unless propExecutionId is provided)
       const newExecutionId = propExecutionId ?? `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       if (!propExecutionId) {
@@ -435,7 +435,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
   };
 
   const stopScript = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       setIsStopped(true);
       setIsRunning(false);
       wsRef.current.send(JSON.stringify({
@@ -453,7 +453,7 @@ export function Terminal({ scriptPath, onClose, mode = 'local', server, isUpdate
 
   const sendInput = (input: string) => {
     setLastInputSent(input);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       const message = {
         action: 'input',
         executionId,

@@ -14,7 +14,7 @@ export default defineConfig({
   studio: {
     adapter: async () => {
       const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3')
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+       
       return new PrismaBetterSqlite3({ url: dbPath })
     },
   },

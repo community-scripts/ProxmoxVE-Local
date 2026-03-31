@@ -158,7 +158,7 @@ function toScript(record: Record<string, unknown>): PBScript {
 const CARD_FIELDS =
   "id,slug,name,description,logo,type,categories,is_dev,has_arm,is_disabled,is_deleted,privileged,port,updateable,website,documentation,script_created,script_updated,expand.categories.*,expand.type.*";
 
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-type-assertion */
+ 
 
 /**
  * Fetch all script cards (lightweight, no install methods / notes).

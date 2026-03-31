@@ -6,7 +6,7 @@
 import PocketBase from "pocketbase";
 import { env } from "~/env.js";
 
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+ 
 let _cachedPb: PocketBase | null = null;
 
 export function getPb(): PocketBase {
