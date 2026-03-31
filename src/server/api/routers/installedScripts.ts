@@ -424,7 +424,7 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
     const lxcConfigPathNode = `/etc/pve/nodes/${nodeName}/lxc/${containerId}.conf`;
     // Fallback for single-node or when server.name is not the Proxmox node name
     const vmConfigPathFallback = `/etc/pve/qemu-server/${containerId}.conf`;
-    const lxcConfigPathFallback = `/etc/pve/lxc/${containerId}.conf`;
+    const _lxcConfigPathFallback = `/etc/pve/lxc/${containerId}.conf`;
 
     const checkPathExists = (path: string): Promise<boolean> =>
       new Promise<boolean>((resolve) => {
@@ -2081,7 +2081,7 @@ export const installedScriptsRouter = createTRPCRouter({
               server as Server,
               updateCommand,
               (data: string) => { updateOutput += data; },
-              () => {},
+              (_stderr: string) => { /* ignored */ },
               () => resolve()
             );
           });

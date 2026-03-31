@@ -335,6 +335,7 @@ class DatabaseServicePrisma {
 
     const result = await prisma.installedScript.update({
       where: { id },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       data: updateFields
     });
     return result as InstalledScript;

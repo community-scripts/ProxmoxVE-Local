@@ -16,9 +16,11 @@ async function main() {
 
   const entries = records
     .filter((r) => r.logo)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     .map((r) => ({ slug: r.slug, url: r.logo }));
 
   console.log(`[cache-logos] Caching ${entries.length} logos...`);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const result = await cacheLogos(entries);
   console.log(
     `[cache-logos] Done: ${result.downloaded} downloaded, ${result.skipped} already cached, ${result.errors} errors`,

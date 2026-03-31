@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as { prisma?: PrismaClient };
 
 // Ensure database directory exists before initializing Prisma
 // DATABASE_URL format: file:/path/to/database.db
-const dbUrl = process.env.DATABASE_URL || 'file:./data/pve-scripts.db';
+const dbUrl = process.env.DATABASE_URL ?? 'file:./data/pve-scripts.db';
 const dbPath = dbUrl.replace(/^file:/, '');
 const dbDir = dirname(dbPath);
 
