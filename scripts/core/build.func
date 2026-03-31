@@ -18,7 +18,7 @@
 #
 # Usage:
 #   - Sourced automatically by CT creation scripts
-#   - Requires core.func and error_handler.func to be loaded first
+#   - Requires core.func and error-handler.func to be loaded first
 #
 # ==============================================================================
 
@@ -87,7 +87,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/api.func"
 
 if command -v curl >/dev/null 2>&1; then
 	source "$(dirname "${BASH_SOURCE[0]}")/core.func"
-	source "$(dirname "${BASH_SOURCE[0]}")/error_handler.func"
+	source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
 	load_functions
 	catch_errors
 elif command -v wget >/dev/null 2>&1; then
@@ -5959,9 +5959,9 @@ ensure_log_on_host() {
 # TRAP MANAGEMENT
 # ==============================================================================
 # All traps (ERR, EXIT, INT, TERM, HUP) are set by catch_errors() in
-# error_handler.func — called at the top of this file after sourcing.
+# error-handler.func — called at the top of this file after sourcing.
 #
-# Do NOT set duplicate traps here. The handlers in error_handler.func
+# Do NOT set duplicate traps here. The handlers in error-handler.func
 # (on_exit, on_interrupt, on_terminate, on_hangup, error_handler) already:
 #   - Send telemetry via post_update_to_api / _send_abort_telemetry
 #   - Stop orphaned containers via _stop_container_if_installing

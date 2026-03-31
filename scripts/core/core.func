@@ -529,8 +529,8 @@ silent() {
 	if [[ $rc -ne 0 ]]; then
 		# Source explain_exit_code if needed
 		if ! declare -f explain_exit_code >/dev/null 2>&1; then
-			if ! source "$(dirname "${BASH_SOURCE[0]}")/error_handler.func"; then
-				explain_exit_code() { echo "unknown (error_handler.func download failed)"; }
+			if ! source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"; then
+				explain_exit_code() { echo "unknown (error-handler.func download failed)"; }
 			fi
 		fi
 

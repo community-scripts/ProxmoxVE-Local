@@ -15,7 +15,7 @@
 #   - Initialization function for trap setup
 #
 # Usage:
-#   source <(curl -fsSL .../error_handler.func)
+#   source <(curl -fsSL .../error-handler.func)
 #   catch_errors
 #
 # ------------------------------------------------------------------------------

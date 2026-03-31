@@ -33,7 +33,7 @@ if ! command -v curl >/dev/null 2>&1; then
 	apt install -y curl >/dev/null 2>&1
 fi
 source "$(dirname "${BASH_SOURCE[0]}")/core.func"
-source "$(dirname "${BASH_SOURCE[0]}")/error_handler.func"
+source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
 load_functions
 catch_errors
 

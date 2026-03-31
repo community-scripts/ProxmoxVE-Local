@@ -119,7 +119,7 @@ detect_repo_source
 #
 # - Maps numeric exit codes to human-readable error descriptions
 # - Canonical source of truth for ALL exit code mappings
-# - Used by both api.func (telemetry) and error_handler.func (error display)
+# - Used by both api.func (telemetry) and error-handler.func (error display)
 # - Supports:
 #   * Generic/Shell errors (1-3, 10, 124-132, 134, 137, 139, 141, 143-146)
 #   * curl/wget errors (4-8, 16, 18, 22-28, 30, 32-36, 39, 44-48, 51-52, 55-57, 59, 61, 63, 75, 78-79, 92, 95)
@@ -1080,7 +1080,7 @@ EOF
 	fi
 
 	# All 3 attempts failed — do NOT set POST_UPDATE_DONE=true.
-	# This allows the EXIT trap (on_exit in error_handler.func) to retry.
+	# This allows the EXIT trap (on_exit in error-handler.func) to retry.
 	# No infinite loop risk: EXIT trap fires exactly once.
 }
 
