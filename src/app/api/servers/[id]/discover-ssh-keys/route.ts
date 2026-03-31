@@ -41,14 +41,14 @@ function runRemoteCommand(
         server,
         command,
         (data: string) => chunks.push(data),
-        () => {},
+        (_stderr: string) => { /* ignored */ },
         (code: number) => finish(chunks.join(''), code)
       )
       .catch((err) => {
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          reject(err);
+          reject(err instanceof Error ? err : new Error(String(err)));
         }
       });
   });
