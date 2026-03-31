@@ -329,28 +329,43 @@ export const scriptsRouter = createTRPCRouter({
     .input(z.object({ slugs: z.array(z.string()) }))
     .mutation(async ({ input }) => {
       try {
-        const successful = [];
-        const failed = [];
+        const successful: { slug: string; files: unknown[] }[] = [];
+        const failed: { slug: string; error: string }[] = [];
 
-        for (const slug of input.slugs) {
-          try {
-            const pb = await pbGetScriptBySlug(slug);
-            if (!pb) {
-              failed.push({ slug, error: 'Script not found' });
-              continue;
-            }
-            const result = await scriptDownloaderService.loadScript(pbToScript(pb));
-            if (result.success) {
-              successful.push({ slug, files: result.files });
+        // Process in batches to avoid GitHub rate limits
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < input.slugs.length; i += BATCH_SIZE) {
+          const batch = input.slugs.slice(i, i + BATCH_SIZE);
+          const results = await Promise.allSettled(
+            batch.map(async (slug) => {
+              const pb = await pbGetScriptBySlug(slug);
+              if (!pb) {
+                throw Object.assign(new Error('Script not found'), { slug });
+              }
+              const result = await scriptDownloaderService.loadScript(pbToScript(pb));
+              if (!result.success) {
+                const error = 'error' in result ? result.error : 'Failed to load script';
+                throw Object.assign(new Error(String(error)), { slug });
+              }
+              return { slug, files: result.files };
+            }),
+          );
+
+          for (const [idx, result] of results.entries()) {
+            const slug = batch[idx]!;
+            if (result.status === 'fulfilled') {
+              successful.push(result.value);
             } else {
-              const error = 'error' in result ? result.error : 'Failed to load script';
-              failed.push({ slug, error });
+              failed.push({
+                slug,
+                error: result.reason instanceof Error ? result.reason.message : 'Failed to load script',
+              });
             }
-          } catch (error) {
-            failed.push({ 
-              slug, 
-              error: error instanceof Error ? error.message : 'Failed to load script' 
-            });
+          }
+
+          // Small delay between batches to stay under rate limits
+          if (i + BATCH_SIZE < input.slugs.length) {
+            await new Promise((r) => setTimeout(r, 200));
           }
         }
 

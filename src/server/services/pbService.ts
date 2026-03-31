@@ -21,3 +21,31 @@ export function getPb(): PocketBase {
 export function _resetCachedPb(): void {
   _cachedPb = null;
 }
+
+/**
+ * Retry wrapper for PocketBase queries.
+ * Retries on 503 (Service Unavailable) with exponential backoff to handle
+ * transient failures when multiple tRPC requests hit PB concurrently.
+ */
+export async function withPbRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: unknown) {
+      const status =
+        typeof error === "object" && error !== null && "status" in error
+          ? (error as { status: number }).status
+          : 0;
+      if ((status === 503 || status === 429) && attempt < maxRetries) {
+        const delay = Math.min(500 * 2 ** attempt, 4000);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("withPbRetry: unreachable");
+}
