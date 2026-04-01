@@ -139,6 +139,12 @@
 }
 
 /* ── Dark ambient gradients ── */
+
+/* ── Text size preferences ── */
+.text-size-small { font-size: 14px; }
+.text-size-medium { font-size: 16px; }
+.text-size-large { font-size: 18px; }
+
 .dark-ambient {
   position: fixed;
   inset: 0;

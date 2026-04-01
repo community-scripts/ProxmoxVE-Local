@@ -7,6 +7,36 @@ import { ServerList } from './ServerList';
 import { Button } from './ui/button';
 import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { useRegisterModal } from './modal/ModalStackProvider';
+import { useTheme } from './ThemeProvider';
+import { Sun, Moon, Type, Maximize2, Minimize2 } from 'lucide-react';
+
+type TextSize = 'small' | 'medium' | 'large';
+type LayoutWidth = 'default' | 'full';
+
+function loadAppearance(): { textSize: TextSize; layoutWidth: LayoutWidth } {
+  if (typeof window === 'undefined') return { textSize: 'medium', layoutWidth: 'default' };
+  try {
+    const ts = localStorage.getItem('pve-text-size');
+    const lw = localStorage.getItem('pve-layout-width');
+    return {
+      textSize: (ts === 'small' || ts === 'medium' || ts === 'large' ? ts : 'medium'),
+      layoutWidth: (lw === 'full' ? 'full' : 'default'),
+    };
+  } catch { return { textSize: 'medium', layoutWidth: 'default' }; }
+}
+
+function applyTextSize(size: TextSize) {
+  const root = document.documentElement;
+  root.classList.remove('text-size-small', 'text-size-medium', 'text-size-large');
+  root.classList.add(`text-size-${size}`);
+  localStorage.setItem('pve-text-size', size);
+}
+
+function applyLayoutWidth(width: LayoutWidth) {
+  const root = document.documentElement;
+  root.style.setProperty('--layout-max-w', width === 'full' ? '1800px' : '1440px');
+  localStorage.setItem('pve-layout-width', width);
+}
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,10 +48,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'servers' | 'appearance'>('servers');
+
+  // Appearance state
+  const { theme, setTheme } = useTheme();
+  const [textSize, setTextSize] = useState<TextSize>('medium');
+  const [layoutWidth, setLayoutWidth] = useState<LayoutWidth>('default');
 
   useEffect(() => {
     if (isOpen) {
       void fetchServers();
+      const a = loadAppearance();
+      setTextSize(a.textSize);
+      setLayoutWidth(a.layoutWidth);
     }
   }, [isOpen]);
 
@@ -125,47 +164,153 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </Button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-border px-4 sm:px-6">
+          <button
+            onClick={() => setActiveTab('servers')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'servers'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Servers
+          </button>
+          <button
+            onClick={() => setActiveTab('appearance')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'appearance'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Appearance
+          </button>
+        </div>
 
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)]">
-          {error && (
-            <div className="mb-4 p-3 sm:p-4 bg-destructive/10 border border-destructive rounded-md">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-error" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+          {activeTab === 'servers' && (
+            <>
+              {error && (
+                <div className="mb-4 p-3 sm:p-4 bg-destructive/10 border border-destructive rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-4 w-4 sm:h-5 sm:w-5 text-error" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                      <h3 className="text-xs sm:text-sm font-medium text-error-foreground">Error</h3>
+                      <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-error/80 break-words">{error}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="ml-2 sm:ml-3 min-w-0 flex-1">
-                  <h3 className="text-xs sm:text-sm font-medium text-error-foreground">Error</h3>
-                  <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-error/80 break-words">{error}</div>
+              )}
+
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Server Configurations</h3>
+                  <ServerForm onSubmit={handleCreateServer} />
+                </div>
+                
+                <div>
+                  <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Saved Servers</h3>
+                  {loading ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <p className="mt-2 text-muted-foreground">Loading servers...</p>
+                    </div>
+                  ) : (
+                    <ServerList
+                      servers={servers}
+                      onUpdate={handleUpdateServer}
+                      onDelete={handleDeleteServer}
+                    />
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'appearance' && (
+            <div className="space-y-6">
+              {/* Theme */}
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-3">Theme</h3>
+                <div className="flex gap-2">
+                  {([
+                    { value: 'light' as const, label: 'Light', Icon: Sun },
+                    { value: 'dark' as const, label: 'Dark', Icon: Moon },
+                  ]).map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => setTheme(value)}
+                      className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                        theme === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Text Size */}
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-3 flex items-center gap-2">
+                  <Type className="h-4 w-4" />
+                  Text Size
+                </h3>
+                <div className="flex gap-2">
+                  {([
+                    { value: 'small' as const, label: 'Small' },
+                    { value: 'medium' as const, label: 'Medium' },
+                    { value: 'large' as const, label: 'Large' },
+                  ]).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => { setTextSize(value); applyTextSize(value); }}
+                      className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                        textSize === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layout Width */}
+              <div>
+                <h3 className="text-base font-medium text-foreground mb-3">Layout Width</h3>
+                <div className="flex gap-2">
+                  {([
+                    { value: 'default' as const, label: 'Default (1440px)', Icon: Minimize2 },
+                    { value: 'full' as const, label: 'Wide (1800px)', Icon: Maximize2 },
+                  ]).map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => { setLayoutWidth(value); applyLayoutWidth(value); }}
+                      className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                        layoutWidth === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
           )}
-
-          <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Server Configurations</h3>
-              <ServerForm onSubmit={handleCreateServer} />
-            </div>
-            
-            <div>
-              <h3 className="text-base sm:text-lg font-medium text-foreground mb-3 sm:mb-4">Saved Servers</h3>
-              {loading ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <p className="mt-2 text-muted-foreground">Loading servers...</p>
-                </div>
-              ) : (
-                <ServerList
-                  servers={servers}
-                  onUpdate={handleUpdateServer}
-                  onDelete={handleDeleteServer}
-                />
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>

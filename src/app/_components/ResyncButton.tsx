@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '~/trpc/react';
 import { Button } from './ui/button';
-import { ContextualHelpIcon } from './ContextualHelpIcon';
 
 export function ResyncButton() {
   const [isResyncing, setIsResyncing] = useState(false);

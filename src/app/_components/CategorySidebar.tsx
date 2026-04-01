@@ -286,7 +286,7 @@ export function CategorySidebar({
                   <div className="flex items-center gap-1.5">
                     {(categoryDevCounts?.[category] ?? 0) > 0 && (
                       <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
-                        {categoryDevCounts[category]} dev
+                        {categoryDevCounts?.[category]} dev
                       </span>
                     )}
                     <span className={`text-sm px-2 py-1 rounded-full ${

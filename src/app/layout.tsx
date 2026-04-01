@@ -41,6 +41,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=document.documentElement;var ts=localStorage.getItem('pve-text-size');var lw=localStorage.getItem('pve-layout-width');if(ts==='small'||ts==='medium'||ts==='large')d.classList.add('text-size-'+ts);else d.classList.add('text-size-medium');if(lw==='full')d.style.setProperty('--layout-max-w','1800px');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className="bg-background text-foreground antialiased"
         style={{ fontFamily: "var(--font-manrope), system-ui, sans-serif" }}
