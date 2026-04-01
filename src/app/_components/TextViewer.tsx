@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "./ui/button";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
+import { useTheme } from "./ThemeProvider";
 import type { Script } from "../../types/script";
 
 interface TextViewerProps {
@@ -21,6 +23,14 @@ interface ScriptContent {
   alpineInstallScript?: string;
 }
 
+const highlighterStyle = {
+  margin: 0,
+  padding: "1rem",
+  fontSize: "14px",
+  lineHeight: "1.5",
+  minHeight: "100%",
+} as const;
+
 export function TextViewer({
   scriptName,
   isOpen,
@@ -34,6 +44,8 @@ export function TextViewer({
   const [selectedVersion, setSelectedVersion] = useState<"default" | "alpine">(
     "default",
   );
+  const { theme } = useTheme();
+  const syntaxTheme = theme === "dark" ? vscDarkPlus : tomorrow;
 
   // Extract slug from script name (remove .sh extension)
   const slug = scriptName.replace(/\.sh$/, "").replace(/^alpine-/, "");
@@ -260,6 +272,7 @@ export function TextViewer({
             <button
               onClick={onClose}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close script viewer"
             >
               <svg
                 className="h-6 w-6"
@@ -295,14 +308,8 @@ export function TextViewer({
                   (selectedVersion === "default" && scriptContent.mainScript ? (
                     <SyntaxHighlighter
                       language="bash"
-                      style={tomorrow}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        minHeight: "100%",
-                      }}
+                      style={syntaxTheme}
+                      customStyle={highlighterStyle}
                       showLineNumbers={true}
                       wrapLines={true}
                     >
@@ -312,14 +319,8 @@ export function TextViewer({
                     scriptContent.alpineMainScript ? (
                     <SyntaxHighlighter
                       language="bash"
-                      style={tomorrow}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        minHeight: "100%",
-                      }}
+                      style={syntaxTheme}
+                      customStyle={highlighterStyle}
                       showLineNumbers={true}
                       wrapLines={true}
                     >
@@ -339,14 +340,8 @@ export function TextViewer({
                   scriptContent.installScript ? (
                     <SyntaxHighlighter
                       language="bash"
-                      style={tomorrow}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        minHeight: "100%",
-                      }}
+                      style={syntaxTheme}
+                      customStyle={highlighterStyle}
                       showLineNumbers={true}
                       wrapLines={true}
                     >
@@ -356,14 +351,8 @@ export function TextViewer({
                     scriptContent.alpineInstallScript ? (
                     <SyntaxHighlighter
                       language="bash"
-                      style={tomorrow}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        minHeight: "100%",
-                      }}
+                      style={syntaxTheme}
+                      customStyle={highlighterStyle}
                       showLineNumbers={true}
                       wrapLines={true}
                     >

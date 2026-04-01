@@ -105,6 +105,7 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
               variant="ghost"
               size="icon"
               className="h-7 w-7 rounded-full"
+              aria-label="Close appearance settings"
             >
               <X className="h-4 w-4" />
             </Button>

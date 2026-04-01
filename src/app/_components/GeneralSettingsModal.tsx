@@ -707,6 +707,7 @@ export function GeneralSettingsModal({
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Close settings"
             >
               <svg
                 className="h-5 w-5 sm:h-6 sm:w-6"

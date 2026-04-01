@@ -411,6 +411,7 @@ export function ScriptDetailModal({
                   className="h-7 w-7 rounded-full"
                   onClick={onClose}
                   title="Close"
+                  aria-label="Close script details"
                 >
                   <X className="h-4 w-4" />
                 </Button>

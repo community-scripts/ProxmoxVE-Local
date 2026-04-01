@@ -44,6 +44,8 @@ export const ScriptCard = memo(function ScriptCard({
     <div
       className={`glass-card animate-card-in relative flex h-full cursor-pointer flex-col overflow-hidden border p-0 ${script.is_dev ? "border-violet-500/40 bg-violet-500/[0.03]" : ""}`}
       onClick={() => onClick(script)}
+      role="button"
+      aria-label={`View details for ${script.name || "script"}`}
     >
       {/* Checkbox in top-left corner */}
       {onToggleSelect && (
@@ -55,6 +57,9 @@ export const ScriptCard = memo(function ScriptCard({
                 : "bg-card border-border hover:border-primary/60 hover:bg-accent"
             }`}
             onClick={handleCheckboxClick}
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={`Select ${script.name || "script"}`}
           >
             {isSelected && (
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">

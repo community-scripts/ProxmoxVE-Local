@@ -312,7 +312,7 @@ export function LXCSettingsModal({
                   />
                   Sync from Server
                 </Button>
-                <Button onClick={onClose} variant="ghost" size="sm">
+                <Button onClick={onClose} variant="ghost" size="sm" aria-label="Close LXC settings">
                   ✕
                 </Button>
               </div>

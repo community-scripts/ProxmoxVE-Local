@@ -2093,6 +2093,7 @@ export function HelpModal({
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Close help"
             >
               <svg
                 className="h-5 w-5 sm:h-6 sm:w-6"

@@ -570,6 +570,7 @@ export function ConfigurationModal({
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Close configuration"
             >
               <svg
                 className="h-6 w-6"
