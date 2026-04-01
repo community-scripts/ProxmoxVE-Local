@@ -14,6 +14,7 @@ import SuperJSON from "superjson";
 const SLOW_QUERY_PATHS = new Set([
   "servers.checkServersStatus",
   "installedScripts.getAllInstalledScripts",
+  "version.getVersionStatus",
 ]);
 
 import { type AppRouter } from "~/server/api/root";
