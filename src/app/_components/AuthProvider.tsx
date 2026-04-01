@@ -14,9 +14,12 @@ interface AuthContextType {
   username: string | null;
   isLoading: boolean;
   expirationTime: number | null;
+  setupCompleted: boolean | null;
+  authEnabled: boolean | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  refreshConfig: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +33,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [username, setUsername] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expirationTime, setExpirationTime] = useState<number | null>(null);
+  const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
+  const [authEnabled, setAuthEnabled] = useState<boolean | null>(null);
 
   const checkAuthInternal = async (retryCount = 0) => {
     try {
@@ -40,6 +45,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setupCompleted: boolean;
           enabled: boolean;
         };
+
+        setSetupCompleted(setupData.setupCompleted);
+        setAuthEnabled(setupData.enabled);
 
         // If setup is not completed or auth is disabled, don't verify
         if (!setupData.setupCompleted || !setupData.enabled) {
@@ -97,6 +105,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuth = useCallback(() => {
     return checkAuthInternal(0);
+  }, []);
+
+  const refreshConfig = useCallback(async () => {
+    try {
+      const response = await fetch("/api/settings/auth-credentials");
+      if (response.ok) {
+        const data = (await response.json()) as {
+          setupCompleted: boolean;
+          enabled: boolean;
+        };
+        setSetupCompleted(data.setupCompleted);
+        setAuthEnabled(data.enabled);
+      }
+    } catch (error) {
+      console.error("Error refreshing auth config:", error);
+    }
   }, []);
 
   const login = async (
@@ -158,9 +182,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         username,
         isLoading,
         expirationTime,
+        setupCompleted,
+        authEnabled,
         login,
         logout,
         checkAuth,
+        refreshConfig,
       }}
     >
       {children}

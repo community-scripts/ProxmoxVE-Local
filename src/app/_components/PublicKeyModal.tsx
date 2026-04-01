@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Copy, Check, Server, Globe } from 'lucide-react';
 import { Button } from './ui/button';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface PublicKeyModalProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ interface PublicKeyModalProps {
 }
 
 export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverIp }: PublicKeyModalProps) {
-  useRegisterModal(isOpen, { id: 'public-key-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'public-key-modal', allowEscape: true, onClose });
   const [copied, setCopied] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
 
@@ -94,7 +94,8 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
   };
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-2xl w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
@@ -215,5 +216,6 @@ export function PublicKeyModal({ isOpen, onClose, publicKey, serverName, serverI
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

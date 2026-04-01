@@ -380,13 +380,14 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             .filter((s) => s?.date_created)
             .sort((a, b) =>
               (b?.date_created ?? "").localeCompare(a?.date_created ?? ""),
-            );
+            )
+            .slice(0, 15);
           break;
         case "updated":
           scripts = scripts
-            .filter((s) => s?.updateable)
+            .filter((s) => s?.date_updated)
             .sort((a, b) =>
-              (b?.date_created ?? "").localeCompare(a?.date_created ?? ""),
+              (b?.date_updated ?? "").localeCompare(a?.date_updated ?? ""),
             );
           break;
         case "dev":

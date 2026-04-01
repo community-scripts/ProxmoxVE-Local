@@ -5,7 +5,7 @@ import { api } from '~/trpc/react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { X, ExternalLink, Calendar, Tag, Loader2 } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -35,7 +35,7 @@ const markVersionAsSeen = (version: string): void => {
 };
 
 export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: ReleaseNotesModalProps) {
-  useRegisterModal(isOpen, { id: 'release-notes-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'release-notes-modal', allowEscape: true, onClose });
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const { data: releasesData, isLoading, error } = api.version.getAllReleases.useQuery(undefined, {
     enabled: isOpen
@@ -66,7 +66,8 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
   const releases: Release[] = releasesData?.success ? releasesData.releases ?? [] : [];
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
@@ -215,6 +216,7 @@ export function ReleaseNotesModal({ isOpen, onClose, highlightVersion }: Release
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

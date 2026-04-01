@@ -13,6 +13,7 @@ import { LXCSettingsModal } from "./LXCSettingsModal";
 import { StorageSelectionModal } from "./StorageSelectionModal";
 import { BackupWarningModal } from "./BackupWarningModal";
 import { CloneCountInputModal } from "./CloneCountInputModal";
+import { ModalPortal } from "./modal/ModalStackProvider";
 import type { Storage } from "~/server/services/storageService";
 import { getContrastColor } from "../../lib/colorUtils";
 import {
@@ -2634,6 +2635,7 @@ export function InstalledScriptsTab() {
 
       {/* Backup Prompt Modal */}
       {showBackupPrompt && (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
             <div className="border-border flex items-center justify-center border-b p-6">
@@ -2695,6 +2697,7 @@ export function InstalledScriptsTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Storage Selection Modal */}

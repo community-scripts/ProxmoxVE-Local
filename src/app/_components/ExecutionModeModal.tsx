@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 import { ColorCodedDropdown } from './ColorCodedDropdown';
 import { SettingsModal } from './SettingsModal';
 import { ConfigurationModal, type EnvVars } from './ConfigurationModal';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 
 interface ExecutionModeModalProps {
@@ -19,7 +19,7 @@ interface ExecutionModeModalProps {
 }
 
 export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName, script }: ExecutionModeModalProps) {
-  useRegisterModal(isOpen, { id: 'execution-mode-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'execution-mode-modal', allowEscape: true, onClose });
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +95,8 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName, scr
 
   return (
     <>
-      <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+      <ModalPortal>
+      <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
         <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
@@ -275,6 +276,7 @@ export function ExecutionModeModal({ isOpen, onClose, onExecute, scriptName, scr
           </div>
         </div>
       </div>
+      </ModalPortal>
 
       {/* Server Settings Modal */}
       <SettingsModal 

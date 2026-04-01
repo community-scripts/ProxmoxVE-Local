@@ -76,6 +76,7 @@ export interface ScriptCard {
   /** Category names for display / filtering. */
   categoryNames?: string[];
   date_created?: string;
+  date_updated?: string;
   os?: string;
   version?: string;
   interface_port?: number | null;

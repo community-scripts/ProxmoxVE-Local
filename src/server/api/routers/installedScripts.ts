@@ -479,9 +479,19 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
   }
 }
 
+// Cache for batch container type detection – avoids repeated SSH calls
+const containerTypeCacheByServer = new Map<number, { data: Map<string, boolean>; expiry: number }>();
+const CONTAINER_TYPE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Helper function to batch detect container types for all containers on a server
 // Returns a Map of container_id -> isVM (true for VM, false for LXC)
 async function batchDetectContainerTypes(server: Server): Promise<Map<string, boolean>> {
+  // Check cache first
+  const cached = containerTypeCacheByServer.get(server.id);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
+  }
+
   const containerTypeMap = new Map<string, boolean>();
   
   try {
@@ -579,6 +589,9 @@ async function batchDetectContainerTypes(server: Server): Promise<Map<string, bo
     console.error(`Error in batchDetectContainerTypes for server ${server.name}:`, error);
     // Return empty map on error - individual checks will fall back to isVM()
   }
+  
+  // Store in cache
+  containerTypeCacheByServer.set(server.id, { data: containerTypeMap, expiry: Date.now() + CONTAINER_TYPE_CACHE_TTL });
   
   return containerTypeMap;
 }

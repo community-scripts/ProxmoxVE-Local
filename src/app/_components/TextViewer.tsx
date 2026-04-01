@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "./ui/button";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import type { Script } from "../../types/script";
 
 interface TextViewerProps {
@@ -182,11 +183,15 @@ export function TextViewer({
     }
   };
 
+  const zIndex = useRegisterModal(isOpen, { id: 'text-viewer-modal', allowEscape: true, onClose });
+
   if (!isOpen) return null;
 
   return (
+    <ModalPortal>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      style={{ zIndex }}
       onClick={handleBackdropClick}
     >
       <div className="bg-card border-border mx-4 flex max-h-[90vh] w-full max-w-6xl flex-col rounded-lg border shadow-xl sm:mx-0">
@@ -372,5 +377,6 @@ export function TextViewer({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

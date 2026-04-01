@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 import { Lock, User, Shield, AlertCircle } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface SetupModalProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface SetupModalProps {
 }
 
 export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
-  useRegisterModal(isOpen, { id: 'setup-modal', allowEscape: true, onClose: () => null });
+  const zIndex = useRegisterModal(isOpen, { id: 'setup-modal', allowEscape: true, onClose: () => null });
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -84,7 +84,8 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-center p-6 border-b border-border">
@@ -202,5 +203,6 @@ export function SetupModal({ isOpen, onComplete }: SetupModalProps) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -66,6 +66,7 @@ function pbCardToScriptCard(pb: PBScriptCard): ScriptCard {
     website: pb.website,
     categoryNames: pb.categories.map((c) => c.name),
     date_created: pb.script_created,
+    date_updated: pb.script_updated,
     interface_port: pb.port,
     is_dev: pb.is_dev,
     is_disabled: pb.is_disabled,

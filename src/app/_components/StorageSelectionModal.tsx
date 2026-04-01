@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Database, RefreshCw, CheckCircle } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 import type { Storage } from '~/server/services/storageService';
 
 interface StorageSelectionModalProps {
@@ -33,7 +33,7 @@ export function StorageSelectionModal({
 }: StorageSelectionModalProps) {
   const [selectedStorage, setSelectedStorage] = useState<Storage | null>(null);
   
-  useRegisterModal(isOpen, { id: 'storage-selection-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'storage-selection-modal', allowEscape: true, onClose });
 
   if (!isOpen) return null;
 
@@ -53,7 +53,8 @@ export function StorageSelectionModal({
   const filteredStorages = filterFn ? storages.filter(filterFn) : storages.filter(s => s.supportsBackup);
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-2xl w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
@@ -171,6 +172,7 @@ export function StorageSelectionModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

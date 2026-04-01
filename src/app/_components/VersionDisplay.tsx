@@ -8,6 +8,7 @@ import { UpdateConfirmationModal } from "./UpdateConfirmationModal";
 
 import { ExternalLink, Download, RefreshCw, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface VersionDisplayProps {
   onOpenReleaseNotes?: () => void;
@@ -29,7 +30,7 @@ function LoadingOverlay({
   }, [logs]);
 
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-card rounded-lg p-8 shadow-2xl border border-border max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
         <div className="flex flex-col items-center space-y-4">
@@ -74,10 +75,10 @@ function LoadingOverlay({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
-
 export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {}) {
   const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);

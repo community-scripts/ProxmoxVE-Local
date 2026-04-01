@@ -13,6 +13,34 @@ interface CategorySidebarProps {
 }
 
 // Icon mapping for categories
+const categoryIconColorMap: Record<string, string> = {
+  server: "text-blue-500",
+  monitor: "text-sky-400",
+  box: "text-orange-400",
+  shield: "text-green-500",
+  "shield-check": "text-green-500",
+  key: "text-yellow-500",
+  archive: "text-amber-400",
+  database: "text-indigo-500",
+  "chart-bar": "text-emerald-500",
+  template: "text-violet-500",
+  "folder-open": "text-cyan-500",
+  "document-text": "text-slate-400",
+  film: "text-rose-500",
+  download: "text-cyan-500",
+  "video-camera": "text-pink-500",
+  home: "text-lime-500",
+  wifi: "text-fuchsia-500",
+  "chat-alt": "text-sky-500",
+  clock: "text-orange-500",
+  code: "text-green-400",
+  "external-link": "text-blue-400",
+  sparkles: "text-purple-500",
+  "currency-dollar": "text-emerald-400",
+  puzzle: "text-pink-400",
+  office: "text-stone-500",
+};
+
 const CategoryIcon = ({
   iconName,
   className = "w-5 h-5",

@@ -9,7 +9,7 @@ import { ContextualHelpIcon } from './ContextualHelpIcon';
 import { LoadingModal } from './LoadingModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface InstalledScript {
   id: number;
@@ -42,7 +42,7 @@ interface LXCSettingsModalProps {
 }
 
 export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: LXCSettingsModalProps) {
-  useRegisterModal(isOpen, { id: 'lxc-settings-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'lxc-settings-modal', allowEscape: true, onClose });
   const [activeTab, setActiveTab] = useState<string>('common');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
@@ -262,7 +262,8 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
 
   return (
     <>
-      <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+      <ModalPortal>
+      <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
         <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
@@ -667,6 +668,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
           </div>
         </div>
       </div>
+      </ModalPortal>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -697,7 +699,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
 
       {/* Result Modal */}
       {showResultModal && resultType && resultMessage && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center" style={{ zIndex: zIndex + 10 }}>
           <div className="bg-card text-card-foreground rounded-lg shadow-xl max-w-md w-full mx-4 border border-border">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
