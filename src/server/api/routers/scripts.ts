@@ -12,6 +12,7 @@ import {
   getScriptBySlug as pbGetScriptBySlug,
   getAllScripts as pbGetAllScripts,
   getMetadata as pbGetMetadata,
+  invalidatePbCache,
   type PBScript,
   type PBScriptCard,
 } from "~/server/services/pbScripts";
@@ -284,6 +285,9 @@ export const scriptsRouter = createTRPCRouter({
   resyncScripts: publicProcedure
     .mutation(async () => {
       try {
+        // Invalidate server-side PB cache so fresh data is fetched
+        invalidatePbCache();
+
         const cards = await getScriptCards();
         const entries = cards
           .filter((c) => c.logo)
