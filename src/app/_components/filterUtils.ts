@@ -13,6 +13,7 @@ export function getDefaultFilters(): FilterState {
     sortBy: "name",
     sortOrder: "asc",
     quickFilter: "all",
+    selectedCategory: null,
   };
 }
 
@@ -41,6 +42,7 @@ export function mergeFiltersWithDefaults(
     sortBy: savedFilters.sortBy ?? defaults.sortBy,
     sortOrder: savedFilters.sortOrder ?? defaults.sortOrder,
     quickFilter: savedFilters.quickFilter ?? defaults.quickFilter,
+    selectedCategory: savedFilters.selectedCategory ?? defaults.selectedCategory,
   };
 }
 

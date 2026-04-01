@@ -41,6 +41,7 @@ export interface FilterState {
   sortBy: "name" | "created" | "updated"; // Sort criteria
   sortOrder: "asc" | "desc"; // Sort direction
   quickFilter: QuickFilter;
+  selectedCategory: string | null; // null = all categories
 }
 
 interface FilterBarProps {
@@ -51,6 +52,8 @@ interface FilterBarProps {
   updatableCount?: number;
   saveFiltersEnabled?: boolean;
   isLoadingFilters?: boolean;
+  categories?: string[];
+  categoryCounts?: Record<string, number>;
 }
 
 const SCRIPT_TYPES = [
@@ -68,9 +71,12 @@ export function FilterBar({
   updatableCount = 0,
   saveFiltersEnabled = false,
   isLoadingFilters = false,
+  categories = [],
+  categoryCounts = {},
 }: FilterBarProps) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   // Fetch enabled repositories
@@ -103,6 +109,7 @@ export function FilterBar({
     filters.showUpdatable !== null ||
     filters.selectedTypes.length > 0 ||
     filters.selectedRepositories.length > 0 ||
+    filters.selectedCategory !== null ||
     filters.sortBy !== "name" ||
     filters.sortOrder !== "asc" ||
     filters.quickFilter !== "all";
@@ -365,6 +372,84 @@ export function FilterBar({
             </div>
 
             {/* Repository Filter Buttons - Only show if more than one enabled repo */}
+            {categories.length > 0 && (
+              <div className="relative w-full sm:w-auto">
+                <Button
+                  onClick={() =>
+                    setIsCategoryDropdownOpen(!isCategoryDropdownOpen)
+                  }
+                  variant="outline"
+                  size="default"
+                  className={`flex w-full items-center justify-center space-x-2 ${
+                    filters.selectedCategory
+                      ? "border-primary/20 bg-primary/10 text-primary border"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  }`}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>{filters.selectedCategory ?? "All Categories"}</span>
+                  <svg
+                    className={`h-4 w-4 transition-transform ${isCategoryDropdownOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </Button>
+
+                {isCategoryDropdownOpen && (
+                  <div className="border-border bg-card absolute top-full left-0 z-10 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border shadow-lg">
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          updateFilters({ selectedCategory: null });
+                          setIsCategoryDropdownOpen(false);
+                        }}
+                        className={`hover:bg-accent flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                          filters.selectedCategory === null
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        <span>All Categories</span>
+                        <span className="text-xs opacity-60">
+                          {totalScripts}
+                        </span>
+                      </button>
+                      {categories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            updateFilters({ selectedCategory: cat });
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                          className={`hover:bg-accent flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                            filters.selectedCategory === cat
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          <span>{cat}</span>
+                          {categoryCounts[cat] != null && (
+                            <span className="text-xs opacity-60">
+                              {categoryCounts[cat]}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Repository Filter Buttons - Only show if more than one enabled repo */}
             {enabledRepos.length > 1 &&
               enabledRepos.map((repo: { id: number; url: string }) => {
                 const repoUrl = String(repo.url);
@@ -604,12 +689,13 @@ export function FilterBar({
       )}
 
       {/* Click outside to close dropdowns */}
-      {(isTypeDropdownOpen || isSortDropdownOpen) && (
+      {(isTypeDropdownOpen || isSortDropdownOpen || isCategoryDropdownOpen) && (
         <div
           className="fixed inset-0 z-0"
           onClick={() => {
             setIsTypeDropdownOpen(false);
             setIsSortDropdownOpen(false);
+            setIsCategoryDropdownOpen(false);
           }}
         />
       )}

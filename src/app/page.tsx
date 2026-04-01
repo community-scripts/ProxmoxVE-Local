@@ -11,9 +11,9 @@ import { ResyncButton } from "./_components/ResyncButton";
 import { Terminal } from "./_components/Terminal";
 import { ServerSettingsButton } from "./_components/ServerSettingsButton";
 import { SettingsButton } from "./_components/SettingsButton";
+import { AppearanceButton } from "./_components/AppearanceButton";
 import { HelpButton } from "./_components/HelpButton";
 import { VersionDisplay } from "./_components/VersionDisplay";
-import { ThemeToggle } from "./_components/ThemeToggle";
 import { Button } from "./_components/ui/button";
 import { ContextualHelpIcon } from "./_components/ContextualHelpIcon";
 import {
@@ -256,10 +256,10 @@ export default function Home() {
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-muted-foreground text-[0.6rem] font-bold tracking-[0.16em] uppercase">
-                Community
+                Community-Scripts ORG
               </span>
               <span className="text-foreground text-sm font-bold">
-                PVE Local
+                PVEScriptsLocal
               </span>
             </div>
           </div>
@@ -268,6 +268,7 @@ export default function Home() {
           <div className="flex items-center gap-1.5">
             <ServerSettingsButton />
             <SettingsButton />
+            <AppearanceButton />
             <ResyncButton />
             <HelpButton />
             {isAuthenticated && (
@@ -282,7 +283,6 @@ export default function Home() {
                 <LogOut className="h-4 w-4" />
               </Button>
             )}
-            <ThemeToggle />
           </div>
         </div>
       </header>

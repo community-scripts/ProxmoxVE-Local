@@ -710,6 +710,8 @@ export function DownloadedScriptsTab({
             isOpen={isModalOpen}
             onClose={handleCloseModal}
             onInstallScript={onInstallScript}
+            orderedSlugs={filteredScripts.map((s) => s.slug)}
+            onSelectSlug={(slug) => setSelectedSlug(slug)}
           />
 
           <ConfirmationModal

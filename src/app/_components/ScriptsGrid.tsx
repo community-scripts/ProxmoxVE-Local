@@ -21,7 +21,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [downloadProgress, setDownloadProgress] = useState<{
@@ -299,9 +298,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       filters.sortBy !== "name" ||
       filters.sortOrder !== "asc" ||
       (filters.quickFilter && filters.quickFilter !== "all") ||
-      selectedCategory !== null
+      filters.selectedCategory !== null
     );
-  }, [filters, selectedCategory]);
+  }, [filters]);
 
   // Get the 6 newest scripts based on date_created field
   const newestScripts = React.useMemo((): ScriptCardType[] => {
@@ -339,12 +338,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     }
 
     // Filter by category using real category data from deduplicated scripts
-    if (selectedCategory) {
+    if (filters.selectedCategory) {
       scripts = scripts.filter((script) => {
         if (!script) return false;
 
         // Check if the deduplicated script has categoryNames that include the selected category
-        return script.categoryNames?.includes(selectedCategory) ?? false;
+        return script.categoryNames?.includes(filters.selectedCategory!) ?? false;
       });
     }
 
@@ -463,7 +462,6 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   }, [
     scriptsWithStatus,
     filters,
-    selectedCategory,
     hasActiveFilters,
     newestScripts,
   ]);
@@ -714,12 +712,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
 
   // Handle category selection with auto-scroll
   const handleCategorySelect = (category: string | null) => {
-    setSelectedCategory(category);
+    handleFiltersChange({ ...filters, selectedCategory: category });
   };
 
   // Auto-scroll effect when category changes
   useEffect(() => {
-    if (selectedCategory && gridRef.current) {
+    if (filters.selectedCategory && gridRef.current) {
       const timeoutId = setTimeout(() => {
         gridRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -730,7 +728,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [selectedCategory]);
+  }, [filters.selectedCategory]);
 
   // Clear selection when switching between card/list views
   useEffect(() => {
@@ -1286,6 +1284,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onInstallScript={onInstallScript}
+          orderedSlugs={filteredScripts.map((s) => s.slug)}
+          onSelectSlug={(slug) => setSelectedSlug(slug)}
         />
       </div>
     </div>
