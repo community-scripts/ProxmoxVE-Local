@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { HelpModal } from './HelpModal';
-import { Button } from './ui/button';
-import { HelpCircle } from 'lucide-react';
+import { useState } from "react";
+import { HelpModal } from "./HelpModal";
+import { Button } from "./ui/button";
+import { HelpCircle } from "lucide-react";
 
 interface HelpButtonProps {
   initialSection?: string;
@@ -25,9 +25,9 @@ export function HelpButton({ initialSection }: HelpButtonProps) {
         <HelpCircle className="h-4 w-4" />
       </Button>
 
-      <HelpModal 
-        isOpen={isOpen} 
-        onClose={() => setIsOpen(false)} 
+      <HelpModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
         initialSection={initialSection}
       />
     </>

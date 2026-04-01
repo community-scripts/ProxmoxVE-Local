@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { SettingsModal } from './SettingsModal';
-import { Button } from './ui/button';
-import { Server } from 'lucide-react';
+import { useState } from "react";
+import { SettingsModal } from "./SettingsModal";
+import { Button } from "./ui/button";
+import { Server } from "lucide-react";
 
 export function ServerSettingsButton() {
   const [isOpen, setIsOpen] = useState(false);

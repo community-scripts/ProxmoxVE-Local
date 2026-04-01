@@ -24,7 +24,14 @@ import {
 import { api } from "~/trpc/react";
 import { getDefaultFilters } from "./filterUtils";
 
-export type QuickFilter = 'all' | 'popular' | 'new' | 'updated' | 'unpopular' | 'dev' | 'arm';
+export type QuickFilter =
+  | "all"
+  | "popular"
+  | "new"
+  | "updated"
+  | "unpopular"
+  | "dev"
+  | "arm";
 
 export interface FilterState {
   searchQuery: string;
@@ -171,13 +178,13 @@ export function FilterBar({
         <>
           {/* Quick Filters */}
           <div className="mb-4 flex flex-wrap gap-2">
-            {([
-              { key: 'all' as const, label: 'All', Icon: Layers },
-              { key: 'new' as const, label: 'New', Icon: Sparkles },
-              { key: 'updated' as const, label: 'Updated', Icon: Clock },
-              { key: 'dev' as const, label: 'In Dev', Icon: FlaskConical },
-              { key: 'arm' as const, label: 'ARM', Icon: Cpu },
-            ]).map(({ key, label, Icon }) => {
+            {[
+              { key: "all" as const, label: "All", Icon: Layers },
+              { key: "new" as const, label: "New", Icon: Sparkles },
+              { key: "updated" as const, label: "Updated", Icon: Clock },
+              { key: "dev" as const, label: "In Dev", Icon: FlaskConical },
+              { key: "arm" as const, label: "ARM", Icon: Cpu },
+            ].map(({ key, label, Icon }) => {
               const isActive = filters.quickFilter === key;
               return (
                 <button
@@ -185,8 +192,8 @@ export function FilterBar({
                   onClick={() => updateFilters({ quickFilter: key })}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isActive
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
