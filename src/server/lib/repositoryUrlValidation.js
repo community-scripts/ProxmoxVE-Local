@@ -14,11 +14,15 @@ export function isValidRepositoryUrl(url) {
 
 export function getRepoProvider(url) {
   if (!isValidRepositoryUrl(url)) throw new Error(REPO_URL_ERROR_MESSAGE);
-  const normalized = url.trim().toLowerCase();
-  if (normalized.includes('github.com')) return 'github';
-  if (normalized.includes('gitlab.com')) return 'gitlab';
-  if (normalized.includes('bitbucket.org')) return 'bitbucket';
-  return 'custom';
+  try {
+    const hostname = new URL(url.trim()).hostname.toLowerCase();
+    if (hostname === 'github.com') return 'github';
+    if (hostname === 'gitlab.com') return 'gitlab';
+    if (hostname === 'bitbucket.org') return 'bitbucket';
+    return 'custom';
+  } catch {
+    return 'custom';
+  }
 }
 
 export function parseRepoUrl(url) {

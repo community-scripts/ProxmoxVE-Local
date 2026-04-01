@@ -22,6 +22,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ScriptCard } from "~/types/script";
+import type { Script } from "~/types/script";
 import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
 
@@ -157,6 +158,17 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
     [allScripts, selectedSlug],
   );
 
+  // Fetch full script detail (with install_methods) when a script is selected
+  const { data: scriptDetailData } = api.scripts.getScriptBySlug.useQuery(
+    { slug: selectedSlug ?? "" },
+    { enabled: !!selectedSlug },
+  );
+
+  const scriptDetail: Script | null = useMemo(
+    () => (scriptDetailData?.success ? scriptDetailData.script ?? null : null),
+    [scriptDetailData],
+  );
+
   const filteredScripts = useMemo(() => {
     if (!searchQuery.trim()) return allScripts;
     const q = searchQuery.toLowerCase();
@@ -168,13 +180,27 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
     );
   }, [allScripts, searchQuery]);
 
-  // Defaults from selected script
+  // Defaults from selected script's install_methods
   const defaults = useMemo(() => {
-    if (!selectedScript)
-      return { cpu: 2, ram: 2048, hdd: 8, privileged: false };
-    // Try to find install_methods from scriptCardsData
-    return { cpu: 2, ram: 2048, hdd: 8, privileged: false };
-  }, [selectedScript]);
+    const fallback = { cpu: 2, ram: 2048, hdd: 8, privileged: false };
+    if (!scriptDetail?.install_methods?.length) return fallback;
+    const m = scriptDetail.install_methods[0];
+    if (!m?.resources) return fallback;
+    return {
+      cpu: m.resources.cpu || fallback.cpu,
+      ram: m.resources.ram || fallback.ram,
+      hdd: m.resources.hdd || fallback.hdd,
+      privileged: scriptDetail.privileged ?? false,
+    };
+  }, [scriptDetail]);
+
+  // Apply defaults when script changes
+  useEffect(() => {
+    setCpu(defaults.cpu);
+    setRamIdx(closestIdx(RAM_STEPS, defaults.ram));
+    setDiskIdx(closestIdx(DISK_STEPS, defaults.hdd));
+    setPrivileged(defaults.privileged);
+  }, [defaults]);
 
   const ram = RAM_STEPS[ramIdx] ?? 2048;
   const disk = DISK_STEPS[diskIdx] ?? 8;
@@ -686,6 +712,32 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
                 </div>
               </div>
             </div>
+
+            {/* Script Defaults Info */}
+            {scriptDetail?.install_methods && scriptDetail.install_methods.length > 0 && (
+              <div className="bg-primary/5 border-primary/20 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-xs">
+                <span className="text-muted-foreground font-medium">App Defaults:</span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {defaults.cpu} CPU
+                </span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {fmtRam(defaults.ram)}
+                </span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {defaults.hdd} GB
+                </span>
+                {scriptDetail.install_methods[0]?.resources?.os && (
+                  <span className="bg-background rounded px-2 py-0.5 font-mono">
+                    {scriptDetail.install_methods[0].resources.os} {scriptDetail.install_methods[0].resources.version}
+                  </span>
+                )}
+                {scriptDetail.install_methods.length > 1 && (
+                  <span className="text-primary font-medium">
+                    +{scriptDetail.install_methods.length - 1} variant{scriptDetail.install_methods.length > 2 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Privileged toggle */}
             <div className="mt-6 flex items-center gap-3">

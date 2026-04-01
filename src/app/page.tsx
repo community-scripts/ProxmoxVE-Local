@@ -11,6 +11,7 @@ import { SettingsButton } from "./_components/SettingsButton";
 import { AppearanceButton } from "./_components/AppearanceButton";
 import { HelpButton } from "./_components/HelpButton";
 import { VersionDisplay } from "./_components/VersionDisplay";
+import { ServerStatusIndicator } from "./_components/ServerStatusIndicator";
 import { Button } from "./_components/ui/button";
 import { ContextualHelpIcon } from "./_components/ContextualHelpIcon";
 import {
@@ -321,7 +322,7 @@ export default function Home() {
       {/* Sticky Navbar */}
       <header className="border-border/60 bg-background/80 sticky top-0 z-40 h-16 border-b backdrop-blur-lg">
         <div className="mx-auto flex h-full max-w-[var(--layout-max-w)] items-center justify-between gap-4 px-4 sm:px-6">
-          {/* Left: Logo/Brand */}
+          {/* Left: Logo/Brand + Version + Status */}
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl">
               <Image
@@ -338,8 +339,13 @@ export default function Home() {
                 Community-Scripts ORG
               </span>
               <span className="text-foreground text-sm font-bold">
-                PVEScriptsLocal
+                PVE Scripts{" "}
+                <span className="text-primary">Management</span>
               </span>
+            </div>
+            <div className="hidden items-center gap-2 sm:flex">
+              <ServerStatusIndicator />
+              <VersionDisplay onOpenReleaseNotes={handleOpenReleaseNotes} />
             </div>
           </div>
 
@@ -366,21 +372,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[var(--layout-max-w)] px-4 py-6 sm:px-6 sm:py-8">
-        {/* Hero section */}
-        <div className="animate-section-in mb-8 text-center">
-          <h1 className="text-foreground mb-2 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-            PVE Scripts <span className="text-primary">Management</span>
-          </h1>
-          <p className="text-muted-foreground mx-auto max-w-2xl text-sm sm:text-base">
-            Manage and execute Proxmox helper scripts locally with live output
-            streaming
-          </p>
-          <div className="mt-3 flex justify-center">
-            <VersionDisplay onOpenReleaseNotes={handleOpenReleaseNotes} />
-          </div>
-        </div>
-
+      <div className="mx-auto max-w-[var(--layout-max-w)] px-4 py-4 sm:px-6 sm:py-6">
         {/* Tab Navigation — pill style */}
         <div className="mb-6 sm:mb-8">
           <nav className="glass-card-static flex flex-col gap-1 border p-1.5 sm:flex-row sm:gap-0.5">
