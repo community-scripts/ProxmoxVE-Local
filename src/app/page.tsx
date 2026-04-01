@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { ScriptsGrid } from "./_components/ScriptsGrid";
 import { DownloadedScriptsTab } from "./_components/DownloadedScriptsTab";
 import { InstalledScriptsTab } from "./_components/InstalledScriptsTab";
@@ -243,8 +244,15 @@ export default function Home() {
         <div className="mx-auto flex h-full max-w-[var(--layout-max-w)] items-center justify-between gap-4 px-4 sm:px-6">
           {/* Left: Logo/Brand */}
           <div className="flex items-center gap-3">
-            <div className="border-border/60 bg-card flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm">
-              <Package className="text-primary h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl">
+              <Image
+                src="/favicon/android-chrome-192x192.png"
+                alt="PVE Scripts Local"
+                width={36}
+                height={36}
+                className="h-9 w-9"
+                priority
+              />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-muted-foreground text-[0.6rem] font-bold tracking-[0.16em] uppercase">

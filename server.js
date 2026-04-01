@@ -1414,7 +1414,12 @@ class ScriptExecutionHandler {
     // Build env export commands (e.g. for PHS_SILENT=1)
     const envExports = Object.entries(envVars)
       .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
-      .map(([key, value]) => `export ${key}="${String(value).replace(/"/g, '\\"')}"`)  
+      .map(([key, value]) => {
+        const safeValue = String(value)
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"');
+        return `export ${key}="${safeValue}"`;
+      })
       .join('; ');
 
     // Send the update command after a delay to ensure we're in the container
@@ -1489,7 +1494,12 @@ class ScriptExecutionHandler {
       // Build env export commands (e.g. for PHS_SILENT=1)
       const envExports = Object.entries(envVars)
         .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
-        .map(([key, value]) => `export ${key}="${String(value).replace(/"/g, '\\"')}"`)
+        .map(([key, value]) => {
+          const safeValue = String(value)
+            .replace(/\\/g, '\\\\')
+            .replace(/"/g, '\\"');
+          return `export ${key}="${safeValue}"`;
+        })
         .join('; ');
 
       // Send the update command after a delay to ensure we're in the container

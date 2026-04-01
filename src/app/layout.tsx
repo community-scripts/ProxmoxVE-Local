@@ -14,10 +14,11 @@ export const metadata: Metadata = {
   description:
     "Manage and execute Proxmox helper scripts locally with live output streaming",
   icons: [
-    { rel: "icon", url: "/favicon.png", type: "image/png" },
-    { rel: "icon", url: "/favicon.ico", sizes: "any" },
-    { rel: "apple-touch-icon", url: "/favicon.png" },
+    { rel: "icon", url: "/favicon/favicon.png", type: "image/png" },
+    { rel: "icon", url: "/favicon/favicon.ico", sizes: "any" },
+    { rel: "apple-touch-icon", url: "/favicon/apple-touch-icon.png" },
   ],
+  manifest: "/favicon/site.webmanifest",
 };
 
 export const viewport: Viewport = {
