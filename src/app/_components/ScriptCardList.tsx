@@ -61,7 +61,7 @@ export function ScriptCardList({
 
   return (
     <div
-      className="bg-card border-border hover:border-primary relative cursor-pointer rounded-lg border shadow-sm transition-shadow duration-200 hover:shadow-md"
+      className="glass-card animate-card-in relative cursor-pointer overflow-hidden border"
       onClick={() => onClick(script)}
     >
       {/* Checkbox */}

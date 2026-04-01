@@ -19,18 +19,29 @@ import {
 import { Button } from "./ui/button";
 import { useRegisterModal } from "./modal/ModalStackProvider";
 
-function deriveScriptPath(scriptType: string, methodType: string, slug: string): string {
+function deriveScriptPath(
+  scriptType: string,
+  methodType: string,
+  slug: string,
+): string {
   const type = (scriptType || "ct").toLowerCase().trim();
   const method = (methodType || "default").toLowerCase().trim();
-  if (method === "alpine" && (type === "ct" || type === "lxc")) return `ct/alpine-${slug}.sh`;
+  if (method === "alpine" && (type === "ct" || type === "lxc"))
+    return `ct/alpine-${slug}.sh`;
   switch (type) {
     case "ct":
-    case "lxc": return `ct/${slug}.sh`;
-    case "pve": return `tools/pve/${slug}.sh`;
-    case "addon": return `tools/addon/${slug}.sh`;
-    case "vm": return `vm/${slug}.sh`;
-    case "turnkey": return `turnkey/${slug}.sh`;
-    default: return `ct/${slug}.sh`;
+    case "lxc":
+      return `ct/${slug}.sh`;
+    case "pve":
+      return `tools/pve/${slug}.sh`;
+    case "addon":
+      return `tools/addon/${slug}.sh`;
+    case "vm":
+      return `vm/${slug}.sh`;
+    case "turnkey":
+      return `turnkey/${slug}.sh`;
+    default:
+      return `ct/${slug}.sh`;
   }
 }
 
@@ -199,7 +210,11 @@ export function ScriptDetailModal({
     setExecutionModeOpen(true);
   };
 
-  const handleExecuteScript = (mode: "local" | "ssh", server?: Server, envVars?: Record<string, string | number | boolean>) => {
+  const handleExecuteScript = (
+    mode: "local" | "ssh",
+    server?: Server,
+    envVars?: Record<string, string | number | boolean>,
+  ) => {
     if (!script || !onInstallScript) return;
 
     // Find the script path based on selected version type
@@ -209,7 +224,9 @@ export function ScriptDetailModal({
       script.install_methods?.[0];
 
     if (scriptMethod) {
-      const scriptFile = scriptMethod.script ?? deriveScriptPath(script.type, scriptMethod.type, script.slug);
+      const scriptFile =
+        scriptMethod.script ??
+        deriveScriptPath(script.type, scriptMethod.type, script.slug);
       const scriptPath = `scripts/${scriptFile}`;
       const scriptName = script.name;
 
@@ -242,9 +259,9 @@ export function ScriptDetailModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      <div className="bg-card border-border mx-2 max-h-[95vh] min-h-[80vh] w-full max-w-6xl overflow-y-auto rounded-lg border shadow-xl sm:mx-4 lg:mx-0">
+      <div className="glass-card-static mx-2 max-h-[95vh] min-h-[80vh] w-full max-w-6xl overflow-y-auto border shadow-2xl sm:mx-4 lg:mx-0">
         {/* Header */}
-        <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
+        <div className="border-border/60 flex items-center justify-between border-b p-4 sm:p-6">
           <div className="flex min-w-0 flex-1 items-center space-x-3 sm:space-x-4">
             {script.logo && !imageError ? (
               <Image

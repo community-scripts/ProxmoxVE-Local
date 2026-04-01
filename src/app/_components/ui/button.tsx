@@ -7,7 +7,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
   {
     variants: {
       variant: {
@@ -36,14 +36,20 @@ const buttonVariants = cva(
           "relative after:absolute after:bg-primary after:bottom-2 after:h-[1px] after:w-2/3 after:origin-bottom-right after:scale-x-0 hover:after:origin-bottom-left hover:after:scale-x-100 after:transition-transform after:ease-in-out after:duration-300",
         // Action button variants
         edit: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        update: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        shell: "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
-        openui: "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        start: "bg-success/20 hover:bg-success/30 border border-success/50 text-success hover:text-success-foreground hover:border-success/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        update:
+          "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        shell:
+          "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
+        openui:
+          "bg-info/20 hover:bg-info/30 border border-info/50 text-info hover:text-info-foreground hover:border-info/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
+        start:
+          "bg-success/20 hover:bg-success/30 border border-success/50 text-success hover:text-success-foreground hover:border-success/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
         stop: "bg-error/20 hover:bg-error/30 border border-error/50 text-error hover:text-error-foreground hover:border-error/60 transition-all duration-200 hover:scale-105 hover:shadow-md",
-        delete: "bg-error/20 hover:bg-error/30 border border-error/50 text-error hover:text-error-foreground hover:border-error/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
+        delete:
+          "bg-error/20 hover:bg-error/30 border border-error/50 text-error hover:text-error-foreground hover:border-error/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
         save: "bg-success/20 hover:bg-success/30 border border-success/50 text-success hover:text-success-foreground hover:border-success/60 transition-all duration-200 hover:scale-105 hover:shadow-md disabled:hover:scale-100",
-        cancel: "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
+        cancel:
+          "bg-muted/20 hover:bg-muted/30 border border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-all duration-200 hover:scale-105 hover:shadow-md",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -72,7 +78,8 @@ type IconRefProps = {
 
 export type ButtonProps = {
   asChild?: boolean;
-} & React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof buttonVariants>;
+} & React.ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants>;
 
 export type ButtonIconProps = IconProps | IconRefProps;
 
@@ -100,7 +107,7 @@ const Button = React.forwardRef<
         {...props}
       >
         {Icon && iconPlacement === "left" && (
-          <div className="group-hover:translate-x-100 w-0 translate-x-[0%] pr-0 opacity-0 transition-all duration-200 group-hover:w-5 group-hover:pr-2 group-hover:opacity-100">
+          <div className="w-0 translate-x-[0%] pr-0 opacity-0 transition-all duration-200 group-hover:w-5 group-hover:translate-x-100 group-hover:pr-2 group-hover:opacity-100">
             <Icon />
           </div>
         )}

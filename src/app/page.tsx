@@ -5,6 +5,7 @@ import { ScriptsGrid } from "./_components/ScriptsGrid";
 import { DownloadedScriptsTab } from "./_components/DownloadedScriptsTab";
 import { InstalledScriptsTab } from "./_components/InstalledScriptsTab";
 import { BackupsTab } from "./_components/BackupsTab";
+import { GeneratorTab } from "./_components/GeneratorTab";
 import { ResyncButton } from "./_components/ResyncButton";
 import { Terminal } from "./_components/Terminal";
 import { ServerSettingsButton } from "./_components/ServerSettingsButton";
@@ -19,7 +20,14 @@ import {
   getLastSeenVersion,
 } from "./_components/ReleaseNotesModal";
 import { Footer } from "./_components/Footer";
-import { Package, HardDrive, FolderOpen, LogOut, Archive } from "lucide-react";
+import {
+  Package,
+  HardDrive,
+  FolderOpen,
+  LogOut,
+  Archive,
+  Wand2,
+} from "lucide-react";
 import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
 import type { Server } from "~/types/server";
@@ -35,14 +43,15 @@ export default function Home() {
     envVars?: Record<string, string | number | boolean>;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "scripts" | "downloaded" | "installed" | "backups"
+    "scripts" | "downloaded" | "installed" | "backups" | "generator"
   >(() => {
     if (typeof window !== "undefined") {
       const savedTab = localStorage.getItem("activeTab") as
         | "scripts"
         | "downloaded"
         | "installed"
-        | "backups";
+        | "backups"
+        | "generator";
       return savedTab || "scripts";
     }
     return "scripts";
@@ -212,7 +221,13 @@ export default function Home() {
     server?: Server,
     envVars?: Record<string, string | number | boolean>,
   ) => {
-    setRunningScript({ path: scriptPath, name: scriptName, mode, server, envVars });
+    setRunningScript({
+      path: scriptPath,
+      name: scriptName,
+      mode,
+      server,
+      envVars,
+    });
     // Scroll to terminal after a short delay to ensure it's rendered
     setTimeout(scrollToTerminal, 100);
   };
@@ -222,141 +237,145 @@ export default function Home() {
   };
 
   return (
-    <main className="bg-background min-h-screen">
-      <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
-        {/* Header */}
-        <div className="mb-6 text-center sm:mb-8">
-          <div className="mb-2 flex items-start justify-between">
-            <div className="flex-1"></div>
-            <h1 className="text-foreground flex flex-1 items-center justify-center gap-2 text-2xl font-bold sm:gap-3 sm:text-3xl lg:text-4xl">
-              <span className="break-words">PVE Scripts Management</span>
-            </h1>
-            <div className="flex flex-1 items-center justify-end gap-2">
-              {isAuthenticated && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={logout}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Logout"
-                  title="Logout"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              )}
-              <ThemeToggle />
+    <main className="relative min-h-screen">
+      {/* Sticky Navbar */}
+      <header className="border-border/60 bg-background/80 sticky top-0 z-40 h-16 border-b backdrop-blur-lg">
+        <div className="mx-auto flex h-full max-w-[var(--layout-max-w)] items-center justify-between gap-4 px-4 sm:px-6">
+          {/* Left: Logo/Brand */}
+          <div className="flex items-center gap-3">
+            <div className="border-border/60 bg-card flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm">
+              <Package className="text-primary h-5 w-5" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-muted-foreground text-[0.6rem] font-bold tracking-[0.16em] uppercase">
+                Community
+              </span>
+              <span className="text-foreground text-sm font-bold">
+                PVE Local
+              </span>
             </div>
           </div>
-          <p className="text-muted-foreground mb-4 px-2 text-sm sm:text-base">
-            Manage and execute Proxmox helper scripts locally with live output
-            streaming
-          </p>
-          <div className="flex justify-center px-2">
-            <VersionDisplay onOpenReleaseNotes={handleOpenReleaseNotes} />
-          </div>
-        </div>
 
-        {/* Controls */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-card border-border flex flex-col gap-4 rounded-lg border p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:p-6">
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5">
             <ServerSettingsButton />
             <SettingsButton />
             <ResyncButton />
             <HelpButton />
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            )}
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-[var(--layout-max-w)] px-4 py-6 sm:px-6 sm:py-8">
+        {/* Hero section */}
+        <div className="animate-section-in mb-8 text-center">
+          <h1 className="text-foreground mb-2 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+            PVE Scripts <span className="text-primary">Management</span>
+          </h1>
+          <p className="text-muted-foreground mx-auto max-w-2xl text-sm sm:text-base">
+            Manage and execute Proxmox helper scripts locally with live output
+            streaming
+          </p>
+          <div className="mt-3 flex justify-center">
+            <VersionDisplay onOpenReleaseNotes={handleOpenReleaseNotes} />
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation — pill style */}
         <div className="mb-6 sm:mb-8">
-          <div className="border-border border-b">
-            <nav className="-mb-px flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-1">
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab("scripts")}
-                className={`flex w-full items-center justify-center gap-2 px-3 py-2 text-sm sm:w-auto sm:justify-start ${
-                  activeTab === "scripts"
-                    ? "bg-accent text-accent-foreground rounded-t-md rounded-b-none"
-                    : "hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none"
+          <nav className="glass-card-static flex flex-col gap-1 border p-1.5 sm:flex-row sm:gap-0.5">
+            {[
+              {
+                key: "scripts" as const,
+                icon: Package,
+                label: "Available Scripts",
+                shortLabel: "Available",
+                count: scriptCounts.available,
+                help: "available-scripts",
+              },
+              {
+                key: "downloaded" as const,
+                icon: HardDrive,
+                label: "Downloaded Scripts",
+                shortLabel: "Downloaded",
+                count: scriptCounts.downloaded,
+                help: "downloaded-scripts",
+              },
+              {
+                key: "installed" as const,
+                icon: FolderOpen,
+                label: "Installed Scripts",
+                shortLabel: "Installed",
+                count: scriptCounts.installed,
+                help: "installed-scripts",
+              },
+              {
+                key: "backups" as const,
+                icon: Archive,
+                label: "Backups",
+                shortLabel: "Backups",
+                count: scriptCounts.backups,
+                help: undefined,
+              },
+              {
+                key: "generator" as const,
+                icon: Wand2,
+                label: "Generator",
+                shortLabel: "Generator",
+                count: undefined,
+                help: undefined,
+              },
+            ].map(({ key, icon: Icon, label, shortLabel, count, help }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === key
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">Available Scripts</span>
-                <span className="sm:hidden">Available</span>
-                <span className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-xs">
-                  {scriptCounts.available}
-                </span>
-                <ContextualHelpIcon
-                  section="available-scripts"
-                  tooltip="Help with Available Scripts"
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab("downloaded")}
-                className={`flex w-full items-center justify-center gap-2 px-3 py-2 text-sm sm:w-auto sm:justify-start ${
-                  activeTab === "downloaded"
-                    ? "bg-accent text-accent-foreground rounded-t-md rounded-b-none"
-                    : "hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none"
-                }`}
-              >
-                <HardDrive className="h-4 w-4" />
-                <span className="hidden sm:inline">Downloaded Scripts</span>
-                <span className="sm:hidden">Downloaded</span>
-                <span className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-xs">
-                  {scriptCounts.downloaded}
-                </span>
-                <ContextualHelpIcon
-                  section="downloaded-scripts"
-                  tooltip="Help with Downloaded Scripts"
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab("installed")}
-                className={`flex w-full items-center justify-center gap-2 px-3 py-2 text-sm sm:w-auto sm:justify-start ${
-                  activeTab === "installed"
-                    ? "bg-accent text-accent-foreground rounded-t-md rounded-b-none"
-                    : "hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none"
-                }`}
-              >
-                <FolderOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Installed Scripts</span>
-                <span className="sm:hidden">Installed</span>
-                <span className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-xs">
-                  {scriptCounts.installed}
-                </span>
-                <ContextualHelpIcon
-                  section="installed-scripts"
-                  tooltip="Help with Installed Scripts"
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="null"
-                onClick={() => setActiveTab("backups")}
-                className={`flex w-full items-center justify-center gap-2 px-3 py-2 text-sm sm:w-auto sm:justify-start ${
-                  activeTab === "backups"
-                    ? "bg-accent text-accent-foreground rounded-t-md rounded-b-none"
-                    : "hover:bg-accent hover:text-accent-foreground hover:rounded-t-md hover:rounded-b-none"
-                }`}
-              >
-                <Archive className="h-4 w-4" />
-                <span className="hidden sm:inline">Backups</span>
-                <span className="sm:hidden">Backups</span>
-                <span className="bg-muted text-muted-foreground ml-1 rounded-full px-2 py-0.5 text-xs">
-                  {scriptCounts.backups}
-                </span>
-              </Button>
-            </nav>
-          </div>
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{shortLabel}</span>
+                {count !== undefined && (
+                  <span
+                    className={`ml-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      activeTab === key
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+                {help && (
+                  <ContextualHelpIcon
+                    section={help}
+                    tooltip={`Help with ${label}`}
+                  />
+                )}
+              </button>
+            ))}
+          </nav>
         </div>
 
         {/* Running Script Terminal */}
         {runningScript && (
-          <div ref={terminalRef} className="mb-8">
+          <div ref={terminalRef} className="animate-card-in mb-8">
             <Terminal
               scriptPath={runningScript.path}
               onClose={handleCloseTerminal}
@@ -368,17 +387,23 @@ export default function Home() {
         )}
 
         {/* Tab Content */}
-        {activeTab === "scripts" && (
-          <ScriptsGrid onInstallScript={handleRunScript} />
-        )}
+        <div className="animate-section-in">
+          {activeTab === "scripts" && (
+            <ScriptsGrid onInstallScript={handleRunScript} />
+          )}
 
-        {activeTab === "downloaded" && (
-          <DownloadedScriptsTab onInstallScript={handleRunScript} />
-        )}
+          {activeTab === "downloaded" && (
+            <DownloadedScriptsTab onInstallScript={handleRunScript} />
+          )}
 
-        {activeTab === "installed" && <InstalledScriptsTab />}
+          {activeTab === "installed" && <InstalledScriptsTab />}
 
-        {activeTab === "backups" && <BackupsTab />}
+          {activeTab === "backups" && <BackupsTab />}
+
+          {activeTab === "generator" && (
+            <GeneratorTab onInstallScript={handleRunScript} />
+          )}
+        </div>
       </div>
 
       {/* Footer */}

@@ -570,8 +570,8 @@ export function Terminal({
   // Don't render on server side
   if (!isClient) {
     return (
-      <div className="bg-card border-border overflow-hidden rounded-lg border">
-        <div className="bg-muted border-border flex items-center justify-between border-b px-4 py-2">
+      <div className="glass-card-static overflow-hidden border">
+        <div className="bg-secondary/50 border-border/60 flex items-center justify-between border-b px-4 py-2">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1">
               <div className="h-3 w-3 rounded-full bg-red-500"></div>
@@ -591,9 +591,9 @@ export function Terminal({
   }
 
   return (
-    <div className="bg-card border-border overflow-hidden rounded-lg border">
+    <div className="glass-card-static overflow-hidden border">
       {/* Terminal Header */}
-      <div className="bg-muted border-border flex items-center justify-between border-b px-2 py-2 sm:px-4">
+      <div className="bg-secondary/50 border-border/60 flex items-center justify-between border-b px-2 py-2 sm:px-4">
         <div className="flex min-w-0 flex-1 items-center space-x-2">
           <div className="flex flex-shrink-0 space-x-1">
             <div className="h-2 w-2 rounded-full bg-red-500 sm:h-3 sm:w-3"></div>

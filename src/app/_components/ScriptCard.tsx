@@ -42,7 +42,7 @@ export function ScriptCard({
 
   return (
     <div
-      className="bg-card border-border hover:border-primary relative flex h-full cursor-pointer flex-col rounded-lg border shadow-md transition-shadow duration-200 hover:shadow-lg"
+      className="glass-card animate-card-in relative flex h-full cursor-pointer flex-col overflow-hidden border p-0"
       onClick={() => onClick(script)}
     >
       {/* Checkbox in top-left corner */}
