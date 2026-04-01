@@ -1,17 +1,30 @@
 import { z } from "zod/v4";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { prisma } from "~/server/db";
+import { PrismaClient } from "../../../../prisma/generated/prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+
+/** Get a fresh PrismaClient that definitely includes ScriptNote */
+function getNotesDb(): PrismaClient {
+  const dbUrl = process.env.DATABASE_URL ?? "file:./data/pve-scripts.db";
+  const adapter = new PrismaBetterSqlite3({ url: dbUrl });
+  return new PrismaClient({ adapter });
+}
 
 export const scriptNotesRouter = createTRPCRouter({
   /** Get all notes for a specific script */
   getBySlug: publicProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
-      const notes = await prisma.scriptNote.findMany({
-        where: { script_slug: input.slug },
-        orderBy: { updated_at: "desc" },
-      });
-      return { success: true, notes };
+      try {
+        const db = getNotesDb();
+        const notes = await db.scriptNote.findMany({
+          where: { script_slug: input.slug },
+          orderBy: { updated_at: "desc" },
+        });
+        return { success: true, notes };
+      } catch {
+        return { success: true, notes: [] };
+      }
     }),
 
   /** Create a new note */
@@ -25,7 +38,8 @@ export const scriptNotesRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const note = await prisma.scriptNote.create({
+      const db = getNotesDb();
+      const note = await db.scriptNote.create({
         data: {
           script_slug: input.slug,
           title: input.title ?? "",
@@ -47,7 +61,8 @@ export const scriptNotesRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const note = await prisma.scriptNote.update({
+      const db = getNotesDb();
+      const note = await db.scriptNote.update({
         where: { id: input.id },
         data: {
           ...(input.title !== undefined && { title: input.title }),
@@ -62,16 +77,22 @@ export const scriptNotesRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      await prisma.scriptNote.delete({ where: { id: input.id } });
+      const db = getNotesDb();
+      await db.scriptNote.delete({ where: { id: input.id } });
       return { success: true };
     }),
 
   /** Get all shared notes (community notes) */
   getShared: publicProcedure.query(async () => {
-    const notes = await prisma.scriptNote.findMany({
-      where: { is_shared: true },
-      orderBy: { updated_at: "desc" },
-    });
-    return { success: true, notes };
+    try {
+      const db = getNotesDb();
+      const notes = await db.scriptNote.findMany({
+        where: { is_shared: true },
+        orderBy: { updated_at: "desc" },
+      });
+      return { success: true, notes };
+    } catch {
+      return { success: true, notes: [] };
+    }
   }),
 });

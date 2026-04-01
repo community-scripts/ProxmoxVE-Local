@@ -1,6 +1,13 @@
 import { z } from "zod/v4";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { prisma } from "~/server/db";
+import { PrismaClient } from "../../../../prisma/generated/prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+
+function getPresetsDb(): PrismaClient {
+  const dbUrl = process.env.DATABASE_URL ?? "file:./data/pve-scripts.db";
+  const adapter = new PrismaBetterSqlite3({ url: dbUrl });
+  return new PrismaClient({ adapter });
+}
 
 export const serverPresetsRouter = createTRPCRouter({
   /** Get all presets for a specific server */
