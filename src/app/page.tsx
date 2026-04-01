@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { ScriptsGrid } from "./_components/ScriptsGrid";
-import { DownloadedScriptsTab } from "./_components/DownloadedScriptsTab";
-import { InstalledScriptsTab } from "./_components/InstalledScriptsTab";
-import { BackupsTab } from "./_components/BackupsTab";
-import { GeneratorTab } from "./_components/GeneratorTab";
-import { ResyncButton } from "./_components/ResyncButton";
+import { ResyncButton } from "./_components/SyncModal";
 import { Terminal } from "./_components/Terminal";
 import { ServerSettingsButton } from "./_components/ServerSettingsButton";
 import { SettingsButton } from "./_components/SettingsButton";
@@ -33,6 +30,42 @@ import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
 import type { Server } from "~/types/server";
 import type { ScriptCard } from "~/types/script";
+
+// Lazy load heavy tab components — only the active tab is loaded
+const DownloadedScriptsTab = dynamic(
+  () =>
+    import("./_components/DownloadedScriptsTab").then((m) => ({
+      default: m.DownloadedScriptsTab,
+    })),
+  { loading: () => <TabSkeleton /> },
+);
+const InstalledScriptsTab = dynamic(
+  () =>
+    import("./_components/InstalledScriptsTab").then((m) => ({
+      default: m.InstalledScriptsTab,
+    })),
+  { loading: () => <TabSkeleton /> },
+);
+const BackupsTab = dynamic(
+  () =>
+    import("./_components/BackupsTab").then((m) => ({ default: m.BackupsTab })),
+  { loading: () => <TabSkeleton /> },
+);
+const GeneratorTab = dynamic(
+  () =>
+    import("./_components/GeneratorTab").then((m) => ({
+      default: m.GeneratorTab,
+    })),
+  { loading: () => <TabSkeleton /> },
+);
+
+function TabSkeleton() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
+    </div>
+  );
+}
 
 export default function Home() {
   const { isAuthenticated, logout } = useAuth();
@@ -237,6 +270,52 @@ export default function Home() {
     setRunningScript(null);
   };
 
+  const tabs = useMemo(
+    () => [
+      {
+        key: "scripts" as const,
+        icon: Package,
+        label: "Available Scripts",
+        shortLabel: "Available",
+        count: scriptCounts.available,
+        help: "available-scripts",
+      },
+      {
+        key: "downloaded" as const,
+        icon: HardDrive,
+        label: "Downloaded Scripts",
+        shortLabel: "Downloaded",
+        count: scriptCounts.downloaded,
+        help: "downloaded-scripts",
+      },
+      {
+        key: "installed" as const,
+        icon: FolderOpen,
+        label: "Installed Scripts",
+        shortLabel: "Installed",
+        count: scriptCounts.installed,
+        help: "installed-scripts",
+      },
+      {
+        key: "backups" as const,
+        icon: Archive,
+        label: "Backups",
+        shortLabel: "Backups",
+        count: scriptCounts.backups,
+        help: undefined,
+      },
+      {
+        key: "generator" as const,
+        icon: Wand2,
+        label: "Generator",
+        shortLabel: "Generator",
+        count: undefined,
+        help: undefined,
+      },
+    ],
+    [scriptCounts],
+  );
+
   return (
     <main className="relative min-h-screen">
       {/* Sticky Navbar */}
@@ -305,48 +384,7 @@ export default function Home() {
         {/* Tab Navigation — pill style */}
         <div className="mb-6 sm:mb-8">
           <nav className="glass-card-static flex flex-col gap-1 border p-1.5 sm:flex-row sm:gap-0.5">
-            {[
-              {
-                key: "scripts" as const,
-                icon: Package,
-                label: "Available Scripts",
-                shortLabel: "Available",
-                count: scriptCounts.available,
-                help: "available-scripts",
-              },
-              {
-                key: "downloaded" as const,
-                icon: HardDrive,
-                label: "Downloaded Scripts",
-                shortLabel: "Downloaded",
-                count: scriptCounts.downloaded,
-                help: "downloaded-scripts",
-              },
-              {
-                key: "installed" as const,
-                icon: FolderOpen,
-                label: "Installed Scripts",
-                shortLabel: "Installed",
-                count: scriptCounts.installed,
-                help: "installed-scripts",
-              },
-              {
-                key: "backups" as const,
-                icon: Archive,
-                label: "Backups",
-                shortLabel: "Backups",
-                count: scriptCounts.backups,
-                help: undefined,
-              },
-              {
-                key: "generator" as const,
-                icon: Wand2,
-                label: "Generator",
-                shortLabel: "Generator",
-                count: undefined,
-                help: undefined,
-              },
-            ].map(({ key, icon: Icon, label, shortLabel, count, help }) => (
+            {tabs.map(({ key, icon: Icon, label, shortLabel, count, help }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}

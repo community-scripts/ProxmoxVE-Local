@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "~/trpc/react";
 import { ScriptCard } from "./ScriptCard";
 import { ScriptCardList } from "./ScriptCardList";
@@ -343,7 +343,9 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         if (!script) return false;
 
         // Check if the deduplicated script has categoryNames that include the selected category
-        return script.categoryNames?.includes(filters.selectedCategory!) ?? false;
+        return (
+          script.categoryNames?.includes(filters.selectedCategory!) ?? false
+        );
       });
     }
 
@@ -459,12 +461,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     });
 
     return scripts;
-  }, [
-    scriptsWithStatus,
-    filters,
-    hasActiveFilters,
-    newestScripts,
-  ]);
+  }, [scriptsWithStatus, filters, hasActiveFilters, newestScripts]);
 
   // Calculate filter counts for FilterBar
   const filterCounts = React.useMemo(() => {
@@ -493,7 +490,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   };
 
   // Selection management functions
-  const toggleScriptSelection = (slug: string) => {
+  const toggleScriptSelection = useCallback((slug: string) => {
     setSelectedSlugs((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(slug)) {
@@ -503,7 +500,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       }
       return newSet;
     });
-  };
+  }, []);
 
   const selectAllVisible = () => {
     const visibleSlugs = new Set(
@@ -742,16 +739,16 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     };
   }, []);
 
-  const handleCardClick = (scriptCard: ScriptCardType) => {
+  const handleCardClick = useCallback((scriptCard: ScriptCardType) => {
     // All scripts are GitHub scripts, open modal
     setSelectedSlug(scriptCard.slug);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedSlug(null);
-  };
+  }, []);
 
   if (githubLoading || localLoading) {
     return (
@@ -833,7 +830,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           categoryCounts={categoryCounts}
           categoryDevCounts={categoryDevCounts}
           totalScripts={scriptsWithStatus.length}
-          selectedCategory={selectedCategory}
+          selectedCategory={filters.selectedCategory}
           onCategorySelect={handleCategorySelect}
         />
       </div>
@@ -849,13 +846,15 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           updatableCount={filterCounts.updatableCount}
           saveFiltersEnabled={saveFiltersEnabled}
           isLoadingFilters={isLoadingFilters}
+          categories={categories}
+          categoryCounts={categoryCounts}
         />
 
         {/* View Toggle */}
         <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
 
         {/* Newest Scripts Carousel - Only show when no search, filters, or category is active */}
-        {newestScripts.length > 0 && !hasActiveFilters && !selectedCategory && (
+        {newestScripts.length > 0 && !hasActiveFilters && (
           <div className="mb-8">
             <div className="bg-card border-l-primary border-border rounded-lg border border-l-4 p-6 shadow-lg">
               <div className="mb-4 flex items-center justify-between">
@@ -1164,20 +1163,24 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
               </button>
             )}
           </div>
-          {(searchQuery || selectedCategory) && (
+          {(searchQuery || filters.selectedCategory) && (
             <div className="text-muted-foreground mt-2 text-center text-sm">
               {filteredScripts.length === 0 ? (
                 <span>
                   No scripts found
                   {searchQuery ? ` matching "${searchQuery}"` : ""}
-                  {selectedCategory ? ` in category "${selectedCategory}"` : ""}
+                  {filters.selectedCategory
+                    ? ` in category "${filters.selectedCategory}"`
+                    : ""}
                 </span>
               ) : (
                 <span>
                   Found {filteredScripts.length} script
                   {filteredScripts.length !== 1 ? "s" : ""}
                   {searchQuery ? ` matching "${searchQuery}"` : ""}
-                  {selectedCategory ? ` in category "${selectedCategory}"` : ""}
+                  {filters.selectedCategory
+                    ? ` in category "${filters.selectedCategory}"`
+                    : ""}
                 </span>
               )}
             </div>
@@ -1187,7 +1190,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         {/* Scripts Grid */}
         {filteredScripts.length === 0 &&
         (filters.searchQuery ||
-          selectedCategory ||
+          filters.selectedCategory ||
           filters.showUpdatable !== null ||
           filters.selectedTypes.length > 0) ? (
           <div className="py-12 text-center">
@@ -1221,7 +1224,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                     Clear Search
                   </Button>
                 )}
-                {selectedCategory && (
+                {filters.selectedCategory && (
                   <Button
                     onClick={() => handleCategorySelect(null)}
                     variant="secondary"

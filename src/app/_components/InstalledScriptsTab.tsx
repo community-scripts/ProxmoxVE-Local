@@ -604,102 +604,124 @@ export function InstalledScriptsTab() {
     };
   }, []);
 
-  const scriptsWithStatus = scripts.map((script) => ({
-    ...script,
-    container_status: script.container_id
-      ? (containerStatuses.get(script.id) ?? "unknown")
-      : undefined,
-  }));
+  const scriptsWithStatus = useMemo(
+    () =>
+      scripts.map((script) => ({
+        ...script,
+        container_status: script.container_id
+          ? (containerStatuses.get(script.id) ?? "unknown")
+          : undefined,
+      })),
+    [scripts, containerStatuses],
+  );
 
   // Filter and sort scripts
-  const filteredScripts = scriptsWithStatus
-    .filter((script: InstalledScript) => {
-      const matchesSearch =
-        script.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (script.container_id?.includes(searchTerm) ?? false) ||
-        (script.server_name?.toLowerCase().includes(searchTerm.toLowerCase()) ??
-          false);
+  const filteredScripts = useMemo(
+    () =>
+      scriptsWithStatus
+        .filter((script: InstalledScript) => {
+          const matchesSearch =
+            script.script_name
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase()) ||
+            (script.container_id?.includes(searchTerm) ?? false) ||
+            (script.server_name
+              ?.toLowerCase()
+              .includes(searchTerm.toLowerCase()) ??
+              false);
 
-      const matchesStatus =
-        statusFilter === "all" || script.status === statusFilter;
+          const matchesStatus =
+            statusFilter === "all" || script.status === statusFilter;
 
-      const matchesServer =
-        serverFilter === "all" ||
-        (serverFilter === "local" && !script.server_name) ||
-        script.server_name === serverFilter;
+          const matchesServer =
+            serverFilter === "all" ||
+            (serverFilter === "local" && !script.server_name) ||
+            script.server_name === serverFilter;
 
-      return matchesSearch && matchesStatus && matchesServer;
-    })
-    .sort((a: InstalledScript, b: InstalledScript) => {
-      // Default sorting: group by server, then by container ID
-      if (sortField === "server_name") {
-        const aServer = a.server_name ?? "Local";
-        const bServer = b.server_name ?? "Local";
+          return matchesSearch && matchesStatus && matchesServer;
+        })
+        .sort((a: InstalledScript, b: InstalledScript) => {
+          // Default sorting: group by server, then by container ID
+          if (sortField === "server_name") {
+            const aServer = a.server_name ?? "Local";
+            const bServer = b.server_name ?? "Local";
 
-        // First sort by server name
-        if (aServer !== bServer) {
-          return sortDirection === "asc"
-            ? aServer.localeCompare(bServer)
-            : bServer.localeCompare(aServer);
-        }
+            // First sort by server name
+            if (aServer !== bServer) {
+              return sortDirection === "asc"
+                ? aServer.localeCompare(bServer)
+                : bServer.localeCompare(aServer);
+            }
 
-        // If same server, sort by container ID
-        const aContainerId = a.container_id ?? "";
-        const bContainerId = b.container_id ?? "";
+            // If same server, sort by container ID
+            const aContainerId = a.container_id ?? "";
+            const bContainerId = b.container_id ?? "";
 
-        if (aContainerId !== bContainerId) {
-          // Convert to numbers for proper numeric sorting
-          const aNum = parseInt(aContainerId) || 0;
-          const bNum = parseInt(bContainerId) || 0;
-          return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
-        }
+            if (aContainerId !== bContainerId) {
+              // Convert to numbers for proper numeric sorting
+              const aNum = parseInt(aContainerId) || 0;
+              const bNum = parseInt(bContainerId) || 0;
+              return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
+            }
 
-        return 0;
-      }
+            return 0;
+          }
 
-      // For other sort fields, use the original logic
-      let aValue: any;
-      let bValue: any;
+          // For other sort fields, use the original logic
+          let aValue: any;
+          let bValue: any;
 
-      switch (sortField) {
-        case "script_name":
-          aValue = a.script_name.toLowerCase();
-          bValue = b.script_name.toLowerCase();
-          break;
-        case "container_id":
-          aValue = a.container_id ?? "";
-          bValue = b.container_id ?? "";
-          break;
-        case "status":
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        case "installation_date":
-          aValue = new Date(a.installation_date).getTime();
-          bValue = new Date(b.installation_date).getTime();
-          break;
-        default:
+          switch (sortField) {
+            case "script_name":
+              aValue = a.script_name.toLowerCase();
+              bValue = b.script_name.toLowerCase();
+              break;
+            case "container_id":
+              aValue = a.container_id ?? "";
+              bValue = b.container_id ?? "";
+              break;
+            case "status":
+              aValue = a.status;
+              bValue = b.status;
+              break;
+            case "installation_date":
+              aValue = new Date(a.installation_date).getTime();
+              bValue = new Date(b.installation_date).getTime();
+              break;
+            default:
+              return 0;
+          }
+
+          if (aValue < bValue) {
+            return sortDirection === "asc" ? -1 : 1;
+          }
+          if (aValue > bValue) {
+            return sortDirection === "asc" ? 1 : -1;
+          }
           return 0;
-      }
-
-      if (aValue < bValue) {
-        return sortDirection === "asc" ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortDirection === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
+        }),
+    [
+      scriptsWithStatus,
+      searchTerm,
+      statusFilter,
+      serverFilter,
+      sortField,
+      sortDirection,
+    ],
+  );
 
   // Get unique servers for filter
-  const uniqueServers: string[] = [];
-  const seen = new Set<string>();
-  for (const script of scripts) {
-    if (script.server_name && !seen.has(String(script.server_name))) {
-      uniqueServers.push(String(script.server_name));
-      seen.add(String(script.server_name));
+  const uniqueServers = useMemo(() => {
+    const result: string[] = [];
+    const seen = new Set<string>();
+    for (const script of scripts) {
+      if (script.server_name && !seen.has(String(script.server_name))) {
+        result.push(String(script.server_name));
+        seen.add(String(script.server_name));
+      }
     }
-  }
+    return result;
+  }, [scripts]);
 
   const handleDeleteScript = (id: number, script?: InstalledScript) => {
     const scriptToDelete = script ?? scripts.find((s) => s.id === id);

@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
-import type { ScriptCard } from "~/types/script";
+import type { ScriptCard as ScriptCardType } from "~/types/script";
 import { TypeBadge, UpdateableBadge, DevBadge } from "./Badge";
 
 interface ScriptCardProps {
-  script: ScriptCard;
-  onClick: (script: ScriptCard) => void;
+  script: ScriptCardType;
+  onClick: (script: ScriptCardType) => void;
   isSelected?: boolean;
   onToggleSelect?: (slug: string) => void;
 }
 
-export function ScriptCard({
+export const ScriptCard = memo(function ScriptCard({
   script,
   onClick,
   isSelected = false,
@@ -169,4 +169,4 @@ export function ScriptCard({
       </div>
     </div>
   );
-}
+});
