@@ -3,9 +3,8 @@
 import { api } from "~/trpc/react";
 
 /**
- * Shows the reachability of configured Proxmox hosts.
- * Green pulsing dot = all online, amber = some offline, red = all offline, grey = no servers.
- * Hover for per-server breakdown.
+ * Shows the reachability of each configured Proxmox host.
+ * Displays per-node indicators with name: green = online, red = offline, grey = loading/none.
  */
 export function ServerStatusIndicator() {
   const { data, isLoading } = api.servers.checkServersStatus.useQuery(
@@ -26,43 +25,46 @@ export function ServerStatusIndicator() {
       online: boolean;
     }>) ?? [];
 
-  if (isLoading || servers.length === 0) {
-    // No servers configured — grey neutral dot
+  if (isLoading) {
     return (
       <span
         className="bg-muted-foreground/40 relative inline-block h-2.5 w-2.5 rounded-full"
-        title={isLoading ? "Checking servers…" : "No Proxmox hosts configured"}
+        title="Checking servers…"
       />
     );
   }
 
-  const onlineCount = servers.filter((s) => s.online).length;
-  const allOnline = onlineCount === servers.length;
-  const allOffline = onlineCount === 0;
-
-  const color = allOnline
-    ? "bg-emerald-500"
-    : allOffline
-      ? "bg-red-500"
-      : "bg-amber-500";
-  const pingColor = allOnline
-    ? "bg-emerald-400"
-    : allOffline
-      ? "bg-red-400"
-      : "bg-amber-400";
-
-  const tooltip = servers
-    .map((s) => `${s.name} (${s.ip}): ${s.online ? "✓ online" : "✗ offline"}`)
-    .join("\n");
+  if (servers.length === 0) {
+    return (
+      <span
+        className="bg-muted-foreground/40 relative inline-block h-2.5 w-2.5 rounded-full"
+        title="No Proxmox hosts configured"
+      />
+    );
+  }
 
   return (
-    <span
-      className={`relative inline-block h-2.5 w-2.5 rounded-full ${color}`}
-      title={tooltip}
-    >
-      <span
-        className={`absolute inset-0 animate-ping rounded-full opacity-75 ${pingColor}`}
-      />
-    </span>
+    <div className="flex items-center gap-2.5">
+      {servers.map((s) => (
+        <div
+          key={s.id}
+          className="flex items-center gap-1.5"
+          title={`${s.name} (${s.ip}): ${s.online ? "✓ online" : "✗ offline"}`}
+        >
+          <span
+            className={`relative inline-block h-2 w-2 rounded-full ${
+              s.online ? "bg-emerald-500" : "bg-red-500"
+            }`}
+          >
+            {s.online && (
+              <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-75" />
+            )}
+          </span>
+          <span className="text-muted-foreground text-[11px] font-medium leading-none">
+            {s.name}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }

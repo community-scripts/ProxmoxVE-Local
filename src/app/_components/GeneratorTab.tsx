@@ -20,6 +20,8 @@ import {
   Network,
   Settings2,
   Search,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import type { ScriptCard } from "~/types/script";
 import type { Script } from "~/types/script";
@@ -112,6 +114,52 @@ interface GeneratorTabProps {
 export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
   const { data: scriptCardsData } =
     api.scripts.getScriptCardsWithCategories.useQuery();
+
+  // Downloaded scripts check
+  const { data: localScriptsData } =
+    api.scripts.getAllDownloadedScripts.useQuery();
+
+  const utils = api.useUtils();
+
+  const loadScriptMutation = api.scripts.loadScript.useMutation({
+    onSuccess: () => {
+      void utils.scripts.getAllDownloadedScripts.invalidate();
+    },
+  });
+
+  // Set of downloaded slugs for O(1) lookup
+  const downloadedSlugs = useMemo(() => {
+    const set = new Set<string>();
+    const localScripts = localScriptsData?.scripts ?? [];
+    for (const local of localScripts) {
+      if (local.slug) set.add(local.slug.toLowerCase());
+      // Also add normalized name without extension
+      const normalized = (local.name ?? "")
+        .toLowerCase()
+        .replace(/\.(sh|bash)$/, "");
+      if (normalized) set.add(normalized);
+    }
+    return set;
+  }, [localScriptsData]);
+
+  const isScriptDownloaded = useCallback(
+    (slug: string) => downloadedSlugs.has(slug.toLowerCase()),
+    [downloadedSlugs],
+  );
+
+  // Download confirmation dialog state
+  const [downloadDialogSlug, setDownloadDialogSlug] = useState<string | null>(
+    null,
+  );
+  const downloadDialogScript = useMemo(
+    () =>
+      downloadDialogSlug
+        ? (scriptCardsData?.cards ?? []).find(
+            (s) => s.slug === downloadDialogSlug,
+          ) ?? null
+        : null,
+    [downloadDialogSlug, scriptCardsData],
+  );
 
   // Script selection
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -590,42 +638,70 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
                       No scripts found
                     </div>
                   ) : (
-                    filteredScripts.map((s) => (
-                      <button
-                        key={s.slug}
-                        onClick={() => {
-                          setSelectedSlug(s.slug);
-                          setDropdownOpen(false);
-                          setSearchQuery("");
-                          handleReset();
-                        }}
-                        className={`hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                          s.slug === selectedSlug
-                            ? "bg-primary/10 text-primary"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {s.logo ? (
-                          <Image
-                            src={s.logo}
-                            alt=""
-                            width={20}
-                            height={20}
-                            className="h-5 w-5 rounded object-contain"
-                          />
-                        ) : (
-                          <div className="bg-muted text-muted-foreground flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold">
-                            {s.name?.charAt(0)?.toUpperCase()}
-                          </div>
-                        )}
-                        <span className="flex-1 truncate text-left">
-                          {s.name}
-                        </span>
-                        <span className="bg-secondary text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-semibold">
-                          {s.type}
-                        </span>
-                      </button>
-                    ))
+                    filteredScripts.map((s) => {
+                      const downloaded = isScriptDownloaded(s.slug);
+                      return (
+                        <button
+                          key={s.slug}
+                          onClick={() => {
+                            if (downloaded) {
+                              setSelectedSlug(s.slug);
+                              setDropdownOpen(false);
+                              setSearchQuery("");
+                              handleReset();
+                            } else {
+                              setDownloadDialogSlug(s.slug);
+                              setDropdownOpen(false);
+                              setSearchQuery("");
+                            }
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                            s.slug === selectedSlug
+                              ? "bg-primary/10 text-primary"
+                              : downloaded
+                                ? "text-foreground hover:bg-accent"
+                                : "text-muted-foreground/60 hover:bg-accent/50"
+                          }`}
+                        >
+                          {s.logo ? (
+                            <Image
+                              src={s.logo}
+                              alt=""
+                              width={20}
+                              height={20}
+                              className={`h-5 w-5 rounded object-contain ${!downloaded ? "opacity-40 grayscale" : ""}`}
+                            />
+                          ) : (
+                            <div
+                              className={`flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold ${
+                                downloaded
+                                  ? "bg-muted text-muted-foreground"
+                                  : "bg-muted/50 text-muted-foreground/40"
+                              }`}
+                            >
+                              {s.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )}
+                          <span
+                            className={`flex-1 truncate text-left ${!downloaded ? "opacity-50" : ""}`}
+                          >
+                            {s.name}
+                          </span>
+                          {!downloaded && (
+                            <Download className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                          )}
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              downloaded
+                                ? "bg-secondary text-muted-foreground"
+                                : "bg-secondary/50 text-muted-foreground/40"
+                            }`}
+                          >
+                            {s.type}
+                          </span>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>,
@@ -945,10 +1021,21 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
 
             {/* Execute button */}
             {generatedCommand && (
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-end gap-3">
+                {selectedScript &&
+                  !isScriptDownloaded(selectedScript.slug) && (
+                    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                      Script not downloaded
+                    </span>
+                  )}
                 <Button
                   onClick={handleExecute}
-                  disabled={hasErrors}
+                  disabled={
+                    hasErrors ||
+                    !selectedScript ||
+                    !isScriptDownloaded(selectedScript.slug)
+                  }
                   className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
                 >
                   <Play className="h-4 w-4" />
@@ -973,6 +1060,117 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
           </p>
         </div>
       )}
+
+      {/* Download confirmation dialog */}
+      {downloadDialogSlug &&
+        downloadDialogScript &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setDownloadDialogSlug(null)}
+          >
+            <div
+              className="border-border bg-card mx-4 w-full max-w-md rounded-xl border p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10">
+                  <Download className="h-5 w-5 text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-foreground text-lg font-semibold">
+                    Script Not Downloaded
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    This script needs to be downloaded first
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 mb-4 flex items-center gap-3 rounded-lg p-3">
+                {downloadDialogScript.logo ? (
+                  <Image
+                    src={downloadDialogScript.logo}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 rounded object-contain"
+                  />
+                ) : (
+                  <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded text-sm font-bold">
+                    {downloadDialogScript.name?.charAt(0)?.toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-foreground text-sm font-medium">
+                    {downloadDialogScript.name}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {downloadDialogScript.type} script
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-muted-foreground mb-5 text-sm">
+                Do you want to download{" "}
+                <strong className="text-foreground">
+                  {downloadDialogScript.name}
+                </strong>{" "}
+                now? You can configure and execute it afterwards.
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDownloadDialogSlug(null)}
+                  disabled={loadScriptMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  disabled={loadScriptMutation.isPending}
+                  onClick={() => {
+                    loadScriptMutation.mutate(
+                      { slug: downloadDialogSlug },
+                      {
+                        onSuccess: () => {
+                          setSelectedSlug(downloadDialogSlug);
+                          setDownloadDialogSlug(null);
+                          handleReset();
+                        },
+                        onError: () => {
+                          // Keep dialog open so user sees the error state
+                        },
+                      },
+                    );
+                  }}
+                >
+                  {loadScriptMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Download Script
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {loadScriptMutation.isError && (
+                <p className="mt-3 text-xs text-red-400">
+                  Failed to download script. Please try again.
+                </p>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
