@@ -221,13 +221,19 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     if (!scriptCardsData?.success) return {};
 
     const counts: Record<string, number> = {};
-    categories.forEach((name: string) => { counts[name] = 0; });
+    categories.forEach((name: string) => {
+      counts[name] = 0;
+    });
 
     combinedScripts.forEach((script) => {
       if (script.is_dev && script.categoryNames && script.slug) {
         const counted = new Set<string>();
         script.categoryNames.forEach((cat: unknown) => {
-          if (typeof cat === 'string' && counts[cat] !== undefined && !counted.has(cat)) {
+          if (
+            typeof cat === "string" &&
+            counts[cat] !== undefined &&
+            !counted.has(cat)
+          ) {
             counted.add(cat);
             counts[cat]++;
           }
@@ -367,22 +373,26 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     }
 
     // Apply quick filter
-    if (filters.quickFilter && filters.quickFilter !== 'all') {
+    if (filters.quickFilter && filters.quickFilter !== "all") {
       switch (filters.quickFilter) {
-        case 'new':
+        case "new":
           scripts = scripts
             .filter((s) => s?.date_created)
-            .sort((a, b) => (b?.date_created ?? '').localeCompare(a?.date_created ?? ''));
+            .sort((a, b) =>
+              (b?.date_created ?? "").localeCompare(a?.date_created ?? ""),
+            );
           break;
-        case 'updated':
+        case "updated":
           scripts = scripts
             .filter((s) => s?.updateable)
-            .sort((a, b) => (b?.date_created ?? '').localeCompare(a?.date_created ?? ''));
+            .sort((a, b) =>
+              (b?.date_created ?? "").localeCompare(a?.date_created ?? ""),
+            );
           break;
-        case 'dev':
+        case "dev":
           scripts = scripts.filter((s) => s?.is_dev === true);
           break;
-        case 'arm':
+        case "arm":
           scripts = scripts.filter((s) => s?.has_arm === true);
           break;
       }
