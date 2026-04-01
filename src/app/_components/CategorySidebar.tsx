@@ -557,7 +557,7 @@ export function CategorySidebar({
               <div className="flex items-center space-x-3">
                 <CategoryIcon
                   iconName="template"
-                  className={`h-5 w-5 ${selectedCategory === null ? "text-primary" : "text-muted-foreground"}`}
+                  className={`h-5 w-5 ${selectedCategory === null ? "text-primary" : (categoryIconColorMap["template"] ?? "text-muted-foreground")}`}
                 />
                 <span className="font-medium">All Categories</span>
               </div>
@@ -589,7 +589,7 @@ export function CategorySidebar({
                   <div className="flex items-center space-x-3">
                     <CategoryIcon
                       iconName={categoryIconMapping[category] ?? "box"}
-                      className={`h-5 w-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+                      className={`h-5 w-5 ${isSelected ? "text-primary" : (categoryIconColorMap[categoryIconMapping[category] ?? "box"] ?? "text-muted-foreground")}`}
                     />
                     <span className="font-medium capitalize">
                       {category.replace(/[_-]/g, " ")}
@@ -633,7 +633,7 @@ export function CategorySidebar({
             >
               <CategoryIcon
                 iconName="template"
-                className={`h-5 w-5 ${selectedCategory === null ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+                className={`h-5 w-5 ${selectedCategory === null ? "text-primary" : (categoryIconColorMap["template"] ?? "text-muted-foreground group-hover:text-foreground")}`}
               />
               <span
                 className={`mt-1 rounded px-1 text-xs ${
@@ -668,7 +668,7 @@ export function CategorySidebar({
                 >
                   <CategoryIcon
                     iconName={categoryIconMapping[category] ?? "box"}
-                    className={`h-5 w-5 ${isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+                    className={`h-5 w-5 ${isSelected ? "text-primary" : (categoryIconColorMap[categoryIconMapping[category] ?? "box"] ?? "text-muted-foreground group-hover:text-foreground")}`}
                   />
                   <span
                     className={`mt-1 rounded px-1 text-xs ${
