@@ -605,13 +605,47 @@ export const installedScriptsRouter = createTRPCRouter({
         const db = getDatabase();
         const scripts = await db.getAllInstalledScripts();
         
+        // Group scripts by server_id for batch detection
+        const scriptsByServer = new Map<number, any[]>();
+        const serversMap = new Map<number, Server>();
+        
+        for (const script of scripts) {
+          if (script.server_id && script.server) {
+            if (!scriptsByServer.has(script.server_id)) {
+              scriptsByServer.set(script.server_id, []);
+              serversMap.set(script.server_id, script.server as Server);
+            }
+            scriptsByServer.get(script.server_id)!.push(script);
+          }
+        }
+        
+        // Batch detect container types for each server via SSH
+        const containerTypeMap = new Map<string, boolean>();
+        const batchDetectionPromises = Array.from(serversMap.entries()).map(async ([serverId, server]) => {
+          try {
+            const serverTypeMap = await batchDetectContainerTypes(server);
+            for (const [containerId, isVM] of serverTypeMap.entries()) {
+              containerTypeMap.set(containerId, isVM);
+            }
+          } catch (error) {
+            console.error(`Error batch detecting types for server ${serverId}:`, error);
+          }
+        });
+        
+        await Promise.all(batchDetectionPromises);
+        
         // Transform scripts to flatten server data for frontend compatibility
-        // Use DB-only heuristic for container type (no SSH needed)
         const transformedScripts = scripts.map((script: any) => {
-          // Determine VM vs LXC from database data:
-          // If lxc_config exists, it's an LXC container; otherwise assume VM
-          const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
-          const is_vm = !hasLXCConfig;
+          // Use SSH detection result, fall back to DB heuristic
+          let is_vm = false;
+          if (script.container_id && script.server_id) {
+            if (containerTypeMap.has(script.container_id)) {
+              is_vm = containerTypeMap.get(script.container_id) ?? false;
+            } else {
+              const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
+              is_vm = !hasLXCConfig;
+            }
+          }
           
           return {
             ...script,

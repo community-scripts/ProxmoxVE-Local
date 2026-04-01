@@ -113,16 +113,52 @@ export default function Home() {
     if (activeTab === "backups") setBackupsVisited(true);
   }, [activeTab]);
 
+  // Installed scripts: deferred + routed through separate non-batched link
   const { data: installedScriptsData } =
     api.installedScripts.getAllInstalledScripts.useQuery(undefined, {
       enabled: activeTab === "installed" || installedVisited,
     });
+
+  // Backups: deferred until tab visited
   const { data: backupsData } = api.backups.getAllBackupsGrouped.useQuery(
     undefined,
     {
       enabled: activeTab === "backups" || backupsVisited,
     },
   );
+
+  // --- Cached badge counts for tabs that haven't been visited yet ---
+  const [cachedInstalledCount, setCachedInstalledCount] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const v = localStorage.getItem("badge:installed");
+      return v ? Number(v) : 0;
+    }
+    return 0;
+  });
+  const [cachedBackupsCount, setCachedBackupsCount] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const v = localStorage.getItem("badge:backups");
+      return v ? Number(v) : 0;
+    }
+    return 0;
+  });
+
+  // Persist counts whenever fresh data arrives
+  useEffect(() => {
+    if (installedScriptsData?.scripts) {
+      const count = installedScriptsData.scripts.length;
+      setCachedInstalledCount(count);
+      localStorage.setItem("badge:installed", String(count));
+    }
+  }, [installedScriptsData]);
+
+  useEffect(() => {
+    if (backupsData?.success) {
+      const count = backupsData.backups.length;
+      setCachedBackupsCount(count);
+      localStorage.setItem("badge:backups", String(count));
+    }
+  }, [backupsData]);
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -249,8 +285,8 @@ export default function Home() {
         });
       }).length;
     })(),
-    installed: installedScriptsData?.scripts?.length ?? 0,
-    backups: backupsData?.success ? backupsData.backups.length : 0,
+    installed: installedScriptsData?.scripts?.length ?? cachedInstalledCount,
+    backups: backupsData?.success ? backupsData.backups.length : cachedBackupsCount,
   };
 
   const scrollToTerminal = () => {
