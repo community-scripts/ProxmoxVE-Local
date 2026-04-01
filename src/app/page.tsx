@@ -97,15 +97,32 @@ export default function Home() {
   );
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  // Fetch data for script counts
+  // Core queries – always needed (fast, DB-only)
   const { data: scriptCardsData } =
     api.scripts.getScriptCardsWithCategories.useQuery();
   const { data: localScriptsData } =
     api.scripts.getAllDownloadedScripts.useQuery();
-  const { data: installedScriptsData } =
-    api.installedScripts.getAllInstalledScripts.useQuery();
-  const { data: backupsData } = api.backups.getAllBackupsGrouped.useQuery();
   const { data: versionData } = api.version.getCurrentVersion.useQuery();
+
+  // Deferred queries – only fetch when their tab is active or has been visited
+  const [installedVisited, setInstalledVisited] = useState(false);
+  const [backupsVisited, setBackupsVisited] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === "installed") setInstalledVisited(true);
+    if (activeTab === "backups") setBackupsVisited(true);
+  }, [activeTab]);
+
+  const { data: installedScriptsData } =
+    api.installedScripts.getAllInstalledScripts.useQuery(undefined, {
+      enabled: activeTab === "installed" || installedVisited,
+    });
+  const { data: backupsData } = api.backups.getAllBackupsGrouped.useQuery(
+    undefined,
+    {
+      enabled: activeTab === "backups" || backupsVisited,
+    },
+  );
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
