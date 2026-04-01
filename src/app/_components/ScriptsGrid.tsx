@@ -33,6 +33,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [isNewestMinimized, setIsNewestMinimized] = useState(false);
+  const filtersInitRef = useRef(false);
+  const viewModeInitRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -106,6 +108,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   // Save filters when they change (if SAVE_FILTER is enabled)
   useEffect(() => {
     if (!saveFiltersEnabled || isLoadingFilters) return;
+    // Skip the first fire after load — values haven't changed yet
+    if (!filtersInitRef.current) { filtersInitRef.current = true; return; }
 
     const saveFilters = async () => {
       try {
@@ -129,6 +133,8 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   // Save view mode when it changes
   useEffect(() => {
     if (isLoadingFilters) return;
+    // Skip the first fire after load — value hasn't changed yet
+    if (!viewModeInitRef.current) { viewModeInitRef.current = true; return; }
 
     const saveViewMode = async () => {
       try {

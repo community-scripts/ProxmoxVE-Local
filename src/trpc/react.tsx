@@ -1,11 +1,19 @@
 "use client";
 
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { httpBatchLink, loggerLink } from "@trpc/client";
+import { httpBatchLink, httpLink, splitLink, loggerLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
 import SuperJSON from "superjson";
+
+/**
+ * Queries that hit SSH / slow I/O. These are routed through a separate
+ * non-batched link so they never block the fast DB-only queries.
+ */
+const SLOW_QUERY_PATHS = new Set([
+  "servers.checkServersStatus",
+]);
 
 import { type AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
@@ -49,14 +57,28 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             process.env.NODE_ENV === "development" ||
             (op.direction === "down" && op.result instanceof Error),
         }),
-        httpBatchLink({
-          transformer: SuperJSON,
-          url: getBaseUrl() + "/api/trpc",
-          headers: () => {
-            const headers = new Headers();
-            headers.set("x-trpc-source", "nextjs-react");
-            return headers;
-          },
+        splitLink({
+          // SSH-heavy queries go through a non-batched link so they
+          // can't block the fast DB queries from returning.
+          condition: (op) => SLOW_QUERY_PATHS.has(op.path),
+          true: httpLink({
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            headers: () => {
+              const headers = new Headers();
+              headers.set("x-trpc-source", "nextjs-react");
+              return headers;
+            },
+          }),
+          false: httpBatchLink({
+            transformer: SuperJSON,
+            url: getBaseUrl() + "/api/trpc",
+            headers: () => {
+              const headers = new Headers();
+              headers.set("x-trpc-source", "nextjs-react");
+              return headers;
+            },
+          }),
         }),
       ],
     }),

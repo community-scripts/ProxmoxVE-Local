@@ -34,6 +34,8 @@ export function DownloadedScriptsTab({
   const [filters, setFilters] = useState<FilterState>(getDefaultFilters());
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
+  const filtersInitRef = useRef(false);
+  const viewModeInitRef = useRef(false);
   const [updateAllConfirmOpen, setUpdateAllConfirmOpen] = useState(false);
   const [updateResult, setUpdateResult] = useState<{
     successCount: number;
@@ -136,6 +138,8 @@ export function DownloadedScriptsTab({
   // Save filters when they change (if SAVE_FILTER is enabled)
   useEffect(() => {
     if (!saveFiltersEnabled || isLoadingFilters) return;
+    // Skip the first fire after load — values haven't changed yet
+    if (!filtersInitRef.current) { filtersInitRef.current = true; return; }
 
     const saveFilters = async () => {
       try {
@@ -159,6 +163,8 @@ export function DownloadedScriptsTab({
   // Save view mode when it changes
   useEffect(() => {
     if (isLoadingFilters) return;
+    // Skip the first fire after load — value hasn't changed yet
+    if (!viewModeInitRef.current) { viewModeInitRef.current = true; return; }
 
     const saveViewMode = async () => {
       try {
