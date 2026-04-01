@@ -216,6 +216,28 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     return counts;
   }, [categories, combinedScripts, scriptCardsData?.success]);
 
+  // Count dev scripts per category
+  const categoryDevCounts = React.useMemo((): Record<string, number> => {
+    if (!scriptCardsData?.success) return {};
+
+    const counts: Record<string, number> = {};
+    categories.forEach((name: string) => { counts[name] = 0; });
+
+    combinedScripts.forEach((script) => {
+      if (script.is_dev && script.categoryNames && script.slug) {
+        const counted = new Set<string>();
+        script.categoryNames.forEach((cat: unknown) => {
+          if (typeof cat === 'string' && counts[cat] !== undefined && !counted.has(cat)) {
+            counted.add(cat);
+            counts[cat]++;
+          }
+        });
+      }
+    });
+
+    return counts;
+  }, [categories, combinedScripts, scriptCardsData?.success]);
+
   // Update scripts with download status
   const scriptsWithStatus = React.useMemo((): ScriptCardType[] => {
     // Helper to normalize identifiers for robust matching
@@ -270,6 +292,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
       filters.selectedRepositories.length > 0 ||
       filters.sortBy !== "name" ||
       filters.sortOrder !== "asc" ||
+      (filters.quickFilter && filters.quickFilter !== "all") ||
       selectedCategory !== null
     );
   }, [filters, selectedCategory]);
@@ -341,6 +364,28 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           (type) => type.toLowerCase() === mappedType,
         );
       });
+    }
+
+    // Apply quick filter
+    if (filters.quickFilter && filters.quickFilter !== 'all') {
+      switch (filters.quickFilter) {
+        case 'new':
+          scripts = scripts
+            .filter((s) => s?.date_created)
+            .sort((a, b) => (b?.date_created ?? '').localeCompare(a?.date_created ?? ''));
+          break;
+        case 'updated':
+          scripts = scripts
+            .filter((s) => s?.updateable)
+            .sort((a, b) => (b?.date_created ?? '').localeCompare(a?.date_created ?? ''));
+          break;
+        case 'dev':
+          scripts = scripts.filter((s) => s?.is_dev === true);
+          break;
+        case 'arm':
+          scripts = scripts.filter((s) => s?.has_arm === true);
+          break;
+      }
     }
 
     // Exclude newest scripts from main grid when no filters are active (they'll be shown in carousel)
@@ -777,6 +822,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
         <CategorySidebar
           categories={categories}
           categoryCounts={categoryCounts}
+          categoryDevCounts={categoryDevCounts}
           totalScripts={scriptsWithStatus.length}
           selectedCategory={selectedCategory}
           onCategorySelect={handleCategorySelect}

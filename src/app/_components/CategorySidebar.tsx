@@ -6,6 +6,7 @@ import { ContextualHelpIcon } from './ContextualHelpIcon';
 interface CategorySidebarProps {
   categories: string[];
   categoryCounts: Record<string, number>;
+  categoryDevCounts?: Record<string, number>;
   totalScripts: number;
   selectedCategory: string | null;
   onCategorySelect: (category: string | null) => void;
@@ -151,6 +152,7 @@ const CategoryIcon = ({ iconName, className = "w-5 h-5" }: { iconName: string; c
 export function CategorySidebar({ 
   categories, 
   categoryCounts, 
+  categoryDevCounts,
   totalScripts, 
   selectedCategory, 
   onCategorySelect 
@@ -281,13 +283,20 @@ export function CategorySidebar({
                       {category.replace(/[_-]/g, ' ')}
                     </span>
                   </div>
-                  <span className={`text-sm px-2 py-1 rounded-full ${
+                  <div className="flex items-center gap-1.5">
+                    {(categoryDevCounts?.[category] ?? 0) > 0 && (
+                      <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                        {categoryDevCounts[category]} dev
+                      </span>
+                    )}
+                    <span className={`text-sm px-2 py-1 rounded-full ${
                     isSelected
                       ? 'bg-primary/20 text-primary'
                       : 'bg-muted text-muted-foreground'
                   }`}>
                     {count}
                   </span>
+                  </div>
                 </button>
               );
             })}

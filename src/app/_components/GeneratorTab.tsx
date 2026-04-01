@@ -385,7 +385,7 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
             : type === "turnkey"
               ? "turnkey"
               : "ct";
-    const scriptPath = `${pathPrefix}/${selectedScript.slug}.sh`;
+    const scriptPath = `scripts/${pathPrefix}/${selectedScript.slug}.sh`;
 
     const envVars: Record<string, string | number | boolean> = {};
     if (cpu !== defaults.cpu) envVars.var_cpu = cpu;

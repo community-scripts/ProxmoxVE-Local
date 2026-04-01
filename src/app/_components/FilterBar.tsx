@@ -13,9 +13,18 @@ import {
   RefreshCw,
   Filter,
   GitBranch,
+  Layers,
+  TrendingUp,
+  Sparkles,
+  Clock,
+  TrendingDown,
+  FlaskConical,
+  Cpu,
 } from "lucide-react";
 import { api } from "~/trpc/react";
 import { getDefaultFilters } from "./filterUtils";
+
+export type QuickFilter = 'all' | 'popular' | 'new' | 'updated' | 'unpopular' | 'dev' | 'arm';
 
 export interface FilterState {
   searchQuery: string;
@@ -24,6 +33,7 @@ export interface FilterState {
   selectedRepositories: string[]; // Array of selected repository URLs
   sortBy: "name" | "created" | "updated"; // Sort criteria
   sortOrder: "asc" | "desc"; // Sort direction
+  quickFilter: QuickFilter;
 }
 
 interface FilterBarProps {
@@ -87,7 +97,8 @@ export function FilterBar({
     filters.selectedTypes.length > 0 ||
     filters.selectedRepositories.length > 0 ||
     filters.sortBy !== "name" ||
-    filters.sortOrder !== "asc";
+    filters.sortOrder !== "asc" ||
+    filters.quickFilter !== "all";
 
   const getUpdatableButtonText = () => {
     if (filters.showUpdatable === null) return "Updatable: All";
@@ -158,6 +169,33 @@ export function FilterBar({
       {/* Filter Content - Conditionally rendered based on minimized state */}
       {!isMinimized && !isLoadingFilters && (
         <>
+          {/* Quick Filters */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {([
+              { key: 'all' as const, label: 'All', Icon: Layers },
+              { key: 'new' as const, label: 'New', Icon: Sparkles },
+              { key: 'updated' as const, label: 'Updated', Icon: Clock },
+              { key: 'dev' as const, label: 'In Dev', Icon: FlaskConical },
+              { key: 'arm' as const, label: 'ARM', Icon: Cpu },
+            ]).map(({ key, label, Icon }) => {
+              const isActive = filters.quickFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => updateFilters({ quickFilter: key })}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Search Bar */}
           <div className="mb-4">
             <div className="relative w-full max-w-md">

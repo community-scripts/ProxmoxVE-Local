@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { ScriptCard } from "~/types/script";
-import { TypeBadge, UpdateableBadge } from "./Badge";
+import { TypeBadge, UpdateableBadge, DevBadge } from "./Badge";
 
 interface ScriptCardProps {
   script: ScriptCard;
@@ -42,7 +42,7 @@ export function ScriptCard({
 
   return (
     <div
-      className="glass-card animate-card-in relative flex h-full cursor-pointer flex-col overflow-hidden border p-0"
+      className={`glass-card animate-card-in relative flex h-full cursor-pointer flex-col overflow-hidden border p-0 ${script.is_dev ? 'border-violet-500/40 bg-violet-500/[0.03]' : ''}`}
       onClick={() => onClick(script)}
     >
       {/* Checkbox in top-left corner */}
@@ -98,6 +98,7 @@ export function ScriptCard({
               {/* Type and Updateable status on first row */}
               <div className="flex flex-wrap items-center gap-1 space-x-2">
                 <TypeBadge type={script.type ?? "unknown"} />
+                {script.is_dev && <DevBadge />}
                 {script.updateable && <UpdateableBadge />}
                 {script.version && (
                   <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[10px] font-medium">

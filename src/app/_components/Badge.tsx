@@ -138,3 +138,15 @@ export const NoteBadge = ({ noteType, children, className }: { noteType: 'info' 
     {children}
   </Badge>
 );
+
+export const DevBadge = ({ className }: { className?: string }) => (
+  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-400 ${className ?? ''}`}>
+    DEV
+  </span>
+);
+
+export const ArmBadge = ({ className }: { className?: string }) => (
+  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-cyan-500/50 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 ${className ?? ''}`}>
+    ARM
+  </span>
+);

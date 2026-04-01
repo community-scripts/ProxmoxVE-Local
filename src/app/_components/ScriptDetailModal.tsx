@@ -15,6 +15,7 @@ import {
   UpdateableBadge,
   PrivilegedBadge,
   NoteBadge,
+  DevBadge,
 } from "./Badge";
 import { Button } from "./ui/button";
 import { useRegisterModal } from "./modal/ModalStackProvider";
@@ -308,6 +309,7 @@ export function ScriptDetailModal({
               </h2>
               <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
                 <TypeBadge type={script.type} />
+                {script.is_dev && <DevBadge />}
                 {script.updateable && <UpdateableBadge />}
                 {script.privileged && <PrivilegedBadge />}
                 {script.version && (
