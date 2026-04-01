@@ -14,7 +14,8 @@ export const serverPresetsRouter = createTRPCRouter({
   getByServerId: publicProcedure
     .input(z.object({ serverId: z.number() }))
     .query(async ({ input }) => {
-      const presets = await prisma.serverPreset.findMany({
+      const db = getPresetsDb();
+      const presets = await db.serverPreset.findMany({
         where: { server_id: input.serverId },
         orderBy: { updated_at: "desc" },
       });
@@ -23,7 +24,8 @@ export const serverPresetsRouter = createTRPCRouter({
 
   /** Get all presets */
   getAll: publicProcedure.query(async () => {
-    const presets = await prisma.serverPreset.findMany({
+    const db = getPresetsDb();
+    const presets = await db.serverPreset.findMany({
       orderBy: { updated_at: "desc" },
     });
     return { success: true, presets };
@@ -33,7 +35,8 @@ export const serverPresetsRouter = createTRPCRouter({
   getById: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
-      const preset = await prisma.serverPreset.findUnique({
+      const db = getPresetsDb();
+      const preset = await db.serverPreset.findUnique({
         where: { id: input.id },
       });
       return { success: true, preset };
@@ -60,7 +63,8 @@ export const serverPresetsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const preset = await prisma.serverPreset.create({
+      const db = getPresetsDb();
+      const preset = await db.serverPreset.create({
         data: {
           server_id: input.serverId,
           name: input.name,
@@ -103,7 +107,8 @@ export const serverPresetsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
-      const preset = await prisma.serverPreset.update({
+      const db = getPresetsDb();
+      const preset = await db.serverPreset.update({
         where: { id },
         data: {
           ...(data.name !== undefined && { name: data.name }),
@@ -128,7 +133,8 @@ export const serverPresetsRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      await prisma.serverPreset.delete({ where: { id: input.id } });
+      const db = getPresetsDb();
+      await db.serverPreset.delete({ where: { id: input.id } });
       return { success: true };
     }),
 });
