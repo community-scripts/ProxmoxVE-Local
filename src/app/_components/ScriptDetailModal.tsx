@@ -18,6 +18,7 @@ import {
 } from "./Badge";
 import { Button } from "./ui/button";
 import { useRegisterModal } from "./modal/ModalStackProvider";
+import { ScriptNotesPanel } from "./ScriptNotesPanel";
 
 function deriveScriptPath(
   scriptType: string,
@@ -82,6 +83,26 @@ export function ScriptDetailModal({
   );
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState(false);
+
+  const installCommand = (() => {
+    if (!script) return null;
+    const method = script.install_methods?.[0];
+    const scriptFile = method?.script ?? deriveScriptPath(script.type, method?.type ?? "default", script.slug);
+    const url = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/${scriptFile}`;
+    return `bash -c "$(curl -fsSL ${url})"`;
+  })();
+
+  const handleCopyCommand = async () => {
+    if (!installCommand) return;
+    try {
+      await navigator.clipboard.writeText(installCommand);
+      setCopiedCommand(true);
+      setTimeout(() => setCopiedCommand(false), 2000);
+    } catch {
+      // Fallback: silent fail
+    }
+  };
 
   // Check if script files exist locally
   const {
@@ -287,6 +308,11 @@ export function ScriptDetailModal({
                 <TypeBadge type={script.type} />
                 {script.updateable && <UpdateableBadge />}
                 {script.privileged && <PrivilegedBadge />}
+                {script.version && (
+                  <span className="bg-primary/10 text-primary border-primary/20 rounded border px-2 py-0.5 text-xs font-medium">
+                    v{script.version}
+                  </span>
+                )}
                 {script.repository_url && (
                   <a
                     href={script.repository_url}
@@ -402,6 +428,30 @@ export function ScriptDetailModal({
                 <span>View</span>
               </Button>
             )}
+
+          {/* Copy Install Command */}
+          <Button
+            onClick={() => void handleCopyCommand()}
+            variant="outline"
+            size="default"
+            className="flex w-full items-center justify-center space-x-2 sm:w-auto"
+          >
+            {copiedCommand ? (
+              <>
+                <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Copy Command</span>
+              </>
+            )}
+          </Button>
 
           {/* Load/Update Script Button */}
           {(() => {
@@ -687,6 +737,35 @@ export function ScriptDetailModal({
             </p>
           </div>
 
+          {/* Install Command */}
+          {installCommand && (
+            <div>
+              <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">
+                Install Command
+              </h3>
+              <div className="bg-muted/60 border-border group relative overflow-hidden rounded-lg border">
+                <code className="text-foreground block overflow-x-auto p-3 pr-12 font-mono text-xs sm:text-sm">
+                  {installCommand}
+                </code>
+                <button
+                  onClick={() => void handleCopyCommand()}
+                  className="absolute top-2 right-2 rounded-md bg-background/80 p-1.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-background"
+                  title="Copy to clipboard"
+                >
+                  {copiedCommand ? (
+                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Basic Information */}
           <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
             <div>
@@ -710,6 +789,16 @@ export function ScriptDetailModal({
                     {script.date_created}
                   </dd>
                 </div>
+                {script.version && (
+                  <div>
+                    <dt className="text-muted-foreground text-sm font-medium">
+                      Version
+                    </dt>
+                    <dd className="text-foreground font-mono text-sm">
+                      {script.version}
+                    </dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground text-sm font-medium">
                     Categories
@@ -927,6 +1016,9 @@ export function ScriptDetailModal({
               </ul>
             </div>
           )}
+
+          {/* User Notes (Private / Shared) */}
+          <ScriptNotesPanel slug={script.slug} />
         </div>
       </div>
 

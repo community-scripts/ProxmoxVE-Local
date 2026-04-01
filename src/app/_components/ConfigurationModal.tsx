@@ -107,6 +107,7 @@ export function ConfigurationModal({
         var_ns: "",
 
         // Identity
+        var_ctid: "",
         var_hostname: slug,
         var_pw: "",
         var_tags: "community-script",
@@ -137,6 +138,26 @@ export function ConfigurationModal({
       setAdvancedVars(defaults);
     }
   }, [actualScript, server, mode, resources, slug]);
+
+  // Load persistent APT proxy settings for advanced mode
+  useEffect(() => {
+    if (!isOpen || mode !== "advanced") return;
+    let cancelled = false;
+    fetch("/api/settings/apt-proxy")
+      .then((res) => res.json() as Promise<{ enabled: boolean; ip: string }>)
+      .then((data) => {
+        if (cancelled) return;
+        if (data.enabled && data.ip) {
+          setAdvancedVars((prev) => ({
+            ...prev,
+            var_apt_cacher: "yes",
+            var_apt_cacher_ip: data.ip,
+          }));
+        }
+      })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, [isOpen, mode]);
 
   // Discover SSH keys on the Proxmox host when advanced mode is open
   useEffect(() => {
@@ -445,9 +466,9 @@ export function ConfigurationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="bg-card border-border max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border shadow-xl">
+      <div className="glass-card-static max-h-[90vh] w-full max-w-4xl overflow-y-auto border shadow-2xl">
         {/* Header */}
-        <div className="border-border flex items-center justify-between border-b p-6">
+        <div className="border-border/60 flex items-center justify-between border-b p-6">
           <h2 className="text-foreground text-xl font-bold">
             {mode === "default"
               ? "Default Configuration"
@@ -905,6 +926,26 @@ export function ConfigurationModal({
                   Identity & Metadata
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-foreground mb-2 block text-sm font-medium">
+                      Container ID
+                    </label>
+                    <Input
+                      type="text"
+                      value={
+                        typeof advancedVars.var_ctid === "boolean"
+                          ? ""
+                          : String(advancedVars.var_ctid ?? "")
+                      }
+                      onChange={(e) =>
+                        updateAdvancedVar("var_ctid", e.target.value)
+                      }
+                      placeholder="Auto (next available)"
+                    />
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Leave empty for auto-assignment
+                    </p>
+                  </div>
                   <div>
                     <label className="text-foreground mb-2 block text-sm font-medium">
                       Hostname *

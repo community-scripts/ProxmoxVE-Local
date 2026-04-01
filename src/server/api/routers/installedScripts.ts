@@ -419,7 +419,23 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
     }
     
     // Node-specific paths (multi-node Proxmox: /etc/pve/nodes/NODENAME/...)
-    const nodeName = (server as Server).name;
+    // Get the actual Proxmox node name via SSH (server.name is just a display name)
+    let nodeName = (server as Server).name;
+    try {
+      const hostnameResult = await new Promise<string>((resolve) => {
+        let output = '';
+        void sshExecutionService.executeCommand(
+          server as Server,
+          'hostname',
+          (data: string) => { output += data; },
+          () => { resolve(nodeName); },
+          () => { resolve(output.trim() || nodeName); },
+        );
+      });
+      if (hostnameResult) nodeName = hostnameResult;
+    } catch {
+      // Fallback to server.name if hostname query fails
+    }
     const vmConfigPathNode = `/etc/pve/nodes/${nodeName}/qemu-server/${containerId}.conf`;
     const lxcConfigPathNode = `/etc/pve/nodes/${nodeName}/lxc/${containerId}.conf`;
     // Fallback for single-node or when server.name is not the Proxmox node name
@@ -961,8 +977,8 @@ export const installedScriptsRouter = createTRPCRouter({
             const parts = line.trim().split(/\s+/);
             if (parts.length > 0) {
               const id = parts[0]?.trim();
-              // Validate ID format (3-4 digits typically)
-              if (id && /^\d{3,4}$/.test(id)) {
+              // Validate ID format (numeric, typically 100+)
+              if (id && /^\d+$/.test(id)) {
                 ids.push(id);
               }
             }
@@ -972,7 +988,23 @@ export const installedScriptsRouter = createTRPCRouter({
         };
 
         // Helper function to check config file for community-script tag and extract hostname/name
-        const nodeName = (server as Server).name;
+        // Get the actual Proxmox node name via SSH (server.name is just a display name)
+        let nodeName = (server as Server).name;
+        try {
+          const hostnameResult = await new Promise<string>((resolve) => {
+            let output = '';
+            void sshExecutionService.executeCommand(
+              server as Server,
+              'hostname',
+              (data: string) => { output += data; },
+              () => { resolve(nodeName); },
+              () => { resolve(output.trim() || nodeName); },
+            );
+          });
+          if (hostnameResult) nodeName = hostnameResult;
+        } catch {
+          // Fallback to server.name if hostname query fails
+        }
         const checkConfigAndExtractInfo = async (id: string, isVM: boolean): Promise<any> => {
           const configPath = isVM 
             ? `/etc/pve/nodes/${nodeName}/qemu-server/${id}.conf`

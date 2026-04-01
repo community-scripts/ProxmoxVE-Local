@@ -27,12 +27,39 @@ export class AppriseService {
       const results = [];
       for (const url of urls) {
         try {
-          const response = await axios.post(url, formData, {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            timeout: 10000 // 10 second timeout
-          });
+          let response;
+
+          // Detect Gotify URLs and use native Gotify API
+          // Gotify format: gotify://hostname/token or https://hostname/gotify?token=xxx
+          const gotifyMatch = url.match(/^gotify:\/\/([^/]+)\/(.+)$/);
+          const gotifyHttpMatch = url.match(/^(https?:\/\/[^?]+)\?token=(.+)$/);
+
+          if (gotifyMatch) {
+            // gotify://host/token format
+            const [, host, token] = gotifyMatch;
+            response = await axios.post(
+              `https://${host}/message?token=${encodeURIComponent(token)}`,
+              { title: title || 'PVE Scripts Local', message: body || '', priority: 5 },
+              { headers: { 'Content-Type': 'application/json' }, timeout: 10000 },
+            );
+          } else if (gotifyHttpMatch) {
+            // https://host/gotify?token=xxx or https://host?token=xxx
+            const [, baseUrl, token] = gotifyHttpMatch;
+            const messageUrl = baseUrl.endsWith('/message') ? baseUrl : `${baseUrl}/message`;
+            response = await axios.post(
+              `${messageUrl}?token=${encodeURIComponent(token)}`,
+              { title: title || 'PVE Scripts Local', message: body || '', priority: 5 },
+              { headers: { 'Content-Type': 'application/json' }, timeout: 10000 },
+            );
+          } else {
+            // Default: Apprise-style form-data POST
+            response = await axios.post(url, formData, {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              timeout: 10000
+            });
+          }
           
           results.push({
             url,
@@ -91,10 +118,8 @@ export class AppriseService {
       return { valid: false, error: 'URL is required' };
     }
 
-    // Basic URL validation
-    try {
-      new URL(url);
-    } catch {
+    // Basic URL validation (allow custom schemes like gotify://)
+    if (!url.match(/^[a-z]+:\/\//i)) {
       return { valid: false, error: 'Invalid URL format' };
     }
 
@@ -104,6 +129,7 @@ export class AppriseService {
       /^tgram:\/\//,
       /^mailto:\/\//,
       /^slack:\/\//,
+      /^gotify:\/\//,
       /^https?:\/\//
     ];
 

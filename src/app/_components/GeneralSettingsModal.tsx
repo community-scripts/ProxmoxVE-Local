@@ -88,6 +88,10 @@ export function GeneralSettingsModal({
   >(null);
   const [cronValidationError, setCronValidationError] = useState("");
 
+  // APT Proxy state
+  const [aptProxyEnabled, setAptProxyEnabled] = useState(false);
+  const [aptProxyIp, setAptProxyIp] = useState("");
+
   // Repository management state
   const [newRepoUrl, setNewRepoUrl] = useState("");
   const [newRepoEnabled, setNewRepoEnabled] = useState(true);
@@ -112,8 +116,37 @@ export function GeneralSettingsModal({
       void loadAuthCredentials();
       void loadColorCodingSetting();
       void loadAutoSyncSettings();
+      void loadAptProxySettings();
     }
   }, [isOpen]);
+
+  const loadAptProxySettings = async () => {
+    try {
+      const response = await fetch("/api/settings/apt-proxy");
+      if (response.ok) {
+        const data = (await response.json()) as { enabled: boolean; ip: string };
+        setAptProxyEnabled(data.enabled);
+        setAptProxyIp(data.ip);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const saveAptProxySettings = async () => {
+    try {
+      await fetch("/api/settings/apt-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: aptProxyEnabled, ip: aptProxyIp }),
+      });
+      setMessage({ type: "success", text: "APT proxy settings saved" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: "error", text: "Failed to save APT proxy settings" });
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
   const loadGithubToken = async () => {
     setIsLoading(true);
@@ -863,6 +896,41 @@ export function GeneralSettingsModal({
                     onCheckedChange={saveColorCodingSetting}
                     label="Enable server color coding"
                   />
+                </div>
+
+                <div className="border-border rounded-lg border p-4">
+                  <h4 className="text-foreground mb-2 font-medium">
+                    APT-Cacher-NG Proxy
+                  </h4>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    Configure a default APT proxy to speed up package downloads. This will be pre-filled for new container installations.
+                  </p>
+                  <Toggle
+                    checked={aptProxyEnabled}
+                    onCheckedChange={(checked) => setAptProxyEnabled(checked)}
+                    label="Enable APT proxy"
+                  />
+                  {aptProxyEnabled && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="text-foreground mb-1 block text-sm font-medium">
+                          Proxy Address (IP or hostname)
+                        </label>
+                        <Input
+                          type="text"
+                          value={aptProxyIp}
+                          onChange={(e) => setAptProxyIp(e.target.value)}
+                          placeholder="e.g. 192.168.1.100:3142"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => void saveAptProxySettings()}
+                        size="sm"
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

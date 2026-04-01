@@ -22,7 +22,7 @@ export interface FilterState {
   showUpdatable: boolean | null; // null = all, true = only updatable, false = only non-updatable
   selectedTypes: string[]; // Array of selected types: 'lxc', 'vm', 'addon', 'pve'
   selectedRepositories: string[]; // Array of selected repository URLs
-  sortBy: "name" | "created"; // Sort criteria (removed 'updated')
+  sortBy: "name" | "created" | "updated"; // Sort criteria
   sortOrder: "asc" | "desc"; // Sort direction
 }
 

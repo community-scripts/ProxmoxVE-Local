@@ -99,6 +99,11 @@ export function ScriptCard({
               <div className="flex flex-wrap items-center gap-1 space-x-2">
                 <TypeBadge type={script.type ?? "unknown"} />
                 {script.updateable && <UpdateableBadge />}
+                {script.version && (
+                  <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[10px] font-medium">
+                    v{script.version}
+                  </span>
+                )}
                 {script.repository_url && (
                   <span
                     className="bg-muted text-muted-foreground border-border rounded border px-2 py-0.5 text-xs"

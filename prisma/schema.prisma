@@ -146,3 +146,39 @@ model Repository {
   
   @@map("repositories")
 }
+
+model ScriptNote {
+  id          Int      @id @default(autoincrement())
+  script_slug String
+  title       String   @default("")
+  content     String
+  is_shared   Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([script_slug])
+  @@map("script_notes")
+}
+
+model ServerPreset {
+  id              Int      @id @default(autoincrement())
+  server_id       Int
+  name            String
+  cpu             Int?
+  ram             Int?
+  disk            Int?
+  privileged      Boolean  @default(false)
+  bridge          String?
+  vlan            String?
+  dns             String?
+  ssh             Boolean  @default(false)
+  nesting         Boolean  @default(true)
+  fuse            Boolean  @default(false)
+  apt_proxy_addr  String?
+  apt_proxy_on    Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([server_id])
+  @@map("server_presets")
+}

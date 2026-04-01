@@ -921,7 +921,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
 
         {/* Progress Bar */}
         {downloadProgress && (
-          <div className="bg-card border-border mb-4 rounded-lg border p-4">
+          <div className="glass-card-static mb-4 border p-4">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-foreground text-sm font-medium">
