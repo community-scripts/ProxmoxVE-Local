@@ -1,6 +1,7 @@
  
 import { prisma } from '../db';
 import { isValidRepositoryUrl, REPO_URL_ERROR_MESSAGE } from '../lib/repositoryUrlValidation';
+import { logger } from '../logging/logger';
 
 export class RepositoryService {
   /**
@@ -32,7 +33,7 @@ export class RepositoryService {
           priority: 1
         }
       });
-      console.log('Initialized main repository:', mainRepoUrl);
+      logger.info('Initialized main repository:', { value: mainRepoUrl });
     }
 
     // Create dev repo if it doesn't exist
@@ -46,7 +47,7 @@ export class RepositoryService {
           priority: 2
         }
       });
-      console.log('Initialized dev repository:', devRepoUrl);
+      logger.info('Initialized dev repository:', { value: devRepoUrl });
     }
   }
 
@@ -203,17 +204,17 @@ export class RepositoryService {
           // If script has repository_url matching the repo, delete it
           if (script.repository_url === repoUrl) {
             await unlink(filePath);
-            console.log(`Deleted JSON file: ${file} (from repository: ${repoUrl})`);
+            logger.info(`Deleted JSON file: ${file} (from repository: ${repoUrl})`);
           }
         } catch (error) {
           // Skip files that can't be read or parsed
-          console.error(`Error processing file ${file}:`, error);
+          logger.error(`Error processing file ${file}:`, undefined, error);
         }
       }
     } catch (error) {
       // Directory might not exist, which is fine
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('Error deleting repository JSON files:', error);
+        logger.error('Error deleting repository JSON files:', undefined, error);
       }
     }
   }

@@ -3,6 +3,7 @@ import { PrismaClient } from '../../prisma/generated/prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { existsSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
+import { logger } from './logging/logger'
 
 const globalForPrisma = globalThis as { prisma?: PrismaClient };
 
@@ -13,7 +14,7 @@ const dbPath = dbUrl.replace(/^file:/, '');
 const dbDir = dirname(dbPath);
 
 if (!existsSync(dbDir)) {
-  console.log(`Creating database directory: ${dbDir}`);
+  logger.info(`Creating database directory: ${dbDir}`);
   mkdirSync(dbDir, { recursive: true });
 }
 

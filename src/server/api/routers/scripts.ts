@@ -6,6 +6,7 @@ import { scriptDownloaderService } from "~/server/services/scriptDownloader.js";
 import { AutoSyncService } from "~/server/services/autoSyncService";
 import { getStorageService } from "~/server/services/storageService";
 import { getDatabase } from "~/server/database-prisma";
+import { logger } from "~/server/logging/logger";
 import {
   getScriptCards,
   getScriptBySlug as pbGetScriptBySlug,
@@ -155,7 +156,7 @@ export const scriptsRouter = createTRPCRouter({
         const content = await readFile(fullPath, 'utf-8');
         return { success: true, content };
       } catch (error) {
-        console.error('Error reading script content:', error);
+        logger.error('Error reading script content:', undefined, error);
         return { success: false, error: 'Failed to read script content' };
       }
     }),
@@ -189,7 +190,7 @@ export const scriptsRouter = createTRPCRouter({
           }),
         };
       } catch (error) {
-        console.error('Error in getScriptCards:', error);
+        logger.error('Error in getScriptCards:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch script cards',
@@ -226,7 +227,7 @@ export const scriptsRouter = createTRPCRouter({
         script.logo = getLocalLogoPath(pb.slug, script.logo);
         return { success: true, script };
       } catch (error) {
-        console.error('Error in getScriptBySlug:', error);
+        logger.error('Error in getScriptBySlug:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch script',
@@ -242,7 +243,7 @@ export const scriptsRouter = createTRPCRouter({
         const metadata = await pbGetMetadata();
         return { success: true, metadata };
       } catch (error) {
-        console.error('Error in getMetadata:', error);
+        logger.error('Error in getMetadata:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch metadata',
@@ -268,7 +269,7 @@ export const scriptsRouter = createTRPCRouter({
 
         return { success: true, cards: scriptCards, metadata };
       } catch (error) {
-        console.error('Error in getScriptCardsWithCategories:', error);
+        logger.error('Error in getScriptCardsWithCategories:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch script cards with categories',
@@ -315,7 +316,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await scriptDownloaderService.loadScript(pbToScript(pb));
         return result;
       } catch (error) {
-        console.error('Error in loadScript:', error);
+        logger.error('Error in loadScript:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to load script',
@@ -377,7 +378,7 @@ export const scriptsRouter = createTRPCRouter({
           total: input.slugs.length
         };
       } catch (error) {
-        console.error('Error in loadMultipleScripts:', error);
+        logger.error('Error in loadMultipleScripts:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to load multiple scripts',
@@ -400,7 +401,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await scriptDownloaderService.checkScriptExists(pbToScript(pb));
         return { success: true, ...result };
       } catch (error) {
-        console.error('Error in checkScriptFiles:', error);
+        logger.error('Error in checkScriptFiles:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to check script files',
@@ -423,7 +424,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await scriptDownloaderService.deleteScript(pbToScript(pb));
         return result;
       } catch (error) {
-        console.error('Error in deleteScript:', error);
+        logger.error('Error in deleteScript:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to delete script',
@@ -444,7 +445,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await scriptDownloaderService.compareScriptContent(pbToScript(pb));
         return { success: true, ...result };
       } catch (error) {
-        console.error('Error in compareScriptContent:', error);
+        logger.error('Error in compareScriptContent:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to compare script content',
@@ -466,7 +467,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await scriptDownloaderService.getScriptDiff(pbToScript(pb), input.filePath);
         return { success: true, ...result };
       } catch (error) {
-        console.error('Error in getScriptDiff:', error);
+        logger.error('Error in getScriptDiff:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get script diff',
@@ -515,7 +516,7 @@ export const scriptsRouter = createTRPCRouter({
           });
         });
       } catch (error) {
-        console.error('Error in checkProxmoxVE:', error);
+        logger.error('Error in checkProxmoxVE:', undefined, error);
         return {
           success: false,
           isProxmoxVE: false,
@@ -533,7 +534,7 @@ export const scriptsRouter = createTRPCRouter({
         const settings = autoSyncService.loadSettings();
         return { success: true, settings };
       } catch (error) {
-        console.error('Error getting auto-sync settings:', error);
+        logger.error('Error getting auto-sync settings:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get auto-sync settings',
@@ -572,17 +573,17 @@ export const scriptsRouter = createTRPCRouter({
         // Reschedule auto-sync if enabled
         if (input.autoSyncEnabled) {
           autoSyncService.scheduleAutoSync();
-          console.log('Auto-sync rescheduled with new settings');
+          logger.info('Auto-sync rescheduled with new settings');
         } else {
           autoSyncService.stopAutoSync();
           // Ensure the service is completely stopped and won't restart
           autoSyncService.isRunning = false;
-          console.log('Auto-sync stopped');
+          logger.info('Auto-sync stopped');
         }
         
         return { success: true, message: 'Auto-sync settings saved successfully' };
       } catch (error) {
-        console.error('Error saving auto-sync settings:', error);
+        logger.error('Error saving auto-sync settings', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save auto-sync settings'
@@ -597,7 +598,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await autoSyncService.testNotification();
         return result;
       } catch (error) {
-        console.error('Error testing notification:', error);
+        logger.error('Error testing notification', undefined, error);
         return {
           success: false,
           message: error instanceof Error ? error.message : 'Failed to test notification'
@@ -616,7 +617,7 @@ export const scriptsRouter = createTRPCRouter({
           result
         };
       } catch (error) {
-        console.error('Error in manual auto-sync:', error);
+        logger.error('Error in manual auto-sync:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to execute manual auto-sync',
@@ -632,7 +633,7 @@ export const scriptsRouter = createTRPCRouter({
         const status = autoSyncService.getStatus();
         return { success: true, status };
       } catch (error) {
-        console.error('Error getting auto-sync status:', error);
+        logger.error('Error getting auto-sync status:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get auto-sync status',
@@ -685,7 +686,7 @@ export const scriptsRouter = createTRPCRouter({
             );
           });
         } catch (error) {
-          console.error('Error getting server hostname:', error);
+          logger.error('Error getting server hostname:', undefined, error);
           // Continue without filtering if hostname can't be retrieved
         }
         
@@ -726,7 +727,7 @@ export const scriptsRouter = createTRPCRouter({
           }))
         };
       } catch (error) {
-        console.error('Error fetching rootfs storages:', error);
+        logger.error('Error fetching rootfs storages:', undefined, error);
         // Return empty array on error (as per plan requirement)
         return {
           success: false,
@@ -780,7 +781,7 @@ export const scriptsRouter = createTRPCRouter({
             );
           });
         } catch (error) {
-          console.error('Error getting server hostname:', error);
+          logger.error('Error getting server hostname:', undefined, error);
           // Continue without filtering if hostname can't be retrieved
         }
         
@@ -821,7 +822,7 @@ export const scriptsRouter = createTRPCRouter({
           }))
         };
       } catch (error) {
-        console.error('Error fetching template storages:', error);
+        logger.error('Error fetching template storages:', undefined, error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to fetch storages',
