@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { Button } from "./ui/button";
 import {
   Cpu,
@@ -453,6 +454,38 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
 
   const hasErrors = Object.values(errors).some(Boolean);
 
+  // Dropdown positioning: portal to body to escape stacking contexts
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (dropdownOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [dropdownOpen]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      )
+        return;
+      setDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownOpen]);
+
   return (
     <div className="space-y-6">
       {/* Script Selector */}
@@ -462,6 +495,7 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
         </h2>
         <div className="relative">
           <button
+            ref={triggerRef}
             onClick={() => setDropdownOpen((o) => !o)}
             className="border-input bg-background hover:border-primary/60 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors"
           >
@@ -497,67 +531,79 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
             />
           </button>
 
-          {dropdownOpen && (
-            <div className="border-border bg-card absolute z-50 mt-2 w-full rounded-lg border shadow-xl">
-              <div className="border-border/60 border-b p-2">
-                <div className="relative">
-                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search scripts..."
-                    className="border-input bg-background placeholder:text-muted-foreground focus:border-primary w-full rounded-md border py-2 pr-3 pl-9 text-sm outline-none"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <div className="max-h-64 overflow-y-auto p-1">
-                {filteredScripts.length === 0 ? (
-                  <div className="text-muted-foreground px-3 py-6 text-center text-sm">
-                    No scripts found
+          {dropdownOpen &&
+            createPortal(
+              <div
+                ref={dropdownRef}
+                className="border-border bg-card rounded-lg border shadow-xl"
+                style={{
+                  position: "fixed",
+                  top: dropdownPos.top,
+                  left: dropdownPos.left,
+                  width: dropdownPos.width,
+                  zIndex: 9999,
+                }}
+              >
+                <div className="border-border/60 border-b p-2">
+                  <div className="relative">
+                    <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search scripts..."
+                      className="border-input bg-background placeholder:text-muted-foreground focus:border-primary w-full rounded-md border py-2 pr-3 pl-9 text-sm outline-none"
+                      autoFocus
+                    />
                   </div>
-                ) : (
-                  filteredScripts.map((s) => (
-                    <button
-                      key={s.slug}
-                      onClick={() => {
-                        setSelectedSlug(s.slug);
-                        setDropdownOpen(false);
-                        setSearchQuery("");
-                        handleReset();
-                      }}
-                      className={`hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                        s.slug === selectedSlug
-                          ? "bg-primary/10 text-primary"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {s.logo ? (
-                        <Image
-                          src={s.logo}
-                          alt=""
-                          width={20}
-                          height={20}
-                          className="h-5 w-5 rounded object-contain"
-                        />
-                      ) : (
-                        <div className="bg-muted text-muted-foreground flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold">
-                          {s.name?.charAt(0)?.toUpperCase()}
-                        </div>
-                      )}
-                      <span className="flex-1 truncate text-left">
-                        {s.name}
-                      </span>
-                      <span className="bg-secondary text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-semibold">
-                        {s.type}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+                <div className="max-h-64 overflow-y-auto p-1">
+                  {filteredScripts.length === 0 ? (
+                    <div className="text-muted-foreground px-3 py-6 text-center text-sm">
+                      No scripts found
+                    </div>
+                  ) : (
+                    filteredScripts.map((s) => (
+                      <button
+                        key={s.slug}
+                        onClick={() => {
+                          setSelectedSlug(s.slug);
+                          setDropdownOpen(false);
+                          setSearchQuery("");
+                          handleReset();
+                        }}
+                        className={`hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                          s.slug === selectedSlug
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {s.logo ? (
+                          <Image
+                            src={s.logo}
+                            alt=""
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 rounded object-contain"
+                          />
+                        ) : (
+                          <div className="bg-muted text-muted-foreground flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold">
+                            {s.name?.charAt(0)?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="flex-1 truncate text-left">
+                          {s.name}
+                        </span>
+                        <span className="bg-secondary text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-semibold">
+                          {s.type}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
 
