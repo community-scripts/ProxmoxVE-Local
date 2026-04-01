@@ -17,7 +17,7 @@ import {
   GitBranch,
   Archive,
 } from "lucide-react";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -44,7 +44,7 @@ export function HelpModal({
   onClose,
   initialSection = "server-settings",
 }: HelpModalProps) {
-  useRegisterModal(isOpen, { id: "help-modal", allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: "help-modal", allowEscape: true, onClose });
   const [activeSection, setActiveSection] = useState<HelpSection>(
     initialSection as HelpSection,
   );
@@ -2072,7 +2072,8 @@ export function HelpModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4" style={{ zIndex }}>
       <div className="bg-card max-h-[95vh] w-full max-w-6xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
@@ -2131,5 +2132,6 @@ export function HelpModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

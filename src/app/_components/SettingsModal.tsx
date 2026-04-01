@@ -6,7 +6,7 @@ import { ServerForm } from "./ServerForm";
 import { ServerList } from "./ServerList";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { useTheme } from "./ThemeProvider";
 import { Sun, Moon, Type, Maximize2, Minimize2 } from "lucide-react";
 
@@ -55,7 +55,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "settings-modal",
     allowEscape: true,
     onClose,
@@ -164,7 +164,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4" style={{ zIndex }}>
       <div className="bg-card max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
@@ -385,5 +386,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

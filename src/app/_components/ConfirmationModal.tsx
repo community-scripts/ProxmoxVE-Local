@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import { AlertTriangle, Info } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -32,7 +32,7 @@ export function ConfirmationModal({
   const isDanger = variant === 'danger';
   const allowEscape = useMemo(() => !isDanger, [isDanger]);
 
-  useRegisterModal(isOpen, { id: 'confirmation-modal', allowEscape, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'confirmation-modal', allowEscape, onClose });
 
   if (!isOpen) return null;
   const isConfirmEnabled = isDanger ? typedText === confirmText : true;
@@ -50,7 +50,8 @@ export function ConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-center p-6 border-b border-border">
@@ -110,5 +111,6 @@ export function ConfirmationModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

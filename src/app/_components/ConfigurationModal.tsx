@@ -6,7 +6,7 @@ import type { Script } from "~/types/script";
 import type { Server } from "~/types/server";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 export type EnvVars = Record<string, string | number | boolean>;
 
@@ -27,7 +27,7 @@ export function ConfigurationModal({
   server,
   mode,
 }: ConfigurationModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "configuration-modal",
     allowEscape: true,
     onClose,
@@ -552,7 +552,8 @@ export function ConfigurationModal({
   const templateStorages = templateStoragesData?.storages ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
       <div className="glass-card-static max-h-[90vh] w-full max-w-4xl overflow-y-auto border shadow-2xl">
         {/* Header */}
         <div className="border-border/60 flex items-center justify-between border-b p-6">
@@ -1591,5 +1592,6 @@ export function ConfigurationModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

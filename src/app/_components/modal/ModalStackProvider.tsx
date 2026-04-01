@@ -1,11 +1,12 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type RegisteredModal = { id: string; allowEscape: boolean; onClose: () => void };
 
 interface ModalStackContextValue {
-  register: (modal: RegisteredModal) => () => void;
+  register: (modal: RegisteredModal) => { unregister: () => void; zIndex: number };
 }
 
 const ModalStackContext = createContext<ModalStackContextValue | null>(null);
@@ -31,9 +32,13 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const register = useCallback((modal: RegisteredModal) => {
+    const zIndex = 50 + stackRef.current.length * 10;
     stackRef.current.push(modal);
-    return () => {
-      stackRef.current = stackRef.current.filter((m) => m !== modal);
+    return {
+      zIndex,
+      unregister: () => {
+        stackRef.current = stackRef.current.filter((m) => m !== modal);
+      },
     };
   }, []);
 
@@ -46,12 +51,29 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-export function useRegisterModal(enabled: boolean, modal: RegisteredModal) {
+export function useRegisterModal(enabled: boolean, modal: RegisteredModal): number {
   const ctx = useContext(ModalStackContext);
+  const [zIndex, setZIndex] = useState(50);
+
   useEffect(() => {
     if (!ctx || !enabled) return;
-    return ctx.register(modal);
+    const result = ctx.register(modal);
+    setZIndex(result.zIndex);
+    return result.unregister;
   }, [ctx, enabled, modal]);
+
+  return zIndex;
+}
+
+/**
+ * Portal wrapper – renders children into document.body so modals escape
+ * any parent stacking-context created by backdrop-filter / transform / etc.
+ */
+export function ModalPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
 }
 
 

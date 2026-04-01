@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Copy, X } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface CloneCountInputModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export function CloneCountInputModal({
 }: CloneCountInputModalProps) {
   const [cloneCount, setCloneCount] = useState<number>(1);
   
-  useRegisterModal(isOpen, { id: 'clone-count-input-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'clone-count-input-modal', allowEscape: true, onClose });
 
   useEffect(() => {
     if (isOpen) {
@@ -44,7 +44,8 @@ export function CloneCountInputModal({
   };
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
@@ -124,6 +125,6 @@ export function CloneCountInputModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
-

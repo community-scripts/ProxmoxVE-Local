@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, CheckCircle, X } from "lucide-react";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 
@@ -23,7 +23,7 @@ export function LoadingModal({
   onClose,
 }: LoadingModalProps) {
   // Allow dismissing with ESC only when complete, prevent during running
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "loading-modal",
     allowEscape: isComplete,
     onClose: onClose ?? (() => null),
@@ -38,7 +38,8 @@ export function LoadingModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
       <div className="bg-card border-border relative flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg border p-8 shadow-xl">
         {/* Close button - only show when complete */}
         {isComplete && onClose && (
@@ -103,5 +104,6 @@ export function LoadingModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

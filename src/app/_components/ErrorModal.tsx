@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { Button } from './ui/button';
 import { AlertCircle, CheckCircle } from 'lucide-react';
-import { useRegisterModal } from './modal/ModalStackProvider';
+import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
 
 interface ErrorModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ export function ErrorModal({
   details,
   type = 'error'
 }: ErrorModalProps) {
-  useRegisterModal(isOpen, { id: 'error-modal', allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, { id: 'error-modal', allowEscape: true, onClose });
   // Auto-close after 10 seconds
   useEffect(() => {
     if (isOpen) {
@@ -36,7 +36,8 @@ export function ErrorModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
       <div className="bg-card rounded-lg shadow-xl max-w-lg w-full border border-border">
         {/* Header */}
         <div className="flex items-center justify-center p-6 border-b border-border">
@@ -85,5 +86,6 @@ export function ErrorModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -18,7 +18,7 @@ import {
   DevBadge,
 } from "./Badge";
 import { Button } from "./ui/button";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { ScriptNotesPanel } from "./ScriptNotesPanel";
 
 function deriveScriptPath(
@@ -66,7 +66,7 @@ export function ScriptDetailModal({
   onClose,
   onInstallScript,
 }: ScriptDetailModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "script-detail-modal",
     allowEscape: true,
     onClose,
@@ -279,8 +279,10 @@ export function ScriptDetailModal({
   };
 
   return (
+    <ModalPortal>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      style={{ zIndex }}
       onClick={handleBackdropClick}
     >
       <div className="glass-card-static mx-2 max-h-[95vh] min-h-[80vh] w-full max-w-6xl overflow-y-auto border shadow-2xl sm:mx-4 lg:mx-0">
@@ -1135,5 +1137,6 @@ export function ScriptDetailModal({
         />
       )}
     </div>
+    </ModalPortal>
   );
 }

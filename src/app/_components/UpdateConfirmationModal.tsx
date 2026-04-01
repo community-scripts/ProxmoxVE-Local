@@ -3,7 +3,7 @@
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { X, ExternalLink, Calendar, Tag, AlertTriangle } from "lucide-react";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -30,7 +30,7 @@ export function UpdateConfirmationModal({
   currentVersion,
   latestVersion,
 }: UpdateConfirmationModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "update-confirmation-modal",
     allowEscape: true,
     onClose,
@@ -39,7 +39,8 @@ export function UpdateConfirmationModal({
   if (!isOpen || !releaseInfo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
       <div className="bg-card border-border flex max-h-[90vh] w-full max-w-4xl flex-col rounded-lg border shadow-xl">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-6">
@@ -230,5 +231,6 @@ export function UpdateConfirmationModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -2,7 +2,7 @@
 
 import { Button } from "./ui/button";
 import { AlertTriangle } from "lucide-react";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface BackupWarningModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ export function BackupWarningModal({
   onClose,
   onProceed,
 }: BackupWarningModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "backup-warning-modal",
     allowEscape: true,
     onClose,
@@ -24,7 +24,8 @@ export function BackupWarningModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
       <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
         {/* Header */}
         <div className="border-border flex items-center justify-center border-b p-6">
@@ -70,5 +71,6 @@ export function BackupWarningModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

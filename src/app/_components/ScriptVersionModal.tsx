@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Script } from "../../types/script";
 import { Button } from "./ui/button";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface ScriptVersionModalProps {
   isOpen: boolean;
@@ -18,7 +18,7 @@ export function ScriptVersionModal({
   onSelectVersion,
   script,
 }: ScriptVersionModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "script-version-modal",
     allowEscape: true,
     onClose,
@@ -48,7 +48,8 @@ export function ScriptVersionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
       <div className="bg-card border-border w-full max-w-2xl rounded-lg border shadow-xl">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-6">
@@ -249,5 +250,6 @@ export function ScriptVersionModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

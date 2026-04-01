@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Toggle } from "./ui/toggle";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import { useTheme } from "./ThemeProvider";
-import { useRegisterModal } from "./modal/ModalStackProvider";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { api } from "~/trpc/react";
 import { useAuth } from "./AuthProvider";
 import { Trash2, ExternalLink } from "lucide-react";
@@ -34,7 +34,7 @@ export function GeneralSettingsModal({
   isOpen,
   onClose,
 }: GeneralSettingsModalProps) {
-  useRegisterModal(isOpen, {
+  const zIndex = useRegisterModal(isOpen, {
     id: "general-settings-modal",
     allowEscape: true,
     onClose,
@@ -685,7 +685,8 @@ export function GeneralSettingsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4" style={{ zIndex }}>
       <div className="bg-card max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
@@ -1942,5 +1943,6 @@ export function GeneralSettingsModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
