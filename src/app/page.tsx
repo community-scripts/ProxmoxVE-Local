@@ -128,13 +128,15 @@ export default function Home() {
   );
 
   // --- Cached badge counts for tabs that haven't been visited yet ---
-  const [cachedInstalledCount, setCachedInstalledCount] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const v = localStorage.getItem("badge:installed");
-      return v ? Number(v) : 0;
-    }
-    return 0;
-  });
+  const [cachedInstalledCount, setCachedInstalledCount] = useState<number>(
+    () => {
+      if (typeof window !== "undefined") {
+        const v = localStorage.getItem("badge:installed");
+        return v ? Number(v) : 0;
+      }
+      return 0;
+    },
+  );
   const [cachedBackupsCount, setCachedBackupsCount] = useState<number>(() => {
     if (typeof window !== "undefined") {
       const v = localStorage.getItem("badge:backups");
@@ -286,7 +288,9 @@ export default function Home() {
       }).length;
     })(),
     installed: installedScriptsData?.scripts?.length ?? cachedInstalledCount,
-    backups: backupsData?.success ? backupsData.backups.length : cachedBackupsCount,
+    backups: backupsData?.success
+      ? backupsData.backups.length
+      : cachedBackupsCount,
   };
 
   const scrollToTerminal = () => {

@@ -57,7 +57,22 @@ export function Footer({ onOpenReleaseNotes }: FooterProps) {
                 rel="noopener noreferrer"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                GitHub
+                GitHub (ProxmoxVE-Local)
+              </a>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-muted-foreground hover:text-foreground h-auto gap-1.5 rounded-full px-3 py-1.5 text-xs"
+            >
+              <a
+                href="https://github.com/community-scripts/ProxmoxVE"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                GitHub (ProxmoxVE)
               </a>
             </Button>
 
@@ -68,7 +83,7 @@ export function Footer({ onOpenReleaseNotes }: FooterProps) {
               className="text-muted-foreground hover:text-foreground h-auto gap-1.5 rounded-full px-3 py-1.5 text-xs"
             >
               <a
-                href="https://community-scripts.github.io/ProxmoxVE/"
+                href="https://community-scripts.org/"
                 target="_blank"
                 rel="noopener noreferrer"
               >

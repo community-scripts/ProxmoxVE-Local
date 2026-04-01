@@ -256,16 +256,17 @@ export const scriptsRouter = createTRPCRouter({
   getScriptCardsWithCategories: publicProcedure
     .query(async () => {
       try {
-        // PocketBase already returns category names expanded on each card
-        const cards = await getScriptCards();
+        // Fetch cards and metadata in parallel (both hit PocketBase)
+        const [cards, metadata] = await Promise.all([
+          getScriptCards(),
+          pbGetMetadata(),
+        ]);
+
         const scriptCards = cards.map((c) => {
           const card = pbCardToScriptCard(c);
           card.logo = getLocalLogoPath(c.slug, card.logo);
           return card;
         });
-
-        // Also return the category list for the sidebar filter
-        const metadata = await pbGetMetadata();
 
         return { success: true, cards: scriptCards, metadata };
       } catch (error) {

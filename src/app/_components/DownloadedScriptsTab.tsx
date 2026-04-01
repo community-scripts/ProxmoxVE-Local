@@ -139,7 +139,10 @@ export function DownloadedScriptsTab({
   useEffect(() => {
     if (!saveFiltersEnabled || isLoadingFilters) return;
     // Skip the first fire after load — values haven't changed yet
-    if (!filtersInitRef.current) { filtersInitRef.current = true; return; }
+    if (!filtersInitRef.current) {
+      filtersInitRef.current = true;
+      return;
+    }
 
     const saveFilters = async () => {
       try {
@@ -164,7 +167,10 @@ export function DownloadedScriptsTab({
   useEffect(() => {
     if (isLoadingFilters) return;
     // Skip the first fire after load — value hasn't changed yet
-    if (!viewModeInitRef.current) { viewModeInitRef.current = true; return; }
+    if (!viewModeInitRef.current) {
+      viewModeInitRef.current = true;
+      return;
+    }
 
     const saveViewMode = async () => {
       try {
