@@ -1,49 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { api } from "~/trpc/react";
 
 /**
- * Pulsing dot that checks server reachability via a lightweight health endpoint.
- * Green = reachable, Red = unreachable.
+ * Shows the reachability of configured Proxmox hosts.
+ * Green pulsing dot = all online, amber = some offline, red = all offline, grey = no servers.
+ * Hover for per-server breakdown.
  */
 export function ServerStatusIndicator() {
-  const [isOnline, setIsOnline] = useState(true);
+  const { data, isLoading } = api.servers.checkServersStatus.useQuery(
+    undefined,
+    { refetchInterval: 30_000, staleTime: 20_000 },
+  );
 
-  useEffect(() => {
-    let cancelled = false;
+  const servers = data?.servers ?? [];
 
-    const check = async () => {
-      try {
-        const res = await fetch("/api/trpc/version.getCurrentVersion?input=%7B%7D", {
-          method: "GET",
-          cache: "no-store",
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!cancelled) setIsOnline(res.ok);
-      } catch {
-        if (!cancelled) setIsOnline(false);
-      }
-    };
+  if (isLoading || servers.length === 0) {
+    // No servers configured — grey neutral dot
+    return (
+      <span
+        className="bg-muted-foreground/40 relative inline-block h-2.5 w-2.5 rounded-full"
+        title={isLoading ? "Checking servers…" : "No Proxmox hosts configured"}
+      />
+    );
+  }
 
-    void check();
-    const id = setInterval(() => void check(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+  const onlineCount = servers.filter((s) => s.online).length;
+  const allOnline = onlineCount === servers.length;
+  const allOffline = onlineCount === 0;
+
+  const color = allOnline
+    ? "bg-emerald-500"
+    : allOffline
+      ? "bg-red-500"
+      : "bg-amber-500";
+  const pingColor = allOnline
+    ? "bg-emerald-400"
+    : allOffline
+      ? "bg-red-400"
+      : "bg-amber-400";
+
+  const tooltip = servers
+    .map((s) => `${s.name} (${s.ip}): ${s.online ? "✓ online" : "✗ offline"}`)
+    .join("\n");
 
   return (
     <span
-      className={`relative inline-block h-2.5 w-2.5 rounded-full ${
-        isOnline ? "bg-emerald-500" : "bg-red-500"
-      }`}
-      title={isOnline ? "Server reachable" : "Server unreachable"}
+      className={`relative inline-block h-2.5 w-2.5 rounded-full ${color}`}
+      title={tooltip}
     >
       <span
-        className={`absolute inset-0 animate-ping rounded-full opacity-75 ${
-          isOnline ? "bg-emerald-400" : "bg-red-400"
-        }`}
+        className={`absolute inset-0 animate-ping rounded-full opacity-75 ${pingColor}`}
       />
     </span>
   );

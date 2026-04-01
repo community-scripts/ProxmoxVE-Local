@@ -165,7 +165,8 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
   );
 
   const scriptDetail: Script | null = useMemo(
-    () => (scriptDetailData?.success ? scriptDetailData.script ?? null : null),
+    () =>
+      scriptDetailData?.success ? (scriptDetailData.script ?? null) : null,
     [scriptDetailData],
   );
 
@@ -714,30 +715,35 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
             </div>
 
             {/* Script Defaults Info */}
-            {scriptDetail?.install_methods && scriptDetail.install_methods.length > 0 && (
-              <div className="bg-primary/5 border-primary/20 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-xs">
-                <span className="text-muted-foreground font-medium">App Defaults:</span>
-                <span className="bg-background rounded px-2 py-0.5 font-mono">
-                  {defaults.cpu} CPU
-                </span>
-                <span className="bg-background rounded px-2 py-0.5 font-mono">
-                  {fmtRam(defaults.ram)}
-                </span>
-                <span className="bg-background rounded px-2 py-0.5 font-mono">
-                  {defaults.hdd} GB
-                </span>
-                {scriptDetail.install_methods[0]?.resources?.os && (
+            {scriptDetail?.install_methods &&
+              scriptDetail.install_methods.length > 0 && (
+                <div className="bg-primary/5 border-primary/20 mt-4 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-xs">
+                  <span className="text-muted-foreground font-medium">
+                    App Defaults:
+                  </span>
                   <span className="bg-background rounded px-2 py-0.5 font-mono">
-                    {scriptDetail.install_methods[0].resources.os} {scriptDetail.install_methods[0].resources.version}
+                    {defaults.cpu} CPU
                   </span>
-                )}
-                {scriptDetail.install_methods.length > 1 && (
-                  <span className="text-primary font-medium">
-                    +{scriptDetail.install_methods.length - 1} variant{scriptDetail.install_methods.length > 2 ? "s" : ""}
+                  <span className="bg-background rounded px-2 py-0.5 font-mono">
+                    {fmtRam(defaults.ram)}
                   </span>
-                )}
-              </div>
-            )}
+                  <span className="bg-background rounded px-2 py-0.5 font-mono">
+                    {defaults.hdd} GB
+                  </span>
+                  {scriptDetail.install_methods[0]?.resources?.os && (
+                    <span className="bg-background rounded px-2 py-0.5 font-mono">
+                      {scriptDetail.install_methods[0].resources.os}{" "}
+                      {scriptDetail.install_methods[0].resources.version}
+                    </span>
+                  )}
+                  {scriptDetail.install_methods.length > 1 && (
+                    <span className="text-primary font-medium">
+                      +{scriptDetail.install_methods.length - 1} variant
+                      {scriptDetail.install_methods.length > 2 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+              )}
 
             {/* Privileged toggle */}
             <div className="mt-6 flex items-center gap-3">

@@ -339,8 +339,7 @@ export default function Home() {
                 Community-Scripts ORG
               </span>
               <span className="text-foreground text-sm font-bold">
-                PVE Scripts{" "}
-                <span className="text-primary">Management</span>
+                PVE Scripts <span className="text-primary">Management</span>
               </span>
             </div>
             <div className="hidden items-center gap-2 sm:flex">
