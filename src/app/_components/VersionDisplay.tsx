@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { api } from "~/trpc/react";
 import { Badge } from "./ui/badge";
@@ -15,52 +15,52 @@ interface VersionDisplayProps {
 }
 
 // Loading overlay component with log streaming
-function LoadingOverlay({ 
-  isNetworkError = false, 
-  logs = [] 
-}: { 
-  isNetworkError?: boolean; 
+function LoadingOverlay({
+  isNetworkError = false,
+  logs = [],
+}: {
+  isNetworkError?: boolean;
   logs?: string[];
 }) {
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
-
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-card rounded-lg p-8 shadow-2xl border border-border max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-card border-border mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg border p-8 shadow-2xl">
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse"></div>
+            <Loader2 className="text-primary h-12 w-12 animate-spin" />
+            <div className="border-primary/20 absolute inset-0 animate-pulse rounded-full border-2"></div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-card-foreground mb-2">
-              {isNetworkError ? 'Server Restarting' : 'Updating Application'}
+            <h3 className="text-card-foreground mb-2 text-lg font-semibold">
+              {isNetworkError ? "Server Restarting" : "Updating Application"}
             </h3>
-            <p className="text-sm text-muted-foreground">
-              {isNetworkError 
-                ? 'The server is restarting after the update...' 
-                : 'Please stand by while we update your application...'
-              }
+            <p className="text-muted-foreground text-sm">
+              {isNetworkError
+                ? "The server is restarting after the update..."
+                : "Please stand by while we update your application..."}
             </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              {isNetworkError 
-                ? 'This may take a few moments. The page will reload automatically.'
-                : 'The server will restart automatically when complete.'
-              }
+            <p className="text-muted-foreground mt-2 text-xs">
+              {isNetworkError
+                ? "This may take a few moments. The page will reload automatically."
+                : "The server will restart automatically when complete."}
             </p>
           </div>
-          
+
           {/* Log output */}
           {logs.length > 0 && (
-            <div className="w-full mt-4 bg-card border border-border rounded-lg p-4 font-mono text-xs text-chart-2 max-h-60 overflow-y-auto terminal-output">
+            <div className="bg-card border-border text-chart-2 terminal-output mt-4 max-h-60 w-full overflow-y-auto rounded-lg border p-4 font-mono text-xs">
               {logs.map((log, index) => (
-                <div key={index} className="mb-1 whitespace-pre-wrap break-words">
+                <div
+                  key={index}
+                  className="mb-1 break-words whitespace-pre-wrap"
+                >
                   {log}
                 </div>
               ))}
@@ -69,9 +69,15 @@ function LoadingOverlay({
           )}
 
           <div className="flex space-x-1">
-            <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="bg-primary h-2 w-2 animate-bounce rounded-full"></div>
+            <div
+              className="bg-primary h-2 w-2 animate-bounce rounded-full"
+              style={{ animationDelay: "0.1s" }}
+            ></div>
+            <div
+              className="bg-primary h-2 w-2 animate-bounce rounded-full"
+              style={{ animationDelay: "0.2s" }}
+            ></div>
           </div>
         </div>
       </div>
@@ -79,17 +85,26 @@ function LoadingOverlay({
     document.body,
   );
 }
-export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {}) {
-  const { data: versionStatus, isLoading, error } = api.version.getVersionStatus.useQuery();
+export function VersionDisplay({
+  onOpenReleaseNotes,
+}: VersionDisplayProps = {}) {
+  const {
+    data: versionStatus,
+    isLoading,
+    error,
+  } = api.version.getVersionStatus.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
-  const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [updateResult, setUpdateResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [shouldSubscribe, setShouldSubscribe] = useState(false);
   const [updateStartTime, setUpdateStartTime] = useState<number | null>(null);
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
   const lastLogTimeRef = useRef<number>(0);
-  
+
   // Initialize lastLogTimeRef in useEffect to avoid calling Date.now() during render
   useEffect(() => {
     if (lastLogTimeRef.current === 0) {
@@ -105,16 +120,16 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
   const updateStartTimeRef = useRef<number | null>(null);
   const logFileModifiedTimeRef = useRef<number | null>(null);
   const isCompleteProcessedRef = useRef<boolean>(false);
-  
+
   const executeUpdate = api.version.executeUpdate.useMutation({
     onSuccess: (result) => {
       setUpdateResult({ success: result.success, message: result.message });
-      
+
       if (result.success) {
         // Start subscribing to update logs only if we're actually updating
         if (isUpdatingRef.current) {
           setShouldSubscribe(true);
-          setUpdateLogs(['Update started...']);
+          setUpdateLogs(["Update started..."]);
         }
       } else {
         setIsUpdating(false);
@@ -133,15 +148,18 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       updateStartTimeRef.current = null;
       logFileModifiedTimeRef.current = null;
       isCompleteProcessedRef.current = false;
-    }
+    },
   });
 
   // Poll for update logs - only enabled when shouldSubscribe is true AND we're updating
-  const { data: updateLogsData } = api.version.getUpdateLogs.useQuery(undefined, {
-    enabled: shouldSubscribe && isUpdating,
-    refetchInterval: shouldSubscribe && isUpdating ? 1000 : false, // Poll every second only when updating
-    refetchIntervalInBackground: false, // Don't poll in background to prevent stale data
-  });
+  const { data: updateLogsData } = api.version.getUpdateLogs.useQuery(
+    undefined,
+    {
+      enabled: shouldSubscribe && isUpdating,
+      refetchInterval: shouldSubscribe && isUpdating ? 1000 : false, // Poll every second only when updating
+      refetchIntervalInBackground: false, // Don't poll in background to prevent stale data
+    },
+  );
 
   // Attempt to reconnect and reload page when server is back
   // Memoized with useCallback to prevent recreation on every render
@@ -150,10 +168,15 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     // CRITICAL: Stricter guard - check refs BEFORE starting reconnect attempts
     // Only start if we're actually updating and haven't already started
     // Double-check isUpdating state and session validity to prevent false triggers from stale data
-    if (reconnectIntervalRef.current || !isUpdatingRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
+    if (
+      reconnectIntervalRef.current ||
+      !isUpdatingRef.current ||
+      hasReloadedRef.current ||
+      !updateStartTimeRef.current
+    ) {
       return;
     }
-    
+
     // Validate session age before starting reconnection attempts
     const sessionAge = Date.now() - updateStartTimeRef.current;
     const MAX_SESSION_AGE = 30 * 60 * 1000; // 30 minutes
@@ -161,14 +184,19 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       // Session is stale, don't start reconnection
       return;
     }
-    
-    setUpdateLogs(prev => [...prev, 'Attempting to reconnect...']);
-    
+
+    setUpdateLogs((prev) => [...prev, "Attempting to reconnect..."]);
+
     reconnectIntervalRef.current = setInterval(() => {
       void (async () => {
         // Guard: Only proceed if we're still updating and in network error state
         // Check refs directly to avoid stale closures
-        if (!isUpdatingRef.current || !isNetworkErrorRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
+        if (
+          !isUpdatingRef.current ||
+          !isNetworkErrorRef.current ||
+          hasReloadedRef.current ||
+          !updateStartTimeRef.current
+        ) {
           // Clear interval if we're no longer updating
           if (!isUpdatingRef.current && reconnectIntervalRef.current) {
             clearInterval(reconnectIntervalRef.current);
@@ -176,7 +204,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
           }
           return;
         }
-        
+
         // Validate session is still valid
         const currentSessionAge = Date.now() - updateStartTimeRef.current;
         if (currentSessionAge > MAX_SESSION_AGE) {
@@ -187,38 +215,45 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
           }
           return;
         }
-        
+
         try {
           // Try to fetch the root path to check if server is back
-          const response = await fetch('/', { method: 'HEAD' });
+          const response = await fetch("/", { method: "HEAD" });
           if (response.ok || response.status === 200) {
             // Double-check we're still updating and session is valid before reloading
-            if (!isUpdatingRef.current || hasReloadedRef.current || !updateStartTimeRef.current) {
+            if (
+              !isUpdatingRef.current ||
+              hasReloadedRef.current ||
+              !updateStartTimeRef.current
+            ) {
               return;
             }
-            
+
             // Final session validation
             const finalSessionAge = Date.now() - updateStartTimeRef.current;
             if (finalSessionAge > MAX_SESSION_AGE) {
               return;
             }
-            
+
             // Mark that we're about to reload to prevent multiple reloads
             hasReloadedRef.current = true;
-            setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
-            
+            setUpdateLogs((prev) => [
+              ...prev,
+              "Server is back online! Reloading...",
+            ]);
+
             // Clear interval
             if (reconnectIntervalRef.current) {
               clearInterval(reconnectIntervalRef.current);
               reconnectIntervalRef.current = null;
             }
-            
+
             // Clear any existing reload timeout
             if (reloadTimeoutRef.current) {
               clearTimeout(reloadTimeoutRef.current);
               reloadTimeoutRef.current = null;
             }
-            
+
             // Set reload timeout
             reloadTimeoutRef.current = setTimeout(() => {
               reloadTimeoutRef.current = null;
@@ -239,7 +274,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     if (!isUpdating || !updateStartTimeRef.current) {
       return;
     }
-    
+
     // CRITICAL: Validate session - only process logs from current update session
     // Check that update started within last 30 minutes (reasonable window for update)
     const sessionAge = Date.now() - updateStartTimeRef.current;
@@ -256,46 +291,52 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       isCompleteProcessedRef.current = false;
       return;
     }
-    
+
     if (updateLogsData?.success && updateLogsData.logs) {
-      
-      if (updateLogsData.logFileModifiedTime !== null && logFileModifiedTimeRef.current !== null) {
-        
-        if (updateLogsData.logFileModifiedTime < logFileModifiedTimeRef.current) {
-        
+      if (
+        updateLogsData.logFileModifiedTime !== null &&
+        logFileModifiedTimeRef.current !== null
+      ) {
+        if (
+          updateLogsData.logFileModifiedTime < logFileModifiedTimeRef.current
+        ) {
           return;
         }
-      } else if (updateLogsData.logFileModifiedTime !== null && updateStartTimeRef.current) {
-       
-        const timeDiff = updateLogsData.logFileModifiedTime - updateStartTimeRef.current;
+      } else if (
+        updateLogsData.logFileModifiedTime !== null &&
+        updateStartTimeRef.current
+      ) {
+        const timeDiff =
+          updateLogsData.logFileModifiedTime - updateStartTimeRef.current;
         if (timeDiff < -5000) {
-         
         }
         logFileModifiedTimeRef.current = updateLogsData.logFileModifiedTime;
       }
-      
+
       lastLogTimeRef.current = Date.now();
       setTimeout(() => setUpdateLogs(updateLogsData.logs), 0);
-      
-      
+
       if (
-        updateLogsData.isComplete && 
-        isUpdating && 
-        updateStartTimeRef.current && 
+        updateLogsData.isComplete &&
+        isUpdating &&
+        updateStartTimeRef.current &&
         sessionAge < MAX_SESSION_AGE &&
         !isCompleteProcessedRef.current
       ) {
         // Mark as processed immediately to prevent multiple triggers
         isCompleteProcessedRef.current = true;
-        
+
         // Stop polling immediately to prevent further stale data processing
         setTimeout(() => setShouldSubscribe(false), 0);
-        
+
         setTimeout(() => {
-          setUpdateLogs(prev => [...prev, 'Update complete! Server restarting...']);
+          setUpdateLogs((prev) => [
+            ...prev,
+            "Update complete! Server restarting...",
+          ]);
           setIsNetworkError(true);
         }, 0);
-        
+
         // Start reconnection attempts when we know update is complete
         setTimeout(() => startReconnectAttempts(), 0);
       }
@@ -315,19 +356,32 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       }
 
       const timeSinceLastLog = Date.now() - lastLogTimeRef.current;
-      
+
       // Only start reconnection if we've been updating for at least 3 minutes
       // and no logs for 60 seconds (very conservative fallback)
-      const hasBeenUpdatingLongEnough = updateStartTime && (Date.now() - updateStartTime) > 180000; // 3 minutes
+      const hasBeenUpdatingLongEnough =
+        updateStartTime && Date.now() - updateStartTime > 180000; // 3 minutes
       const noLogsForAWhile = timeSinceLastLog > 60000; // 60 seconds
-      
+
       // Additional guard: check refs again before triggering and validate session
-      const sessionAge = updateStartTimeRef.current ? Date.now() - updateStartTimeRef.current : Infinity;
+      const sessionAge = updateStartTimeRef.current
+        ? Date.now() - updateStartTimeRef.current
+        : Infinity;
       const MAX_SESSION_AGE = 30 * 60 * 1000; // 30 minutes
-      if (hasBeenUpdatingLongEnough && noLogsForAWhile && isUpdatingRef.current && !isNetworkErrorRef.current && updateStartTimeRef.current && sessionAge < MAX_SESSION_AGE) {
+      if (
+        hasBeenUpdatingLongEnough &&
+        noLogsForAWhile &&
+        isUpdatingRef.current &&
+        !isNetworkErrorRef.current &&
+        updateStartTimeRef.current &&
+        sessionAge < MAX_SESSION_AGE
+      ) {
         setIsNetworkError(true);
-        setUpdateLogs(prev => [...prev, 'Server restarting... waiting for reconnection...']);
-        
+        setUpdateLogs((prev) => [
+          ...prev,
+          "Server restarting... waiting for reconnection...",
+        ]);
+
         // Start trying to reconnect
         startReconnectAttempts();
       }
@@ -380,7 +434,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       isCompleteProcessedRef.current = false;
       // Don't clear session refs here - they're cleared explicitly on unmount or new update
     }
-    
+
     return () => {
       if (reconnectIntervalRef.current) {
         clearInterval(reconnectIntervalRef.current);
@@ -422,7 +476,9 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     const array = new Uint8Array(length);
     window.crypto.getRandomValues(array);
     // Convert to base36 string (alphanumeric)
-    return Array.from(array, b => b.toString(36)).join('').substr(0, length);
+    return Array.from(array, (b) => b.toString(36))
+      .join("")
+      .substr(0, length);
   }
 
   const handleConfirmUpdate = () => {
@@ -432,14 +488,14 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     const randomSuffix = getSecureRandomString(9);
     const sessionId = `update_${Date.now()}_${randomSuffix}`;
     const startTime = Date.now();
-    
+
     setIsUpdating(true);
     setUpdateResult(null);
     setIsNetworkError(false);
     setUpdateLogs([]);
     setShouldSubscribe(false); // Will be set to true in mutation onSuccess
     setUpdateStartTime(startTime);
-    
+
     // Set refs for session tracking
     updateSessionIdRef.current = sessionId;
     updateStartTimeRef.current = startTime;
@@ -447,7 +503,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     logFileModifiedTimeRef.current = null; // Will be set when we first see log file
     isCompleteProcessedRef.current = false; // Reset completion flag
     hasReloadedRef.current = false; // Reset reload flag when starting new update
-    
+
     // Clear any existing reconnect interval and reload timeout
     if (reconnectIntervalRef.current) {
       clearInterval(reconnectIntervalRef.current);
@@ -457,7 +513,7 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
       clearTimeout(reloadTimeoutRef.current);
       reloadTimeoutRef.current = null;
     }
-    
+
     executeUpdate.mutate();
   };
 
@@ -475,22 +531,25 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
     return (
       <div className="flex items-center gap-2">
         <Badge variant="destructive">
-          v{versionStatus?.currentVersion ?? 'Unknown'}
+          v{versionStatus?.currentVersion ?? "Unknown"}
         </Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           (Unable to check for updates)
         </span>
       </div>
     );
   }
 
-  const { currentVersion, isUpToDate, updateAvailable, releaseInfo } = versionStatus;
+  const { currentVersion, isUpToDate, updateAvailable, releaseInfo } =
+    versionStatus;
 
   return (
     <>
       {/* Loading overlay */}
-      {isUpdating && <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />}
-      
+      {isUpdating && (
+        <LoadingOverlay isNetworkError={isNetworkError} logs={updateLogs} />
+      )}
+
       {/* Update Confirmation Modal */}
       {versionStatus?.releaseInfo && (
         <UpdateConfirmationModal
@@ -502,73 +561,78 @@ export function VersionDisplay({ onOpenReleaseNotes }: VersionDisplayProps = {})
           latestVersion={versionStatus.latestVersion}
         />
       )}
-      
-      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2">
-        <Badge 
-          variant={isUpToDate ? "default" : "secondary"} 
-          className={`text-xs ${onOpenReleaseNotes ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+
+      <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-2">
+        <Badge
+          variant={isUpToDate ? "default" : "secondary"}
+          className={`text-xs ${onOpenReleaseNotes ? "cursor-pointer transition-opacity hover:opacity-80" : ""}`}
           onClick={onOpenReleaseNotes}
         >
           v{currentVersion}
         </Badge>
-        
+
         {updateAvailable && releaseInfo && (
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleUpdate}
                 disabled={isUpdating}
                 size="sm"
                 variant="destructive"
-                className="text-xs h-6 px-2"
+                className="h-6 px-2 text-xs"
               >
                 {isUpdating ? (
                   <>
-                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
                     <span className="hidden sm:inline">Updating...</span>
                     <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   <>
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="mr-1 h-3 w-3" />
                     <span className="hidden sm:inline">Update Now</span>
                     <span className="sm:hidden">Update</span>
                   </>
                 )}
               </Button>
-              
-              <ContextualHelpIcon section="update-system" tooltip="Help with updates" />
+
+              <ContextualHelpIcon
+                section="update-system"
+                tooltip="Help with updates"
+              />
             </div>
-            
+
             <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">Release Notes:</span>
+              <span className="text-muted-foreground text-xs">
+                Release Notes:
+              </span>
               <a
                 href={releaseInfo.htmlUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
                 title="View latest release"
               >
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
-            
+
             {updateResult && (
-              <div className={`text-xs px-2 py-1 rounded text-center ${
-                updateResult.success 
-                  ? 'bg-chart-2/20 text-chart-2 border border-chart-2/30' 
-                  : 'bg-destructive/20 text-destructive border border-destructive/30'
-              }`}>
+              <div
+                className={`rounded px-2 py-1 text-center text-xs ${
+                  updateResult.success
+                    ? "bg-chart-2/20 text-chart-2 border-chart-2/30 border"
+                    : "bg-destructive/20 text-destructive border-destructive/30 border"
+                }`}
+              >
                 {updateResult.message}
               </div>
             )}
           </div>
         )}
-        
+
         {isUpToDate && (
-          <span className="text-xs text-chart-2">
-            ✓ Up to date
-          </span>
+          <span className="text-chart-2 text-xs">✓ Up to date</span>
         )}
       </div>
     </>

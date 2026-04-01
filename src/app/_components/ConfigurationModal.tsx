@@ -553,1045 +553,1067 @@ export function ConfigurationModal({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
-      <div className="glass-card-static max-h-[90vh] w-full max-w-4xl overflow-y-auto border shadow-2xl">
-        {/* Header */}
-        <div className="border-border/60 flex items-center justify-between border-b p-6">
-          <h2 className="text-foreground text-xl font-bold">
-            {mode === "default"
-              ? "Default Configuration"
-              : "Advanced Configuration"}
-          </h2>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+      >
+        <div className="glass-card-static max-h-[90vh] w-full max-w-4xl overflow-y-auto border shadow-2xl">
+          {/* Header */}
+          <div className="border-border/60 flex items-center justify-between border-b p-6">
+            <h2 className="text-foreground text-xl font-bold">
+              {mode === "default"
+                ? "Default Configuration"
+                : "Advanced Configuration"}
+            </h2>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </Button>
+          </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {mode === "default" ? (
-            /* Default Mode */
-            <div className="space-y-6">
-              <div>
-                <label className="text-foreground mb-2 block text-sm font-medium">
-                  Container Storage
-                </label>
-                <select
-                  value={containerStorage}
-                  onChange={(e) => setContainerStorage(e.target.value)}
-                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                >
-                  <option value="">Auto (let script choose)</option>
-                  {rootfsStorages.map((storage) => (
-                    <option key={storage.name} value={storage.name}>
-                      {storage.name} ({storage.type})
-                    </option>
-                  ))}
-                </select>
-                {rootfsStorages.length === 0 && (
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Could not fetch storages. Script will use default selection.
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-muted/50 border-border rounded-lg border p-4">
-                <h3 className="text-foreground mb-2 text-sm font-medium">
-                  Default Values
-                </h3>
-                <div className="text-muted-foreground space-y-1 text-xs">
-                  <p>Hostname: {slug}</p>
-                  <p>Bridge: vmbr0</p>
-                  <p>Network: DHCP</p>
-                  <p>IPv6: Auto</p>
-                  <p>SSH: Disabled</p>
-                  <p>Nesting: Enabled</p>
-                  <p>CPU: {resources?.cpu ?? 1}</p>
-                  <p>RAM: {resources?.ram ?? 1024} MB</p>
-                  <p>Disk: {resources?.hdd ?? 4} GB</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Advanced Mode */
-            <div className="space-y-6">
-              {/* Server Presets */}
-              {(presetsData?.presets?.length ?? 0) > 0 && (
-                <div className="bg-muted/30 border-border rounded-lg border p-4">
-                  <h3 className="text-foreground mb-3 text-sm font-medium">
-                    Load Preset
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {presetsData?.presets.map((preset) => (
-                      <div key={preset.id} className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => applyPreset(preset)}
-                          title={`CPU: ${preset.cpu ?? "?"}, RAM: ${preset.ram ?? "?"}MB, Disk: ${preset.disk ?? "?"}GB`}
-                        >
-                          {preset.name}
-                        </Button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deletePresetMutation.mutate({ id: preset.id })
-                          }
-                          className="text-muted-foreground hover:text-destructive p-0.5 text-xs"
-                          title="Delete preset"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Save as Preset */}
-              <div className="flex items-center gap-2">
-                {showSavePreset ? (
-                  <>
-                    <Input
-                      value={presetName}
-                      onChange={(e) => setPresetName(e.target.value)}
-                      placeholder="Preset name..."
-                      className="max-w-[200px]"
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && saveCurrentAsPreset()
-                      }
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={saveCurrentAsPreset}
-                      disabled={!presetName.trim()}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowSavePreset(false);
-                        setPresetName("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSavePreset(true)}
+          {/* Content */}
+          <div className="p-6">
+            {mode === "default" ? (
+              /* Default Mode */
+              <div className="space-y-6">
+                <div>
+                  <label className="text-foreground mb-2 block text-sm font-medium">
+                    Container Storage
+                  </label>
+                  <select
+                    value={containerStorage}
+                    onChange={(e) => setContainerStorage(e.target.value)}
+                    className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                   >
-                    Save Current as Preset
-                  </Button>
-                )}
-              </div>
+                    <option value="">Auto (let script choose)</option>
+                    {rootfsStorages.map((storage) => (
+                      <option key={storage.name} value={storage.name}>
+                        {storage.name} ({storage.type})
+                      </option>
+                    ))}
+                  </select>
+                  {rootfsStorages.length === 0 && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Could not fetch storages. Script will use default
+                      selection.
+                    </p>
+                  )}
+                </div>
 
-              {/* Resources */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  Resources
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      CPU Cores *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={
-                        typeof advancedVars.var_cpu === "boolean"
-                          ? ""
-                          : (advancedVars.var_cpu ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_cpu",
-                          parseInt(e.target.value) || 1,
-                        )
-                      }
-                      className={errors.var_cpu ? "border-destructive" : ""}
-                    />
-                    {errors.var_cpu && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_cpu}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      RAM (MB) *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={
-                        typeof advancedVars.var_ram === "boolean"
-                          ? ""
-                          : (advancedVars.var_ram ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_ram",
-                          parseInt(e.target.value) || 1024,
-                        )
-                      }
-                      className={errors.var_ram ? "border-destructive" : ""}
-                    />
-                    {errors.var_ram && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_ram}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Disk Size (GB) *
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={
-                        typeof advancedVars.var_disk === "boolean"
-                          ? ""
-                          : (advancedVars.var_disk ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_disk",
-                          parseInt(e.target.value) || 4,
-                        )
-                      }
-                      className={errors.var_disk ? "border-destructive" : ""}
-                    />
-                    {errors.var_disk && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_disk}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Unprivileged
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_unprivileged === "boolean"
-                          ? advancedVars.var_unprivileged
-                            ? 0
-                            : 1
-                          : (advancedVars.var_unprivileged ?? 1)
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_unprivileged",
-                          parseInt(e.target.value),
-                        )
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value={1}>Yes (Unprivileged)</option>
-                      <option value={0}>No (Privileged)</option>
-                    </select>
+                <div className="bg-muted/50 border-border rounded-lg border p-4">
+                  <h3 className="text-foreground mb-2 text-sm font-medium">
+                    Default Values
+                  </h3>
+                  <div className="text-muted-foreground space-y-1 text-xs">
+                    <p>Hostname: {slug}</p>
+                    <p>Bridge: vmbr0</p>
+                    <p>Network: DHCP</p>
+                    <p>IPv6: Auto</p>
+                    <p>SSH: Disabled</p>
+                    <p>Nesting: Enabled</p>
+                    <p>CPU: {resources?.cpu ?? 1}</p>
+                    <p>RAM: {resources?.ram ?? 1024} MB</p>
+                    <p>Disk: {resources?.hdd ?? 4} GB</p>
                   </div>
                 </div>
               </div>
-
-              {/* Network */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  Network
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Network Mode
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_net === "string" &&
-                        advancedVars.var_net.includes("/")
-                          ? "static"
-                          : typeof advancedVars.var_net === "boolean"
-                            ? "dhcp"
-                            : (advancedVars.var_net ?? "dhcp")
-                      }
-                      onChange={(e) => {
-                        if (e.target.value === "static") {
-                          updateAdvancedVar("var_net", "static");
-                        } else {
-                          updateAdvancedVar("var_net", e.target.value);
-                          // Clear IPv4 IP when switching away from static
-                          if (advancedVars.var_ip) {
-                            updateAdvancedVar("var_ip", "");
-                          }
-                        }
-                      }}
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="dhcp">DHCP</option>
-                      <option value="static">Static</option>
-                    </select>
+            ) : (
+              /* Advanced Mode */
+              <div className="space-y-6">
+                {/* Server Presets */}
+                {(presetsData?.presets?.length ?? 0) > 0 && (
+                  <div className="bg-muted/30 border-border rounded-lg border p-4">
+                    <h3 className="text-foreground mb-3 text-sm font-medium">
+                      Load Preset
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {presetsData?.presets.map((preset) => (
+                        <div
+                          key={preset.id}
+                          className="flex items-center gap-1"
+                        >
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyPreset(preset)}
+                            title={`CPU: ${preset.cpu ?? "?"}, RAM: ${preset.ram ?? "?"}MB, Disk: ${preset.disk ?? "?"}GB`}
+                          >
+                            {preset.name}
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deletePresetMutation.mutate({ id: preset.id })
+                            }
+                            className="text-muted-foreground hover:text-destructive p-0.5 text-xs"
+                            title="Delete preset"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {(advancedVars.var_net === "static" ||
-                    (typeof advancedVars.var_net === "string" &&
-                      advancedVars.var_net.includes("/"))) && (
+                )}
+
+                {/* Save as Preset */}
+                <div className="flex items-center gap-2">
+                  {showSavePreset ? (
+                    <>
+                      <Input
+                        value={presetName}
+                        onChange={(e) => setPresetName(e.target.value)}
+                        placeholder="Preset name..."
+                        className="max-w-[200px]"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && saveCurrentAsPreset()
+                        }
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={saveCurrentAsPreset}
+                        disabled={!presetName.trim()}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowSavePreset(false);
+                          setPresetName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowSavePreset(true)}
+                    >
+                      Save Current as Preset
+                    </Button>
+                  )}
+                </div>
+
+                {/* Resources */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    Resources
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-foreground mb-2 block text-sm font-medium">
-                        IPv4 Address (CIDR) *
+                        CPU Cores *
                       </label>
                       <Input
-                        type="text"
+                        type="number"
+                        min="1"
+                        value={
+                          typeof advancedVars.var_cpu === "boolean"
+                            ? ""
+                            : (advancedVars.var_cpu ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_cpu",
+                            parseInt(e.target.value) || 1,
+                          )
+                        }
+                        className={errors.var_cpu ? "border-destructive" : ""}
+                      />
+                      {errors.var_cpu && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_cpu}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        RAM (MB) *
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={
+                          typeof advancedVars.var_ram === "boolean"
+                            ? ""
+                            : (advancedVars.var_ram ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_ram",
+                            parseInt(e.target.value) || 1024,
+                          )
+                        }
+                        className={errors.var_ram ? "border-destructive" : ""}
+                      />
+                      {errors.var_ram && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_ram}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Disk Size (GB) *
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={
+                          typeof advancedVars.var_disk === "boolean"
+                            ? ""
+                            : (advancedVars.var_disk ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_disk",
+                            parseInt(e.target.value) || 4,
+                          )
+                        }
+                        className={errors.var_disk ? "border-destructive" : ""}
+                      />
+                      {errors.var_disk && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_disk}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Unprivileged
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_unprivileged === "boolean"
+                            ? advancedVars.var_unprivileged
+                              ? 0
+                              : 1
+                            : (advancedVars.var_unprivileged ?? 1)
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_unprivileged",
+                            parseInt(e.target.value),
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value={1}>Yes (Unprivileged)</option>
+                        <option value={0}>No (Privileged)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Network */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    Network
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Network Mode
+                      </label>
+                      <select
                         value={
                           typeof advancedVars.var_net === "string" &&
                           advancedVars.var_net.includes("/")
-                            ? advancedVars.var_net
-                            : ((advancedVars.var_ip as string | undefined) ??
-                              "")
+                            ? "static"
+                            : typeof advancedVars.var_net === "boolean"
+                              ? "dhcp"
+                              : (advancedVars.var_net ?? "dhcp")
                         }
                         onChange={(e) => {
-                          // Store in var_ip temporarily, will be moved to var_net on confirm
-                          updateAdvancedVar("var_ip", e.target.value);
+                          if (e.target.value === "static") {
+                            updateAdvancedVar("var_net", "static");
+                          } else {
+                            updateAdvancedVar("var_net", e.target.value);
+                            // Clear IPv4 IP when switching away from static
+                            if (advancedVars.var_ip) {
+                              updateAdvancedVar("var_ip", "");
+                            }
+                          }
                         }}
-                        placeholder="10.10.10.1/24"
-                        className={errors.var_ip ? "border-destructive" : ""}
-                      />
-                      {errors.var_ip && (
-                        <p className="text-destructive mt-1 text-xs">
-                          {errors.var_ip}
-                        </p>
-                      )}
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="dhcp">DHCP</option>
+                        <option value="static">Static</option>
+                      </select>
                     </div>
-                  )}
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Bridge
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_brg === "boolean"
-                          ? ""
-                          : String(advancedVars.var_brg ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_brg", e.target.value)
-                      }
-                      placeholder="vmbr0"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Gateway (IP)
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_gateway === "boolean"
-                          ? ""
-                          : String(advancedVars.var_gateway ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_gateway", e.target.value)
-                      }
-                      placeholder="Auto"
-                      className={errors.var_gateway ? "border-destructive" : ""}
-                    />
-                    {errors.var_gateway && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_gateway}
-                      </p>
+                    {(advancedVars.var_net === "static" ||
+                      (typeof advancedVars.var_net === "string" &&
+                        advancedVars.var_net.includes("/"))) && (
+                      <div>
+                        <label className="text-foreground mb-2 block text-sm font-medium">
+                          IPv4 Address (CIDR) *
+                        </label>
+                        <Input
+                          type="text"
+                          value={
+                            typeof advancedVars.var_net === "string" &&
+                            advancedVars.var_net.includes("/")
+                              ? advancedVars.var_net
+                              : ((advancedVars.var_ip as string | undefined) ??
+                                "")
+                          }
+                          onChange={(e) => {
+                            // Store in var_ip temporarily, will be moved to var_net on confirm
+                            updateAdvancedVar("var_ip", e.target.value);
+                          }}
+                          placeholder="10.10.10.1/24"
+                          className={errors.var_ip ? "border-destructive" : ""}
+                        />
+                        {errors.var_ip && (
+                          <p className="text-destructive mt-1 text-xs">
+                            {errors.var_ip}
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      IPv6 Method
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_ipv6_method === "boolean"
-                          ? "none"
-                          : String(advancedVars.var_ipv6_method ?? "none")
-                      }
-                      onChange={(e) => {
-                        updateAdvancedVar("var_ipv6_method", e.target.value);
-                        // Clear IPv6 static when switching away from static
-                        if (
-                          e.target.value !== "static" &&
-                          advancedVars.var_ipv6_static
-                        ) {
-                          updateAdvancedVar("var_ipv6_static", "");
-                        }
-                      }}
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="none">None</option>
-                      <option value="auto">Auto</option>
-                      <option value="dhcp">DHCP</option>
-                      <option value="static">Static</option>
-                      <option value="disable">Disable</option>
-                    </select>
-                  </div>
-                  {advancedVars.var_ipv6_method === "static" && (
                     <div>
                       <label className="text-foreground mb-2 block text-sm font-medium">
-                        IPv6 Static Address *
+                        Bridge
                       </label>
                       <Input
                         type="text"
                         value={
-                          typeof advancedVars.var_ipv6_static === "boolean"
+                          typeof advancedVars.var_brg === "boolean"
                             ? ""
-                            : String(advancedVars.var_ipv6_static ?? "")
+                            : String(advancedVars.var_brg ?? "")
                         }
                         onChange={(e) =>
-                          updateAdvancedVar("var_ipv6_static", e.target.value)
+                          updateAdvancedVar("var_brg", e.target.value)
                         }
-                        placeholder="2001:db8::1/64"
+                        placeholder="vmbr0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Gateway (IP)
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_gateway === "boolean"
+                            ? ""
+                            : String(advancedVars.var_gateway ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_gateway", e.target.value)
+                        }
+                        placeholder="Auto"
                         className={
-                          errors.var_ipv6_static ? "border-destructive" : ""
+                          errors.var_gateway ? "border-destructive" : ""
                         }
                       />
-                      {errors.var_ipv6_static && (
+                      {errors.var_gateway && (
                         <p className="text-destructive mt-1 text-xs">
-                          {errors.var_ipv6_static}
+                          {errors.var_gateway}
                         </p>
                       )}
                     </div>
-                  )}
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      VLAN Tag
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={
-                        typeof advancedVars.var_vlan === "boolean"
-                          ? ""
-                          : String(advancedVars.var_vlan ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_vlan",
-                          e.target.value ? parseInt(e.target.value) : "",
-                        )
-                      }
-                      placeholder="None"
-                      className={errors.var_vlan ? "border-destructive" : ""}
-                    />
-                    {errors.var_vlan && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_vlan}
-                      </p>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        IPv6 Method
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_ipv6_method === "boolean"
+                            ? "none"
+                            : String(advancedVars.var_ipv6_method ?? "none")
+                        }
+                        onChange={(e) => {
+                          updateAdvancedVar("var_ipv6_method", e.target.value);
+                          // Clear IPv6 static when switching away from static
+                          if (
+                            e.target.value !== "static" &&
+                            advancedVars.var_ipv6_static
+                          ) {
+                            updateAdvancedVar("var_ipv6_static", "");
+                          }
+                        }}
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="none">None</option>
+                        <option value="auto">Auto</option>
+                        <option value="dhcp">DHCP</option>
+                        <option value="static">Static</option>
+                        <option value="disable">Disable</option>
+                      </select>
+                    </div>
+                    {advancedVars.var_ipv6_method === "static" && (
+                      <div>
+                        <label className="text-foreground mb-2 block text-sm font-medium">
+                          IPv6 Static Address *
+                        </label>
+                        <Input
+                          type="text"
+                          value={
+                            typeof advancedVars.var_ipv6_static === "boolean"
+                              ? ""
+                              : String(advancedVars.var_ipv6_static ?? "")
+                          }
+                          onChange={(e) =>
+                            updateAdvancedVar("var_ipv6_static", e.target.value)
+                          }
+                          placeholder="2001:db8::1/64"
+                          className={
+                            errors.var_ipv6_static ? "border-destructive" : ""
+                          }
+                        />
+                        {errors.var_ipv6_static && (
+                          <p className="text-destructive mt-1 text-xs">
+                            {errors.var_ipv6_static}
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      MTU
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={
-                        typeof advancedVars.var_mtu === "boolean"
-                          ? ""
-                          : String(advancedVars.var_mtu ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_mtu",
-                          e.target.value ? parseInt(e.target.value) : 1500,
-                        )
-                      }
-                      placeholder="1500"
-                      className={errors.var_mtu ? "border-destructive" : ""}
-                    />
-                    {errors.var_mtu && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_mtu}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      MAC Address
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_mac === "boolean"
-                          ? ""
-                          : String(advancedVars.var_mac ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_mac", e.target.value)
-                      }
-                      placeholder="Auto"
-                      className={errors.var_mac ? "border-destructive" : ""}
-                    />
-                    {errors.var_mac && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_mac}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      DNS Nameserver (IP)
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_ns === "boolean"
-                          ? ""
-                          : String(advancedVars.var_ns ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_ns", e.target.value)
-                      }
-                      placeholder="Auto"
-                      className={errors.var_ns ? "border-destructive" : ""}
-                    />
-                    {errors.var_ns && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_ns}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Identity & Metadata */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  Identity & Metadata
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Container ID
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_ctid === "boolean"
-                          ? ""
-                          : String(advancedVars.var_ctid ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_ctid", e.target.value)
-                      }
-                      placeholder="Auto (next available)"
-                    />
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Leave empty for auto-assignment
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Hostname *
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_hostname === "boolean"
-                          ? ""
-                          : String(advancedVars.var_hostname ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_hostname", e.target.value)
-                      }
-                      placeholder={slug}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Root Password
-                    </label>
-                    <Input
-                      type="password"
-                      value={
-                        typeof advancedVars.var_pw === "boolean"
-                          ? ""
-                          : String(advancedVars.var_pw ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_pw", e.target.value)
-                      }
-                      placeholder="Random (empty = auto-login)"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Tags (comma or semicolon separated)
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_tags === "boolean"
-                          ? ""
-                          : String(advancedVars.var_tags ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_tags", e.target.value)
-                      }
-                      placeholder="e.g. tag1; tag2"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SSH Access */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  SSH Access
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Enable SSH
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_ssh === "boolean"
-                          ? advancedVars.var_ssh
-                            ? "yes"
-                            : "no"
-                          : String(advancedVars.var_ssh ?? "no")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_ssh", e.target.value)
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      SSH Authorized Key
-                    </label>
-                    {discoveredSshKeysLoading && (
-                      <p className="text-muted-foreground mb-2 text-sm">
-                        Detecting SSH keys...
-                      </p>
-                    )}
-                    {discoveredSshKeysError && !discoveredSshKeysLoading && (
-                      <p className="text-muted-foreground mb-2 text-sm">
-                        Could not detect keys on host
-                      </p>
-                    )}
-                    {discoveredSshKeys.length > 0 &&
-                      !discoveredSshKeysLoading && (
-                        <div className="mb-2">
-                          <label htmlFor="discover-ssh-key" className="sr-only">
-                            Use detected key
-                          </label>
-                          <select
-                            id="discover-ssh-key"
-                            className="border-input bg-background text-foreground focus:ring-ring mb-2 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                            value=""
-                            onChange={(e) => {
-                              const idx = e.target.value;
-                              if (idx === "") return;
-                              const key = discoveredSshKeys[Number(idx)];
-                              if (key)
-                                updateAdvancedVar(
-                                  "var_ssh_authorized_key",
-                                  key,
-                                );
-                            }}
-                          >
-                            <option value="">— Select or paste below —</option>
-                            {discoveredSshKeys.map((key, i) => (
-                              <option key={i} value={i}>
-                                {key.length > 44
-                                  ? `${key.slice(0, 44)}...`
-                                  : key}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        VLAN Tag
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={
+                          typeof advancedVars.var_vlan === "boolean"
+                            ? ""
+                            : String(advancedVars.var_vlan ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_vlan",
+                            e.target.value ? parseInt(e.target.value) : "",
+                          )
+                        }
+                        placeholder="None"
+                        className={errors.var_vlan ? "border-destructive" : ""}
+                      />
+                      {errors.var_vlan && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_vlan}
+                        </p>
                       )}
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_ssh_authorized_key === "boolean"
-                          ? ""
-                          : String(advancedVars.var_ssh_authorized_key ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_ssh_authorized_key",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Or paste a public key: ssh-rsa AAAA..."
-                    />
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        MTU
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={
+                          typeof advancedVars.var_mtu === "boolean"
+                            ? ""
+                            : String(advancedVars.var_mtu ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_mtu",
+                            e.target.value ? parseInt(e.target.value) : 1500,
+                          )
+                        }
+                        placeholder="1500"
+                        className={errors.var_mtu ? "border-destructive" : ""}
+                      />
+                      {errors.var_mtu && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_mtu}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        MAC Address
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_mac === "boolean"
+                            ? ""
+                            : String(advancedVars.var_mac ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_mac", e.target.value)
+                        }
+                        placeholder="Auto"
+                        className={errors.var_mac ? "border-destructive" : ""}
+                      />
+                      {errors.var_mac && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_mac}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        DNS Nameserver (IP)
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_ns === "boolean"
+                            ? ""
+                            : String(advancedVars.var_ns ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_ns", e.target.value)
+                        }
+                        placeholder="Auto"
+                        className={errors.var_ns ? "border-destructive" : ""}
+                      />
+                      {errors.var_ns && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_ns}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Container Features */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  Container Features
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Nesting (Docker)
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_nesting === "boolean"
-                          ? 1
-                          : (advancedVars.var_nesting ?? 1)
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_nesting",
-                          parseInt(e.target.value),
-                        )
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value={1}>Enabled</option>
-                      <option value={0}>Disabled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      FUSE
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_fuse === "boolean"
-                          ? 0
-                          : (advancedVars.var_fuse ?? 0)
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_fuse", parseInt(e.target.value))
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value={0}>Disabled</option>
-                      <option value={1}>Enabled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Keyctl
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_keyctl === "boolean"
-                          ? 0
-                          : (advancedVars.var_keyctl ?? 0)
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_keyctl",
-                          parseInt(e.target.value),
-                        )
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value={0}>Disabled</option>
-                      <option value={1}>Enabled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      TUN/TAP (VPN)
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_tun === "boolean"
-                          ? advancedVars.var_tun
-                            ? "yes"
-                            : "no"
-                          : String(advancedVars.var_tun ?? "no")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_tun", e.target.value)
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      For Tailscale, WireGuard, OpenVPN
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Mknod
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_mknod === "boolean"
-                          ? 0
-                          : (advancedVars.var_mknod ?? 0)
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_mknod", parseInt(e.target.value))
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value={0}>Disabled</option>
-                      <option value={1}>Enabled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Mount Filesystems
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_mount_fs === "boolean"
-                          ? ""
-                          : String(advancedVars.var_mount_fs ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_mount_fs", e.target.value)
-                      }
-                      placeholder="nfs,cifs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Protection
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_protection === "boolean"
-                          ? advancedVars.var_protection
-                            ? "yes"
-                            : "no"
-                          : String(advancedVars.var_protection ?? "no")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_protection", e.target.value)
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* System Configuration */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  System Configuration
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Timezone
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_timezone === "boolean"
-                          ? ""
-                          : String(advancedVars.var_timezone ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_timezone", e.target.value)
-                      }
-                      placeholder="System"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Verbose
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_verbose === "boolean"
-                          ? advancedVars.var_verbose
-                            ? "yes"
-                            : "no"
-                          : String(advancedVars.var_verbose ?? "no")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_verbose", e.target.value)
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      APT Cacher
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_apt_cacher === "boolean"
-                          ? advancedVars.var_apt_cacher
-                            ? "yes"
-                            : "no"
-                          : String(advancedVars.var_apt_cacher ?? "no")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_apt_cacher", e.target.value)
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      APT Cacher host or IP
-                    </label>
-                    <Input
-                      type="text"
-                      value={
-                        typeof advancedVars.var_apt_cacher_ip === "boolean"
-                          ? ""
-                          : String(advancedVars.var_apt_cacher_ip ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar("var_apt_cacher_ip", e.target.value)
-                      }
-                      placeholder="192.168.1.10 or apt-cacher.internal"
-                      className={
-                        errors.var_apt_cacher_ip ? "border-destructive" : ""
-                      }
-                    />
-                    {errors.var_apt_cacher_ip && (
-                      <p className="text-destructive mt-1 text-xs">
-                        {errors.var_apt_cacher_ip}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Storage Selection */}
-              <div>
-                <h3 className="text-foreground mb-4 text-lg font-medium">
-                  Storage Selection
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Container Storage
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_container_storage === "boolean"
-                          ? ""
-                          : String(advancedVars.var_container_storage ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_container_storage",
-                          e.target.value,
-                        )
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="">Auto</option>
-                      {rootfsStorages.map((storage) => (
-                        <option key={storage.name} value={storage.name}>
-                          {storage.name} ({storage.type})
-                        </option>
-                      ))}
-                    </select>
-                    {rootfsStorages.length === 0 && (
+                {/* Identity & Metadata */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    Identity & Metadata
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Container ID
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_ctid === "boolean"
+                            ? ""
+                            : String(advancedVars.var_ctid ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_ctid", e.target.value)
+                        }
+                        placeholder="Auto (next available)"
+                      />
                       <p className="text-muted-foreground mt-1 text-xs">
-                        Could not fetch storages. Leave empty for auto
-                        selection.
+                        Leave empty for auto-assignment
                       </p>
-                    )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Hostname *
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_hostname === "boolean"
+                            ? ""
+                            : String(advancedVars.var_hostname ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_hostname", e.target.value)
+                        }
+                        placeholder={slug}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Root Password
+                      </label>
+                      <Input
+                        type="password"
+                        value={
+                          typeof advancedVars.var_pw === "boolean"
+                            ? ""
+                            : String(advancedVars.var_pw ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_pw", e.target.value)
+                        }
+                        placeholder="Random (empty = auto-login)"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Tags (comma or semicolon separated)
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_tags === "boolean"
+                            ? ""
+                            : String(advancedVars.var_tags ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_tags", e.target.value)
+                        }
+                        placeholder="e.g. tag1; tag2"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-foreground mb-2 block text-sm font-medium">
-                      Template Storage
-                    </label>
-                    <select
-                      value={
-                        typeof advancedVars.var_template_storage === "boolean"
-                          ? ""
-                          : String(advancedVars.var_template_storage ?? "")
-                      }
-                      onChange={(e) =>
-                        updateAdvancedVar(
-                          "var_template_storage",
-                          e.target.value,
-                        )
-                      }
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                    >
-                      <option value="">Auto</option>
-                      {templateStorages.map((storage) => (
-                        <option key={storage.name} value={storage.name}>
-                          {storage.name} ({storage.type})
-                        </option>
-                      ))}
-                    </select>
-                    {templateStorages.length === 0 && (
+                </div>
+
+                {/* SSH Access */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    SSH Access
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Enable SSH
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_ssh === "boolean"
+                            ? advancedVars.var_ssh
+                              ? "yes"
+                              : "no"
+                            : String(advancedVars.var_ssh ?? "no")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_ssh", e.target.value)
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        SSH Authorized Key
+                      </label>
+                      {discoveredSshKeysLoading && (
+                        <p className="text-muted-foreground mb-2 text-sm">
+                          Detecting SSH keys...
+                        </p>
+                      )}
+                      {discoveredSshKeysError && !discoveredSshKeysLoading && (
+                        <p className="text-muted-foreground mb-2 text-sm">
+                          Could not detect keys on host
+                        </p>
+                      )}
+                      {discoveredSshKeys.length > 0 &&
+                        !discoveredSshKeysLoading && (
+                          <div className="mb-2">
+                            <label
+                              htmlFor="discover-ssh-key"
+                              className="sr-only"
+                            >
+                              Use detected key
+                            </label>
+                            <select
+                              id="discover-ssh-key"
+                              className="border-input bg-background text-foreground focus:ring-ring mb-2 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                              value=""
+                              onChange={(e) => {
+                                const idx = e.target.value;
+                                if (idx === "") return;
+                                const key = discoveredSshKeys[Number(idx)];
+                                if (key)
+                                  updateAdvancedVar(
+                                    "var_ssh_authorized_key",
+                                    key,
+                                  );
+                              }}
+                            >
+                              <option value="">
+                                — Select or paste below —
+                              </option>
+                              {discoveredSshKeys.map((key, i) => (
+                                <option key={i} value={i}>
+                                  {key.length > 44
+                                    ? `${key.slice(0, 44)}...`
+                                    : key}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_ssh_authorized_key ===
+                          "boolean"
+                            ? ""
+                            : String(advancedVars.var_ssh_authorized_key ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_ssh_authorized_key",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Or paste a public key: ssh-rsa AAAA..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Container Features */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    Container Features
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Nesting (Docker)
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_nesting === "boolean"
+                            ? 1
+                            : (advancedVars.var_nesting ?? 1)
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_nesting",
+                            parseInt(e.target.value),
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value={1}>Enabled</option>
+                        <option value={0}>Disabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        FUSE
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_fuse === "boolean"
+                            ? 0
+                            : (advancedVars.var_fuse ?? 0)
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_fuse",
+                            parseInt(e.target.value),
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value={0}>Disabled</option>
+                        <option value={1}>Enabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Keyctl
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_keyctl === "boolean"
+                            ? 0
+                            : (advancedVars.var_keyctl ?? 0)
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_keyctl",
+                            parseInt(e.target.value),
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value={0}>Disabled</option>
+                        <option value={1}>Enabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        TUN/TAP (VPN)
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_tun === "boolean"
+                            ? advancedVars.var_tun
+                              ? "yes"
+                              : "no"
+                            : String(advancedVars.var_tun ?? "no")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_tun", e.target.value)
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
                       <p className="text-muted-foreground mt-1 text-xs">
-                        Could not fetch storages. Leave empty for auto
-                        selection.
+                        For Tailscale, WireGuard, OpenVPN
                       </p>
-                    )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Mknod
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_mknod === "boolean"
+                            ? 0
+                            : (advancedVars.var_mknod ?? 0)
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_mknod",
+                            parseInt(e.target.value),
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value={0}>Disabled</option>
+                        <option value={1}>Enabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Mount Filesystems
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_mount_fs === "boolean"
+                            ? ""
+                            : String(advancedVars.var_mount_fs ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_mount_fs", e.target.value)
+                        }
+                        placeholder="nfs,cifs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Protection
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_protection === "boolean"
+                            ? advancedVars.var_protection
+                              ? "yes"
+                              : "no"
+                            : String(advancedVars.var_protection ?? "no")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_protection", e.target.value)
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Configuration */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    System Configuration
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Timezone
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_timezone === "boolean"
+                            ? ""
+                            : String(advancedVars.var_timezone ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_timezone", e.target.value)
+                        }
+                        placeholder="System"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Verbose
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_verbose === "boolean"
+                            ? advancedVars.var_verbose
+                              ? "yes"
+                              : "no"
+                            : String(advancedVars.var_verbose ?? "no")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_verbose", e.target.value)
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        APT Cacher
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_apt_cacher === "boolean"
+                            ? advancedVars.var_apt_cacher
+                              ? "yes"
+                              : "no"
+                            : String(advancedVars.var_apt_cacher ?? "no")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_apt_cacher", e.target.value)
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        APT Cacher host or IP
+                      </label>
+                      <Input
+                        type="text"
+                        value={
+                          typeof advancedVars.var_apt_cacher_ip === "boolean"
+                            ? ""
+                            : String(advancedVars.var_apt_cacher_ip ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar("var_apt_cacher_ip", e.target.value)
+                        }
+                        placeholder="192.168.1.10 or apt-cacher.internal"
+                        className={
+                          errors.var_apt_cacher_ip ? "border-destructive" : ""
+                        }
+                      />
+                      {errors.var_apt_cacher_ip && (
+                        <p className="text-destructive mt-1 text-xs">
+                          {errors.var_apt_cacher_ip}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Storage Selection */}
+                <div>
+                  <h3 className="text-foreground mb-4 text-lg font-medium">
+                    Storage Selection
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Container Storage
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_container_storage ===
+                          "boolean"
+                            ? ""
+                            : String(advancedVars.var_container_storage ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_container_storage",
+                            e.target.value,
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="">Auto</option>
+                        {rootfsStorages.map((storage) => (
+                          <option key={storage.name} value={storage.name}>
+                            {storage.name} ({storage.type})
+                          </option>
+                        ))}
+                      </select>
+                      {rootfsStorages.length === 0 && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Could not fetch storages. Leave empty for auto
+                          selection.
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        Template Storage
+                      </label>
+                      <select
+                        value={
+                          typeof advancedVars.var_template_storage === "boolean"
+                            ? ""
+                            : String(advancedVars.var_template_storage ?? "")
+                        }
+                        onChange={(e) =>
+                          updateAdvancedVar(
+                            "var_template_storage",
+                            e.target.value,
+                          )
+                        }
+                        className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="">Auto</option>
+                        {templateStorages.map((storage) => (
+                          <option key={storage.name} value={storage.name}>
+                            {storage.name} ({storage.type})
+                          </option>
+                        ))}
+                      </select>
+                      {templateStorages.length === 0 && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Could not fetch storages. Leave empty for auto
+                          selection.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="border-border mt-6 flex justify-end space-x-3 border-t pt-6">
+              <Button onClick={onClose} variant="outline" size="default">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirm} variant="default" size="default">
+                Confirm
+              </Button>
             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="border-border mt-6 flex justify-end space-x-3 border-t pt-6">
-            <Button onClick={onClose} variant="outline" size="default">
-              Cancel
-            </Button>
-            <Button onClick={handleConfirm} variant="default" size="default">
-              Confirm
-            </Button>
           </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

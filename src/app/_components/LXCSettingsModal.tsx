@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect, startTransition } from 'react';
-import { api } from '~/trpc/react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
-import { ContextualHelpIcon } from './ContextualHelpIcon';
-import { LoadingModal } from './LoadingModal';
-import { ConfirmationModal } from './ConfirmationModal';
-import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
+import { useState, useEffect, startTransition } from "react";
+import { api } from "~/trpc/react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
+import { ContextualHelpIcon } from "./ContextualHelpIcon";
+import { LoadingModal } from "./LoadingModal";
+import { ConfirmationModal } from "./ConfirmationModal";
+import { RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface InstalledScript {
   id: number;
@@ -26,10 +26,10 @@ interface InstalledScript {
   server_ssh_port: number | null;
   server_color: string | null;
   installation_date: string;
-  status: 'in_progress' | 'success' | 'failed';
+  status: "in_progress" | "success" | "failed";
   output_log: string | null;
-  execution_mode: 'local' | 'ssh';
-  container_status?: 'running' | 'stopped' | 'unknown';
+  execution_mode: "local" | "ssh";
+  container_status?: "running" | "stopped" | "unknown";
   web_ui_ip: string | null;
   web_ui_port: number | null;
 }
@@ -41,12 +41,23 @@ interface LXCSettingsModalProps {
   onSave: () => void;
 }
 
-export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: LXCSettingsModalProps) {
-  const zIndex = useRegisterModal(isOpen, { id: 'lxc-settings-modal', allowEscape: true, onClose });
-  const [activeTab, setActiveTab] = useState<string>('common');
+export function LXCSettingsModal({
+  isOpen,
+  script,
+  onClose,
+  onSave: _onSave,
+}: LXCSettingsModalProps) {
+  const zIndex = useRegisterModal(isOpen, {
+    id: "lxc-settings-modal",
+    allowEscape: true,
+    onClose,
+  });
+  const [activeTab, setActiveTab] = useState<string>("common");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [resultType, setResultType] = useState<'success' | 'error' | null>(null);
+  const [resultType, setResultType] = useState<"success" | "error" | null>(
+    null,
+  );
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -54,63 +65,69 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
   const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState<any>({
-    arch: '',
+    arch: "",
     cores: 0,
     memory: 0,
-    hostname: '',
+    hostname: "",
     swap: 0,
     onboot: false,
-    ostype: '',
+    ostype: "",
     unprivileged: false,
-    net_name: '',
-    net_bridge: '',
-    net_hwaddr: '',
-    net_ip_type: 'dhcp',
-    net_ip: '',
-    net_gateway: '',
-    net_type: '',
+    net_name: "",
+    net_bridge: "",
+    net_hwaddr: "",
+    net_ip_type: "dhcp",
+    net_ip: "",
+    net_gateway: "",
+    net_type: "",
     net_vlan: 0,
-    rootfs_storage: '',
-    rootfs_size: '',
+    rootfs_storage: "",
+    rootfs_size: "",
     feature_keyctl: false,
     feature_nesting: false,
     feature_fuse: false,
-    feature_mount: '',
-    tags: '',
-    advanced_config: ''
+    feature_mount: "",
+    tags: "",
+    advanced_config: "",
   });
 
   // tRPC hooks
-  const { data: configData, isLoading, refetch } = api.installedScripts.getLXCConfig.useQuery(
+  const {
+    data: configData,
+    isLoading,
+    refetch,
+  } = api.installedScripts.getLXCConfig.useQuery(
     { scriptId: script?.id ?? 0, forceSync },
-    { enabled: !!script && isOpen }
+    { enabled: !!script && isOpen },
   );
 
   const saveMutation = api.installedScripts.saveLXCConfig.useMutation({
     onSuccess: (data) => {
-      console.log('Save mutation success data:', data);
+      console.log("Save mutation success data:", data);
       setIsSaving(false);
       setShowConfirmation(false);
-      
+
       if (data.success) {
-        setResultType('success');
-        setResultMessage(data.message ?? 'LXC configuration saved successfully');
+        setResultType("success");
+        setResultMessage(
+          data.message ?? "LXC configuration saved successfully",
+        );
         setHasChanges(false);
       } else {
-        console.log('Backend returned error:', data.error);
-        setResultType('error');
-        setResultMessage(data.error ?? 'Failed to save configuration');
+        console.log("Backend returned error:", data.error);
+        setResultType("error");
+        setResultMessage(data.error ?? "Failed to save configuration");
       }
       setShowResultModal(true);
     },
     onError: (err) => {
-      console.log('Save mutation error:', err);
+      console.log("Save mutation error:", err);
       setIsSaving(false);
       setShowConfirmation(false);
-      setResultType('error');
+      setResultType("error");
       setResultMessage(`Failed to save configuration: ${err.message}`);
       setShowResultModal(true);
-    }
+    },
   });
 
   const syncMutation = api.installedScripts.syncLXCConfig.useMutation({
@@ -120,7 +137,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
     },
     onError: (err) => {
       setError(`Failed to sync configuration: ${err.message}`);
-    }
+    },
   });
 
   // Populate form data helper
@@ -128,30 +145,30 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
     if (!result?.success) return;
     const config = result.config;
     setFormData({
-      arch: config.arch ?? '',
+      arch: config.arch ?? "",
       cores: config.cores ?? 0,
       memory: config.memory ?? 0,
-      hostname: config.hostname ?? '',
+      hostname: config.hostname ?? "",
       swap: config.swap ?? 0,
       onboot: config.onboot === 1,
-      ostype: config.ostype ?? '',
+      ostype: config.ostype ?? "",
       unprivileged: config.unprivileged === 1,
-      net_name: config.net_name ?? '',
-      net_bridge: config.net_bridge ?? '',
-      net_hwaddr: config.net_hwaddr ?? '',
-      net_ip_type: config.net_ip_type ?? 'dhcp',
-      net_ip: config.net_ip ?? '',
-      net_gateway: config.net_gateway ?? '',
-      net_type: config.net_type ?? '',
+      net_name: config.net_name ?? "",
+      net_bridge: config.net_bridge ?? "",
+      net_hwaddr: config.net_hwaddr ?? "",
+      net_ip_type: config.net_ip_type ?? "dhcp",
+      net_ip: config.net_ip ?? "",
+      net_gateway: config.net_gateway ?? "",
+      net_type: config.net_type ?? "",
       net_vlan: config.net_vlan ?? 0,
-      rootfs_storage: config.rootfs_storage ?? '',
-      rootfs_size: config.rootfs_size ?? '',
+      rootfs_storage: config.rootfs_storage ?? "",
+      rootfs_size: config.rootfs_size ?? "",
       feature_keyctl: config.feature_keyctl === 1,
       feature_nesting: config.feature_nesting === 1,
       feature_fuse: config.feature_fuse === 1,
-      feature_mount: config.feature_mount ?? '',
-      tags: config.tags ?? '',
-      advanced_config: config.advanced_config ?? ''
+      feature_mount: config.feature_mount ?? "",
+      tags: config.tags ?? "",
+      advanced_config: config.advanced_config ?? "",
     });
   };
 
@@ -164,7 +181,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
       });
     } else if (configData && !configData.success) {
       startTransition(() => {
-        setError(String(configData.error ?? 'Failed to load configuration'));
+        setError(String(configData.error ?? "Failed to load configuration"));
       });
     }
   }, [configData]);
@@ -184,47 +201,49 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
   const validateForm = () => {
     // Check required fields
     if (!formData.arch?.trim()) {
-      setError('Architecture is required');
+      setError("Architecture is required");
       return false;
     }
     if (!formData.cores || formData.cores < 1) {
-      setError('Cores must be at least 1');
+      setError("Cores must be at least 1");
       return false;
     }
     if (!formData.memory || formData.memory < 128) {
-      setError('Memory must be at least 128 MB');
+      setError("Memory must be at least 128 MB");
       return false;
     }
     if (!formData.hostname?.trim()) {
-      setError('Hostname is required');
+      setError("Hostname is required");
       return false;
     }
     if (!formData.ostype?.trim()) {
-      setError('OS Type is required');
+      setError("OS Type is required");
       return false;
     }
     if (!formData.rootfs_storage?.trim()) {
-      setError('Root filesystem storage is required');
+      setError("Root filesystem storage is required");
       return false;
     }
-    
+
     // Check if trying to decrease disk size
-    const currentSize = configData?.config?.rootfs_size ?? '0G';
-    const newSize = formData.rootfs_size ?? '0G';
+    const currentSize = configData?.config?.rootfs_size ?? "0G";
+    const newSize = formData.rootfs_size ?? "0G";
     const currentSizeGB = parseFloat(String(currentSize));
     const newSizeGB = parseFloat(String(newSize));
-    
+
     if (newSizeGB < currentSizeGB) {
-      setError('Disk size cannot be decreased. Only increases are allowed for safety.');
+      setError(
+        "Disk size cannot be decreased. Only increases are allowed for safety.",
+      );
       return false;
     }
-    
+
     return true;
   };
 
   const handleSave = () => {
     setError(null);
-    
+
     // Validate form - only show confirmation modal if no errors
     if (validateForm()) {
       setShowConfirmation(true);
@@ -236,7 +255,7 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
     setError(null);
     setIsSaving(true);
     setShowConfirmation(false);
-    
+
     saveMutation.mutate({
       scriptId: script.id,
       config: {
@@ -245,8 +264,8 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
         unprivileged: formData.unprivileged ? 1 : 0,
         feature_keyctl: formData.feature_keyctl ? 1 : 0,
         feature_nesting: formData.feature_nesting ? 1 : 0,
-        feature_fuse: formData.feature_fuse ? 1 : 0
-      }
+        feature_fuse: formData.feature_fuse ? 1 : 0,
+      },
     });
   };
 
@@ -263,411 +282,626 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
   return (
     <>
       <ModalPortal>
-      <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
-        <div className="bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold text-foreground">LXC Settings</h2>
-              <Badge variant="outline">{script.container_id}</Badge>
-              <ContextualHelpIcon section="lxc-settings" tooltip="Help with LXC Settings" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleSyncFromServer}
-                disabled={syncMutation.isPending ?? isLoading ?? saveMutation.isPending}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                Sync from Server
-              </Button>
-              <Button
-                onClick={onClose}
-                variant="ghost"
-                size="sm"
-              >
-                ✕
-              </Button>
-            </div>
-          </div>
-
-          {/* Warning Banner */}
-          {configData?.has_changes && (
-            <div className="bg-warning/10 border-b border-warning/20 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-warning-foreground">
-                    Configuration Mismatch Detected
-                  </p>
-                  <p className="text-sm text-warning/80 mt-1">
-                    The cached configuration differs from the server. Click &quot;Sync from Server&quot; to get the latest version.
-                  </p>
-                </div>
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          style={{ zIndex }}
+        >
+          <div className="bg-card flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg shadow-xl">
+            {/* Header */}
+            <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-foreground text-2xl font-bold">
+                  LXC Settings
+                </h2>
+                <Badge variant="outline">{script.container_id}</Badge>
+                <ContextualHelpIcon
+                  section="lxc-settings"
+                  tooltip="Help with LXC Settings"
+                />
               </div>
-            </div>
-          )}
-
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-error/10 border-b border-error/20 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-error flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-error-foreground">Error</p>
-                  <p className="text-sm text-error/80 mt-1">{error}</p>
-                </div>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-error hover:text-error/80"
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleSyncFromServer}
+                  disabled={
+                    syncMutation.isPending ??
+                    isLoading ??
+                    saveMutation.isPending
+                  }
+                  variant="outline"
+                  size="sm"
                 >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`}
+                  />
+                  Sync from Server
+                </Button>
+                <Button onClick={onClose} variant="ghost" size="sm">
                   ✕
-                </button>
+                </Button>
               </div>
             </div>
-          )}
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            {/* Tab Navigation */}
-            <div className="border-b border-border mb-6">
-              <nav className="flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('common')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'common'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                  }`}
-                >
-                  Common Settings
-                </button>
-                <button
-                  onClick={() => setActiveTab('advanced')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'advanced'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                  }`}
-                >
-                  Advanced Settings
-                </button>
-              </nav>
-            </div>
-
-            {/* Common Settings Tab */}
-            {activeTab === 'common' && (
-              <div className="space-y-6">
-                {/* Basic Configuration */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Basic Configuration</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="arch" className="block text-sm font-medium text-foreground">Architecture *</label>
-                      <Input
-                        id="arch"
-                        value={formData.arch}
-                        onChange={(e) => handleInputChange('arch', e.target.value)}
-                        placeholder="amd64"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="cores" className="block text-sm font-medium text-foreground">Cores *</label>
-                      <Input
-                        id="cores"
-                        type="number"
-                        value={formData.cores}
-                        onChange={(e) => handleInputChange('cores', parseInt(e.target.value) || 0)}
-                        min="1"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="memory" className="block text-sm font-medium text-foreground">Memory (MB) *</label>
-                      <Input
-                        id="memory"
-                        type="number"
-                        value={formData.memory}
-                        onChange={(e) => handleInputChange('memory', parseInt(e.target.value) || 0)}
-                        min="128"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="swap" className="block text-sm font-medium text-foreground">Swap (MB)</label>
-                      <Input
-                        id="swap"
-                        type="number"
-                        value={formData.swap}
-                        onChange={(e) => handleInputChange('swap', parseInt(e.target.value) || 0)}
-                        min="0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="hostname" className="block text-sm font-medium text-foreground">Hostname *</label>
-                      <Input
-                        id="hostname"
-                        value={formData.hostname}
-                        onChange={(e) => handleInputChange('hostname', e.target.value)}
-                        placeholder="container-hostname"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="ostype" className="block text-sm font-medium text-foreground">OS Type *</label>
-                      <Input
-                        id="ostype"
-                        value={formData.ostype}
-                        onChange={(e) => handleInputChange('ostype', e.target.value)}
-                        placeholder="debian"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="onboot"
-                        checked={formData.onboot}
-                        onChange={(e) => handleInputChange('onboot', e.target.checked)}
-                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      />
-                      <label htmlFor="onboot" className="text-sm font-medium text-foreground">Start on Boot</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="unprivileged"
-                        checked={formData.unprivileged}
-                        onChange={(e) => handleInputChange('unprivileged', e.target.checked)}
-                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      />
-                      <label htmlFor="unprivileged" className="text-sm font-medium text-foreground">Unprivileged Container</label>
-                    </div>
+            {/* Warning Banner */}
+            {configData?.has_changes && (
+              <div className="bg-warning/10 border-warning/20 border-b p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-warning mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-warning-foreground text-sm font-medium">
+                      Configuration Mismatch Detected
+                    </p>
+                    <p className="text-warning/80 mt-1 text-sm">
+                      The cached configuration differs from the server. Click
+                      &quot;Sync from Server&quot; to get the latest version.
+                    </p>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Network Configuration */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Network Configuration</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="net_name" className="block text-sm font-medium text-foreground">Interface Name</label>
-                      <Input
-                        id="net_name"
-                        value={formData.net_name}
-                        onChange={(e) => handleInputChange('net_name', e.target.value)}
-                        placeholder="eth0"
-                      />
+            {/* Error Message */}
+            {error && (
+              <div className="bg-error/10 border-error/20 border-b p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-error mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-error-foreground text-sm font-medium">
+                      Error
+                    </p>
+                    <p className="text-error/80 mt-1 text-sm">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-error hover:text-error/80"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {/* Tab Navigation */}
+              <div className="border-border mb-6 border-b">
+                <nav className="flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab("common")}
+                    className={`border-b-2 px-1 py-2 text-sm font-medium ${
+                      activeTab === "common"
+                        ? "border-primary text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                    }`}
+                  >
+                    Common Settings
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("advanced")}
+                    className={`border-b-2 px-1 py-2 text-sm font-medium ${
+                      activeTab === "advanced"
+                        ? "border-primary text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                    }`}
+                  >
+                    Advanced Settings
+                  </button>
+                </nav>
+              </div>
+
+              {/* Common Settings Tab */}
+              {activeTab === "common" && (
+                <div className="space-y-6">
+                  {/* Basic Configuration */}
+                  <div className="space-y-4">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      Basic Configuration
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="arch"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Architecture *
+                        </label>
+                        <Input
+                          id="arch"
+                          value={formData.arch}
+                          onChange={(e) =>
+                            handleInputChange("arch", e.target.value)
+                          }
+                          placeholder="amd64"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="cores"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Cores *
+                        </label>
+                        <Input
+                          id="cores"
+                          type="number"
+                          value={formData.cores}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "cores",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          min="1"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="memory"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Memory (MB) *
+                        </label>
+                        <Input
+                          id="memory"
+                          type="number"
+                          value={formData.memory}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "memory",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          min="128"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="swap"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Swap (MB)
+                        </label>
+                        <Input
+                          id="swap"
+                          type="number"
+                          value={formData.swap}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "swap",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="hostname"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Hostname *
+                        </label>
+                        <Input
+                          id="hostname"
+                          value={formData.hostname}
+                          onChange={(e) =>
+                            handleInputChange("hostname", e.target.value)
+                          }
+                          placeholder="container-hostname"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="ostype"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          OS Type *
+                        </label>
+                        <Input
+                          id="ostype"
+                          value={formData.ostype}
+                          onChange={(e) =>
+                            handleInputChange("ostype", e.target.value)
+                          }
+                          placeholder="debian"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="onboot"
+                          checked={formData.onboot}
+                          onChange={(e) =>
+                            handleInputChange("onboot", e.target.checked)
+                          }
+                          className="text-primary focus:ring-primary border-border h-4 w-4 rounded"
+                        />
+                        <label
+                          htmlFor="onboot"
+                          className="text-foreground text-sm font-medium"
+                        >
+                          Start on Boot
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="unprivileged"
+                          checked={formData.unprivileged}
+                          onChange={(e) =>
+                            handleInputChange("unprivileged", e.target.checked)
+                          }
+                          className="text-primary focus:ring-primary border-border h-4 w-4 rounded"
+                        />
+                        <label
+                          htmlFor="unprivileged"
+                          className="text-foreground text-sm font-medium"
+                        >
+                          Unprivileged Container
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Network Configuration */}
+                  <div className="space-y-4">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      Network Configuration
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_name"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Interface Name
+                        </label>
+                        <Input
+                          id="net_name"
+                          value={formData.net_name}
+                          onChange={(e) =>
+                            handleInputChange("net_name", e.target.value)
+                          }
+                          placeholder="eth0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_bridge"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Bridge
+                        </label>
+                        <Input
+                          id="net_bridge"
+                          value={formData.net_bridge}
+                          onChange={(e) =>
+                            handleInputChange("net_bridge", e.target.value)
+                          }
+                          placeholder="vmbr0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_hwaddr"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          MAC Address
+                        </label>
+                        <Input
+                          id="net_hwaddr"
+                          value={formData.net_hwaddr}
+                          onChange={(e) =>
+                            handleInputChange("net_hwaddr", e.target.value)
+                          }
+                          placeholder="BC:24:11:2D:2D:AB"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_type"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Type
+                        </label>
+                        <Input
+                          id="net_type"
+                          value={formData.net_type}
+                          onChange={(e) =>
+                            handleInputChange("net_type", e.target.value)
+                          }
+                          placeholder="veth"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_ip_type"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          IP Configuration
+                        </label>
+                        <select
+                          id="net_ip_type"
+                          value={formData.net_ip_type}
+                          onChange={(e) =>
+                            handleInputChange("net_ip_type", e.target.value)
+                          }
+                          className="border-input bg-background w-full rounded-md border px-3 py-2"
+                        >
+                          <option value="dhcp">DHCP</option>
+                          <option value="static">Static IP</option>
+                        </select>
+                      </div>
+                      {formData.net_ip_type === "static" && (
+                        <>
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="net_ip"
+                              className="text-foreground block text-sm font-medium"
+                            >
+                              IP Address with CIDR *
+                            </label>
+                            <Input
+                              id="net_ip"
+                              value={formData.net_ip}
+                              onChange={(e) =>
+                                handleInputChange("net_ip", e.target.value)
+                              }
+                              placeholder="10.10.10.164/24"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label
+                              htmlFor="net_gateway"
+                              className="text-foreground block text-sm font-medium"
+                            >
+                              Gateway
+                            </label>
+                            <Input
+                              id="net_gateway"
+                              value={formData.net_gateway}
+                              onChange={(e) =>
+                                handleInputChange("net_gateway", e.target.value)
+                              }
+                              placeholder="10.10.10.254"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="net_vlan"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          VLAN Tag
+                        </label>
+                        <Input
+                          id="net_vlan"
+                          type="number"
+                          value={formData.net_vlan}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "net_vlan",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Storage */}
+                  <div className="space-y-4">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      Storage
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="rootfs_storage"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Root Filesystem *
+                        </label>
+                        <Input
+                          id="rootfs_storage"
+                          value={formData.rootfs_storage}
+                          onChange={(e) =>
+                            handleInputChange("rootfs_storage", e.target.value)
+                          }
+                          placeholder="PROX2-STORAGE2:vm-109-disk-0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="rootfs_size"
+                          className="text-foreground block text-sm font-medium"
+                        >
+                          Size
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            (can only be increased)
+                          </span>
+                        </label>
+                        <Input
+                          id="rootfs_size"
+                          value={formData.rootfs_size}
+                          onChange={(e) =>
+                            handleInputChange("rootfs_size", e.target.value)
+                          }
+                          placeholder="4G"
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          Disk size can only be increased for safety. Format:
+                          4G, 8G, 16G, etc.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-4">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      Features
+                    </h3>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="feature_keyctl"
+                          checked={formData.feature_keyctl}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "feature_keyctl",
+                              e.target.checked,
+                            )
+                          }
+                          className="text-primary focus:ring-primary border-border h-4 w-4 rounded"
+                        />
+                        <label
+                          htmlFor="feature_keyctl"
+                          className="text-foreground text-sm font-medium"
+                        >
+                          Keyctl
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="feature_nesting"
+                          checked={formData.feature_nesting}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "feature_nesting",
+                              e.target.checked,
+                            )
+                          }
+                          className="text-primary focus:ring-primary border-border h-4 w-4 rounded"
+                        />
+                        <label
+                          htmlFor="feature_nesting"
+                          className="text-foreground text-sm font-medium"
+                        >
+                          Nesting
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="feature_fuse"
+                          checked={formData.feature_fuse}
+                          onChange={(e) =>
+                            handleInputChange("feature_fuse", e.target.checked)
+                          }
+                          className="text-primary focus:ring-primary border-border h-4 w-4 rounded"
+                        />
+                        <label
+                          htmlFor="feature_fuse"
+                          className="text-foreground text-sm font-medium"
+                        >
+                          FUSE
+                        </label>
+                      </div>
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="net_bridge" className="block text-sm font-medium text-foreground">Bridge</label>
-                      <Input
-                        id="net_bridge"
-                        value={formData.net_bridge}
-                        onChange={(e) => handleInputChange('net_bridge', e.target.value)}
-                        placeholder="vmbr0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="net_hwaddr" className="block text-sm font-medium text-foreground">MAC Address</label>
-                      <Input
-                        id="net_hwaddr"
-                        value={formData.net_hwaddr}
-                        onChange={(e) => handleInputChange('net_hwaddr', e.target.value)}
-                        placeholder="BC:24:11:2D:2D:AB"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="net_type" className="block text-sm font-medium text-foreground">Type</label>
-                      <Input
-                        id="net_type"
-                        value={formData.net_type}
-                        onChange={(e) => handleInputChange('net_type', e.target.value)}
-                        placeholder="veth"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="net_ip_type" className="block text-sm font-medium text-foreground">IP Configuration</label>
-                      <select
-                        id="net_ip_type"
-                        value={formData.net_ip_type}
-                        onChange={(e) => handleInputChange('net_ip_type', e.target.value)}
-                        className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                      <label
+                        htmlFor="feature_mount"
+                        className="text-foreground block text-sm font-medium"
                       >
-                        <option value="dhcp">DHCP</option>
-                        <option value="static">Static IP</option>
-                      </select>
-                    </div>
-                    {formData.net_ip_type === 'static' && (
-                      <>
-                        <div className="space-y-2">
-                          <label htmlFor="net_ip" className="block text-sm font-medium text-foreground">IP Address with CIDR *</label>
-                          <Input
-                            id="net_ip"
-                            value={formData.net_ip}
-                            onChange={(e) => handleInputChange('net_ip', e.target.value)}
-                            placeholder="10.10.10.164/24"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="net_gateway" className="block text-sm font-medium text-foreground">Gateway</label>
-                          <Input
-                            id="net_gateway"
-                            value={formData.net_gateway}
-                            onChange={(e) => handleInputChange('net_gateway', e.target.value)}
-                            placeholder="10.10.10.254"
-                          />
-                        </div>
-                      </>
-                    )}
-                    <div className="space-y-2">
-                      <label htmlFor="net_vlan" className="block text-sm font-medium text-foreground">VLAN Tag</label>
-                      <Input
-                        id="net_vlan"
-                        type="number"
-                        value={formData.net_vlan}
-                        onChange={(e) => handleInputChange('net_vlan', parseInt(e.target.value) || 0)}
-                        placeholder="Optional"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Storage */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Storage</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="rootfs_storage" className="block text-sm font-medium text-foreground">Root Filesystem *</label>
-                      <Input
-                        id="rootfs_storage"
-                        value={formData.rootfs_storage}
-                        onChange={(e) => handleInputChange('rootfs_storage', e.target.value)}
-                        placeholder="PROX2-STORAGE2:vm-109-disk-0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="rootfs_size" className="block text-sm font-medium text-foreground">
-                        Size
-                        <span className="text-xs text-muted-foreground ml-2">(can only be increased)</span>
+                        Additional Mount Features
                       </label>
                       <Input
-                        id="rootfs_size"
-                        value={formData.rootfs_size}
-                        onChange={(e) => handleInputChange('rootfs_size', e.target.value)}
-                        placeholder="4G"
+                        id="feature_mount"
+                        value={formData.feature_mount}
+                        onChange={(e) =>
+                          handleInputChange("feature_mount", e.target.value)
+                        }
+                        placeholder="Additional features (comma-separated)"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Disk size can only be increased for safety. Format: 4G, 8G, 16G, etc.
-                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="space-y-4">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      Tags
+                    </h3>
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="tags"
+                        className="text-foreground block text-sm font-medium"
+                      >
+                        Tags
+                      </label>
+                      <Input
+                        id="tags"
+                        value={formData.tags}
+                        onChange={(e) =>
+                          handleInputChange("tags", e.target.value)
+                        }
+                        placeholder="community-script;pve-scripts-local"
+                      />
                     </div>
                   </div>
                 </div>
+              )}
 
-                {/* Features */}
+              {/* Advanced Settings Tab */}
+              {activeTab === "advanced" && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Features</h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="feature_keyctl"
-                        checked={formData.feature_keyctl}
-                        onChange={(e) => handleInputChange('feature_keyctl', e.target.checked)}
-                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      />
-                      <label htmlFor="feature_keyctl" className="text-sm font-medium text-foreground">Keyctl</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="feature_nesting"
-                        checked={formData.feature_nesting}
-                        onChange={(e) => handleInputChange('feature_nesting', e.target.checked)}
-                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      />
-                      <label htmlFor="feature_nesting" className="text-sm font-medium text-foreground">Nesting</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="feature_fuse"
-                        checked={formData.feature_fuse}
-                        onChange={(e) => handleInputChange('feature_fuse', e.target.checked)}
-                        className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      />
-                      <label htmlFor="feature_fuse" className="text-sm font-medium text-foreground">FUSE</label>
-                    </div>
-                  </div>
                   <div className="space-y-2">
-                    <label htmlFor="feature_mount" className="block text-sm font-medium text-foreground">Additional Mount Features</label>
-                    <Input
-                      id="feature_mount"
-                      value={formData.feature_mount}
-                      onChange={(e) => handleInputChange('feature_mount', e.target.value)}
-                      placeholder="Additional features (comma-separated)"
+                    <label
+                      htmlFor="advanced_config"
+                      className="text-foreground block text-sm font-medium"
+                    >
+                      Advanced Configuration
+                    </label>
+                    <textarea
+                      id="advanced_config"
+                      value={formData.advanced_config}
+                      onChange={(e) =>
+                        handleInputChange("advanced_config", e.target.value)
+                      }
+                      placeholder="lxc.* entries, comments, and other advanced settings..."
+                      className="border-input bg-background resize-vertical min-h-[400px] w-full rounded-md border px-3 py-2 font-mono text-sm"
                     />
+                    <p className="text-muted-foreground text-xs">
+                      This section contains lxc.* entries, comments, and other
+                      advanced settings that are not covered in the Common
+                      Settings tab.
+                    </p>
                   </div>
                 </div>
+              )}
+            </div>
 
-                {/* Tags */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Tags</h3>
-                  <div className="space-y-2">
-                    <label htmlFor="tags" className="block text-sm font-medium text-foreground">Tags</label>
-                    <Input
-                      id="tags"
-                      value={formData.tags}
-                      onChange={(e) => handleInputChange('tags', e.target.value)}
-                      placeholder="community-script;pve-scripts-local"
-                    />
-                  </div>
-                </div>
+            {/* Footer */}
+            <div className="border-border bg-muted/30 flex items-center justify-end border-t p-4 sm:p-6">
+              <div className="flex gap-3">
+                <Button
+                  onClick={onClose}
+                  variant="outline"
+                  disabled={saveMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || saveMutation.isPending || !hasChanges}
+                  variant="default"
+                >
+                  {isSaving
+                    ? "Saving & Resizing..."
+                    : saveMutation.isPending
+                      ? "Saving..."
+                      : "Save Configuration"}
+                </Button>
               </div>
-            )}
-
-            {/* Advanced Settings Tab */}
-            {activeTab === 'advanced' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="advanced_config" className="block text-sm font-medium text-foreground">Advanced Configuration</label>
-                  <textarea
-                    id="advanced_config"
-                    value={formData.advanced_config}
-                    onChange={(e) => handleInputChange('advanced_config', e.target.value)}
-                    placeholder="lxc.* entries, comments, and other advanced settings..."
-                    className="w-full min-h-[400px] px-3 py-2 border border-input bg-background rounded-md font-mono text-sm resize-vertical"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    This section contains lxc.* entries, comments, and other advanced settings that are not covered in the Common Settings tab.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end p-4 sm:p-6 border-t border-border bg-muted/30">
-            <div className="flex gap-3">
-              <Button
-                onClick={onClose}
-                variant="outline"
-                disabled={saveMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || saveMutation.isPending || !hasChanges}
-                variant="default"
-              >
-                {isSaving ? 'Saving & Resizing...' : saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
-              </Button>
             </div>
           </div>
         </div>
-      </div>
       </ModalPortal>
 
       {/* Confirmation Modal */}
@@ -679,46 +913,58 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
         onConfirm={handleConfirmSave}
         title="Confirm LXC Configuration Changes"
         message={`Modifying LXC configuration can break your container and may require manual recovery. Ensure you understand these changes before proceeding.${
-          formData.rootfs_size && configData?.config?.rootfs_size && 
-          parseFloat(String(formData.rootfs_size)) > parseFloat(String(configData.config.rootfs_size ?? '0'))
+          formData.rootfs_size &&
+          configData?.config?.rootfs_size &&
+          parseFloat(String(formData.rootfs_size)) >
+            parseFloat(String(configData.config.rootfs_size ?? "0"))
             ? `\n\n⚠️ DISK RESIZE DETECTED: The disk size will be increased from ${configData.config.rootfs_size} to ${formData.rootfs_size}. This operation will automatically resize the underlying storage and filesystem.`
-            : ''
+            : ""
         }\n\nThe container may need to be restarted for changes to take effect.`}
         variant="danger"
-        confirmText={script.container_id ?? ''}
-        confirmButtonText={formData.rootfs_size && configData?.config?.rootfs_size && 
-          parseFloat(String(formData.rootfs_size)) > parseFloat(String(configData.config.rootfs_size ?? '0'))
-          ? "Save & Resize Disk" : "Save Configuration"}
+        confirmText={script.container_id ?? ""}
+        confirmButtonText={
+          formData.rootfs_size &&
+          configData?.config?.rootfs_size &&
+          parseFloat(String(formData.rootfs_size)) >
+            parseFloat(String(configData.config.rootfs_size ?? "0"))
+            ? "Save & Resize Disk"
+            : "Save Configuration"
+        }
       />
 
       {/* Loading Modal */}
       <LoadingModal
         isOpen={isLoading || isSaving}
-        action={isSaving ? "Saving configuration and resizing disk..." : "Loading LXC configuration..."}
+        action={
+          isSaving
+            ? "Saving configuration and resizing disk..."
+            : "Loading LXC configuration..."
+        }
       />
 
       {/* Result Modal */}
       {showResultModal && resultType && resultMessage && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center" style={{ zIndex: zIndex + 10 }}>
-          <div className="bg-card text-card-foreground rounded-lg shadow-xl max-w-md w-full mx-4 border border-border">
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          style={{ zIndex: zIndex + 10 }}
+        >
+          <div className="bg-card text-card-foreground border-border mx-4 w-full max-w-md rounded-lg border shadow-xl">
             <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                {resultType === 'success' ? (
-                  <CheckCircle className="h-6 w-6 text-success" />
+              <div className="mb-4 flex items-center gap-3">
+                {resultType === "success" ? (
+                  <CheckCircle className="text-success h-6 w-6" />
                 ) : (
-                  <AlertTriangle className="h-6 w-6 text-error" />
+                  <AlertTriangle className="text-error h-6 w-6" />
                 )}
-                <h3 className="text-lg font-semibold text-card-foreground">
-                  {resultType === 'success' ? 'Success' : 'Error'}
+                <h3 className="text-card-foreground text-lg font-semibold">
+                  {resultType === "success" ? "Success" : "Error"}
                 </h3>
               </div>
-              <p className="text-muted-foreground mb-6">
-                {resultMessage}
-              </p>
+              <p className="text-muted-foreground mb-6">{resultMessage}</p>
               <div className="flex justify-end">
                 <button
                   onClick={handleResultModalClose}
-                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 transition-colors"
                 >
                   Close
                 </button>
@@ -730,4 +976,3 @@ export function LXCSettingsModal({ isOpen, script, onClose, onSave: _onSave }: L
     </>
   );
 }
-

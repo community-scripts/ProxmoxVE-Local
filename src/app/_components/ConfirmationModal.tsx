@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { Button } from './ui/button';
-import { AlertTriangle, Info } from 'lucide-react';
-import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
+import { useMemo, useState } from "react";
+import { Button } from "./ui/button";
+import { AlertTriangle, Info } from "lucide-react";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface ConfirmationModalProps {
   onConfirm: () => void;
   title: string;
   message: string;
-  variant: 'simple' | 'danger';
+  variant: "simple" | "danger";
   confirmText?: string; // What the user must type for danger variant
   confirmButtonText?: string;
   cancelButtonText?: string;
@@ -25,14 +25,18 @@ export function ConfirmationModal({
   message,
   variant,
   confirmText,
-  confirmButtonText = 'Confirm',
-  cancelButtonText = 'Cancel'
+  confirmButtonText = "Confirm",
+  cancelButtonText = "Cancel",
 }: ConfirmationModalProps) {
-  const [typedText, setTypedText] = useState('');
-  const isDanger = variant === 'danger';
+  const [typedText, setTypedText] = useState("");
+  const isDanger = variant === "danger";
   const allowEscape = useMemo(() => !isDanger, [isDanger]);
 
-  const zIndex = useRegisterModal(isOpen, { id: 'confirmation-modal', allowEscape, onClose });
+  const zIndex = useRegisterModal(isOpen, {
+    id: "confirmation-modal",
+    allowEscape,
+    onClose,
+  });
 
   if (!isOpen) return null;
   const isConfirmEnabled = isDanger ? typedText === confirmText : true;
@@ -40,77 +44,84 @@ export function ConfirmationModal({
   const handleConfirm = () => {
     if (isConfirmEnabled) {
       onConfirm();
-      setTypedText(''); // Reset for next time
+      setTypedText(""); // Reset for next time
     }
   };
 
   const handleClose = () => {
     onClose();
-    setTypedText(''); // Reset when closing
+    setTypedText(""); // Reset when closing
   };
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
-      <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
-        {/* Header */}
-        <div className="flex items-center justify-center p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            {isDanger ? (
-              <AlertTriangle className="h-8 w-8 text-error" />
-            ) : (
-              <Info className="h-8 w-8 text-info" />
-            )}
-            <h2 className="text-2xl font-bold text-card-foreground">{title}</h2>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground mb-6">
-            {message}
-          </p>
-
-          {/* Type-to-confirm input for danger variant */}
-          {isDanger && confirmText && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Type <code className="bg-muted px-2 py-1 rounded text-sm">{confirmText}</code> to confirm:
-              </label>
-              <input
-                type="text"
-                value={typedText}
-                onChange={(e) => setTypedText(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                placeholder={`Type "${confirmText}" here`}
-                autoComplete="off"
-              />
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+      >
+        <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
+          {/* Header */}
+          <div className="border-border flex items-center justify-center border-b p-6">
+            <div className="flex items-center gap-3">
+              {isDanger ? (
+                <AlertTriangle className="text-error h-8 w-8" />
+              ) : (
+                <Info className="text-info h-8 w-8" />
+              )}
+              <h2 className="text-card-foreground text-2xl font-bold">
+                {title}
+              </h2>
             </div>
-          )}
+          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row justify-end gap-3">
-            <Button
-              onClick={handleClose}
-              variant="outline"
-              size="default"
-              className="w-full sm:w-auto"
-            >
-              {cancelButtonText}
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!isConfirmEnabled}
-              variant={isDanger ? "destructive" : "default"}
-              size="default"
-              className="w-full sm:w-auto"
-            >
-              {confirmButtonText}
-            </Button>
+          {/* Content */}
+          <div className="p-6">
+            <p className="text-muted-foreground mb-6 text-sm">{message}</p>
+
+            {/* Type-to-confirm input for danger variant */}
+            {isDanger && confirmText && (
+              <div className="mb-6">
+                <label className="text-foreground mb-2 block text-sm font-medium">
+                  Type{" "}
+                  <code className="bg-muted rounded px-2 py-1 text-sm">
+                    {confirmText}
+                  </code>{" "}
+                  to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={typedText}
+                  onChange={(e) => setTypedText(e.target.value)}
+                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
+                  placeholder={`Type "${confirmText}" here`}
+                  autoComplete="off"
+                />
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col justify-end gap-3 sm:flex-row">
+              <Button
+                onClick={handleClose}
+                variant="outline"
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                {cancelButtonText}
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                disabled={!isConfirmEnabled}
+                variant={isDanger ? "destructive" : "default"}
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                {confirmButtonText}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

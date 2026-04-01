@@ -280,257 +280,111 @@ export function ScriptDetailModal({
 
   return (
     <ModalPortal>
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      style={{ zIndex }}
-      onClick={handleBackdropClick}
-    >
-      <div className="glass-card-static mx-2 max-h-[95vh] min-h-[80vh] w-full max-w-6xl overflow-y-auto border shadow-2xl sm:mx-4 lg:mx-0">
-        {/* Header */}
-        <div className="border-border/60 flex items-center justify-between border-b p-4 sm:p-6">
-          <div className="flex min-w-0 flex-1 items-center space-x-3 sm:space-x-4">
-            {script.logo && !imageError ? (
-              <Image
-                src={script.logo}
-                alt={`${script.name} logo`}
-                width={64}
-                height={64}
-                className="h-12 w-12 flex-shrink-0 rounded-lg object-contain sm:h-16 sm:w-16"
-                onError={handleImageError}
-              />
-            ) : (
-              <div className="bg-muted flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg sm:h-16 sm:w-16">
-                <span className="text-muted-foreground text-lg font-semibold sm:text-2xl">
-                  {script.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h2 className="text-foreground truncate text-xl font-bold sm:text-2xl">
-                {script.name}
-              </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
-                <TypeBadge type={script.type} />
-                {script.is_dev && <DevBadge />}
-                {script.updateable && <UpdateableBadge />}
-                {script.privileged && <PrivilegedBadge />}
-                {script.version && (
-                  <span className="bg-primary/10 text-primary border-primary/20 rounded border px-2 py-0.5 text-xs font-medium">
-                    v{script.version}
-                  </span>
-                )}
-                {script.repository_url && (
-                  <a
-                    href={script.repository_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-muted text-muted-foreground border-border hover:bg-accent hover:text-foreground rounded border px-2 py-0.5 text-xs transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                    title={`Source: ${script.repository_url}`}
-                  >
-                    {/github\.com\/([^\/]+)\/([^\/]+)/
-                      .exec(script.repository_url)?.[0]
-                      ?.replace("https://", "") ?? script.repository_url}
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Interface Port*/}
-            {script.interface_port && (
-              <div className="ml-3 flex-shrink-0 sm:ml-4">
-                <div className="bg-primary/10 border-primary/30 rounded-lg border px-3 py-1.5 sm:px-4 sm:py-2">
-                  <span className="text-muted-foreground mr-2 text-xs font-medium sm:text-sm">
-                    Port:
-                  </span>
-                  <span className="text-foreground font-mono text-sm font-semibold sm:text-base">
-                    {script.interface_port}
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+        onClick={handleBackdropClick}
+      >
+        <div className="glass-card-static mx-2 max-h-[95vh] min-h-[80vh] w-full max-w-6xl overflow-y-auto border shadow-2xl sm:mx-4 lg:mx-0">
+          {/* Header */}
+          <div className="border-border/60 flex items-center justify-between border-b p-4 sm:p-6">
+            <div className="flex min-w-0 flex-1 items-center space-x-3 sm:space-x-4">
+              {script.logo && !imageError ? (
+                <Image
+                  src={script.logo}
+                  alt={`${script.name} logo`}
+                  width={64}
+                  height={64}
+                  className="h-12 w-12 flex-shrink-0 rounded-lg object-contain sm:h-16 sm:w-16"
+                  onError={handleImageError}
+                />
+              ) : (
+                <div className="bg-muted flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg sm:h-16 sm:w-16">
+                  <span className="text-muted-foreground text-lg font-semibold sm:text-2xl">
+                    {script.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="text-foreground truncate text-xl font-bold sm:text-2xl">
+                  {script.name}
+                </h2>
+                <div className="mt-1 flex flex-wrap items-center gap-1 sm:gap-2">
+                  <TypeBadge type={script.type} />
+                  {script.is_dev && <DevBadge />}
+                  {script.updateable && <UpdateableBadge />}
+                  {script.privileged && <PrivilegedBadge />}
+                  {script.version && (
+                    <span className="bg-primary/10 text-primary border-primary/20 rounded border px-2 py-0.5 text-xs font-medium">
+                      v{script.version}
+                    </span>
+                  )}
+                  {script.repository_url && (
+                    <a
+                      href={script.repository_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-muted text-muted-foreground border-border hover:bg-accent hover:text-foreground rounded border px-2 py-0.5 text-xs transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      title={`Source: ${script.repository_url}`}
+                    >
+                      {/github\.com\/([^\/]+)\/([^\/]+)/
+                        .exec(script.repository_url)?.[0]
+                        ?.replace("https://", "") ?? script.repository_url}
+                    </a>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Interface Port*/}
+              {script.interface_port && (
+                <div className="ml-3 flex-shrink-0 sm:ml-4">
+                  <div className="bg-primary/10 border-primary/30 rounded-lg border px-3 py-1.5 sm:px-4 sm:py-2">
+                    <span className="text-muted-foreground mr-2 text-xs font-medium sm:text-sm">
+                      Port:
+                    </span>
+                    <span className="text-foreground font-mono text-sm font-semibold sm:text-base">
+                      {script.interface_port}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground ml-4 flex-shrink-0"
+            >
+              <svg
+                className="h-5 w-5 sm:h-6 sm:w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </Button>
           </div>
 
-          {/* Close Button */}
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground ml-4 flex-shrink-0"
-          >
-            <svg
-              className="h-5 w-5 sm:h-6 sm:w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="border-border flex flex-col items-stretch space-y-2 border-b p-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 sm:p-6">
-          {/* Install Button - only show if script files exist */}
-          {scriptFilesData?.success &&
-            scriptFilesData.ctExists &&
-            onInstallScript && (
-              <Button
-                onClick={handleInstallScript}
-                variant="outline"
-                size="default"
-                className="flex w-full items-center justify-center space-x-2 sm:w-auto"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  />
-                </svg>
-                <span>Install</span>
-              </Button>
-            )}
-
-          {/* View Button - only show if script files exist */}
-          {scriptFilesData?.success &&
-            (scriptFilesData.ctExists || scriptFilesData.installExists) && (
-              <Button
-                onClick={handleViewScript}
-                variant="outline"
-                size="default"
-                className="flex w-full items-center justify-center space-x-2 sm:w-auto"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-                <span>View</span>
-              </Button>
-            )}
-
-          {/* Copy Install Command */}
-          <Button
-            onClick={() => void handleCopyCommand()}
-            variant="outline"
-            size="default"
-            className="flex w-full items-center justify-center space-x-2 sm:w-auto"
-          >
-            {copiedCommand ? (
-              <>
-                <svg
-                  className="h-4 w-4 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                <span>Copy Command</span>
-              </>
-            )}
-          </Button>
-
-          {/* Load/Update Script Button */}
-          {(() => {
-            const hasLocalFiles =
-              scriptFilesData?.success &&
-              (scriptFilesData.ctExists || scriptFilesData.installExists);
-            const hasDifferences =
-              comparisonData?.success && comparisonData.hasDifferences;
-            const isUpToDate = hasLocalFiles && !hasDifferences;
-
-            if (!hasLocalFiles) {
-              // No local files - show Load Script button
-              return (
-                <button
-                  onClick={handleLoadScript}
-                  disabled={isLoading}
-                  className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
-                    isLoading
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-success text-success-foreground hover:bg-success/90"
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                      <span>Loading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <span>Load Script</span>
-                    </>
-                  )}
-                </button>
-              );
-            } else if (isUpToDate) {
-              // Local files exist and are up to date - show disabled Update button
-              return (
-                <button
-                  disabled
-                  className="bg-muted text-muted-foreground flex cursor-not-allowed items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors"
+          {/* Action Buttons */}
+          <div className="border-border flex flex-col items-stretch space-y-2 border-b p-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 sm:p-6">
+            {/* Install Button - only show if script files exist */}
+            {scriptFilesData?.success &&
+              scriptFilesData.ctExists &&
+              onInstallScript && (
+                <Button
+                  onClick={handleInstallScript}
+                  variant="outline"
+                  size="default"
+                  className="flex w-full items-center justify-center space-x-2 sm:w-auto"
                 >
                   <svg
                     className="h-4 w-4"
@@ -542,28 +396,212 @@ export function ScriptDetailModal({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                     />
                   </svg>
-                  <span>Up to Date</span>
-                </button>
-              );
-            } else {
-              // Local files exist but have differences - show Update button
-              return (
-                <button
-                  onClick={handleLoadScript}
-                  disabled={isLoading}
-                  className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
-                    isLoading
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-warning text-warning-foreground hover:bg-warning/90"
-                  }`}
+                  <span>Install</span>
+                </Button>
+              )}
+
+            {/* View Button - only show if script files exist */}
+            {scriptFilesData?.success &&
+              (scriptFilesData.ctExists || scriptFilesData.installExists) && (
+                <Button
+                  onClick={handleViewScript}
+                  variant="outline"
+                  size="default"
+                  className="flex w-full items-center justify-center space-x-2 sm:w-auto"
                 >
-                  {isLoading ? (
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  <span>View</span>
+                </Button>
+              )}
+
+            {/* Copy Install Command */}
+            <Button
+              onClick={() => void handleCopyCommand()}
+              variant="outline"
+              size="default"
+              className="flex w-full items-center justify-center space-x-2 sm:w-auto"
+            >
+              {copiedCommand ? (
+                <>
+                  <svg
+                    className="h-4 w-4 text-green-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span>Copy Command</span>
+                </>
+              )}
+            </Button>
+
+            {/* Load/Update Script Button */}
+            {(() => {
+              const hasLocalFiles =
+                scriptFilesData?.success &&
+                (scriptFilesData.ctExists || scriptFilesData.installExists);
+              const hasDifferences =
+                comparisonData?.success && comparisonData.hasDifferences;
+              const isUpToDate = hasLocalFiles && !hasDifferences;
+
+              if (!hasLocalFiles) {
+                // No local files - show Load Script button
+                return (
+                  <button
+                    onClick={handleLoadScript}
+                    disabled={isLoading}
+                    className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+                      isLoading
+                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "bg-success text-success-foreground hover:bg-success/90"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                        <span>Loading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span>Load Script</span>
+                      </>
+                    )}
+                  </button>
+                );
+              } else if (isUpToDate) {
+                // Local files exist and are up to date - show disabled Update button
+                return (
+                  <button
+                    disabled
+                    className="bg-muted text-muted-foreground flex cursor-not-allowed items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span>Up to Date</span>
+                  </button>
+                );
+              } else {
+                // Local files exist but have differences - show Update button
+                return (
+                  <button
+                    onClick={handleLoadScript}
+                    disabled={isLoading}
+                    className={`flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+                      isLoading
+                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "bg-warning text-warning-foreground hover:bg-warning/90"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        <span>Update Script</span>
+                      </>
+                    )}
+                  </button>
+                );
+              }
+            })()}
+
+            {/* Delete Button - only show if script files exist */}
+            {scriptFilesData?.success &&
+              (scriptFilesData.ctExists || scriptFilesData.installExists) && (
+                <Button
+                  onClick={handleDeleteScript}
+                  disabled={isDeleting}
+                  variant="destructive"
+                  size="default"
+                  className="flex w-full items-center justify-center space-x-2 sm:w-auto"
+                >
+                  {isDeleting ? (
                     <>
                       <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                      <span>Updating...</span>
+                      <span>Deleting...</span>
                     </>
                   ) : (
                     <>
@@ -577,566 +615,531 @@ export function ScriptDetailModal({
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                         />
                       </svg>
-                      <span>Update Script</span>
+                      <span>Delete Script</span>
                     </>
                   )}
-                </button>
-              );
-            }
-          })()}
+                </Button>
+              )}
+          </div>
 
-          {/* Delete Button - only show if script files exist */}
-          {scriptFilesData?.success &&
-            (scriptFilesData.ctExists || scriptFilesData.installExists) && (
-              <Button
-                onClick={handleDeleteScript}
-                disabled={isDeleting}
-                variant="destructive"
-                size="default"
-                className="flex w-full items-center justify-center space-x-2 sm:w-auto"
-              >
-                {isDeleting ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    <span>Delete Script</span>
-                  </>
-                )}
-              </Button>
+          {/* Content */}
+          <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+            {/* Script Files Status */}
+            {(scriptFilesLoading || comparisonLoading) && (
+              <div className="bg-primary/10 text-primary mb-4 rounded-lg p-3 text-sm">
+                <div className="flex items-center space-x-2">
+                  <div className="border-primary h-4 w-4 animate-spin rounded-full border-b-2"></div>
+                  <span>Loading script status...</span>
+                </div>
+              </div>
             )}
-        </div>
 
-        {/* Content */}
-        <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
-          {/* Script Files Status */}
-          {(scriptFilesLoading || comparisonLoading) && (
-            <div className="bg-primary/10 text-primary mb-4 rounded-lg p-3 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="border-primary h-4 w-4 animate-spin rounded-full border-b-2"></div>
-                <span>Loading script status...</span>
-              </div>
-            </div>
-          )}
+            {scriptFilesData?.success &&
+              !scriptFilesLoading &&
+              (() => {
+                // Determine script type from the first install method
+                const firstScript = script?.install_methods?.[0]?.script;
+                let scriptType = "Script";
+                if (firstScript?.startsWith("ct/")) {
+                  scriptType = "CT Script";
+                } else if (firstScript?.startsWith("tools/")) {
+                  scriptType = "Tools Script";
+                } else if (firstScript?.startsWith("vm/")) {
+                  scriptType = "VM Script";
+                } else if (firstScript?.startsWith("vw/")) {
+                  scriptType = "VW Script";
+                }
 
-          {scriptFilesData?.success &&
-            !scriptFilesLoading &&
-            (() => {
-              // Determine script type from the first install method
-              const firstScript = script?.install_methods?.[0]?.script;
-              let scriptType = "Script";
-              if (firstScript?.startsWith("ct/")) {
-                scriptType = "CT Script";
-              } else if (firstScript?.startsWith("tools/")) {
-                scriptType = "Tools Script";
-              } else if (firstScript?.startsWith("vm/")) {
-                scriptType = "VM Script";
-              } else if (firstScript?.startsWith("vw/")) {
-                scriptType = "VW Script";
-              }
-
-              return (
-                <div className="bg-muted text-muted-foreground mb-4 rounded-lg p-3 text-sm">
-                  <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-success" : "bg-muted"}`}
-                      ></div>
-                      <span>
-                        {scriptType}:{" "}
-                        {scriptFilesData.ctExists ? "Available" : "Not loaded"}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-success" : "bg-muted"}`}
-                      ></div>
-                      <span>
-                        Install Script:{" "}
-                        {scriptFilesData.installExists
-                          ? "Available"
-                          : "Not loaded"}
-                      </span>
-                    </div>
-                    {scriptFilesData?.success &&
-                      (scriptFilesData.ctExists ||
-                        scriptFilesData.installExists) && (
-                        <div className="flex items-center space-x-2">
-                          {comparisonData?.success ? (
-                            <>
-                              <div
-                                className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-warning" : "bg-success"}`}
-                              ></div>
-                              <span>
-                                Status:{" "}
-                                {comparisonData.hasDifferences
-                                  ? "Update available"
-                                  : "Up to date"}
-                              </span>
-                            </>
-                          ) : comparisonLoading ? (
-                            <>
-                              <div className="bg-muted h-2 w-2 animate-pulse rounded-full"></div>
-                              <span>Checking for updates...</span>
-                            </>
-                          ) : comparisonData?.error ? (
-                            <>
-                              <div className="bg-destructive h-2 w-2 rounded-full"></div>
-                              <span className="text-destructive">
-                                Error: {comparisonData.error}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <div className="bg-muted h-2 w-2 rounded-full"></div>
-                              <span>Status: Unknown</span>
-                            </>
-                          )}
-                          <button
-                            onClick={() => void refetchComparison()}
-                            disabled={comparisonLoading}
-                            className="hover:bg-accent ml-2 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Refresh comparison"
-                          >
-                            {comparisonLoading ? (
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                            ) : (
-                              <svg
-                                className="text-muted-foreground hover:text-foreground h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                  </div>
-                  {scriptFilesData.files.length > 0 && (
-                    <div className="text-muted-foreground mt-2 text-xs break-words">
-                      Files: {scriptFilesData.files.join(", ")}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-          {/* Load Message */}
-          {loadMessage && (
-            <div className="bg-primary/10 text-primary mb-4 rounded-lg p-3 text-sm">
-              {loadMessage}
-            </div>
-          )}
-
-          {/* Description */}
-          <div>
-            <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">
-              Description
-            </h3>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              {script.description}
-            </p>
-          </div>
-
-          {/* Install Command */}
-          {installCommand && (
-            <div>
-              <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">
-                Install Command
-              </h3>
-              <div className="bg-muted/60 border-border group relative overflow-hidden rounded-lg border">
-                <code className="text-foreground block overflow-x-auto p-3 pr-12 font-mono text-xs sm:text-sm">
-                  {installCommand}
-                </code>
-                <button
-                  onClick={() => void handleCopyCommand()}
-                  className="bg-background/80 hover:bg-background absolute top-2 right-2 rounded-md p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
-                  title="Copy to clipboard"
-                >
-                  {copiedCommand ? (
-                    <svg
-                      className="h-4 w-4 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="text-muted-foreground h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-            <div>
-              <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
-                Basic Information
-              </h3>
-              <dl className="space-y-2">
-                <div>
-                  <dt className="text-muted-foreground text-sm font-medium">
-                    Slug
-                  </dt>
-                  <dd className="text-foreground font-mono text-sm">
-                    {script.slug}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground text-sm font-medium">
-                    Date Created
-                  </dt>
-                  <dd className="text-foreground text-sm">
-                    {script.date_created}
-                  </dd>
-                </div>
-                {script.version && (
-                  <div>
-                    <dt className="text-muted-foreground text-sm font-medium">
-                      Version
-                    </dt>
-                    <dd className="text-foreground font-mono text-sm">
-                      {script.version}
-                    </dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-muted-foreground text-sm font-medium">
-                    Categories
-                  </dt>
-                  <dd className="text-foreground text-sm">
-                    {script.categories.join(", ")}
-                  </dd>
-                </div>
-                {script.interface_port && (
-                  <div>
-                    <dt className="text-muted-foreground text-sm font-medium">
-                      Interface Port
-                    </dt>
-                    <dd className="text-foreground text-sm">
-                      {script.interface_port}
-                    </dd>
-                  </div>
-                )}
-                {script.config_path && (
-                  <div>
-                    <dt className="text-muted-foreground text-sm font-medium">
-                      Config Path
-                    </dt>
-                    <dd className="text-foreground font-mono text-sm">
-                      {script.config_path}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            <div>
-              <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
-                Links
-              </h3>
-              <dl className="space-y-2">
-                {script.website && (
-                  <div>
-                    <dt className="text-muted-foreground text-sm font-medium">
-                      Website
-                    </dt>
-                    <dd className="text-sm">
-                      <a
-                        href={script.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:text-primary/80 break-all"
-                      >
-                        {script.website}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {script.documentation && (
-                  <div>
-                    <dt className="text-muted-foreground text-sm font-medium">
-                      Documentation
-                    </dt>
-                    <dd className="text-sm">
-                      <a
-                        href={script.documentation}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:text-primary/80 break-all"
-                      >
-                        {script.documentation}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          </div>
-
-          {/* Install Methods - Hide for PVE and ADDON types as they typically don't have install methods */}
-          {script.install_methods.length > 0 &&
-            script.type !== "pve" &&
-            script.type !== "addon" && (
-              <div>
-                <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
-                  Install Methods
-                </h3>
-                <div className="space-y-4">
-                  {script.install_methods.map((method, index) => (
-                    <div
-                      key={index}
-                      className="border-border bg-card rounded-lg border p-3 sm:p-4"
-                    >
-                      <div className="mb-3 flex flex-col justify-between space-y-1 sm:flex-row sm:items-center sm:space-y-0">
-                        <h4 className="text-foreground text-sm font-medium capitalize sm:text-base">
-                          {method.type}
-                        </h4>
-                        <span className="text-muted-foreground font-mono text-xs break-all sm:text-sm">
-                          {method.script}
+                return (
+                  <div className="bg-muted text-muted-foreground mb-4 rounded-lg p-3 text-sm">
+                    <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-success" : "bg-muted"}`}
+                        ></div>
+                        <span>
+                          {scriptType}:{" "}
+                          {scriptFilesData.ctExists
+                            ? "Available"
+                            : "Not loaded"}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs sm:gap-4 sm:text-sm lg:grid-cols-4">
-                        <div>
-                          <dt className="text-muted-foreground font-medium">
-                            CPU
-                          </dt>
-                          <dd className="text-foreground">
-                            {method.resources.cpu} cores
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground font-medium">
-                            RAM
-                          </dt>
-                          <dd className="text-foreground">
-                            {method.resources.ram} MB
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground font-medium">
-                            HDD
-                          </dt>
-                          <dd className="text-foreground">
-                            {method.resources.hdd} GB
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground font-medium">
-                            OS
-                          </dt>
-                          <dd className="text-foreground">
-                            {method.resources.os} {method.resources.version}
-                          </dd>
-                        </div>
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-success" : "bg-muted"}`}
+                        ></div>
+                        <span>
+                          Install Script:{" "}
+                          {scriptFilesData.installExists
+                            ? "Available"
+                            : "Not loaded"}
+                        </span>
                       </div>
-                      {method.config_path && (
-                        <div className="mt-2 text-xs sm:text-sm">
-                          <dt className="text-muted-foreground font-medium">
-                            Config Path
-                          </dt>
-                          <dd className="text-foreground font-mono text-xs break-all">
-                            {method.config_path}
-                          </dd>
-                        </div>
-                      )}
+                      {scriptFilesData?.success &&
+                        (scriptFilesData.ctExists ||
+                          scriptFilesData.installExists) && (
+                          <div className="flex items-center space-x-2">
+                            {comparisonData?.success ? (
+                              <>
+                                <div
+                                  className={`h-2 w-2 rounded-full ${comparisonData.hasDifferences ? "bg-warning" : "bg-success"}`}
+                                ></div>
+                                <span>
+                                  Status:{" "}
+                                  {comparisonData.hasDifferences
+                                    ? "Update available"
+                                    : "Up to date"}
+                                </span>
+                              </>
+                            ) : comparisonLoading ? (
+                              <>
+                                <div className="bg-muted h-2 w-2 animate-pulse rounded-full"></div>
+                                <span>Checking for updates...</span>
+                              </>
+                            ) : comparisonData?.error ? (
+                              <>
+                                <div className="bg-destructive h-2 w-2 rounded-full"></div>
+                                <span className="text-destructive">
+                                  Error: {comparisonData.error}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="bg-muted h-2 w-2 rounded-full"></div>
+                                <span>Status: Unknown</span>
+                              </>
+                            )}
+                            <button
+                              onClick={() => void refetchComparison()}
+                              disabled={comparisonLoading}
+                              className="hover:bg-accent ml-2 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Refresh comparison"
+                            >
+                              {comparisonLoading ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                              ) : (
+                                <svg
+                                  className="text-muted-foreground hover:text-foreground h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        )}
                     </div>
-                  ))}
+                    {scriptFilesData.files.length > 0 && (
+                      <div className="text-muted-foreground mt-2 text-xs break-words">
+                        Files: {scriptFilesData.files.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+            {/* Load Message */}
+            {loadMessage && (
+              <div className="bg-primary/10 text-primary mb-4 rounded-lg p-3 text-sm">
+                {loadMessage}
+              </div>
+            )}
+
+            {/* Description */}
+            <div>
+              <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">
+                Description
+              </h3>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                {script.description}
+              </p>
+            </div>
+
+            {/* Install Command */}
+            {installCommand && (
+              <div>
+                <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">
+                  Install Command
+                </h3>
+                <div className="bg-muted/60 border-border group relative overflow-hidden rounded-lg border">
+                  <code className="text-foreground block overflow-x-auto p-3 pr-12 font-mono text-xs sm:text-sm">
+                    {installCommand}
+                  </code>
+                  <button
+                    onClick={() => void handleCopyCommand()}
+                    className="bg-background/80 hover:bg-background absolute top-2 right-2 rounded-md p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+                    title="Copy to clipboard"
+                  >
+                    {copiedCommand ? (
+                      <svg
+                        className="h-4 w-4 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="text-muted-foreground h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
             )}
 
-          {/* Default Credentials */}
-          {(script.default_credentials.username ??
-            script.default_credentials.password) && (
-            <div>
-              <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
-                Default Credentials
-              </h3>
-              <dl className="space-y-2">
-                {script.default_credentials.username && (
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
+                  Basic Information
+                </h3>
+                <dl className="space-y-2">
                   <div>
                     <dt className="text-muted-foreground text-sm font-medium">
-                      Username
+                      Slug
                     </dt>
                     <dd className="text-foreground font-mono text-sm">
-                      {script.default_credentials.username}
+                      {script.slug}
                     </dd>
                   </div>
-                )}
-                {script.default_credentials.password && (
                   <div>
                     <dt className="text-muted-foreground text-sm font-medium">
-                      Password
+                      Date Created
                     </dt>
-                    <dd className="text-foreground font-mono text-sm">
-                      {script.default_credentials.password}
+                    <dd className="text-foreground text-sm">
+                      {script.date_created}
                     </dd>
                   </div>
-                )}
-              </dl>
-            </div>
-          )}
+                  {script.version && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Version
+                      </dt>
+                      <dd className="text-foreground font-mono text-sm">
+                        {script.version}
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-muted-foreground text-sm font-medium">
+                      Categories
+                    </dt>
+                    <dd className="text-foreground text-sm">
+                      {script.categories.join(", ")}
+                    </dd>
+                  </div>
+                  {script.interface_port && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Interface Port
+                      </dt>
+                      <dd className="text-foreground text-sm">
+                        {script.interface_port}
+                      </dd>
+                    </div>
+                  )}
+                  {script.config_path && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Config Path
+                      </dt>
+                      <dd className="text-foreground font-mono text-sm">
+                        {script.config_path}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
 
-          {/* Notes */}
-          {script.notes.length > 0 && (
-            <div>
-              <h3 className="text-foreground mb-3 text-lg font-semibold">
-                Notes
-              </h3>
-              <ul className="space-y-2">
-                {script.notes.map((note, index) => {
-                  // Handle both object and string note formats
-                  const noteText = typeof note === "string" ? note : note.text;
-                  const noteType =
-                    typeof note === "string" ? "info" : note.type;
-
-                  return (
-                    <li
-                      key={index}
-                      className={`rounded-lg p-3 text-sm ${
-                        noteType === "warning"
-                          ? "border-warning bg-warning/10 text-warning border-l-4"
-                          : noteType === "error"
-                            ? "border-destructive bg-destructive/10 text-destructive border-l-4"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <div className="flex items-start">
-                        <NoteBadge
-                          noteType={noteType as "info" | "warning" | "error"}
-                          className="mr-2 flex-shrink-0"
+              <div>
+                <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
+                  Links
+                </h3>
+                <dl className="space-y-2">
+                  {script.website && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Website
+                      </dt>
+                      <dd className="text-sm">
+                        <a
+                          href={script.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:text-primary/80 break-all"
                         >
-                          {noteType}
-                        </NoteBadge>
-                        <span>{noteText}</span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                          {script.website}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                  {script.documentation && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Documentation
+                      </dt>
+                      <dd className="text-sm">
+                        <a
+                          href={script.documentation}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:text-primary/80 break-all"
+                        >
+                          {script.documentation}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
             </div>
-          )}
 
-          {/* User Notes (Private / Shared) */}
-          <ScriptNotesPanel slug={script.slug} />
+            {/* Install Methods - Hide for PVE and ADDON types as they typically don't have install methods */}
+            {script.install_methods.length > 0 &&
+              script.type !== "pve" &&
+              script.type !== "addon" && (
+                <div>
+                  <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
+                    Install Methods
+                  </h3>
+                  <div className="space-y-4">
+                    {script.install_methods.map((method, index) => (
+                      <div
+                        key={index}
+                        className="border-border bg-card rounded-lg border p-3 sm:p-4"
+                      >
+                        <div className="mb-3 flex flex-col justify-between space-y-1 sm:flex-row sm:items-center sm:space-y-0">
+                          <h4 className="text-foreground text-sm font-medium capitalize sm:text-base">
+                            {method.type}
+                          </h4>
+                          <span className="text-muted-foreground font-mono text-xs break-all sm:text-sm">
+                            {method.script}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs sm:gap-4 sm:text-sm lg:grid-cols-4">
+                          <div>
+                            <dt className="text-muted-foreground font-medium">
+                              CPU
+                            </dt>
+                            <dd className="text-foreground">
+                              {method.resources.cpu} cores
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground font-medium">
+                              RAM
+                            </dt>
+                            <dd className="text-foreground">
+                              {method.resources.ram} MB
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground font-medium">
+                              HDD
+                            </dt>
+                            <dd className="text-foreground">
+                              {method.resources.hdd} GB
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground font-medium">
+                              OS
+                            </dt>
+                            <dd className="text-foreground">
+                              {method.resources.os} {method.resources.version}
+                            </dd>
+                          </div>
+                        </div>
+                        {method.config_path && (
+                          <div className="mt-2 text-xs sm:text-sm">
+                            <dt className="text-muted-foreground font-medium">
+                              Config Path
+                            </dt>
+                            <dd className="text-foreground font-mono text-xs break-all">
+                              {method.config_path}
+                            </dd>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Default Credentials */}
+            {(script.default_credentials.username ??
+              script.default_credentials.password) && (
+              <div>
+                <h3 className="text-foreground mb-3 text-base font-semibold sm:text-lg">
+                  Default Credentials
+                </h3>
+                <dl className="space-y-2">
+                  {script.default_credentials.username && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Username
+                      </dt>
+                      <dd className="text-foreground font-mono text-sm">
+                        {script.default_credentials.username}
+                      </dd>
+                    </div>
+                  )}
+                  {script.default_credentials.password && (
+                    <div>
+                      <dt className="text-muted-foreground text-sm font-medium">
+                        Password
+                      </dt>
+                      <dd className="text-foreground font-mono text-sm">
+                        {script.default_credentials.password}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+
+            {/* Notes */}
+            {script.notes.length > 0 && (
+              <div>
+                <h3 className="text-foreground mb-3 text-lg font-semibold">
+                  Notes
+                </h3>
+                <ul className="space-y-2">
+                  {script.notes.map((note, index) => {
+                    // Handle both object and string note formats
+                    const noteText =
+                      typeof note === "string" ? note : note.text;
+                    const noteType =
+                      typeof note === "string" ? "info" : note.type;
+
+                    return (
+                      <li
+                        key={index}
+                        className={`rounded-lg p-3 text-sm ${
+                          noteType === "warning"
+                            ? "border-warning bg-warning/10 text-warning border-l-4"
+                            : noteType === "error"
+                              ? "border-destructive bg-destructive/10 text-destructive border-l-4"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <div className="flex items-start">
+                          <NoteBadge
+                            noteType={noteType as "info" | "warning" | "error"}
+                            className="mr-2 flex-shrink-0"
+                          >
+                            {noteType}
+                          </NoteBadge>
+                          <span>{noteText}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {/* User Notes (Private / Shared) */}
+            <ScriptNotesPanel slug={script.slug} />
+          </div>
         </div>
+
+        {/* Diff Viewer Modal */}
+        {selectedDiffFile && (
+          <DiffViewer
+            scriptSlug={script.slug}
+            filePath={selectedDiffFile}
+            isOpen={diffViewerOpen}
+            onClose={() => {
+              setDiffViewerOpen(false);
+              setSelectedDiffFile(null);
+            }}
+          />
+        )}
+
+        {/* Text Viewer Modal */}
+        {script && (
+          <TextViewer
+            scriptName={
+              script.install_methods
+                ?.find(
+                  (method) =>
+                    method.script &&
+                    (method.script.startsWith("ct/") ||
+                      method.script.startsWith("vm/") ||
+                      method.script.startsWith("tools/")),
+                )
+                ?.script?.split("/")
+                .pop() ?? `${script.slug}.sh`
+            }
+            script={script}
+            isOpen={textViewerOpen}
+            onClose={() => setTextViewerOpen(false)}
+          />
+        )}
+
+        {/* Version Selection Modal */}
+        {script && (
+          <ScriptVersionModal
+            script={script}
+            isOpen={versionModalOpen}
+            onClose={() => setVersionModalOpen(false)}
+            onSelectVersion={handleVersionSelect}
+          />
+        )}
+
+        {/* Execution Mode Modal */}
+        {script && (
+          <ExecutionModeModal
+            scriptName={script.name}
+            script={script}
+            isOpen={executionModeOpen}
+            onClose={() => setExecutionModeOpen(false)}
+            onExecute={handleExecuteScript}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {script && (
+          <ConfirmationModal
+            isOpen={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}
+            onConfirm={handleConfirmDelete}
+            title="Delete Script"
+            message={`Are you sure you want to delete all downloaded files for "${script.name}"? This action cannot be undone.`}
+            variant="simple"
+            confirmButtonText="Delete"
+            cancelButtonText="Cancel"
+          />
+        )}
       </div>
-
-      {/* Diff Viewer Modal */}
-      {selectedDiffFile && (
-        <DiffViewer
-          scriptSlug={script.slug}
-          filePath={selectedDiffFile}
-          isOpen={diffViewerOpen}
-          onClose={() => {
-            setDiffViewerOpen(false);
-            setSelectedDiffFile(null);
-          }}
-        />
-      )}
-
-      {/* Text Viewer Modal */}
-      {script && (
-        <TextViewer
-          scriptName={
-            script.install_methods
-              ?.find(
-                (method) =>
-                  method.script &&
-                  (method.script.startsWith("ct/") ||
-                    method.script.startsWith("vm/") ||
-                    method.script.startsWith("tools/")),
-              )
-              ?.script?.split("/")
-              .pop() ?? `${script.slug}.sh`
-          }
-          script={script}
-          isOpen={textViewerOpen}
-          onClose={() => setTextViewerOpen(false)}
-        />
-      )}
-
-      {/* Version Selection Modal */}
-      {script && (
-        <ScriptVersionModal
-          script={script}
-          isOpen={versionModalOpen}
-          onClose={() => setVersionModalOpen(false)}
-          onSelectVersion={handleVersionSelect}
-        />
-      )}
-
-      {/* Execution Mode Modal */}
-      {script && (
-        <ExecutionModeModal
-          scriptName={script.name}
-          script={script}
-          isOpen={executionModeOpen}
-          onClose={() => setExecutionModeOpen(false)}
-          onExecute={handleExecuteScript}
-        />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {script && (
-        <ConfirmationModal
-          isOpen={deleteConfirmOpen}
-          onClose={() => setDeleteConfirmOpen(false)}
-          onConfirm={handleConfirmDelete}
-          title="Delete Script"
-          message={`Are you sure you want to delete all downloaded files for "${script.name}"? This action cannot be undone.`}
-          variant="simple"
-          confirmButtonText="Delete"
-          cancelButtonText="Cancel"
-        />
-      )}
-    </div>
     </ModalPortal>
   );
 }

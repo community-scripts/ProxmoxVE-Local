@@ -44,7 +44,11 @@ export function HelpModal({
   onClose,
   initialSection = "server-settings",
 }: HelpModalProps) {
-  const zIndex = useRegisterModal(isOpen, { id: "help-modal", allowEscape: true, onClose });
+  const zIndex = useRegisterModal(isOpen, {
+    id: "help-modal",
+    allowEscape: true,
+    onClose,
+  });
   const [activeSection, setActiveSection] = useState<HelpSection>(
     initialSection as HelpSection,
   );
@@ -2073,65 +2077,70 @@ export function HelpModal({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4" style={{ zIndex }}>
-      <div className="bg-card max-h-[95vh] w-full max-w-6xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
-        {/* Header */}
-        <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
-          <h2 className="text-card-foreground flex items-center gap-2 text-xl font-bold sm:text-2xl">
-            <HelpCircle className="h-6 w-6" />
-            Help & Documentation
-          </h2>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <svg
-              className="h-5 w-5 sm:h-6 sm:w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4"
+        style={{ zIndex }}
+      >
+        <div className="bg-card max-h-[95vh] w-full max-w-6xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
+          {/* Header */}
+          <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
+            <h2 className="text-card-foreground flex items-center gap-2 text-xl font-bold sm:text-2xl">
+              <HelpCircle className="h-6 w-6" />
+              Help & Documentation
+            </h2>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
-
-        <div className="flex h-[calc(95vh-120px)] sm:h-[calc(90vh-140px)]">
-          {/* Sidebar Navigation */}
-          <div className="border-border bg-muted/30 w-64 overflow-y-auto border-r">
-            <nav className="space-y-2 p-4">
-              {sections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <Button
-                    key={section.id}
-                    onClick={() => setActiveSection(section.id)}
-                    variant={activeSection === section.id ? "default" : "ghost"}
-                    size="sm"
-                    className="w-full justify-start gap-2 text-left"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {section.label}
-                  </Button>
-                );
-              })}
-            </nav>
+              <svg
+                className="h-5 w-5 sm:h-6 sm:w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </Button>
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 sm:p-6">{renderContent()}</div>
+          <div className="flex h-[calc(95vh-120px)] sm:h-[calc(90vh-140px)]">
+            {/* Sidebar Navigation */}
+            <div className="border-border bg-muted/30 w-64 overflow-y-auto border-r">
+              <nav className="space-y-2 p-4">
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <Button
+                      key={section.id}
+                      onClick={() => setActiveSection(section.id)}
+                      variant={
+                        activeSection === section.id ? "default" : "ghost"
+                      }
+                      size="sm"
+                      className="w-full justify-start gap-2 text-left"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {section.label}
+                    </Button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 sm:p-6">{renderContent()}</div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

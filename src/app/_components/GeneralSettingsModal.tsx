@@ -686,1263 +686,1276 @@ export function GeneralSettingsModal({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4" style={{ zIndex }}>
-      <div className="bg-card max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
-        {/* Header */}
-        <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-card-foreground text-xl font-bold sm:text-2xl">
-              Settings
-            </h2>
-            <ContextualHelpIcon
-              section="general-settings"
-              tooltip="Help with General Settings"
-            />
-          </div>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <svg
-              className="h-5 w-5 sm:h-6 sm:w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-2 backdrop-blur-sm sm:p-4"
+        style={{ zIndex }}
+      >
+        <div className="bg-card max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-lg shadow-xl sm:max-h-[90vh]">
+          {/* Header */}
+          <div className="border-border flex items-center justify-between border-b p-4 sm:p-6">
+            <div className="flex items-center gap-2">
+              <h2 className="text-card-foreground text-xl font-bold sm:text-2xl">
+                Settings
+              </h2>
+              <ContextualHelpIcon
+                section="general-settings"
+                tooltip="Help with General Settings"
               />
-            </svg>
-          </Button>
-        </div>
-
-        {/* Tabs */}
-        <div className="border-border border-b">
-          <nav className="flex flex-col space-y-1 px-4 sm:flex-row sm:space-y-0 sm:space-x-8 sm:px-6">
-            <Button
-              onClick={() => setActiveTab("general")}
-              variant="ghost"
-              size="null"
-              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                activeTab === "general"
-                  ? "border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-              }`}
-            >
-              General
-            </Button>
-            <Button
-              onClick={() => setActiveTab("github")}
-              variant="ghost"
-              size="null"
-              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                activeTab === "github"
-                  ? "border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-              }`}
-            >
-              GitHub
-            </Button>
-            <Button
-              onClick={() => setActiveTab("auth")}
-              variant="ghost"
-              size="null"
-              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                activeTab === "auth"
-                  ? "border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-              }`}
-            >
-              Authentication
-            </Button>
-            <Button
-              onClick={() => setActiveTab("auto-sync")}
-              variant="ghost"
-              size="null"
-              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                activeTab === "auto-sync"
-                  ? "border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-              }`}
-            >
-              Auto-Sync
-            </Button>
-            <Button
-              onClick={() => setActiveTab("repositories")}
-              variant="ghost"
-              size="null"
-              className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                activeTab === "repositories"
-                  ? "border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-              }`}
-            >
-              Repositories
-            </Button>
-          </nav>
-        </div>
-
-        {/* Content */}
-        <div className="max-h-[calc(95vh-180px)] overflow-y-auto p-4 sm:max-h-[calc(90vh-200px)] sm:p-6">
-          {activeTab === "general" && (
-            <div className="space-y-4 sm:space-y-6">
-              <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                General Settings
-              </h3>
-              <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                Configure general application preferences and behavior.
-              </p>
-              <div className="space-y-4">
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-medium">Theme</h4>
-                  <p className="text-muted-foreground mb-4 text-sm">
-                    Choose your preferred color theme for the application.
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-foreground text-sm font-medium">
-                        Current Theme
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {theme === "light" ? "Light mode" : "Dark mode"}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => setTheme("light")}
-                        variant={theme === "light" ? "default" : "outline"}
-                        size="sm"
-                      >
-                        Light
-                      </Button>
-                      <Button
-                        onClick={() => setTheme("dark")}
-                        variant={theme === "dark" ? "default" : "outline"}
-                        size="sm"
-                      >
-                        Dark
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-medium">
-                    Save Filters
-                  </h4>
-                  <p className="text-muted-foreground mb-4 text-sm">
-                    Save your configured script filters.
-                  </p>
-                  <Toggle
-                    checked={saveFilter}
-                    onCheckedChange={saveSaveFilter}
-                    label="Enable filter saving"
-                  />
-
-                  {saveFilter && (
-                    <div className="bg-muted mt-4 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-foreground text-sm font-medium">
-                            Saved Filters
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {savedFilters
-                              ? "Filters are currently saved"
-                              : "No filters saved yet"}
-                          </p>
-                          {savedFilters && (
-                            <div className="text-muted-foreground mt-2 text-xs">
-                              <div>
-                                Search: {savedFilters.searchQuery ?? "None"}
-                              </div>
-                              <div>
-                                Types: {savedFilters.selectedTypes?.length ?? 0}{" "}
-                                selected
-                              </div>
-                              <div>
-                                Sort: {savedFilters.sortBy} (
-                                {savedFilters.sortOrder})
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {savedFilters && (
-                          <Button
-                            onClick={clearSavedFilters}
-                            variant="outline"
-                            size="sm"
-                            className="text-error hover:text-error/80"
-                          >
-                            Clear
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-medium">
-                    Server Color Coding
-                  </h4>
-                  <p className="text-muted-foreground mb-4 text-sm">
-                    Enable color coding for servers to visually distinguish them
-                    throughout the application.
-                  </p>
-                  <Toggle
-                    checked={colorCodingEnabled}
-                    onCheckedChange={saveColorCodingSetting}
-                    label="Enable server color coding"
-                  />
-                </div>
-
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-medium">
-                    APT-Cacher-NG Proxy
-                  </h4>
-                  <p className="text-muted-foreground mb-4 text-sm">
-                    Configure a default APT proxy to speed up package downloads.
-                    This will be pre-filled for new container installations.
-                  </p>
-                  <Toggle
-                    checked={aptProxyEnabled}
-                    onCheckedChange={(checked) => setAptProxyEnabled(checked)}
-                    label="Enable APT proxy"
-                  />
-                  {aptProxyEnabled && (
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <label className="text-foreground mb-1 block text-sm font-medium">
-                          Proxy Address (IP or hostname)
-                        </label>
-                        <Input
-                          type="text"
-                          value={aptProxyIp}
-                          onChange={(e) => setAptProxyIp(e.target.value)}
-                          placeholder="e.g. 192.168.1.100:3142"
-                        />
-                      </div>
-                      <Button
-                        onClick={() => void saveAptProxySettings()}
-                        size="sm"
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
-          )}
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <svg
+                className="h-5 w-5 sm:h-6 sm:w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </Button>
+          </div>
 
-          {activeTab === "github" && (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
+          {/* Tabs */}
+          <div className="border-border border-b">
+            <nav className="flex flex-col space-y-1 px-4 sm:flex-row sm:space-y-0 sm:space-x-8 sm:px-6">
+              <Button
+                onClick={() => setActiveTab("general")}
+                variant="ghost"
+                size="null"
+                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                  activeTab === "general"
+                    ? "border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                }`}
+              >
+                General
+              </Button>
+              <Button
+                onClick={() => setActiveTab("github")}
+                variant="ghost"
+                size="null"
+                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                  activeTab === "github"
+                    ? "border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                }`}
+              >
+                GitHub
+              </Button>
+              <Button
+                onClick={() => setActiveTab("auth")}
+                variant="ghost"
+                size="null"
+                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                  activeTab === "auth"
+                    ? "border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                }`}
+              >
+                Authentication
+              </Button>
+              <Button
+                onClick={() => setActiveTab("auto-sync")}
+                variant="ghost"
+                size="null"
+                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                  activeTab === "auto-sync"
+                    ? "border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                }`}
+              >
+                Auto-Sync
+              </Button>
+              <Button
+                onClick={() => setActiveTab("repositories")}
+                variant="ghost"
+                size="null"
+                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
+                  activeTab === "repositories"
+                    ? "border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
+                }`}
+              >
+                Repositories
+              </Button>
+            </nav>
+          </div>
+
+          {/* Content */}
+          <div className="max-h-[calc(95vh-180px)] overflow-y-auto p-4 sm:max-h-[calc(90vh-200px)] sm:p-6">
+            {activeTab === "general" && (
+              <div className="space-y-4 sm:space-y-6">
                 <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                  GitHub Integration
+                  General Settings
                 </h3>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Configure GitHub integration for script management and
-                  updates.
+                  Configure general application preferences and behavior.
                 </p>
                 <div className="space-y-4">
                   <div className="border-border rounded-lg border p-4">
-                    <h4 className="text-foreground mb-2 font-medium">
-                      GitHub Personal Access Token
-                    </h4>
+                    <h4 className="text-foreground mb-2 font-medium">Theme</h4>
                     <p className="text-muted-foreground mb-4 text-sm">
-                      Save a GitHub Personal Access Token to circumvent GitHub
-                      API rate limits.
+                      Choose your preferred color theme for the application.
                     </p>
-
-                    <div className="space-y-3">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label
-                          htmlFor="github-token"
-                          className="text-foreground mb-1 block text-sm font-medium"
-                        >
-                          Token
-                        </label>
-                        <Input
-                          id="github-token"
-                          type="password"
-                          placeholder="Enter your GitHub Personal Access Token"
-                          value={githubToken}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            setGithubToken(e.target.value)
-                          }
-                          disabled={isLoading || isSaving}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {message && (
-                        <div
-                          className={`rounded-md p-3 text-sm ${
-                            message.type === "success"
-                              ? "bg-success/10 text-success-foreground border-success/20 border"
-                              : "bg-error/10 text-error-foreground border-error/20 border"
-                          }`}
-                        >
-                          {message.text}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={saveGithubToken}
-                          disabled={
-                            isSaving || isLoading || !githubToken.trim()
-                          }
-                          className="flex-1"
-                        >
-                          {isSaving ? "Saving..." : "Save Token"}
-                        </Button>
-                        <Button
-                          onClick={loadGithubToken}
-                          disabled={isLoading || isSaving}
-                          variant="outline"
-                        >
-                          {isLoading ? "Loading..." : "Refresh"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "auth" && (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <div className="mb-3 flex items-center gap-2 sm:mb-4">
-                  <h3 className="text-foreground text-base font-medium sm:text-lg">
-                    Authentication Settings
-                  </h3>
-                  <ContextualHelpIcon
-                    section="auth-settings"
-                    tooltip="Help with Authentication Settings"
-                  />
-                </div>
-                <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Configure authentication to secure access to your application.
-                </p>
-                <div className="space-y-4">
-                  <div className="border-border rounded-lg border p-4">
-                    <h4 className="text-foreground mb-2 font-medium">
-                      Authentication Status
-                    </h4>
-                    <p className="text-muted-foreground mb-4 text-sm">
-                      {authSetupCompleted
-                        ? authHasCredentials
-                          ? `Authentication is ${authEnabled ? "enabled" : "disabled"}. Current username: ${authUsername}`
-                          : `Authentication is ${authEnabled ? "enabled" : "disabled"}. No credentials configured.`
-                        : "Authentication setup has not been completed yet."}
-                    </p>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-foreground text-sm font-medium">
-                            Enable Authentication
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {authEnabled
-                              ? "Authentication is required on every page load"
-                              : "Authentication is optional"}
-                          </p>
-                        </div>
-                        <Toggle
-                          checked={authEnabled}
-                          onCheckedChange={toggleAuthEnabled}
-                          disabled={authLoading || !authSetupCompleted}
-                          label="Enable authentication"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {isAuthenticated && expirationTime && (
-                    <div className="border-border rounded-lg border p-4">
-                      <h4 className="text-foreground mb-2 font-medium">
-                        Session Information
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-muted-foreground text-sm">
-                            Session expires in:
-                          </p>
-                          <p className="text-foreground text-sm font-medium">
-                            {sessionExpirationDisplay}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-sm">
-                            Expiration date:
-                          </p>
-                          <p className="text-foreground text-sm font-medium">
-                            {new Date(expirationTime).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="border-border rounded-lg border p-4">
-                    <h4 className="text-foreground mb-2 font-medium">
-                      Session Duration
-                    </h4>
-                    <p className="text-muted-foreground mb-4 text-sm">
-                      Configure how long user sessions should last before
-                      requiring re-authentication.
-                    </p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label
-                          htmlFor="session-duration"
-                          className="text-foreground mb-1 block text-sm font-medium"
-                        >
-                          Session Duration (days)
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            id="session-duration"
-                            type="number"
-                            min="1"
-                            max="365"
-                            placeholder="Enter days"
-                            value={sessionDurationDays}
-                            onChange={(
-                              e: React.ChangeEvent<HTMLInputElement>,
-                            ) => {
-                              const value = parseInt(e.target.value, 10);
-                              if (!isNaN(value)) {
-                                setSessionDurationDays(value);
-                              }
-                            }}
-                            disabled={authLoading || !authSetupCompleted}
-                            className="w-32"
-                          />
-                          <span className="text-muted-foreground text-sm">
-                            days (1-365)
-                          </span>
-                          <Button
-                            onClick={() =>
-                              saveSessionDuration(sessionDurationDays)
-                            }
-                            disabled={authLoading || !authSetupCompleted}
-                            size="sm"
-                          >
-                            Save
-                          </Button>
-                        </div>
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Note: This setting applies to new logins. Current
-                          sessions will not be affected.
+                        <p className="text-foreground text-sm font-medium">
+                          Current Theme
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {theme === "light" ? "Light mode" : "Dark mode"}
                         </p>
                       </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setTheme("light")}
+                          variant={theme === "light" ? "default" : "outline"}
+                          size="sm"
+                        >
+                          Light
+                        </Button>
+                        <Button
+                          onClick={() => setTheme("dark")}
+                          variant={theme === "dark" ? "default" : "outline"}
+                          size="sm"
+                        >
+                          Dark
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="border-border rounded-lg border p-4">
                     <h4 className="text-foreground mb-2 font-medium">
-                      Update Credentials
+                      Save Filters
                     </h4>
                     <p className="text-muted-foreground mb-4 text-sm">
-                      Change your username and password for authentication.
+                      Save your configured script filters.
                     </p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label
-                          htmlFor="auth-username"
-                          className="text-foreground mb-1 block text-sm font-medium"
-                        >
-                          Username
-                        </label>
-                        <Input
-                          id="auth-username"
-                          type="text"
-                          placeholder="Enter username"
-                          value={authUsername}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            setAuthUsername(e.target.value)
-                          }
-                          disabled={authLoading}
-                          className="w-full"
-                          minLength={3}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="auth-password"
-                          className="text-foreground mb-1 block text-sm font-medium"
-                        >
-                          New Password
-                        </label>
-                        <Input
-                          id="auth-password"
-                          type="password"
-                          placeholder="Enter new password"
-                          value={authPassword}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            setAuthPassword(e.target.value)
-                          }
-                          disabled={authLoading}
-                          className="w-full"
-                          minLength={6}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="auth-confirm-password"
-                          className="text-foreground mb-1 block text-sm font-medium"
-                        >
-                          Confirm Password
-                        </label>
-                        <Input
-                          id="auth-confirm-password"
-                          type="password"
-                          placeholder="Confirm new password"
-                          value={authConfirmPassword}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            setAuthConfirmPassword(e.target.value)
-                          }
-                          disabled={authLoading}
-                          className="w-full"
-                          minLength={6}
-                        />
-                      </div>
-
-                      {message && (
-                        <div
-                          className={`rounded-md p-3 text-sm ${
-                            message.type === "success"
-                              ? "bg-success/10 text-success-foreground border-success/20 border"
-                              : "bg-error/10 text-error-foreground border-error/20 border"
-                          }`}
-                        >
-                          {message.text}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={saveAuthCredentials}
-                          disabled={
-                            authLoading ||
-                            !authUsername.trim() ||
-                            !authPassword.trim() ||
-                            !authConfirmPassword.trim()
-                          }
-                          className="flex-1"
-                        >
-                          {authLoading ? "Saving..." : "Update Credentials"}
-                        </Button>
-                        <Button
-                          onClick={loadAuthCredentials}
-                          disabled={authLoading}
-                          variant="outline"
-                        >
-                          {authLoading ? "Loading..." : "Refresh"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "auto-sync" && (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                  Auto-Sync Settings
-                </h3>
-                <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Configure automatic synchronization of scripts with
-                  configurable intervals and notifications.
-                </p>
-
-                {/* Enable Auto-Sync */}
-                <div className="border-border mb-4 rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-foreground mb-1 font-medium">
-                        Enable Auto-Sync
-                      </h4>
-                      <p className="text-muted-foreground text-sm">
-                        Automatically sync scripts from PocketBase at specified
-                        intervals
-                      </p>
-                    </div>
                     <Toggle
-                      checked={autoSyncEnabled}
-                      onCheckedChange={async (checked) => {
-                        setAutoSyncEnabled(checked);
-
-                        // Auto-save when toggle changes
-                        try {
-                          // If syncIntervalType is custom but no cron expression, fallback to predefined
-                          const effectiveSyncIntervalType =
-                            syncIntervalType === "custom" && !syncIntervalCron
-                              ? "predefined"
-                              : syncIntervalType;
-
-                          const response = await fetch(
-                            "/api/settings/auto-sync",
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                autoSyncEnabled: checked,
-                                syncIntervalType: effectiveSyncIntervalType,
-                                syncIntervalPredefined:
-                                  effectiveSyncIntervalType === "predefined"
-                                    ? syncIntervalPredefined
-                                    : undefined,
-                                syncIntervalCron:
-                                  effectiveSyncIntervalType === "custom"
-                                    ? syncIntervalCron
-                                    : undefined,
-                                autoDownloadNew,
-                                autoUpdateExisting,
-                                notificationEnabled,
-                                appriseUrls: appriseUrls,
-                              }),
-                            },
-                          );
-
-                          if (response.ok) {
-                            // Update local state to reflect the effective sync interval type
-                            if (
-                              effectiveSyncIntervalType !== syncIntervalType
-                            ) {
-                              setSyncIntervalType(effectiveSyncIntervalType);
-                            }
-                          }
-                        } catch (error) {
-                          console.error(
-                            "Error saving auto-sync toggle:",
-                            error,
-                          );
-                        }
-                      }}
-                      disabled={isSaving}
+                      checked={saveFilter}
+                      onCheckedChange={saveSaveFilter}
+                      label="Enable filter saving"
                     />
-                  </div>
-                </div>
 
-                {/* Sync Interval */}
-                {autoSyncEnabled && (
-                  <div className="border-border mb-4 rounded-lg border p-4">
-                    <h4 className="text-foreground mb-3 font-medium">
-                      Sync Interval
-                    </h4>
-
-                    <div className="space-y-3">
-                      <div className="flex space-x-4">
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="syncIntervalType"
-                            value="predefined"
-                            checked={syncIntervalType === "predefined"}
-                            onChange={(e) =>
-                              setSyncIntervalType(
-                                e.target.value as "predefined" | "custom",
-                              )
-                            }
-                            className="mr-2"
-                          />
-                          Predefined
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="syncIntervalType"
-                            value="custom"
-                            checked={syncIntervalType === "custom"}
-                            onChange={(e) =>
-                              setSyncIntervalType(
-                                e.target.value as "predefined" | "custom",
-                              )
-                            }
-                            className="mr-2"
-                          />
-                          Custom Cron
-                        </label>
-                      </div>
-
-                      {syncIntervalType === "predefined" && (
-                        <div>
-                          <select
-                            value={syncIntervalPredefined}
-                            onChange={(e) =>
-                              setSyncIntervalPredefined(e.target.value)
-                            }
-                            className="border-border bg-background w-full rounded-md border p-2"
-                          >
-                            <option value="15min">Every 15 minutes</option>
-                            <option value="30min">Every 30 minutes</option>
-                            <option value="1hour">Every hour</option>
-                            <option value="6hours">Every 6 hours</option>
-                            <option value="12hours">Every 12 hours</option>
-                            <option value="24hours">Every 24 hours</option>
-                          </select>
-                        </div>
-                      )}
-
-                      {syncIntervalType === "custom" && (
-                        <div>
-                          <Input
-                            placeholder="0 */6 * * * (every 6 hours)"
-                            value={syncIntervalCron}
-                            onChange={(e) => handleCronChange(e.target.value)}
-                            className="w-full"
-                            autoFocus
-                            onFocus={() => setCronValidationError("")}
-                          />
-                          {cronValidationError && (
-                            <p className="mt-1 text-sm text-red-500">
-                              {cronValidationError}
+                    {saveFilter && (
+                      <div className="bg-muted mt-4 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-foreground text-sm font-medium">
+                              Saved Filters
                             </p>
-                          )}
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            Format: minute hour day month weekday. See{" "}
-                            <a
-                              href="https://crontab.guru"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              crontab.guru
-                            </a>{" "}
-                            for examples
-                          </p>
-                          <div className="bg-muted mt-2 rounded p-2 text-xs">
-                            <p className="mb-1 font-medium">Common examples:</p>
-                            <ul className="text-muted-foreground space-y-1">
-                              <li>
-                                • <code>* * * * *</code> - Every minute
-                              </li>
-                              <li>
-                                • <code>0 * * * *</code> - Every hour
-                              </li>
-                              <li>
-                                • <code>0 */6 * * *</code> - Every 6 hours
-                              </li>
-                              <li>
-                                • <code>0 0 * * *</code> - Every day at midnight
-                              </li>
-                              <li>
-                                • <code>0 0 * * 0</code> - Every Sunday at
-                                midnight
-                              </li>
-                            </ul>
+                            <p className="text-muted-foreground text-xs">
+                              {savedFilters
+                                ? "Filters are currently saved"
+                                : "No filters saved yet"}
+                            </p>
+                            {savedFilters && (
+                              <div className="text-muted-foreground mt-2 text-xs">
+                                <div>
+                                  Search: {savedFilters.searchQuery ?? "None"}
+                                </div>
+                                <div>
+                                  Types:{" "}
+                                  {savedFilters.selectedTypes?.length ?? 0}{" "}
+                                  selected
+                                </div>
+                                <div>
+                                  Sort: {savedFilters.sortBy} (
+                                  {savedFilters.sortOrder})
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Auto-Download Options */}
-                {autoSyncEnabled && (
-                  <div className="border-border mb-4 rounded-lg border p-4">
-                    <h4 className="text-foreground mb-3 font-medium">
-                      Auto-Download Options
-                    </h4>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h5 className="text-foreground font-medium">
-                            Auto-download new scripts
-                          </h5>
-                          <p className="text-muted-foreground text-sm">
-                            Automatically download scripts that haven&apos;t
-                            been downloaded yet
-                          </p>
-                        </div>
-                        <Toggle
-                          checked={autoDownloadNew}
-                          onCheckedChange={setAutoDownloadNew}
-                          disabled={isSaving}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h5 className="text-foreground font-medium">
-                            Auto-update existing scripts
-                          </h5>
-                          <p className="text-muted-foreground text-sm">
-                            Automatically update scripts that have newer
-                            versions available
-                          </p>
-                        </div>
-                        <Toggle
-                          checked={autoUpdateExisting}
-                          onCheckedChange={setAutoUpdateExisting}
-                          disabled={isSaving}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Notifications */}
-                {autoSyncEnabled && (
-                  <div className="border-border mb-4 rounded-lg border p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <h4 className="text-foreground font-medium">
-                          Enable Notifications
-                        </h4>
-                        <p className="text-muted-foreground text-sm">
-                          Send notifications when sync completes
-                        </p>
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          If you want any other notification service, please
-                          open an issue on the GitHub repository.
-                        </p>
-                      </div>
-                      <Toggle
-                        checked={notificationEnabled}
-                        onCheckedChange={setNotificationEnabled}
-                        disabled={isSaving}
-                      />
-                    </div>
-
-                    {notificationEnabled && (
-                      <div className="space-y-3">
-                        <div>
-                          <label
-                            htmlFor="apprise-urls"
-                            className="text-foreground mb-1 block text-sm font-medium"
-                          >
-                            Apprise URLs
-                          </label>
-                          <textarea
-                            id="apprise-urls"
-                            placeholder="http://YOUR_APPRISE_SERVER/notify/apprise&#10;"
-                            value={appriseUrlsText}
-                            onChange={(e) =>
-                              handleAppriseUrlsChange(e.target.value)
-                            }
-                            className="border-border bg-background h-24 w-full resize-none rounded-md border p-2"
-                            rows={3}
-                          />
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            One URL per line. Supports Discord, Telegram, Email,
-                            Slack, and more via{" "}
-                            <a
-                              href="https://github.com/caronc/apprise"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
+                          {savedFilters && (
+                            <Button
+                              onClick={clearSavedFilters}
+                              variant="outline"
+                              size="sm"
+                              className="text-error hover:text-error/80"
                             >
-                              Apprise
-                            </a>
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={testNotification}
-                            variant="outline"
-                            size="sm"
-                            disabled={appriseUrls.length === 0}
-                          >
-                            Test Notification
-                          </Button>
+                              Clear
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
-                )}
 
-                {/* Status and Actions */}
-                {autoSyncEnabled && (
-                  <div className="border-border mb-4 rounded-lg border p-4">
-                    <h4 className="text-foreground mb-3 font-medium">
-                      Status & Actions
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-2 font-medium">
+                      Server Color Coding
                     </h4>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Enable color coding for servers to visually distinguish
+                      them throughout the application.
+                    </p>
+                    <Toggle
+                      checked={colorCodingEnabled}
+                      onCheckedChange={saveColorCodingSetting}
+                      label="Enable server color coding"
+                    />
+                  </div>
 
-                    <div className="space-y-3">
-                      {lastAutoSync && (
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-2 font-medium">
+                      APT-Cacher-NG Proxy
+                    </h4>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Configure a default APT proxy to speed up package
+                      downloads. This will be pre-filled for new container
+                      installations.
+                    </p>
+                    <Toggle
+                      checked={aptProxyEnabled}
+                      onCheckedChange={(checked) => setAptProxyEnabled(checked)}
+                      label="Enable APT proxy"
+                    />
+                    {aptProxyEnabled && (
+                      <div className="mt-3 space-y-3">
                         <div>
-                          <p className="text-muted-foreground text-sm">
-                            Last sync: {new Date(lastAutoSync).toLocaleString()}
-                          </p>
+                          <label className="text-foreground mb-1 block text-sm font-medium">
+                            Proxy Address (IP or hostname)
+                          </label>
+                          <Input
+                            type="text"
+                            value={aptProxyIp}
+                            onChange={(e) => setAptProxyIp(e.target.value)}
+                            placeholder="e.g. 192.168.1.100:3142"
+                          />
                         </div>
-                      )}
+                        <Button
+                          onClick={() => void saveAptProxySettings()}
+                          size="sm"
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                      {lastAutoSyncError && (
-                        <div className="bg-error/10 text-error-foreground border-error/20 rounded-md border p-3">
-                          <div className="flex items-start gap-2">
-                            <svg
-                              className="mt-0.5 h-4 w-4 flex-shrink-0"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <div>
-                              <p className="text-sm font-medium">
-                                Last sync error:
-                              </p>
-                              <p className="mt-1 text-sm">
-                                {lastAutoSyncError}
-                              </p>
-                              {lastAutoSyncErrorTime && (
-                                <p className="mt-1 text-xs opacity-75">
-                                  {new Date(
-                                    lastAutoSyncErrorTime,
-                                  ).toLocaleString()}
-                                </p>
-                              )}
-                            </div>
+            {activeTab === "github" && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
+                    GitHub Integration
+                  </h3>
+                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+                    Configure GitHub integration for script management and
+                    updates.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="border-border rounded-lg border p-4">
+                      <h4 className="text-foreground mb-2 font-medium">
+                        GitHub Personal Access Token
+                      </h4>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        Save a GitHub Personal Access Token to circumvent GitHub
+                        API rate limits.
+                      </p>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label
+                            htmlFor="github-token"
+                            className="text-foreground mb-1 block text-sm font-medium"
+                          >
+                            Token
+                          </label>
+                          <Input
+                            id="github-token"
+                            type="password"
+                            placeholder="Enter your GitHub Personal Access Token"
+                            value={githubToken}
+                            onChange={(
+                              e: React.ChangeEvent<HTMLInputElement>,
+                            ) => setGithubToken(e.target.value)}
+                            disabled={isLoading || isSaving}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {message && (
+                          <div
+                            className={`rounded-md p-3 text-sm ${
+                              message.type === "success"
+                                ? "bg-success/10 text-success-foreground border-success/20 border"
+                                : "bg-error/10 text-error-foreground border-error/20 border"
+                            }`}
+                          >
+                            {message.text}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={triggerManualSync}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Trigger Sync Now
-                        </Button>
-                        <Button
-                          onClick={saveAutoSyncSettings}
-                          disabled={
-                            isSaving ||
-                            (syncIntervalType === "custom" &&
-                              !!cronValidationError)
-                          }
-                          size="sm"
-                        >
-                          {isSaving ? "Saving..." : "Save Settings"}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={saveGithubToken}
+                            disabled={
+                              isSaving || isLoading || !githubToken.trim()
+                            }
+                            className="flex-1"
+                          >
+                            {isSaving ? "Saving..." : "Save Token"}
+                          </Button>
+                          <Button
+                            onClick={loadGithubToken}
+                            disabled={isLoading || isSaving}
+                            variant="outline"
+                          >
+                            {isLoading ? "Loading..." : "Refresh"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                )}
-
-                {/* Message Display */}
-                {message && (
-                  <div
-                    className={`rounded-md p-3 text-sm ${
-                      message.type === "success"
-                        ? "bg-success/10 text-success-foreground border-success/20 border"
-                        : "bg-error/10 text-error-foreground border-error/20 border"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {activeTab === "repositories" && (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
-                  Repository Management
-                </h3>
-                <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Manage GitHub repositories for script synchronization. The
-                  main repository has priority when enabled.
-                </p>
-
-                {/* Add New Repository */}
-                <div className="border-border mb-4 rounded-lg border p-4">
-                  <h4 className="text-foreground mb-3 font-medium">
-                    Add New Repository
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label
-                        htmlFor="new-repo-url"
-                        className="text-foreground mb-1 block text-sm font-medium"
-                      >
-                        Repository URL
-                      </label>
-                      <Input
-                        id="new-repo-url"
-                        type="url"
-                        placeholder="https://github.com/owner/repo or https://git.example.com/owner/repo"
-                        value={newRepoUrl}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          setNewRepoUrl(e.target.value)
-                        }
-                        disabled={isAddingRepo}
-                        className="w-full"
-                      />
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        Supported: GitHub, GitLab, Bitbucket, or custom Git
-                        servers (e.g. https://github.com/owner/repo,
-                        https://gitlab.com/owner/repo)
+            {activeTab === "auth" && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <div className="mb-3 flex items-center gap-2 sm:mb-4">
+                    <h3 className="text-foreground text-base font-medium sm:text-lg">
+                      Authentication Settings
+                    </h3>
+                    <ContextualHelpIcon
+                      section="auth-settings"
+                      tooltip="Help with Authentication Settings"
+                    />
+                  </div>
+                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+                    Configure authentication to secure access to your
+                    application.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="border-border rounded-lg border p-4">
+                      <h4 className="text-foreground mb-2 font-medium">
+                        Authentication Status
+                      </h4>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        {authSetupCompleted
+                          ? authHasCredentials
+                            ? `Authentication is ${authEnabled ? "enabled" : "disabled"}. Current username: ${authUsername}`
+                            : `Authentication is ${authEnabled ? "enabled" : "disabled"}. No credentials configured.`
+                          : "Authentication setup has not been completed yet."}
                       </p>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-foreground text-sm font-medium">
+                              Enable Authentication
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {authEnabled
+                                ? "Authentication is required on every page load"
+                                : "Authentication is optional"}
+                            </p>
+                          </div>
+                          <Toggle
+                            checked={authEnabled}
+                            onCheckedChange={toggleAuthEnabled}
+                            disabled={authLoading || !authSetupCompleted}
+                            label="Enable authentication"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">
+
+                    {isAuthenticated && expirationTime && (
+                      <div className="border-border rounded-lg border p-4">
+                        <h4 className="text-foreground mb-2 font-medium">
+                          Session Information
+                        </h4>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-muted-foreground text-sm">
+                              Session expires in:
+                            </p>
+                            <p className="text-foreground text-sm font-medium">
+                              {sessionExpirationDisplay}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-sm">
+                              Expiration date:
+                            </p>
+                            <p className="text-foreground text-sm font-medium">
+                              {new Date(expirationTime).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-border rounded-lg border p-4">
+                      <h4 className="text-foreground mb-2 font-medium">
+                        Session Duration
+                      </h4>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        Configure how long user sessions should last before
+                        requiring re-authentication.
+                      </p>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label
+                            htmlFor="session-duration"
+                            className="text-foreground mb-1 block text-sm font-medium"
+                          >
+                            Session Duration (days)
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              id="session-duration"
+                              type="number"
+                              min="1"
+                              max="365"
+                              placeholder="Enter days"
+                              value={sessionDurationDays}
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) => {
+                                const value = parseInt(e.target.value, 10);
+                                if (!isNaN(value)) {
+                                  setSessionDurationDays(value);
+                                }
+                              }}
+                              disabled={authLoading || !authSetupCompleted}
+                              className="w-32"
+                            />
+                            <span className="text-muted-foreground text-sm">
+                              days (1-365)
+                            </span>
+                            <Button
+                              onClick={() =>
+                                saveSessionDuration(sessionDurationDays)
+                              }
+                              disabled={authLoading || !authSetupCompleted}
+                              size="sm"
+                            >
+                              Save
+                            </Button>
+                          </div>
+                          <p className="text-muted-foreground mt-2 text-xs">
+                            Note: This setting applies to new logins. Current
+                            sessions will not be affected.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-border rounded-lg border p-4">
+                      <h4 className="text-foreground mb-2 font-medium">
+                        Update Credentials
+                      </h4>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        Change your username and password for authentication.
+                      </p>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label
+                            htmlFor="auth-username"
+                            className="text-foreground mb-1 block text-sm font-medium"
+                          >
+                            Username
+                          </label>
+                          <Input
+                            id="auth-username"
+                            type="text"
+                            placeholder="Enter username"
+                            value={authUsername}
+                            onChange={(
+                              e: React.ChangeEvent<HTMLInputElement>,
+                            ) => setAuthUsername(e.target.value)}
+                            disabled={authLoading}
+                            className="w-full"
+                            minLength={3}
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="auth-password"
+                            className="text-foreground mb-1 block text-sm font-medium"
+                          >
+                            New Password
+                          </label>
+                          <Input
+                            id="auth-password"
+                            type="password"
+                            placeholder="Enter new password"
+                            value={authPassword}
+                            onChange={(
+                              e: React.ChangeEvent<HTMLInputElement>,
+                            ) => setAuthPassword(e.target.value)}
+                            disabled={authLoading}
+                            className="w-full"
+                            minLength={6}
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="auth-confirm-password"
+                            className="text-foreground mb-1 block text-sm font-medium"
+                          >
+                            Confirm Password
+                          </label>
+                          <Input
+                            id="auth-confirm-password"
+                            type="password"
+                            placeholder="Confirm new password"
+                            value={authConfirmPassword}
+                            onChange={(
+                              e: React.ChangeEvent<HTMLInputElement>,
+                            ) => setAuthConfirmPassword(e.target.value)}
+                            disabled={authLoading}
+                            className="w-full"
+                            minLength={6}
+                          />
+                        </div>
+
+                        {message && (
+                          <div
+                            className={`rounded-md p-3 text-sm ${
+                              message.type === "success"
+                                ? "bg-success/10 text-success-foreground border-success/20 border"
+                                : "bg-error/10 text-error-foreground border-error/20 border"
+                            }`}
+                          >
+                            {message.text}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={saveAuthCredentials}
+                            disabled={
+                              authLoading ||
+                              !authUsername.trim() ||
+                              !authPassword.trim() ||
+                              !authConfirmPassword.trim()
+                            }
+                            className="flex-1"
+                          >
+                            {authLoading ? "Saving..." : "Update Credentials"}
+                          </Button>
+                          <Button
+                            onClick={loadAuthCredentials}
+                            disabled={authLoading}
+                            variant="outline"
+                          >
+                            {authLoading ? "Loading..." : "Refresh"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "auto-sync" && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
+                    Auto-Sync Settings
+                  </h3>
+                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+                    Configure automatic synchronization of scripts with
+                    configurable intervals and notifications.
+                  </p>
+
+                  {/* Enable Auto-Sync */}
+                  <div className="border-border mb-4 rounded-lg border p-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-foreground text-sm font-medium">
-                          Enable after adding
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          Repository will be enabled by default
+                        <h4 className="text-foreground mb-1 font-medium">
+                          Enable Auto-Sync
+                        </h4>
+                        <p className="text-muted-foreground text-sm">
+                          Automatically sync scripts from PocketBase at
+                          specified intervals
                         </p>
                       </div>
                       <Toggle
-                        checked={newRepoEnabled}
-                        onCheckedChange={setNewRepoEnabled}
-                        disabled={isAddingRepo}
-                        label="Enable repository"
-                        labelPosition="left"
+                        checked={autoSyncEnabled}
+                        onCheckedChange={async (checked) => {
+                          setAutoSyncEnabled(checked);
+
+                          // Auto-save when toggle changes
+                          try {
+                            // If syncIntervalType is custom but no cron expression, fallback to predefined
+                            const effectiveSyncIntervalType =
+                              syncIntervalType === "custom" && !syncIntervalCron
+                                ? "predefined"
+                                : syncIntervalType;
+
+                            const response = await fetch(
+                              "/api/settings/auto-sync",
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  autoSyncEnabled: checked,
+                                  syncIntervalType: effectiveSyncIntervalType,
+                                  syncIntervalPredefined:
+                                    effectiveSyncIntervalType === "predefined"
+                                      ? syncIntervalPredefined
+                                      : undefined,
+                                  syncIntervalCron:
+                                    effectiveSyncIntervalType === "custom"
+                                      ? syncIntervalCron
+                                      : undefined,
+                                  autoDownloadNew,
+                                  autoUpdateExisting,
+                                  notificationEnabled,
+                                  appriseUrls: appriseUrls,
+                                }),
+                              },
+                            );
+
+                            if (response.ok) {
+                              // Update local state to reflect the effective sync interval type
+                              if (
+                                effectiveSyncIntervalType !== syncIntervalType
+                              ) {
+                                setSyncIntervalType(effectiveSyncIntervalType);
+                              }
+                            }
+                          } catch (error) {
+                            console.error(
+                              "Error saving auto-sync toggle:",
+                              error,
+                            );
+                          }
+                        }}
+                        disabled={isSaving}
                       />
                     </div>
-                    <Button
-                      onClick={async () => {
-                        if (!newRepoUrl.trim()) {
-                          setMessage({
-                            type: "error",
-                            text: "Please enter a repository URL",
-                          });
-                          return;
-                        }
-                        setIsAddingRepo(true);
-                        setMessage(null);
-                        try {
-                          const result = await createRepoMutation.mutateAsync({
-                            url: newRepoUrl.trim(),
-                            enabled: newRepoEnabled,
-                          });
-                          if (result.success) {
-                            setMessage({
-                              type: "success",
-                              text: "Repository added successfully!",
-                            });
-                            setNewRepoUrl("");
-                            setNewRepoEnabled(true);
-                            await refetchRepositories();
-                          } else {
-                            setMessage({
-                              type: "error",
-                              text: result.error ?? "Failed to add repository",
-                            });
-                          }
-                        } catch (error) {
-                          setMessage({
-                            type: "error",
-                            text:
-                              error instanceof Error
-                                ? error.message
-                                : "Failed to add repository",
-                          });
-                        } finally {
-                          setIsAddingRepo(false);
-                        }
-                      }}
-                      disabled={isAddingRepo || !newRepoUrl.trim()}
-                      className="w-full"
-                    >
-                      {isAddingRepo ? "Adding..." : "Add Repository"}
-                    </Button>
                   </div>
-                </div>
 
-                {/* Repository List */}
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-3 font-medium">
-                    Repositories
-                  </h4>
-                  {repositoriesData?.success &&
-                  repositoriesData.repositories.length > 0 ? (
-                    <div className="space-y-3">
-                      {repositoriesData.repositories.map(
-                        (repo: {
-                          id: number;
-                          url: string;
-                          enabled: boolean;
-                          is_default: boolean;
-                          is_removable: boolean;
-                          priority: number;
-                        }) => (
-                          <div
-                            key={repo.id}
-                            className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-1 flex items-center gap-2">
-                                <a
-                                  href={repo.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-foreground hover:text-primary flex items-center gap-1 text-sm font-medium"
-                                >
-                                  {repo.url}
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                                {repo.is_default && (
-                                  <span className="bg-primary/10 text-primary rounded px-2 py-0.5 text-xs">
-                                    {repo.priority === 1 ? "Main" : "Dev"}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-muted-foreground text-xs">
-                                Priority: {repo.priority}{" "}
-                                {repo.enabled ? "• Enabled" : "• Disabled"}
+                  {/* Sync Interval */}
+                  {autoSyncEnabled && (
+                    <div className="border-border mb-4 rounded-lg border p-4">
+                      <h4 className="text-foreground mb-3 font-medium">
+                        Sync Interval
+                      </h4>
+
+                      <div className="space-y-3">
+                        <div className="flex space-x-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="syncIntervalType"
+                              value="predefined"
+                              checked={syncIntervalType === "predefined"}
+                              onChange={(e) =>
+                                setSyncIntervalType(
+                                  e.target.value as "predefined" | "custom",
+                                )
+                              }
+                              className="mr-2"
+                            />
+                            Predefined
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="syncIntervalType"
+                              value="custom"
+                              checked={syncIntervalType === "custom"}
+                              onChange={(e) =>
+                                setSyncIntervalType(
+                                  e.target.value as "predefined" | "custom",
+                                )
+                              }
+                              className="mr-2"
+                            />
+                            Custom Cron
+                          </label>
+                        </div>
+
+                        {syncIntervalType === "predefined" && (
+                          <div>
+                            <select
+                              value={syncIntervalPredefined}
+                              onChange={(e) =>
+                                setSyncIntervalPredefined(e.target.value)
+                              }
+                              className="border-border bg-background w-full rounded-md border p-2"
+                            >
+                              <option value="15min">Every 15 minutes</option>
+                              <option value="30min">Every 30 minutes</option>
+                              <option value="1hour">Every hour</option>
+                              <option value="6hours">Every 6 hours</option>
+                              <option value="12hours">Every 12 hours</option>
+                              <option value="24hours">Every 24 hours</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {syncIntervalType === "custom" && (
+                          <div>
+                            <Input
+                              placeholder="0 */6 * * * (every 6 hours)"
+                              value={syncIntervalCron}
+                              onChange={(e) => handleCronChange(e.target.value)}
+                              className="w-full"
+                              autoFocus
+                              onFocus={() => setCronValidationError("")}
+                            />
+                            {cronValidationError && (
+                              <p className="mt-1 text-sm text-red-500">
+                                {cronValidationError}
                               </p>
-                            </div>
-                            <div className="flex flex-shrink-0 items-center gap-2">
-                              <Button
-                                onClick={async () => {
-                                  if (!repo.is_removable) {
-                                    setMessage({
-                                      type: "error",
-                                      text: "Default repositories cannot be deleted",
-                                    });
-                                    return;
-                                  }
-                                  if (
-                                    !confirm(
-                                      `Are you sure you want to delete this repository? All scripts from this repository will be removed.`,
-                                    )
-                                  ) {
-                                    return;
-                                  }
-                                  setDeletingRepoId(Number(repo.id));
-                                  setMessage(null);
-                                  try {
-                                    const result =
-                                      await deleteRepoMutation.mutateAsync({
-                                        id: repo.id,
-                                      });
-                                    if (result.success) {
-                                      setMessage({
-                                        type: "success",
-                                        text: "Repository deleted successfully!",
-                                      });
-                                      await refetchRepositories();
-                                    } else {
-                                      setMessage({
-                                        type: "error",
-                                        text:
-                                          result.error ??
-                                          "Failed to delete repository",
-                                      });
-                                    }
-                                  } catch (error) {
-                                    setMessage({
-                                      type: "error",
-                                      text:
-                                        error instanceof Error
-                                          ? error.message
-                                          : "Failed to delete repository",
-                                    });
-                                  } finally {
-                                    setDeletingRepoId(null);
-                                  }
-                                }}
-                                disabled={
-                                  !repo.is_removable ||
-                                  deletingRepoId === repo.id ||
-                                  deleteRepoMutation.isPending
-                                }
-                                variant="ghost"
-                                size="icon"
-                                className="text-error hover:text-error/80 hover:bg-error/10"
+                            )}
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Format: minute hour day month weekday. See{" "}
+                              <a
+                                href="https://crontab.guru"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Toggle
-                                checked={repo.enabled}
-                                onCheckedChange={async (enabled) => {
-                                  setMessage(null);
-                                  try {
-                                    const result =
-                                      await updateRepoMutation.mutateAsync({
-                                        id: repo.id,
-                                        enabled,
-                                      });
-                                    if (result.success) {
-                                      setMessage({
-                                        type: "success",
-                                        text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
-                                      });
-                                      await refetchRepositories();
-                                    } else {
-                                      setMessage({
-                                        type: "error",
-                                        text:
-                                          result.error ??
-                                          "Failed to update repository",
-                                      });
-                                    }
-                                  } catch (error) {
-                                    setMessage({
-                                      type: "error",
-                                      text:
-                                        error instanceof Error
-                                          ? error.message
-                                          : "Failed to update repository",
-                                    });
-                                  }
-                                }}
-                                disabled={updateRepoMutation.isPending}
-                                label={repo.enabled ? "Disable" : "Enable"}
-                                labelPosition="left"
-                              />
+                                crontab.guru
+                              </a>{" "}
+                              for examples
+                            </p>
+                            <div className="bg-muted mt-2 rounded p-2 text-xs">
+                              <p className="mb-1 font-medium">
+                                Common examples:
+                              </p>
+                              <ul className="text-muted-foreground space-y-1">
+                                <li>
+                                  • <code>* * * * *</code> - Every minute
+                                </li>
+                                <li>
+                                  • <code>0 * * * *</code> - Every hour
+                                </li>
+                                <li>
+                                  • <code>0 */6 * * *</code> - Every 6 hours
+                                </li>
+                                <li>
+                                  • <code>0 0 * * *</code> - Every day at
+                                  midnight
+                                </li>
+                                <li>
+                                  • <code>0 0 * * 0</code> - Every Sunday at
+                                  midnight
+                                </li>
+                              </ul>
                             </div>
                           </div>
-                        ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Auto-Download Options */}
+                  {autoSyncEnabled && (
+                    <div className="border-border mb-4 rounded-lg border p-4">
+                      <h4 className="text-foreground mb-3 font-medium">
+                        Auto-Download Options
+                      </h4>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="text-foreground font-medium">
+                              Auto-download new scripts
+                            </h5>
+                            <p className="text-muted-foreground text-sm">
+                              Automatically download scripts that haven&apos;t
+                              been downloaded yet
+                            </p>
+                          </div>
+                          <Toggle
+                            checked={autoDownloadNew}
+                            onCheckedChange={setAutoDownloadNew}
+                            disabled={isSaving}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="text-foreground font-medium">
+                              Auto-update existing scripts
+                            </h5>
+                            <p className="text-muted-foreground text-sm">
+                              Automatically update scripts that have newer
+                              versions available
+                            </p>
+                          </div>
+                          <Toggle
+                            checked={autoUpdateExisting}
+                            onCheckedChange={setAutoUpdateExisting}
+                            disabled={isSaving}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notifications */}
+                  {autoSyncEnabled && (
+                    <div className="border-border mb-4 rounded-lg border p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-foreground font-medium">
+                            Enable Notifications
+                          </h4>
+                          <p className="text-muted-foreground text-sm">
+                            Send notifications when sync completes
+                          </p>
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            If you want any other notification service, please
+                            open an issue on the GitHub repository.
+                          </p>
+                        </div>
+                        <Toggle
+                          checked={notificationEnabled}
+                          onCheckedChange={setNotificationEnabled}
+                          disabled={isSaving}
+                        />
+                      </div>
+
+                      {notificationEnabled && (
+                        <div className="space-y-3">
+                          <div>
+                            <label
+                              htmlFor="apprise-urls"
+                              className="text-foreground mb-1 block text-sm font-medium"
+                            >
+                              Apprise URLs
+                            </label>
+                            <textarea
+                              id="apprise-urls"
+                              placeholder="http://YOUR_APPRISE_SERVER/notify/apprise&#10;"
+                              value={appriseUrlsText}
+                              onChange={(e) =>
+                                handleAppriseUrlsChange(e.target.value)
+                              }
+                              className="border-border bg-background h-24 w-full resize-none rounded-md border p-2"
+                              rows={3}
+                            />
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              One URL per line. Supports Discord, Telegram,
+                              Email, Slack, and more via{" "}
+                              <a
+                                href="https://github.com/caronc/apprise"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Apprise
+                              </a>
+                            </p>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={testNotification}
+                              variant="outline"
+                              size="sm"
+                              disabled={appriseUrls.length === 0}
+                            >
+                              Test Notification
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">
-                      No repositories configured
-                    </p>
+                  )}
+
+                  {/* Status and Actions */}
+                  {autoSyncEnabled && (
+                    <div className="border-border mb-4 rounded-lg border p-4">
+                      <h4 className="text-foreground mb-3 font-medium">
+                        Status & Actions
+                      </h4>
+
+                      <div className="space-y-3">
+                        {lastAutoSync && (
+                          <div>
+                            <p className="text-muted-foreground text-sm">
+                              Last sync:{" "}
+                              {new Date(lastAutoSync).toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+
+                        {lastAutoSyncError && (
+                          <div className="bg-error/10 text-error-foreground border-error/20 rounded-md border p-3">
+                            <div className="flex items-start gap-2">
+                              <svg
+                                className="mt-0.5 h-4 w-4 flex-shrink-0"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  Last sync error:
+                                </p>
+                                <p className="mt-1 text-sm">
+                                  {lastAutoSyncError}
+                                </p>
+                                {lastAutoSyncErrorTime && (
+                                  <p className="mt-1 text-xs opacity-75">
+                                    {new Date(
+                                      lastAutoSyncErrorTime,
+                                    ).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={triggerManualSync}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Trigger Sync Now
+                          </Button>
+                          <Button
+                            onClick={saveAutoSyncSettings}
+                            disabled={
+                              isSaving ||
+                              (syncIntervalType === "custom" &&
+                                !!cronValidationError)
+                            }
+                            size="sm"
+                          >
+                            {isSaving ? "Saving..." : "Save Settings"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message Display */}
+                  {message && (
+                    <div
+                      className={`rounded-md p-3 text-sm ${
+                        message.type === "success"
+                          ? "bg-success/10 text-success-foreground border-success/20 border"
+                          : "bg-error/10 text-error-foreground border-error/20 border"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
                   )}
                 </div>
-
-                {/* Message Display */}
-                {message && (
-                  <div
-                    className={`rounded-md p-3 text-sm ${
-                      message.type === "success"
-                        ? "bg-success/10 text-success-foreground border-success/20 border"
-                        : "bg-error/10 text-error-foreground border-error/20 border"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                )}
               </div>
-            </div>
-          )}
+            )}
+
+            {activeTab === "repositories" && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-foreground mb-3 text-base font-medium sm:mb-4 sm:text-lg">
+                    Repository Management
+                  </h3>
+                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+                    Manage GitHub repositories for script synchronization. The
+                    main repository has priority when enabled.
+                  </p>
+
+                  {/* Add New Repository */}
+                  <div className="border-border mb-4 rounded-lg border p-4">
+                    <h4 className="text-foreground mb-3 font-medium">
+                      Add New Repository
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label
+                          htmlFor="new-repo-url"
+                          className="text-foreground mb-1 block text-sm font-medium"
+                        >
+                          Repository URL
+                        </label>
+                        <Input
+                          id="new-repo-url"
+                          type="url"
+                          placeholder="https://github.com/owner/repo or https://git.example.com/owner/repo"
+                          value={newRepoUrl}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            setNewRepoUrl(e.target.value)
+                          }
+                          disabled={isAddingRepo}
+                          className="w-full"
+                        />
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Supported: GitHub, GitLab, Bitbucket, or custom Git
+                          servers (e.g. https://github.com/owner/repo,
+                          https://gitlab.com/owner/repo)
+                        </p>
+                      </div>
+                      <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">
+                        <div>
+                          <p className="text-foreground text-sm font-medium">
+                            Enable after adding
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Repository will be enabled by default
+                          </p>
+                        </div>
+                        <Toggle
+                          checked={newRepoEnabled}
+                          onCheckedChange={setNewRepoEnabled}
+                          disabled={isAddingRepo}
+                          label="Enable repository"
+                          labelPosition="left"
+                        />
+                      </div>
+                      <Button
+                        onClick={async () => {
+                          if (!newRepoUrl.trim()) {
+                            setMessage({
+                              type: "error",
+                              text: "Please enter a repository URL",
+                            });
+                            return;
+                          }
+                          setIsAddingRepo(true);
+                          setMessage(null);
+                          try {
+                            const result = await createRepoMutation.mutateAsync(
+                              {
+                                url: newRepoUrl.trim(),
+                                enabled: newRepoEnabled,
+                              },
+                            );
+                            if (result.success) {
+                              setMessage({
+                                type: "success",
+                                text: "Repository added successfully!",
+                              });
+                              setNewRepoUrl("");
+                              setNewRepoEnabled(true);
+                              await refetchRepositories();
+                            } else {
+                              setMessage({
+                                type: "error",
+                                text:
+                                  result.error ?? "Failed to add repository",
+                              });
+                            }
+                          } catch (error) {
+                            setMessage({
+                              type: "error",
+                              text:
+                                error instanceof Error
+                                  ? error.message
+                                  : "Failed to add repository",
+                            });
+                          } finally {
+                            setIsAddingRepo(false);
+                          }
+                        }}
+                        disabled={isAddingRepo || !newRepoUrl.trim()}
+                        className="w-full"
+                      >
+                        {isAddingRepo ? "Adding..." : "Add Repository"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Repository List */}
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-3 font-medium">
+                      Repositories
+                    </h4>
+                    {repositoriesData?.success &&
+                    repositoriesData.repositories.length > 0 ? (
+                      <div className="space-y-3">
+                        {repositoriesData.repositories.map(
+                          (repo: {
+                            id: number;
+                            url: string;
+                            enabled: boolean;
+                            is_default: boolean;
+                            is_removable: boolean;
+                            priority: number;
+                          }) => (
+                            <div
+                              key={repo.id}
+                              className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex items-center gap-2">
+                                  <a
+                                    href={repo.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-foreground hover:text-primary flex items-center gap-1 text-sm font-medium"
+                                  >
+                                    {repo.url}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                  {repo.is_default && (
+                                    <span className="bg-primary/10 text-primary rounded px-2 py-0.5 text-xs">
+                                      {repo.priority === 1 ? "Main" : "Dev"}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-muted-foreground text-xs">
+                                  Priority: {repo.priority}{" "}
+                                  {repo.enabled ? "• Enabled" : "• Disabled"}
+                                </p>
+                              </div>
+                              <div className="flex flex-shrink-0 items-center gap-2">
+                                <Button
+                                  onClick={async () => {
+                                    if (!repo.is_removable) {
+                                      setMessage({
+                                        type: "error",
+                                        text: "Default repositories cannot be deleted",
+                                      });
+                                      return;
+                                    }
+                                    if (
+                                      !confirm(
+                                        `Are you sure you want to delete this repository? All scripts from this repository will be removed.`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    setDeletingRepoId(Number(repo.id));
+                                    setMessage(null);
+                                    try {
+                                      const result =
+                                        await deleteRepoMutation.mutateAsync({
+                                          id: repo.id,
+                                        });
+                                      if (result.success) {
+                                        setMessage({
+                                          type: "success",
+                                          text: "Repository deleted successfully!",
+                                        });
+                                        await refetchRepositories();
+                                      } else {
+                                        setMessage({
+                                          type: "error",
+                                          text:
+                                            result.error ??
+                                            "Failed to delete repository",
+                                        });
+                                      }
+                                    } catch (error) {
+                                      setMessage({
+                                        type: "error",
+                                        text:
+                                          error instanceof Error
+                                            ? error.message
+                                            : "Failed to delete repository",
+                                      });
+                                    } finally {
+                                      setDeletingRepoId(null);
+                                    }
+                                  }}
+                                  disabled={
+                                    !repo.is_removable ||
+                                    deletingRepoId === repo.id ||
+                                    deleteRepoMutation.isPending
+                                  }
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-error hover:text-error/80 hover:bg-error/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Toggle
+                                  checked={repo.enabled}
+                                  onCheckedChange={async (enabled) => {
+                                    setMessage(null);
+                                    try {
+                                      const result =
+                                        await updateRepoMutation.mutateAsync({
+                                          id: repo.id,
+                                          enabled,
+                                        });
+                                      if (result.success) {
+                                        setMessage({
+                                          type: "success",
+                                          text: `Repository ${enabled ? "enabled" : "disabled"} successfully!`,
+                                        });
+                                        await refetchRepositories();
+                                      } else {
+                                        setMessage({
+                                          type: "error",
+                                          text:
+                                            result.error ??
+                                            "Failed to update repository",
+                                        });
+                                      }
+                                    } catch (error) {
+                                      setMessage({
+                                        type: "error",
+                                        text:
+                                          error instanceof Error
+                                            ? error.message
+                                            : "Failed to update repository",
+                                      });
+                                    }
+                                  }}
+                                  disabled={updateRepoMutation.isPending}
+                                  label={repo.enabled ? "Disable" : "Enable"}
+                                  labelPosition="left"
+                                />
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No repositories configured
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Message Display */}
+                  {message && (
+                    <div
+                      className={`rounded-md p-3 text-sm ${
+                        message.type === "success"
+                          ? "bg-success/10 text-success-foreground border-success/20 border"
+                          : "bg-error/10 text-error-foreground border-error/20 border"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

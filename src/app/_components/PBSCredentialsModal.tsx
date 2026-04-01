@@ -139,206 +139,210 @@ export function PBSCredentialsModal({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex }}>
-      <div className="bg-card border-border flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border shadow-xl">
-        {/* Header */}
-        <div className="border-border flex items-center justify-between border-b p-6">
-          <div className="flex items-center gap-3">
-            <Lock className="text-primary h-6 w-6" />
-            <h2 className="text-card-foreground text-2xl font-bold">
-              PBS Credentials - {storage.name}
-            </h2>
-          </div>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+      >
+        <div className="bg-card border-border flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border shadow-xl">
+          {/* Header */}
+          <div className="border-border flex items-center justify-between border-b p-6">
+            <div className="flex items-center gap-3">
+              <Lock className="text-primary h-6 w-6" />
+              <h2 className="text-card-foreground text-2xl font-bold">
+                PBS Credentials - {storage.name}
+              </h2>
+            </div>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Storage Name (read-only) */}
-            <div>
-              <label
-                htmlFor="storage-name"
-                className="text-foreground mb-1 block text-sm font-medium"
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                Storage Name
-              </label>
-              <input
-                type="text"
-                id="storage-name"
-                value={storage.name}
-                disabled
-                className="bg-muted text-muted-foreground border-border w-full cursor-not-allowed rounded-md border px-3 py-2 shadow-sm"
-              />
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </Button>
+          </div>
 
-            {/* PBS IP */}
-            <div>
-              <label
-                htmlFor="pbs-ip"
-                className="text-foreground mb-1 block text-sm font-medium"
-              >
-                PBS Server IP <span className="text-error">*</span>
-              </label>
-              <input
-                type="text"
-                id="pbs-ip"
-                value={pbsIp}
-                onChange={(e) => setPbsIp(e.target.value)}
-                required
-                disabled={isLoading}
-                className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
-                placeholder="e.g., 10.10.10.226"
-              />
-              <p className="text-muted-foreground mt-1 text-xs">
-                IP address of the Proxmox Backup Server
-              </p>
-            </div>
-
-            {/* PBS Datastore */}
-            <div>
-              <label
-                htmlFor="pbs-datastore"
-                className="text-foreground mb-1 block text-sm font-medium"
-              >
-                PBS Datastore <span className="text-error">*</span>
-              </label>
-              <input
-                type="text"
-                id="pbs-datastore"
-                value={pbsDatastore}
-                onChange={(e) => setPbsDatastore(e.target.value)}
-                required
-                disabled={isLoading}
-                className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
-                placeholder="e.g., NAS03-ISCSI-BACKUP"
-              />
-              <p className="text-muted-foreground mt-1 text-xs">
-                Name of the datastore on the PBS server
-              </p>
-            </div>
-
-            {/* PBS Password */}
-            <div>
-              <label
-                htmlFor="pbs-password"
-                className="text-foreground mb-1 block text-sm font-medium"
-              >
-                Password{" "}
-                {!hasCredentials && <span className="text-error">*</span>}
-              </label>
-              <input
-                type="password"
-                id="pbs-password"
-                value={pbsPassword}
-                onChange={(e) => setPbsPassword(e.target.value)}
-                required={!hasCredentials}
-                disabled={isLoading}
-                className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
-                placeholder={
-                  hasCredentials
-                    ? "Enter new password (leave empty to keep existing)"
-                    : "Enter PBS password"
-                }
-              />
-              <p className="text-muted-foreground mt-1 text-xs">
-                Password for root@pam user on PBS server
-              </p>
-            </div>
-
-            {/* PBS Fingerprint */}
-            <div>
-              <label
-                htmlFor="pbs-fingerprint"
-                className="text-foreground mb-1 block text-sm font-medium"
-              >
-                Fingerprint
-              </label>
-              <input
-                type="text"
-                id="pbs-fingerprint"
-                value={pbsFingerprint}
-                onChange={(e) => setPbsFingerprint(e.target.value)}
-                disabled={isLoading}
-                className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
-                placeholder="e.g., 7b:e5:87:38:5e:16:05:d1:12:22:7f:73:d2:e2:d0:cf:8c:cb:28:e2:74:0c:78:91:1a:71:74:2e:79:20:5a:02"
-              />
-              <p className="text-muted-foreground mt-1 text-xs">
-                Leave empty if PBS uses a trusted CA (e.g. Let&apos;s Encrypt).
-                For self-signed certificates, enter the server fingerprint from
-                the PBS dashboard (&quot;Show Fingerprint&quot;).
-              </p>
-            </div>
-
-            {/* Status indicator */}
-            {hasCredentials && (
-              <div className="bg-success/10 border-success/20 flex items-center gap-2 rounded-lg border p-3">
-                <CheckCircle className="text-success h-4 w-4" />
-                <span className="text-success text-sm font-medium">
-                  Credentials are configured for this storage
-                </span>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Storage Name (read-only) */}
+              <div>
+                <label
+                  htmlFor="storage-name"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  Storage Name
+                </label>
+                <input
+                  type="text"
+                  id="storage-name"
+                  value={storage.name}
+                  disabled
+                  className="bg-muted text-muted-foreground border-border w-full cursor-not-allowed rounded-md border px-3 py-2 shadow-sm"
+                />
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col justify-end gap-3 pt-4 sm:flex-row">
+              {/* PBS IP */}
+              <div>
+                <label
+                  htmlFor="pbs-ip"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  PBS Server IP <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="pbs-ip"
+                  value={pbsIp}
+                  onChange={(e) => setPbsIp(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g., 10.10.10.226"
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  IP address of the Proxmox Backup Server
+                </p>
+              </div>
+
+              {/* PBS Datastore */}
+              <div>
+                <label
+                  htmlFor="pbs-datastore"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  PBS Datastore <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="pbs-datastore"
+                  value={pbsDatastore}
+                  onChange={(e) => setPbsDatastore(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g., NAS03-ISCSI-BACKUP"
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Name of the datastore on the PBS server
+                </p>
+              </div>
+
+              {/* PBS Password */}
+              <div>
+                <label
+                  htmlFor="pbs-password"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  Password{" "}
+                  {!hasCredentials && <span className="text-error">*</span>}
+                </label>
+                <input
+                  type="password"
+                  id="pbs-password"
+                  value={pbsPassword}
+                  onChange={(e) => setPbsPassword(e.target.value)}
+                  required={!hasCredentials}
+                  disabled={isLoading}
+                  className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
+                  placeholder={
+                    hasCredentials
+                      ? "Enter new password (leave empty to keep existing)"
+                      : "Enter PBS password"
+                  }
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Password for root@pam user on PBS server
+                </p>
+              </div>
+
+              {/* PBS Fingerprint */}
+              <div>
+                <label
+                  htmlFor="pbs-fingerprint"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  Fingerprint
+                </label>
+                <input
+                  type="text"
+                  id="pbs-fingerprint"
+                  value={pbsFingerprint}
+                  onChange={(e) => setPbsFingerprint(e.target.value)}
+                  disabled={isLoading}
+                  className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g., 7b:e5:87:38:5e:16:05:d1:12:22:7f:73:d2:e2:d0:cf:8c:cb:28:e2:74:0c:78:91:1a:71:74:2e:79:20:5a:02"
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Leave empty if PBS uses a trusted CA (e.g. Let&apos;s
+                  Encrypt). For self-signed certificates, enter the server
+                  fingerprint from the PBS dashboard (&quot;Show
+                  Fingerprint&quot;).
+                </p>
+              </div>
+
+              {/* Status indicator */}
               {hasCredentials && (
+                <div className="bg-success/10 border-success/20 flex items-center gap-2 rounded-lg border p-3">
+                  <CheckCircle className="text-success h-4 w-4" />
+                  <span className="text-success text-sm font-medium">
+                    Credentials are configured for this storage
+                  </span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col justify-end gap-3 pt-4 sm:flex-row">
+                {hasCredentials && (
+                  <Button
+                    type="button"
+                    onClick={handleDelete}
+                    variant="outline"
+                    disabled={isLoading}
+                    className="order-3 w-full sm:w-auto"
+                  >
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Delete Credentials
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  onClick={handleDelete}
+                  onClick={onClose}
                   variant="outline"
                   disabled={isLoading}
-                  className="order-3 w-full sm:w-auto"
+                  className="order-2 w-full sm:w-auto"
                 >
-                  <AlertCircle className="mr-2 h-4 w-4" />
-                  Delete Credentials
+                  Cancel
                 </Button>
-              )}
-              <Button
-                type="button"
-                onClick={onClose}
-                variant="outline"
-                disabled={isLoading}
-                className="order-2 w-full sm:w-auto"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                disabled={isLoading}
-                className="order-1 w-full sm:w-auto"
-              >
-                {isLoading
-                  ? "Saving..."
-                  : hasCredentials
-                    ? "Update Credentials"
-                    : "Save Credentials"}
-              </Button>
-            </div>
-          </form>
+                <Button
+                  type="submit"
+                  variant="default"
+                  disabled={isLoading}
+                  className="order-1 w-full sm:w-auto"
+                >
+                  {isLoading
+                    ? "Saving..."
+                    : hasCredentials
+                      ? "Update Credentials"
+                      : "Save Credentials"}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

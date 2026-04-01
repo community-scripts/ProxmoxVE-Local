@@ -1,22 +1,41 @@
-'use client';
+"use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
-type RegisteredModal = { id: string; allowEscape: boolean; onClose: () => void };
+type RegisteredModal = {
+  id: string;
+  allowEscape: boolean;
+  onClose: () => void;
+};
 
 interface ModalStackContextValue {
-  register: (modal: RegisteredModal) => { unregister: () => void; zIndex: number };
+  register: (modal: RegisteredModal) => {
+    unregister: () => void;
+    zIndex: number;
+  };
 }
 
 const ModalStackContext = createContext<ModalStackContextValue | null>(null);
 
-export function ModalStackProvider({ children }: { children: React.ReactNode }) {
+export function ModalStackProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const stackRef = useRef<RegisteredModal[]>([]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== "Escape") return;
 
       for (let i = stackRef.current.length - 1; i >= 0; i -= 1) {
         const modal = stackRef.current[i];
@@ -27,8 +46,8 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const register = useCallback((modal: RegisteredModal) => {
@@ -51,7 +70,10 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-export function useRegisterModal(enabled: boolean, modal: RegisteredModal): number {
+export function useRegisterModal(
+  enabled: boolean,
+  modal: RegisteredModal,
+): number {
   const ctx = useContext(ModalStackContext);
   const [zIndex, setZIndex] = useState(50);
 
@@ -75,5 +97,3 @@ export function ModalPortal({ children }: { children: React.ReactNode }) {
   if (!mounted) return null;
   return createPortal(children, document.body);
 }
-
-

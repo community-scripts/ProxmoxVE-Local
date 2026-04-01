@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Copy, X } from 'lucide-react';
-import { useRegisterModal, ModalPortal } from './modal/ModalStackProvider';
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Copy, X } from "lucide-react";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface CloneCountInputModalProps {
   isOpen: boolean;
@@ -17,11 +17,15 @@ export function CloneCountInputModal({
   isOpen,
   onClose,
   onSubmit,
-  storageName
+  storageName,
 }: CloneCountInputModalProps) {
   const [cloneCount, setCloneCount] = useState<number>(1);
-  
-  const zIndex = useRegisterModal(isOpen, { id: 'clone-count-input-modal', allowEscape: true, onClose });
+
+  const zIndex = useRegisterModal(isOpen, {
+    id: "clone-count-input-modal",
+    allowEscape: true,
+    onClose,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -45,86 +49,96 @@ export function CloneCountInputModal({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center p-4" style={{ zIndex }}>
-      <div className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <Copy className="h-6 w-6 text-primary" />
-            <h2 className="text-2xl font-bold text-card-foreground">Clone Count</h2>
-          </div>
-          <Button
-            onClick={handleClose}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground mb-4">
-            How many clones would you like to create?
-          </p>
-          
-          {storageName && (
-            <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Storage:</p>
-              <p className="text-sm font-medium text-foreground">{storageName}</p>
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+      >
+        <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
+          {/* Header */}
+          <div className="border-border flex items-center justify-between border-b p-6">
+            <div className="flex items-center gap-3">
+              <Copy className="text-primary h-6 w-6" />
+              <h2 className="text-card-foreground text-2xl font-bold">
+                Clone Count
+              </h2>
             </div>
-          )}
-
-          <div className="space-y-2 mb-6">
-            <label htmlFor="cloneCount" className="block text-sm font-medium text-foreground">
-              Number of Clones
-            </label>
-            <Input
-              id="cloneCount"
-              type="number"
-              min="1"
-              max="100"
-              value={cloneCount}
-              onChange={(e) => {
-                const value = parseInt(e.target.value, 10);
-                if (!isNaN(value) && value >= 1 && value <= 100) {
-                  setCloneCount(value);
-                } else if (e.target.value === '') {
-                  setCloneCount(1);
-                }
-              }}
-              className="w-full"
-              placeholder="1"
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter a number between 1 and 100
-            </p>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row justify-end gap-3">
             <Button
               onClick={handleClose}
-              variant="outline"
-              size="default"
-              className="w-full sm:w-auto"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              <X className="h-5 w-5" />
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={cloneCount < 1 || cloneCount > 100}
-              variant="default"
-              size="default"
-              className="w-full sm:w-auto"
-            >
-              Continue
-            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            <p className="text-muted-foreground mb-4 text-sm">
+              How many clones would you like to create?
+            </p>
+
+            {storageName && (
+              <div className="bg-muted/50 mb-4 rounded-lg p-3">
+                <p className="text-muted-foreground text-sm">Storage:</p>
+                <p className="text-foreground text-sm font-medium">
+                  {storageName}
+                </p>
+              </div>
+            )}
+
+            <div className="mb-6 space-y-2">
+              <label
+                htmlFor="cloneCount"
+                className="text-foreground block text-sm font-medium"
+              >
+                Number of Clones
+              </label>
+              <Input
+                id="cloneCount"
+                type="number"
+                min="1"
+                max="100"
+                value={cloneCount}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 1 && value <= 100) {
+                    setCloneCount(value);
+                  } else if (e.target.value === "") {
+                    setCloneCount(1);
+                  }
+                }}
+                className="w-full"
+                placeholder="1"
+              />
+              <p className="text-muted-foreground text-xs">
+                Enter a number between 1 and 100
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col justify-end gap-3 sm:flex-row">
+              <Button
+                onClick={handleClose}
+                variant="outline"
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={cloneCount < 1 || cloneCount > 100}
+                variant="default"
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                Continue
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }

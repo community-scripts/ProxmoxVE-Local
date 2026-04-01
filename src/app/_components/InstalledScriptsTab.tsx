@@ -2636,67 +2636,68 @@ export function InstalledScriptsTab() {
       {/* Backup Prompt Modal */}
       {showBackupPrompt && (
         <ModalPortal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
-            <div className="border-border flex items-center justify-center border-b p-6">
-              <div className="flex items-center gap-3">
-                <svg
-                  className="text-info h-8 w-8"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
-                <h2 className="text-card-foreground text-2xl font-bold">
-                  Backup Before Update?
-                </h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
+              <div className="border-border flex items-center justify-center border-b p-6">
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="text-info h-8 w-8"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
+                  </svg>
+                  <h2 className="text-card-foreground text-2xl font-bold">
+                    Backup Before Update?
+                  </h2>
+                </div>
               </div>
-            </div>
-            <div className="p-6">
-              <p className="text-muted-foreground mb-4 text-sm">
-                Would you like to create a backup before updating the container?
-              </p>
-              <label className="mb-6 flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={silentUpdate}
-                  onChange={(e) => setSilentUpdate(e.target.checked)}
-                  className="accent-primary h-4 w-4 rounded"
-                />
-                <span className="text-muted-foreground text-sm">
-                  Silent update (no user prompts)
-                </span>
-              </label>
-              <div className="flex flex-col justify-end gap-3 sm:flex-row">
-                <Button
-                  onClick={() => {
-                    setShowBackupPrompt(false);
-                    handleBackupPromptResponse(false);
-                  }}
-                  variant="outline"
-                  size="default"
-                  className="w-full sm:w-auto"
-                >
-                  No, Update Without Backup
-                </Button>
-                <Button
-                  onClick={() => handleBackupPromptResponse(true)}
-                  variant="default"
-                  size="default"
-                  className="w-full sm:w-auto"
-                >
-                  Yes, Backup First
-                </Button>
+              <div className="p-6">
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Would you like to create a backup before updating the
+                  container?
+                </p>
+                <label className="mb-6 flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={silentUpdate}
+                    onChange={(e) => setSilentUpdate(e.target.checked)}
+                    className="accent-primary h-4 w-4 rounded"
+                  />
+                  <span className="text-muted-foreground text-sm">
+                    Silent update (no user prompts)
+                  </span>
+                </label>
+                <div className="flex flex-col justify-end gap-3 sm:flex-row">
+                  <Button
+                    onClick={() => {
+                      setShowBackupPrompt(false);
+                      handleBackupPromptResponse(false);
+                    }}
+                    variant="outline"
+                    size="default"
+                    className="w-full sm:w-auto"
+                  >
+                    No, Update Without Backup
+                  </Button>
+                  <Button
+                    onClick={() => handleBackupPromptResponse(true)}
+                    variant="default"
+                    size="default"
+                    className="w-full sm:w-auto"
+                  >
+                    Yes, Backup First
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </ModalPortal>
       )}
 
