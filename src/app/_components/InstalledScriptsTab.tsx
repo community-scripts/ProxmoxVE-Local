@@ -356,7 +356,6 @@ export function InstalledScriptsTab() {
   const autoDetectWebUIMutation =
     api.installedScripts.autoDetectWebUI.useMutation({
       onSuccess: (data) => {
-        console.log("✅ Auto-detect WebUI success:", data);
         void refetchScripts();
         setAutoDetectStatus({
           type: "success",
@@ -561,8 +560,6 @@ export function InstalledScriptsTab() {
 
   useEffect(() => {
     if (scripts.length > 0) {
-      console.log("Status check triggered - scripts length:", scripts.length);
-
       // Clear any existing timeout
       if (statusCheckTimeoutRef.current) {
         clearTimeout(statusCheckTimeoutRef.current);
@@ -572,7 +569,6 @@ export function InstalledScriptsTab() {
       statusCheckTimeoutRef.current = setTimeout(() => {
         // Prevent multiple simultaneous status checks
         if (containerStatusMutationRef.current.isPending) {
-          console.log("Status check already pending, skipping");
           return;
         }
 
@@ -587,7 +583,6 @@ export function InstalledScriptsTab() {
           ),
         ];
 
-        console.log("Executing status check for server IDs:", serverIds);
         if (serverIds.length > 0) {
           containerStatusMutationRef.current.mutate({ serverIds });
         }
@@ -1464,16 +1459,7 @@ export function InstalledScriptsTab() {
   };
 
   const handleAutoDetectWebUI = (script: InstalledScript) => {
-    console.log("🔍 Auto-detect WebUI clicked for script:", script);
-    console.log("Script validation:", {
-      hasContainerId: !!script.container_id,
-      isSSHMode: script.execution_mode === "ssh",
-      containerId: script.container_id,
-      executionMode: script.execution_mode,
-    });
-
     if (!script.container_id || script.execution_mode !== "ssh") {
-      console.log("❌ Auto-detect validation failed");
       setErrorModal({
         isOpen: true,
         title: "Auto-Detect Failed",
@@ -1485,10 +1471,6 @@ export function InstalledScriptsTab() {
       return;
     }
 
-    console.log(
-      "✅ Calling autoDetectWebUIMutation.mutate with id:",
-      script.id,
-    );
     autoDetectWebUIMutation.mutate({ id: script.id });
   };
 

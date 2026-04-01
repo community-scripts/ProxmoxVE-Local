@@ -103,7 +103,6 @@ export function LXCSettingsModal({
 
   const saveMutation = api.installedScripts.saveLXCConfig.useMutation({
     onSuccess: (data) => {
-      console.log("Save mutation success data:", data);
       setIsSaving(false);
       setShowConfirmation(false);
 
@@ -114,14 +113,12 @@ export function LXCSettingsModal({
         );
         setHasChanges(false);
       } else {
-        console.log("Backend returned error:", data.error);
         setResultType("error");
         setResultMessage(data.error ?? "Failed to save configuration");
       }
       setShowResultModal(true);
     },
     onError: (err) => {
-      console.log("Save mutation error:", err);
       setIsSaving(false);
       setShowConfirmation(false);
       setResultType("error");
