@@ -13,7 +13,18 @@ export function ServerStatusIndicator() {
     { refetchInterval: 30_000, staleTime: 20_000 },
   );
 
-  const servers = data?.servers ?? [];
+  const servers: Array<{
+    id: number;
+    name: string;
+    ip: string;
+    online: boolean;
+  }> =
+    (data?.servers as Array<{
+      id: number;
+      name: string;
+      ip: string;
+      online: boolean;
+    }>) ?? [];
 
   if (isLoading || servers.length === 0) {
     // No servers configured — grey neutral dot
