@@ -372,7 +372,11 @@ export function FilterBar({
                   <Calendar className="h-4 w-4" />
                 )}
                 <span>
-                  {filters.sortBy === "name" ? "By Name" : "By Created Date"}
+                  {filters.sortBy === "name"
+                    ? "By Name"
+                    : filters.sortBy === "created"
+                      ? "By Created Date"
+                      : "By Updated Date"}
                 </span>
                 <svg
                   className={`h-4 w-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`}
@@ -419,6 +423,20 @@ export function FilterBar({
                     >
                       <Calendar className="h-4 w-4" />
                       <span className="text-sm">By Created Date</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        updateFilters({ sortBy: "updated" });
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`hover:bg-accent flex w-full items-center space-x-3 rounded-md px-3 py-2 text-left ${
+                        filters.sortBy === "updated"
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-sm">By Updated Date</span>
                     </button>
                   </div>
                 </div>

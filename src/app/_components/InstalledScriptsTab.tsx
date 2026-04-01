@@ -73,14 +73,15 @@ export function InstalledScriptsTab() {
     executionId?: string;
     cloneCount?: number;
     hostnames?: string[];
-    containerType?: 'lxc' | 'vm';
+    containerType?: "lxc" | "vm";
     storage?: string;
+    envVars?: Record<string, string>;
   } | null>(null);
   const [openingShell, setOpeningShell] = useState<{
     id: number;
     containerId: string;
     server?: any;
-    containerType?: 'lxc' | 'vm';
+    containerType?: "lxc" | "vm";
   } | null>(null);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const [showStorageSelection, setShowStorageSelection] = useState(false);
@@ -90,14 +91,26 @@ export function InstalledScriptsTab() {
   const [isLoadingStorages, setIsLoadingStorages] = useState(false);
   const [showBackupWarning, setShowBackupWarning] = useState(false);
   const [isPreUpdateBackup, setIsPreUpdateBackup] = useState(false); // Track if storage selection is for pre-update backup
-  const [pendingCloneScript, setPendingCloneScript] = useState<InstalledScript | null>(null);
+  const [pendingCloneScript, setPendingCloneScript] =
+    useState<InstalledScript | null>(null);
   const [cloneStorages, setCloneStorages] = useState<Storage[]>([]);
   const [isLoadingCloneStorages, setIsLoadingCloneStorages] = useState(false);
-  const [showCloneStorageSelection, setShowCloneStorageSelection] = useState(false);
+  const [showCloneStorageSelection, setShowCloneStorageSelection] =
+    useState(false);
   const [showCloneCountInput, setShowCloneCountInput] = useState(false);
-  const [cloneContainerType, setCloneContainerType] = useState<'lxc' | 'vm' | null>(null);
-  const [selectedCloneStorage, setSelectedCloneStorage] = useState<Storage | null>(null);
+  const [cloneContainerType, setCloneContainerType] = useState<
+    "lxc" | "vm" | null
+  >(null);
+  const [selectedCloneStorage, setSelectedCloneStorage] =
+    useState<Storage | null>(null);
   // cloneCount is passed as parameter to handleCloneCountSubmit, no need for state
+  const [silentUpdate, setSilentUpdate] = useState(false);
+  // Batch update queue
+  const [batchUpdateQueue, setBatchUpdateQueue] = useState<InstalledScript[]>(
+    [],
+  );
+  const [batchUpdateIndex, setBatchUpdateIndex] = useState(0);
+  const [isBatchUpdating, setIsBatchUpdating] = useState(false);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{
     script_name: string;
@@ -900,15 +913,76 @@ export function InstalledScriptsTab() {
       server: server,
       backupStorage: backupStorage ?? undefined,
       isBackupOnly: false, // Explicitly set to false for update operations
+      envVars: silentUpdate ? { PHS_SILENT: "1" } : undefined,
     });
 
     // Reset state
     setPendingUpdateScript(null);
     setBackupStorages([]);
+    setSilentUpdate(false);
   };
 
   const handleCloseUpdateTerminal = () => {
     setUpdatingScript(null);
+    // If batch updating, advance to next script
+    if (isBatchUpdating) {
+      const nextIndex = batchUpdateIndex + 1;
+      if (nextIndex < batchUpdateQueue.length) {
+        setBatchUpdateIndex(nextIndex);
+        startBatchUpdateFor(batchUpdateQueue[nextIndex]!);
+      } else {
+        // Batch complete
+        setIsBatchUpdating(false);
+        setBatchUpdateQueue([]);
+        setBatchUpdateIndex(0);
+        void refetchScripts();
+      }
+    }
+  };
+
+  const startBatchUpdateFor = (script: InstalledScript) => {
+    let server = null;
+    if (script.server_id && script.server_user) {
+      server = {
+        id: script.server_id,
+        name: script.server_name,
+        ip: script.server_ip,
+        user: script.server_user,
+        password: script.server_password,
+        auth_type: script.server_auth_type ?? "password",
+        ssh_key: script.server_ssh_key,
+        ssh_key_passphrase: script.server_ssh_key_passphrase,
+        ssh_port: script.server_ssh_port ?? 22,
+      };
+    }
+    setUpdatingScript({
+      id: script.id,
+      containerId: script.container_id!,
+      server,
+      isBackupOnly: false,
+      envVars: { PHS_SILENT: "1" },
+    });
+  };
+
+  const handleBatchUpdateAll = () => {
+    const updatable = scripts.filter(
+      (s) => s.container_id && s.status === "success",
+    );
+    if (updatable.length === 0) return;
+    setConfirmationModal({
+      isOpen: true,
+      title: "Batch Update All",
+      message: `This will silently update ${updatable.length} container(s) sequentially. Each update will run with PHS_SILENT=1 (no user prompts).\n\nDo you want to proceed?`,
+      variant: "danger",
+      confirmButtonText: "Update All",
+      onConfirm: () => {
+        setConfirmationModal(null);
+        setBatchUpdateQueue(updatable);
+        setBatchUpdateIndex(0);
+        setIsBatchUpdating(true);
+        startBatchUpdateFor(updatable[0]!);
+      },
+    });
   };
 
   const handleBackupScript = (script: InstalledScript) => {
@@ -943,42 +1017,47 @@ export function InstalledScriptsTab() {
 
   // Clone queries
 
-  const getContainerHostnameQuery = api.installedScripts.getContainerHostname.useQuery(
-    { 
-      containerId: pendingCloneScript?.container_id ?? '', 
-      serverId: pendingCloneScript?.server_id ?? 0,
-      containerType: cloneContainerType ?? 'lxc'
-    },
-    { enabled: false }
-  );
+  const getContainerHostnameQuery =
+    api.installedScripts.getContainerHostname.useQuery(
+      {
+        containerId: pendingCloneScript?.container_id ?? "",
+        serverId: pendingCloneScript?.server_id ?? 0,
+        containerType: cloneContainerType ?? "lxc",
+      },
+      { enabled: false },
+    );
 
   const executeCloneMutation = api.installedScripts.executeClone.useMutation();
   const utils = api.useUtils();
 
-  const fetchCloneStorages = async (serverId: number, _forceRefresh = false) => {
+  const fetchCloneStorages = async (
+    serverId: number,
+    _forceRefresh = false,
+  ) => {
     setIsLoadingCloneStorages(true);
     try {
       // Use utils.fetch to call with the correct serverId
       const result = await utils.installedScripts.getCloneStorages.fetch({
         serverId,
-        forceRefresh: _forceRefresh
+        forceRefresh: _forceRefresh,
       });
       if (result?.success && result.storages) {
         setCloneStorages(result.storages as Storage[]);
       } else {
         setErrorModal({
           isOpen: true,
-          title: 'Failed to Fetch Storages',
-          message: result?.error ?? 'Unknown error occurred',
-          type: 'error'
+          title: "Failed to Fetch Storages",
+          message: result?.error ?? "Unknown error occurred",
+          type: "error",
         });
       }
     } catch (error) {
       setErrorModal({
         isOpen: true,
-        title: 'Failed to Fetch Storages',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-        type: 'error'
+        title: "Failed to Fetch Storages",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        type: "error",
       });
     } finally {
       setIsLoadingCloneStorages(false);
@@ -989,9 +1068,10 @@ export function InstalledScriptsTab() {
     if (!script.container_id) {
       setErrorModal({
         isOpen: true,
-        title: 'Clone Failed',
-        message: 'No Container ID available for this script',
-        details: 'This script does not have a valid container ID and cannot be cloned.'
+        title: "Clone Failed",
+        message: "No Container ID available for this script",
+        details:
+          "This script does not have a valid container ID and cannot be cloned.",
       });
       return;
     }
@@ -999,21 +1079,22 @@ export function InstalledScriptsTab() {
     if (!script.server_id) {
       setErrorModal({
         isOpen: true,
-        title: 'Clone Not Available',
-        message: 'Clone is only available for SSH scripts with a configured server.',
-        type: 'error'
+        title: "Clone Not Available",
+        message:
+          "Clone is only available for SSH scripts with a configured server.",
+        type: "error",
       });
       return;
     }
 
     // Store the script and determine container type using is_vm property
     setPendingCloneScript(script);
-    
+
     // Use is_vm property from batch detection (from main branch)
     // If not available, default to LXC
-    const containerType = script.is_vm ? 'vm' : 'lxc';
+    const containerType = script.is_vm ? "vm" : "lxc";
     setCloneContainerType(containerType);
-    
+
     // Fetch storages and show selection modal
     void fetchCloneStorages(script.server_id, false);
     setShowCloneStorageSelection(true);
@@ -1031,9 +1112,9 @@ export function InstalledScriptsTab() {
     if (!pendingCloneScript || !cloneContainerType) {
       setErrorModal({
         isOpen: true,
-        title: 'Clone Failed',
-        message: 'Missing required information for cloning.',
-        type: 'error'
+        title: "Clone Failed",
+        message: "Missing required information for cloning.",
+        type: "error",
       });
       return;
     }
@@ -1045,9 +1126,9 @@ export function InstalledScriptsTab() {
       if (!hostnameResult.data?.success || !hostnameResult.data.hostname) {
         setErrorModal({
           isOpen: true,
-          title: 'Clone Failed',
-          message: 'Could not retrieve container hostname.',
-          type: 'error'
+          title: "Clone Failed",
+          message: "Could not retrieve container hostname.",
+          type: "error",
         });
         return;
       }
@@ -1055,19 +1136,21 @@ export function InstalledScriptsTab() {
       const originalHostname = hostnameResult.data.hostname;
 
       // Generate clone hostnames using utils to call with originalHostname
-      const hostnamesResult = await utils.installedScripts.generateCloneHostnames.fetch({
-        originalHostname,
-        containerType: cloneContainerType ?? 'lxc',
-        serverId: pendingCloneScript.server_id!,
-        count
-      });
+      const hostnamesResult =
+        await utils.installedScripts.generateCloneHostnames.fetch({
+          originalHostname,
+          containerType: cloneContainerType ?? "lxc",
+          serverId: pendingCloneScript.server_id!,
+          count,
+        });
 
       if (!hostnamesResult?.success || !hostnamesResult.hostnames.length) {
         setErrorModal({
           isOpen: true,
-          title: 'Clone Failed',
-          message: hostnamesResult?.error ?? 'Could not generate clone hostnames.',
-          type: 'error'
+          title: "Clone Failed",
+          message:
+            hostnamesResult?.error ?? "Could not generate clone hostnames.",
+          type: "error",
         });
         return;
       }
@@ -1081,31 +1164,34 @@ export function InstalledScriptsTab() {
         storage: selectedCloneStorage!.name,
         cloneCount: count,
         hostnames: hostnames,
-        containerType: cloneContainerType
+        containerType: cloneContainerType,
       });
 
       if (!cloneResult.success || !cloneResult.executionId) {
         setErrorModal({
           isOpen: true,
-          title: 'Clone Failed',
-          message: cloneResult.error ?? 'Failed to start clone operation.',
-          type: 'error'
+          title: "Clone Failed",
+          message: cloneResult.error ?? "Failed to start clone operation.",
+          type: "error",
         });
         return;
       }
 
       // Get server info for websocket
-      const server = pendingCloneScript.server_id && pendingCloneScript.server_user ? {
-        id: pendingCloneScript.server_id,
-        name: pendingCloneScript.server_name,
-        ip: pendingCloneScript.server_ip,
-        user: pendingCloneScript.server_user,
-        password: pendingCloneScript.server_password,
-        auth_type: pendingCloneScript.server_auth_type ?? 'password',
-        ssh_key: pendingCloneScript.server_ssh_key,
-        ssh_key_passphrase: pendingCloneScript.server_ssh_key_passphrase,
-        ssh_port: pendingCloneScript.server_ssh_port ?? 22,
-      } : null;
+      const server =
+        pendingCloneScript.server_id && pendingCloneScript.server_user
+          ? {
+              id: pendingCloneScript.server_id,
+              name: pendingCloneScript.server_name,
+              ip: pendingCloneScript.server_ip,
+              user: pendingCloneScript.server_user,
+              password: pendingCloneScript.server_password,
+              auth_type: pendingCloneScript.server_auth_type ?? "password",
+              ssh_key: pendingCloneScript.server_ssh_key,
+              ssh_key_passphrase: pendingCloneScript.server_ssh_key_passphrase,
+              ssh_port: pendingCloneScript.server_ssh_port ?? 22,
+            }
+          : null;
 
       // Set up terminal for clone execution
       setUpdatingScript({
@@ -1117,7 +1203,7 @@ export function InstalledScriptsTab() {
         cloneCount: count,
         hostnames: hostnames,
         containerType: cloneContainerType,
-        storage: selectedCloneStorage!.name
+        storage: selectedCloneStorage!.name,
       });
 
       // Reset clone state
@@ -1129,9 +1215,10 @@ export function InstalledScriptsTab() {
     } catch (error) {
       setErrorModal({
         isOpen: true,
-        title: 'Clone Failed',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-        type: 'error'
+        title: "Clone Failed",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        type: "error",
       });
     }
   };
@@ -1168,7 +1255,7 @@ export function InstalledScriptsTab() {
       id: script.id,
       containerId: script.container_id,
       server: server,
-      containerType: script.is_vm ? 'vm' : 'lxc',
+      containerType: script.is_vm ? "vm" : "lxc",
     });
   };
 
@@ -1428,11 +1515,11 @@ export function InstalledScriptsTab() {
         <div className="mb-8" data-terminal="update">
           <Terminal
             scriptPath={
-              updatingScript.isClone 
+              updatingScript.isClone
                 ? `clone-${updatingScript.containerId}`
                 : updatingScript.isBackupOnly
-                ? `backup-${updatingScript.containerId}`
-                : `update-${updatingScript.containerId}`
+                  ? `backup-${updatingScript.containerId}`
+                  : `update-${updatingScript.containerId}`
             }
             onClose={handleCloseUpdateTerminal}
             mode={updatingScript.server ? "ssh" : "local"}
@@ -1445,8 +1532,19 @@ export function InstalledScriptsTab() {
             cloneCount={updatingScript.cloneCount}
             hostnames={updatingScript.hostnames}
             containerType={updatingScript.containerType}
-            storage={updatingScript.isClone ? updatingScript.storage : (updatingScript.isBackupOnly ? updatingScript.backupStorage : undefined)}
-            backupStorage={!updatingScript.isBackupOnly && !updatingScript.isClone ? updatingScript.backupStorage : undefined}
+            storage={
+              updatingScript.isClone
+                ? updatingScript.storage
+                : updatingScript.isBackupOnly
+                  ? updatingScript.backupStorage
+                  : undefined
+            }
+            backupStorage={
+              !updatingScript.isBackupOnly && !updatingScript.isClone
+                ? updatingScript.backupStorage
+                : undefined
+            }
+            envVars={updatingScript.envVars}
           />
         </div>
       )}
@@ -1454,11 +1552,15 @@ export function InstalledScriptsTab() {
       {/* Shell Terminal */}
       {openingShell && (
         <div className="mb-8" data-terminal="shell">
-          {openingShell.containerType === 'vm' && (
+          {openingShell.containerType === "vm" && (
             <p className="text-muted-foreground mb-2 text-sm">
               VM shell uses the Proxmox serial console. The VM must have a
-              serial port configured (e.g. <code className="bg-muted rounded px-1">qm set {openingShell.containerId} -serial0 socket</code>).
-              Detach with <kbd className="bg-muted rounded px-1">Ctrl+O</kbd>.
+              serial port configured (e.g.{" "}
+              <code className="bg-muted rounded px-1">
+                qm set {openingShell.containerId} -serial0 socket
+              </code>
+              ). Detach with <kbd className="bg-muted rounded px-1">Ctrl+O</kbd>
+              .
             </p>
           )}
           <Terminal
@@ -1533,7 +1635,7 @@ export function InstalledScriptsTab() {
         )}
 
         {/* Add Script and Auto-Detect Buttons */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
             variant={showAddForm ? "outline" : "default"}
@@ -1548,7 +1650,7 @@ export function InstalledScriptsTab() {
           >
             {showAutoDetectForm
               ? "Cancel Auto-Detect"
-              : '🔍 Auto-Detect Containers & VMs (tag: community-script)'}
+              : "🔍 Auto-Detect Containers & VMs (tag: community-script)"}
           </Button>
           <Button
             onClick={() => {
@@ -1585,6 +1687,21 @@ export function InstalledScriptsTab() {
             {containerStatusMutation.isPending
               ? "🔄 Checking..."
               : "🔄 Refresh Container Status"}
+          </Button>
+          <Button
+            onClick={handleBatchUpdateAll}
+            disabled={
+              isBatchUpdating ||
+              scripts.filter((s) => s.container_id && s.status === "success")
+                .length === 0
+            }
+            variant="outline"
+            size="default"
+            className="border-primary/30 text-primary hover:bg-primary/10"
+          >
+            {isBatchUpdating
+              ? `🔄 Updating ${batchUpdateIndex + 1}/${batchUpdateQueue.length}...`
+              : "🔄 Update All Containers"}
           </Button>
         </div>
 
@@ -1804,12 +1921,17 @@ export function InstalledScriptsTab() {
                       <p>This feature will:</p>
                       <ul className="mt-1 list-inside list-disc space-y-1">
                         <li>Connect to the selected server via SSH</li>
-                        <li>Scan LXC configs in /etc/pve/lxc/ and VM configs in /etc/pve/qemu-server/</li>
                         <li>
-                          Find containers and VMs with &quot;community-script&quot; in
-                          their tags
+                          Scan LXC configs in /etc/pve/lxc/ and VM configs in
+                          /etc/pve/qemu-server/
                         </li>
-                        <li>Extract the container/VM ID and hostname or name</li>
+                        <li>
+                          Find containers and VMs with
+                          &quot;community-script&quot; in their tags
+                        </li>
+                        <li>
+                          Extract the container/VM ID and hostname or name
+                        </li>
                         <li>Add them as installed script entries</li>
                       </ul>
                     </div>
@@ -2535,9 +2657,20 @@ export function InstalledScriptsTab() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-muted-foreground mb-6 text-sm">
+              <p className="text-muted-foreground mb-4 text-sm">
                 Would you like to create a backup before updating the container?
               </p>
+              <label className="mb-6 flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={silentUpdate}
+                  onChange={(e) => setSilentUpdate(e.target.checked)}
+                  className="accent-primary h-4 w-4 rounded"
+                />
+                <span className="text-muted-foreground text-sm">
+                  Silent update (no user prompts)
+                </span>
+              </label>
               <div className="flex flex-col justify-end gap-3 sm:flex-row">
                 <Button
                   onClick={() => {
@@ -2614,7 +2747,7 @@ export function InstalledScriptsTab() {
         title="Select Clone Storage"
         description="Select a storage to use for cloning. Only storages with rootdir content are shown."
         filterFn={(storage) => {
-          return storage.content.includes('rootdir');
+          return storage.content.includes("rootdir");
         }}
         showBackupTag={false}
       />
@@ -2629,7 +2762,7 @@ export function InstalledScriptsTab() {
           setSelectedCloneStorage(null);
         }}
         onSubmit={handleCloneCountSubmit}
-        storageName={selectedCloneStorage?.name ?? ''}
+        storageName={selectedCloneStorage?.name ?? ""}
       />
 
       {/* LXC Settings Modal */}

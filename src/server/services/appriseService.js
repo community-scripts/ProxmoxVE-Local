@@ -36,7 +36,8 @@ export class AppriseService {
 
           if (gotifyMatch) {
             // gotify://host/token format
-            const [, host, token] = gotifyMatch;
+            const host = /** @type {string} */ (gotifyMatch[1]);
+            const token = /** @type {string} */ (gotifyMatch[2]);
             response = await axios.post(
               `https://${host}/message?token=${encodeURIComponent(token)}`,
               { title: title || 'PVE Scripts Local', message: body || '', priority: 5 },
@@ -44,7 +45,8 @@ export class AppriseService {
             );
           } else if (gotifyHttpMatch) {
             // https://host/gotify?token=xxx or https://host?token=xxx
-            const [, baseUrl, token] = gotifyHttpMatch;
+            const baseUrl = /** @type {string} */ (gotifyHttpMatch[1]);
+            const token = /** @type {string} */ (gotifyHttpMatch[2]);
             const messageUrl = baseUrl.endsWith('/message') ? baseUrl : `${baseUrl}/message`;
             response = await axios.post(
               `${messageUrl}?token=${encodeURIComponent(token)}`,

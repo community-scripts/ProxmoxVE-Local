@@ -332,7 +332,7 @@ class ScriptExecutionHandler {
           } else if (isBackup && containerId && storage) {
             await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
           } else if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage);
+            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars);
           } else if (isShell && containerId) {
             await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
           } else {
@@ -1303,7 +1303,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo|undefined} server
    * @param {string} [backupStorage] - Optional storage to backup to before update
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}) {
     try {
       // If backup storage is provided, run backup first
       if (backupStorage && mode === 'ssh' && server) {
@@ -1364,9 +1364,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHUpdateExecution(ws, containerId, executionId, server);
+        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars);
       } else {
-        await this.startLocalUpdateExecution(ws, containerId, executionId);
+        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars);
       }
 
     } catch (error) {
@@ -1384,7 +1384,7 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    */
-  async startLocalUpdateExecution(ws, containerId, executionId) {
+  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}) {
     const { spawn } = await import('node-pty');
     
     // Create a shell process that will run pct enter and then update
@@ -1411,9 +1411,19 @@ class ScriptExecutionHandler {
       });
     });
 
+    // Build env export commands (e.g. for PHS_SILENT=1)
+    const envExports = Object.entries(envVars)
+      .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+      .map(([key, value]) => `export ${key}="${String(value).replace(/"/g, '\\"')}"`)  
+      .join('; ');
+
     // Send the update command after a delay to ensure we're in the container
     setTimeout(() => {
-      childProcess.write('update\n');
+      if (envExports) {
+        childProcess.write(`${envExports}; update\n`);
+      } else {
+        childProcess.write('update\n');
+      }
     }, 4000);
 
     // Handle process exit
@@ -1435,7 +1445,7 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {ServerInfo} server
    */
-  async startSSHUpdateExecution(ws, containerId, executionId, server) {
+  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}) {
     const sshService = getSSHExecutionService();
     
     try {
@@ -1476,9 +1486,19 @@ class ScriptExecutionHandler {
         ws
       });
 
+      // Build env export commands (e.g. for PHS_SILENT=1)
+      const envExports = Object.entries(envVars)
+        .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+        .map(([key, value]) => `export ${key}="${String(value).replace(/"/g, '\\"')}"`)
+        .join('; ');
+
       // Send the update command after a delay to ensure we're in the container
       setTimeout(() => {
-        /** @type {any} */ (execution).process.write('update\n');
+        if (envExports) {
+          /** @type {any} */ (execution).process.write(`${envExports}; update\n`);
+        } else {
+          /** @type {any} */ (execution).process.write('update\n');
+        }
       }, 4000);
 
     } catch (error) {

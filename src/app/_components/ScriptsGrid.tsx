@@ -381,6 +381,20 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
             compareValue = (a.name ?? "").localeCompare(b.name ?? "");
           }
           break;
+        case "updated":
+          // Sort by date_created as proxy for "last updated"
+          const aUpdated = a?.date_created ?? "";
+          const bUpdated = b?.date_created ?? "";
+          if (aUpdated && bUpdated) {
+            compareValue = aUpdated.localeCompare(bUpdated);
+          } else if (aUpdated && !bUpdated) {
+            compareValue = -1;
+          } else if (!aUpdated && bUpdated) {
+            compareValue = 1;
+          } else {
+            compareValue = (a.name ?? "").localeCompare(b.name ?? "");
+          }
+          break;
         default:
           compareValue = (a.name ?? "").localeCompare(b.name ?? "");
       }

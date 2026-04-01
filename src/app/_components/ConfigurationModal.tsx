@@ -63,6 +63,25 @@ export function ConfigurationModal({
   // Advanced mode state
   const [advancedVars, setAdvancedVars] = useState<EnvVars>({});
 
+  // Server presets
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const { data: presetsData, refetch: refetchPresets } =
+    api.serverPresets.getByServerId.useQuery(
+      { serverId: server?.id ?? 0 },
+      { enabled: !!server?.id && isOpen && mode === "advanced" },
+    );
+  const createPresetMutation = api.serverPresets.create.useMutation({
+    onSuccess: () => {
+      void refetchPresets();
+      setShowSavePreset(false);
+      setPresetName("");
+    },
+  });
+  const deletePresetMutation = api.serverPresets.delete.useMutation({
+    onSuccess: () => void refetchPresets(),
+  });
+
   // Discovered SSH keys on the Proxmox host (advanced mode only)
   const [discoveredSshKeys, setDiscoveredSshKeys] = useState<string[]>([]);
   const [discoveredSshKeysLoading, setDiscoveredSshKeysLoading] =
@@ -155,8 +174,12 @@ export function ConfigurationModal({
           }));
         }
       })
-      .catch(() => { /* ignore */ });
-    return () => { cancelled = true; };
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, mode]);
 
   // Discover SSH keys on the Proxmox host when advanced mode is open
@@ -459,6 +482,70 @@ export function ConfigurationModal({
     }
   };
 
+  const applyPreset = (
+    preset: NonNullable<typeof presetsData>["presets"][number],
+  ) => {
+    setAdvancedVars((prev) => ({
+      ...prev,
+      ...(preset.cpu != null && { var_cpu: preset.cpu }),
+      ...(preset.ram != null && { var_ram: preset.ram }),
+      ...(preset.disk != null && { var_disk: preset.disk }),
+      var_unprivileged: preset.privileged ? 0 : 1,
+      ...(preset.bridge && { var_brg: preset.bridge }),
+      ...(preset.vlan && { var_vlan: preset.vlan }),
+      ...(preset.dns && { var_ns: preset.dns }),
+      var_ssh: preset.ssh ? "yes" : "no",
+      var_nesting: preset.nesting ? 1 : 0,
+      var_fuse: preset.fuse ? 1 : 0,
+      ...(preset.apt_proxy_on &&
+        preset.apt_proxy_addr && {
+          var_apt_cacher: "yes",
+          var_apt_cacher_ip: preset.apt_proxy_addr,
+        }),
+    }));
+  };
+
+  const saveCurrentAsPreset = () => {
+    if (!server?.id || !presetName.trim()) return;
+    createPresetMutation.mutate({
+      serverId: server.id,
+      name: presetName.trim(),
+      cpu:
+        typeof advancedVars.var_cpu === "number"
+          ? advancedVars.var_cpu
+          : undefined,
+      ram:
+        typeof advancedVars.var_ram === "number"
+          ? advancedVars.var_ram
+          : undefined,
+      disk:
+        typeof advancedVars.var_disk === "number"
+          ? advancedVars.var_disk
+          : undefined,
+      privileged: advancedVars.var_unprivileged === 0,
+      bridge:
+        typeof advancedVars.var_brg === "string"
+          ? advancedVars.var_brg
+          : undefined,
+      vlan:
+        typeof advancedVars.var_vlan === "string"
+          ? advancedVars.var_vlan
+          : undefined,
+      dns:
+        typeof advancedVars.var_ns === "string"
+          ? advancedVars.var_ns
+          : undefined,
+      ssh: advancedVars.var_ssh === "yes",
+      nesting: advancedVars.var_nesting === 1,
+      fuse: advancedVars.var_fuse === 1,
+      aptProxyAddr:
+        typeof advancedVars.var_apt_cacher_ip === "string"
+          ? advancedVars.var_apt_cacher_ip
+          : undefined,
+      aptProxyOn: advancedVars.var_apt_cacher === "yes",
+    });
+  };
+
   if (!isOpen) return null;
 
   const rootfsStorages = rootfsStoragesData?.storages ?? [];
@@ -544,6 +631,85 @@ export function ConfigurationModal({
           ) : (
             /* Advanced Mode */
             <div className="space-y-6">
+              {/* Server Presets */}
+              {(presetsData?.presets?.length ?? 0) > 0 && (
+                <div className="bg-muted/30 border-border rounded-lg border p-4">
+                  <h3 className="text-foreground mb-3 text-sm font-medium">
+                    Load Preset
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {presetsData?.presets.map((preset) => (
+                      <div key={preset.id} className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => applyPreset(preset)}
+                          title={`CPU: ${preset.cpu ?? "?"}, RAM: ${preset.ram ?? "?"}MB, Disk: ${preset.disk ?? "?"}GB`}
+                        >
+                          {preset.name}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deletePresetMutation.mutate({ id: preset.id })
+                          }
+                          className="text-muted-foreground hover:text-destructive p-0.5 text-xs"
+                          title="Delete preset"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Save as Preset */}
+              <div className="flex items-center gap-2">
+                {showSavePreset ? (
+                  <>
+                    <Input
+                      value={presetName}
+                      onChange={(e) => setPresetName(e.target.value)}
+                      placeholder="Preset name..."
+                      className="max-w-[200px]"
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && saveCurrentAsPreset()
+                      }
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={saveCurrentAsPreset}
+                      disabled={!presetName.trim()}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowSavePreset(false);
+                        setPresetName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSavePreset(true)}
+                  >
+                    Save Current as Preset
+                  </Button>
+                )}
+              </div>
+
               {/* Resources */}
               <div>
                 <h3 className="text-foreground mb-4 text-lg font-medium">

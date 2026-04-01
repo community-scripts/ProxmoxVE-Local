@@ -124,7 +124,10 @@ export function GeneralSettingsModal({
     try {
       const response = await fetch("/api/settings/apt-proxy");
       if (response.ok) {
-        const data = (await response.json()) as { enabled: boolean; ip: string };
+        const data = (await response.json()) as {
+          enabled: boolean;
+          ip: string;
+        };
         setAptProxyEnabled(data.enabled);
         setAptProxyIp(data.ip);
       }
@@ -903,7 +906,8 @@ export function GeneralSettingsModal({
                     APT-Cacher-NG Proxy
                   </h4>
                   <p className="text-muted-foreground mb-4 text-sm">
-                    Configure a default APT proxy to speed up package downloads. This will be pre-filled for new container installations.
+                    Configure a default APT proxy to speed up package downloads.
+                    This will be pre-filled for new container installations.
                   </p>
                   <Toggle
                     checked={aptProxyEnabled}
@@ -1809,7 +1813,7 @@ export function GeneralSettingsModal({
                                 {repo.enabled ? "• Enabled" : "• Disabled"}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex flex-shrink-0 items-center gap-2">
                               <Button
                                 onClick={async () => {
                                   if (!repo.is_removable) {

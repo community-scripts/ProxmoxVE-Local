@@ -59,29 +59,30 @@ export function DownloadedScriptsTab({
     { enabled: !!selectedSlug },
   );
 
-  const loadMultipleScriptsMutation = api.scripts.loadMultipleScripts.useMutation({
-    onSuccess: (data) => {
-      void utils.scripts.getAllDownloadedScripts.invalidate();
-      void utils.scripts.getScriptCardsWithCategories.invalidate();
-      setUpdateResult({
-        successCount: data.successful?.length ?? 0,
-        failCount: data.failed?.length ?? 0,
-        failed: (data.failed ?? []).map((f) => ({
-          slug: f.slug,
-          error: f.error ?? "Unknown error",
-        })),
-      });
-      setTimeout(() => setUpdateResult(null), 8000);
-    },
-    onError: (error) => {
-      setUpdateResult({
-        successCount: 0,
-        failCount: 1,
-        failed: [{ slug: "Request failed", error: error.message }],
-      });
-      setTimeout(() => setUpdateResult(null), 8000);
-    },
-  });
+  const loadMultipleScriptsMutation =
+    api.scripts.loadMultipleScripts.useMutation({
+      onSuccess: (data) => {
+        void utils.scripts.getAllDownloadedScripts.invalidate();
+        void utils.scripts.getScriptCardsWithCategories.invalidate();
+        setUpdateResult({
+          successCount: data.successful?.length ?? 0,
+          failCount: data.failed?.length ?? 0,
+          failed: (data.failed ?? []).map((f) => ({
+            slug: f.slug,
+            error: f.error ?? "Unknown error",
+          })),
+        });
+        setTimeout(() => setUpdateResult(null), 8000);
+      },
+      onError: (error) => {
+        setUpdateResult({
+          successCount: 0,
+          failCount: 1,
+          failed: [{ slug: "Request failed", error: error.message }],
+        });
+        setTimeout(() => setUpdateResult(null), 8000);
+      },
+    });
 
   // Load SAVE_FILTER setting, saved filters, and view mode on component mount
   useEffect(() => {
@@ -376,6 +377,21 @@ export function DownloadedScriptsTab({
             compareValue = (a.name ?? "").localeCompare(b.name ?? "");
           }
           break;
+        case "updated":
+          // Sort by date_created as a proxy (JSON doesn't have updated date)
+          // For downloaded scripts, treat more recent date_created as "recently updated"
+          const aUpdated = a?.date_created ?? "";
+          const bUpdated = b?.date_created ?? "";
+          if (aUpdated && bUpdated) {
+            compareValue = aUpdated.localeCompare(bUpdated);
+          } else if (aUpdated && !bUpdated) {
+            compareValue = -1;
+          } else if (!aUpdated && bUpdated) {
+            compareValue = 1;
+          } else {
+            compareValue = (a.name ?? "").localeCompare(b.name ?? "");
+          }
+          break;
         default:
           compareValue = (a.name ?? "").localeCompare(b.name ?? "");
       }
@@ -567,11 +583,17 @@ export function DownloadedScriptsTab({
                   ? `, ${updateResult.failCount} failed`
                   : ""}
                 .
-                {updateResult.failCount > 0 && updateResult.failed.length > 0 && (
-                  <span className="ml-1" title={updateResult.failed.map((f) => `${f.slug}: ${f.error}`).join("\n")}>
-                    (hover for details)
-                  </span>
-                )}
+                {updateResult.failCount > 0 &&
+                  updateResult.failed.length > 0 && (
+                    <span
+                      className="ml-1"
+                      title={updateResult.failed
+                        .map((f) => `${f.slug}: ${f.error}`)
+                        .join("\n")}
+                    >
+                      (hover for details)
+                    </span>
+                  )}
               </span>
             )}
           </div>
