@@ -92,7 +92,7 @@ export function ConfigurationModal({
   // Helper: get install default or hardcoded fallback
   const dflt = (key: string, hardcoded: string | number): string | number => {
     const val = installDefaults?.[key];
-    return (val !== null && val !== undefined) ? val : hardcoded;
+    return val ?? hardcoded;
   };
 
   // Initialize defaults when script/server data is available
@@ -124,7 +124,7 @@ export function ConfigurationModal({
         var_gateway: dflt('var_gateway', '') as string,
         var_ipv6_method: dflt('var_ipv6_method', 'none') as string,
         var_ipv6_static: '',
-        var_vlan: dflt('var_vlan', '') as string | number,
+        var_vlan: dflt('var_vlan', ''),
         var_mtu: dflt('var_mtu', 1500) as number,
         var_mac: '',
         var_ns: dflt('var_ns', '') as string,

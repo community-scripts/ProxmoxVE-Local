@@ -109,7 +109,7 @@ export const installDefaultsRouter = createTRPCRouter({
         for (const key of Object.keys(installDefaultFields)) {
           const serverVal = (serverDefaults as Record<string, unknown>)[key];
           const globalVal = (globalDefaults as Record<string, unknown>)[key];
-          merged[key] = (serverVal !== null && serverVal !== undefined ? serverVal : globalVal) as string | number | null;
+          merged[key] = (serverVal ?? globalVal) as string | number | null;
         }
 
         return { success: true, defaults: merged };
@@ -171,7 +171,7 @@ export const installDefaultsRouter = createTRPCRouter({
             data: {
               ...data,
               server_id: serverId,
-              name: (name ?? (serverId === null ? "Global" : "Server Default")) as string,
+              name: name ?? (serverId === null ? "Global" : "Server Default"),
             },
           });
         }

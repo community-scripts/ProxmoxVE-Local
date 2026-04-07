@@ -2183,8 +2183,8 @@ function DefaultsTabContent({ message, setMessage }: DefaultsTabContentProps) {
                           <span className="ml-1 text-xs text-muted-foreground">(global)</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{bp.gateway || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{bp.nameserver || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{bp.gateway ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{bp.nameserver ?? "—"}</td>
                       <td className="px-3 py-2 text-right">
                         <button
                           onClick={() => handleBridgeEdit(bp)}
