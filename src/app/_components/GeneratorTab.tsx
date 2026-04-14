@@ -154,9 +154,9 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
   const downloadDialogScript = useMemo(
     () =>
       downloadDialogSlug
-        ? (scriptCardsData?.cards ?? []).find(
+        ? ((scriptCardsData?.cards ?? []).find(
             (s) => s.slug === downloadDialogSlug,
-          ) ?? null
+          ) ?? null)
         : null,
     [downloadDialogSlug, scriptCardsData],
   );
@@ -1022,13 +1022,12 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
             {/* Execute button */}
             {generatedCommand && (
               <div className="mt-4 flex items-center justify-end gap-3">
-                {selectedScript &&
-                  !isScriptDownloaded(selectedScript.slug) && (
-                    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
-                      Script not downloaded
-                    </span>
-                  )}
+                {selectedScript && !isScriptDownloaded(selectedScript.slug) && (
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                    Script not downloaded
+                  </span>
+                )}
                 <Button
                   onClick={handleExecute}
                   disabled={

@@ -60,7 +60,7 @@ export function ServerStatusIndicator() {
               <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-75" />
             )}
           </span>
-          <span className="text-muted-foreground text-[11px] font-medium leading-none">
+          <span className="text-muted-foreground text-[11px] leading-none font-medium">
             {s.name}
           </span>
         </div>
