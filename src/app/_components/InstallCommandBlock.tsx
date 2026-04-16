@@ -1,33 +1,23 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Copy,
-  Check,
   Cpu,
   HardDrive,
   Server,
   Settings,
-  AlertTriangle,
   Info,
   Play,
   Loader2,
   ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type { Server as ServerType } from "~/types/server";
+import { Terminal } from "./Terminal";
 
 // ---------------------------------------------------------------------------
-// Constants (mirrors ProxmoxVE-Frontend/lib/install-command.ts)
+// Constants
 // ---------------------------------------------------------------------------
-
-const GITHUB_RAW_BASE =
-  "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main";
-const GITEA_RAW_BASE =
-  "https://git.community-scripts.org/community-scripts/ProxmoxVE/raw/branch/main";
-const GITHUB_RAW_BASE_DEV =
-  "https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main";
-const GITEA_RAW_BASE_DEV =
-  "https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main";
 
 type InstallSource = "github" | "gitea";
 type InstallEnv = "default" | "alpine" | "advanced";
@@ -122,10 +112,6 @@ function getAlpineInstallPath(
   return `ct/${base}.sh`;
 }
 
-function buildCommand(url: string): string {
-  return `bash -c "$(curl -fsSL ${url})"`;
-}
-
 function formatRam(mb: number): string {
   if (mb >= 1024 && mb % 1024 === 0) return `${mb / 1024} GB`;
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
@@ -150,12 +136,6 @@ export interface InstallCommandBlockProps {
   hasAlpine: boolean;
   defaults?: InstallDefaults;
   hasArm?: boolean;
-  /** When provided, shows a Node selector + Install button below the command */
-  onInstall?: (
-    mode: "local" | "ssh",
-    server?: ServerType,
-    envVars?: Record<string, string | number | boolean>,
-  ) => void;
   /** Whether the script has local files loaded */
   hasLocalFiles?: boolean;
 }
@@ -172,14 +152,11 @@ export function InstallCommandBlock({
   hasAlpine,
   defaults,
   hasArm = false,
-  onInstall,
   hasLocalFiles = false,
 }: InstallCommandBlockProps) {
   const [source, setSource] = useState<InstallSource>("github");
   const [env, setEnv] = useState<InstallEnv>("default");
-  const [copied, setCopied] = useState(false);
   const [installMode, setInstallMode] = useState<InstallMode>("");
-  const [devConfirmed, setDevConfirmed] = useState(false);
   const [armEnabled, setArmEnabled] = useState(false);
 
   // Server selection state
@@ -188,9 +165,18 @@ export function InstallCommandBlock({
   const [serversLoading, setServersLoading] = useState(false);
   const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
 
-  // Fetch servers when onInstall is provided
+  // Inline terminal state
+  const [running, setRunning] = useState<{
+    scriptPath: string;
+    envVars: Record<string, string>;
+    server: ServerType;
+  } | null>(null);
+  const [terminalCollapsed, setTerminalCollapsed] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
+
+  // Fetch servers when local files are available
   useEffect(() => {
-    if (!onInstall) return;
+    if (!hasLocalFiles) return;
     setServersLoading(true);
     fetch("/api/servers")
       .then((res) => res.json())
@@ -203,12 +189,7 @@ export function InstallCommandBlock({
       })
       .catch(() => setServers([]))
       .finally(() => setServersLoading(false));
-  }, [onInstall]);
-
-  const handleInstall = () => {
-    if (!onInstall || !selectedServer) return;
-    onInstall("ssh", selectedServer);
-  };
+  }, [hasLocalFiles]);
 
   const [advCpu, setAdvCpu] = useState(
     snapToStep(defaults?.cpu ?? 1, CPU_PRESETS),
@@ -225,38 +206,6 @@ export function InstallCommandBlock({
   const defaultPath = getDefaultInstallPath(scriptType, slug);
   const alpinePath = getAlpineInstallPath(scriptType, slug);
 
-  const baseCommand = useMemo(() => {
-    const ghBase = isDev ? GITHUB_RAW_BASE_DEV : GITHUB_RAW_BASE;
-    const gtBase = isDev ? GITEA_RAW_BASE_DEV : GITEA_RAW_BASE;
-    const base = source === "github" ? ghBase : gtBase;
-
-    if (env === "alpine" && hasAlpine && alpinePath) {
-      return buildCommand(`${base}/${alpinePath}`);
-    }
-    return buildCommand(`${base}/${defaultPath}`);
-  }, [env, hasAlpine, source, isDev, defaultPath, alpinePath]);
-
-  const command = useMemo(() => {
-    if (env !== "advanced" || !defaults) return baseCommand;
-
-    if (installMode) {
-      return `mode=${installMode} ${baseCommand}`;
-    }
-
-    const overrides: string[] = [];
-    if (advCpu !== defaults.cpu) overrides.push(`var_cpu="${advCpu}"`);
-    if (advRam !== defaults.ram) overrides.push(`var_ram="${advRam}"`);
-    if (advHdd !== defaults.hdd) overrides.push(`var_disk="${advHdd}"`);
-
-    if (overrides.length === 0) return baseCommand;
-    return `${overrides.join(" ")} ${baseCommand}`;
-  }, [env, baseCommand, defaults, advCpu, advRam, advHdd, installMode]);
-
-  const displayCommand = useMemo(
-    () => (hasArm && armEnabled ? `var_arm="true" ${command}` : command),
-    [hasArm, armEnabled, command],
-  );
-
   const hasOverrides =
     env === "advanced" &&
     defaults &&
@@ -265,22 +214,44 @@ export function InstallCommandBlock({
       advRam !== defaults.ram ||
       advHdd !== defaults.hdd);
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(displayCommand);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* silent */
-    }
-  }, [displayCommand]);
+  const handleInstall = () => {
+    if (!selectedServer) return;
 
-  const instruction =
-    env === "alpine" && hasAlpine
-      ? `As an alternative option, you can use Alpine Linux to create a container with faster creation time and minimal system resource usage.`
-      : env === "advanced"
-        ? "Customize the resources below. The generated command will override the script defaults."
-        : `Run the command below in the Proxmox VE Shell to install ${scriptName}.`;
+    // Derive script path based on env selection
+    let scriptFile = defaultPath;
+    if (env === "alpine" && hasAlpine && alpinePath) {
+      scriptFile = alpinePath;
+    }
+    const scriptPath = `scripts/${scriptFile}`;
+
+    // Build envVars from form state
+    const envVars: Record<string, string> = {};
+    envVars.source = source;
+
+    if (env === "advanced" && defaults) {
+      if (installMode) {
+        envVars.mode = installMode;
+      } else {
+        if (advCpu !== defaults.cpu) envVars.var_cpu = String(advCpu);
+        if (advRam !== defaults.ram) envVars.var_ram = String(advRam);
+        if (advHdd !== defaults.hdd) envVars.var_disk = String(advHdd);
+      }
+    }
+
+    if (hasArm && armEnabled) envVars.var_arm = "true";
+
+    setRunning({ scriptPath, envVars, server: selectedServer });
+    setTerminalCollapsed(false);
+
+    // Scroll into view after a tick
+    setTimeout(() => {
+      terminalRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  };
+
+  const handleCloseTerminal = () => {
+    setRunning(null);
+  };
 
   return (
     <section className="glass-card-static space-y-3 rounded-2xl border p-5">
@@ -431,54 +402,24 @@ export function InstallCommandBlock({
         </div>
       )}
 
-      <p className="text-muted-foreground text-sm">{instruction}</p>
+      <p className="text-muted-foreground text-sm">
+        {env === "alpine" && hasAlpine
+          ? "Alpine Linux — faster creation, minimal resources."
+          : env === "advanced"
+            ? "Customize resources below, then select a node and install."
+            : `Select a node below to install ${scriptName}.`}
+      </p>
 
-      {/* DEV gate */}
-      {isDev && !devConfirmed ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-            <div>
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                Development script
-              </p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                This script is in active development and may be unstable,
-                incomplete, or subject to breaking changes. It is{" "}
-                <strong>not recommended for production use</strong>.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDevConfirmed(true)}
-            className="bg-card mt-3 flex items-center gap-2 self-start rounded-lg border border-amber-500/40 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:border-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
-          >
-            I understand — show install command →
-          </button>
-        </div>
-      ) : (
-        /* Command display */
-        <div className="group relative overflow-hidden rounded-lg bg-[#0c0e14]">
-          <code className="block overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed sm:text-sm">
-            <HighlightedCommand command={displayCommand} />
-          </code>
-          <button
-            onClick={() => void handleCopy()}
-            className="absolute top-2 right-2 rounded-md border border-white/10 bg-white/5 p-1.5 text-white/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-white/10 hover:text-white"
-            title={copied ? "Copied!" : "Copy command"}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-400" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-          </button>
+      {/* DEV warning */}
+      {isDev && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>Development script — may be unstable or incomplete.</span>
         </div>
       )}
 
       {/* Server selector + Install button */}
-      {onInstall && hasLocalFiles && (
+      {hasLocalFiles && (
         <div className="border-border/60 flex flex-wrap items-center gap-2 border-t pt-3">
           {serversLoading ? (
             <div className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -554,12 +495,46 @@ export function InstallCommandBlock({
               <button
                 type="button"
                 onClick={handleInstall}
-                disabled={!selectedServer}
+                disabled={!selectedServer || !!running}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
               >
-                <Play className="h-3.5 w-3.5" /> Install
+                {running ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                {running ? "Running…" : "Install"}
               </button>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Inline Terminal — collapsible */}
+      {running && (
+        <div ref={terminalRef} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setTerminalCollapsed((c) => !c)}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
+            >
+              {terminalCollapsed ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronUp className="h-3.5 w-3.5" />
+              )}
+              Console Output
+            </button>
+          </div>
+          {!terminalCollapsed && (
+            <Terminal
+              scriptPath={running.scriptPath}
+              onClose={handleCloseTerminal}
+              mode="ssh"
+              server={running.server}
+              envVars={running.envVars}
+            />
           )}
         </div>
       )}
@@ -688,75 +663,4 @@ function PresetSlider({
       </div>
     </div>
   );
-}
-
-function HighlightedCommand({ command }: { command: string }) {
-  const parts: React.ReactNode[] = [];
-  let rest = command;
-
-  /* Strip leading env var tokens: mode=xxx or var_xxx="yyy" */
-  const envRe = /^((?:(?:mode=\S+|var_\w+="[^"]*")\s+)+)/;
-  const envMatch = envRe.exec(rest);
-  if (envMatch?.[1]) {
-    const envStr = envMatch[1];
-    rest = rest.slice(envStr.length);
-    const tokens = envStr.trim().split(/\s+/);
-    for (const token of tokens) {
-      if (token.startsWith("mode=")) {
-        parts.push(
-          <span
-            key={`m-${token}`}
-            className="text-amber-400 dark:text-amber-300"
-          >
-            {token}
-          </span>,
-        );
-      } else {
-        parts.push(
-          <span key={`v-${token}`} className="text-primary">
-            {token}
-          </span>,
-        );
-      }
-      parts.push(" ");
-    }
-  }
-
-  /* Highlight URL */
-  const urlRe = /(https?:\/\/[^\s"')]+)/;
-  const urlMatch = urlRe.exec(rest);
-  if (urlMatch?.index !== undefined) {
-    const before = rest.slice(0, urlMatch.index);
-    const url = urlMatch[1]!;
-    const after = rest.slice(urlMatch.index + url.length);
-    parts.push(
-      <span key="b" className="text-muted-foreground">
-        {before}
-      </span>,
-    );
-    parts.push(
-      <a
-        key="u"
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="cursor-pointer text-sky-500 hover:underline dark:text-sky-400"
-      >
-        {url}
-      </a>,
-    );
-    parts.push(
-      <span key="a" className="text-muted-foreground">
-        {after}
-      </span>,
-    );
-  } else {
-    parts.push(
-      <span key="r" className="text-foreground">
-        {rest}
-      </span>,
-    );
-  }
-
-  return <>{parts}</>;
 }

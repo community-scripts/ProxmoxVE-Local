@@ -33,32 +33,6 @@ import {
   Loader2,
 } from "lucide-react";
 
-function deriveScriptPath(
-  scriptType: string,
-  methodType: string,
-  slug: string,
-): string {
-  const type = (scriptType || "ct").toLowerCase().trim();
-  const method = (methodType || "default").toLowerCase().trim();
-  if (method === "alpine" && (type === "ct" || type === "lxc"))
-    return `ct/alpine-${slug}.sh`;
-  switch (type) {
-    case "ct":
-    case "lxc":
-      return `ct/${slug}.sh`;
-    case "pve":
-      return `tools/pve/${slug}.sh`;
-    case "addon":
-      return `tools/addon/${slug}.sh`;
-    case "vm":
-      return `vm/${slug}.sh`;
-    case "turnkey":
-      return `turnkey/${slug}.sh`;
-    default:
-      return `ct/${slug}.sh`;
-  }
-}
-
 interface ScriptDetailModalProps {
   script: Script | null;
   isOpen: boolean;
@@ -495,33 +469,6 @@ export function ScriptDetailModal({
                     hasAlpine={hasAlpine}
                     defaults={installDefaults}
                     hasArm={script.has_arm}
-                    onInstall={
-                      onInstallScript
-                        ? (mode, server, envVars) => {
-                            const versionType = "default";
-                            const scriptMethod =
-                              script.install_methods?.find(
-                                (m) => m.type === versionType,
-                              ) ?? script.install_methods?.[0];
-                            if (scriptMethod) {
-                              const scriptFile =
-                                scriptMethod.script ??
-                                deriveScriptPath(
-                                  script.type,
-                                  scriptMethod.type,
-                                  script.slug,
-                                );
-                              onInstallScript(
-                                `scripts/${scriptFile}`,
-                                script.name,
-                                mode,
-                                server,
-                                envVars,
-                              );
-                            }
-                          }
-                        : undefined
-                    }
                     hasLocalFiles={!!hasLocalFiles}
                   />
                 )}
