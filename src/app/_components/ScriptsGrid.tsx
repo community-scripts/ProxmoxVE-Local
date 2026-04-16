@@ -33,9 +33,12 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [isNewestMinimized, setIsNewestMinimized] = useState(false);
+  const downloadAbortRef = useRef(false);
   const filtersInitRef = useRef(false);
   const viewModeInitRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  const utils = api.useUtils();
 
   const {
     data: scriptCardsData,
@@ -609,6 +612,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
   };
 
   const downloadScriptsIndividually = async (slugsToDownload: string[]) => {
+    downloadAbortRef.current = false;
     setDownloadProgress({
       current: 0,
       total: slugsToDownload.length,
@@ -620,6 +624,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     const failed: Array<{ slug: string; error: string }> = [];
 
     for (let i = 0; i < slugsToDownload.length; i++) {
+      if (downloadAbortRef.current) break;
       const slug = slugsToDownload[i];
 
       // Update progress with current script
@@ -678,6 +683,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
     // Clear selection and refetch to update card download status
     setSelectedSlugs(new Set());
     void refetch();
+    void utils.scripts.getAllDownloadedScripts.invalidate();
 
     // Keep progress bar visible until user navigates away or manually dismisses
     // Progress bar will stay visible to show final results
@@ -1024,6 +1030,17 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
                   )}
                   %
                 </span>
+                {downloadProgress.current < downloadProgress.total && (
+                  <button
+                    onClick={() => {
+                      downloadAbortRef.current = true;
+                    }}
+                    className="text-destructive hover:text-destructive/80 text-xs font-medium transition-colors"
+                    title="Cancel download"
+                  >
+                    Cancel
+                  </button>
+                )}
                 {downloadProgress.current >= downloadProgress.total && (
                   <button
                     onClick={() => setDownloadProgress(null)}
@@ -1299,7 +1316,10 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onInstallScript={onInstallScript}
-          orderedSlugs={filteredScripts.map((s) => s.slug)}
+          orderedSlugs={[
+            ...(!hasActiveFilters ? newestScripts.map((s) => s.slug) : []),
+            ...filteredScripts.map((s) => s.slug),
+          ]}
           onSelectSlug={(slug) => setSelectedSlug(slug)}
         />
       </div>

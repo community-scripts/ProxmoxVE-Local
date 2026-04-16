@@ -1,12 +1,6 @@
 ﻿"use client";
 
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useTransition,
-} from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import Image from "next/image";
 import { api } from "~/trpc/react";
 import type { Script } from "~/types/script";
@@ -26,8 +20,9 @@ import {
 import { Button } from "./ui/button";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { ScriptNotesPanel } from "./ScriptNotesPanel";
+import { InstallCommandBlock } from "./InstallCommandBlock";
+import type { InstallDefaults } from "./InstallCommandBlock";
 import {
-  Copy,
   Check,
   X,
   ChevronLeft,
@@ -40,7 +35,6 @@ import {
   ExternalLink,
   Server as ServerIcon,
   Loader2,
-  Terminal,
 } from "lucide-react";
 
 function deriveScriptPath(
@@ -110,14 +104,12 @@ export function ScriptDetailModal({
   );
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [copiedCommand, setCopiedCommand] = useState(false);
-  const [showCommand, setShowCommand] = useState(false);
+
   const [, startNavTransition] = useTransition();
 
   useEffect(() => {
     setImageError(false);
     setLoadMessage(null);
-    setCopiedCommand(false);
   }, [script?.slug]);
 
   const activeIndex = useMemo(() => {
@@ -155,26 +147,21 @@ export function ScriptDetailModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onSelectSlug, previousSlug, nextSlug]);
 
-  const installCommand = useMemo(() => {
-    if (!script) return null;
-    const method = script.install_methods?.[0];
-    const scriptFile =
-      method?.script ??
-      deriveScriptPath(script.type, method?.type ?? "default", script.slug);
-    const url = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/${scriptFile}`;
-    return `bash -c "$(curl -fsSL ${url})"`;
+  const hasAlpine = useMemo(() => {
+    if (!script) return false;
+    return script.install_methods?.some((m) => m.type === "alpine") ?? false;
   }, [script]);
 
-  const handleCopyCommand = useCallback(async () => {
-    if (!installCommand) return;
-    try {
-      await navigator.clipboard.writeText(installCommand);
-      setCopiedCommand(true);
-      setTimeout(() => setCopiedCommand(false), 2000);
-    } catch {
-      /* silent */
-    }
-  }, [installCommand]);
+  const installDefaults = useMemo((): InstallDefaults | undefined => {
+    if (!script) return undefined;
+    const defaultMethod =
+      script.install_methods?.find((m) => m.type === "default") ??
+      script.install_methods?.[0];
+    if (!defaultMethod?.resources) return undefined;
+    const { cpu, ram, hdd } = defaultMethod.resources;
+    if (cpu === 0 && ram === 0 && hdd === 0) return undefined;
+    return { cpu: cpu || 1, ram: ram || 512, hdd: hdd || 2 };
+  }, [script]);
 
   const {
     data: scriptFilesData,
@@ -423,30 +410,6 @@ export function ScriptDetailModal({
 
           {/* Action Bar */}
           <div className="border-border/60 flex flex-shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3 sm:px-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleCopyCommand()}
-              className="gap-1.5 text-xs"
-            >
-              {copiedCommand ? (
-                <Check className="h-3.5 w-3.5 text-green-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-              {copiedCommand ? "Copied!" : "Copy Command"}
-            </Button>
-            {installCommand && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCommand((v) => !v)}
-                className="gap-1.5 text-xs"
-              >
-                <Terminal className="h-3.5 w-3.5" />
-                {showCommand ? "Hide Command" : "Show Command"}
-              </Button>
-            )}
             {!hasLocalFiles ? (
               <Button
                 size="sm"
@@ -523,17 +486,6 @@ export function ScriptDetailModal({
             )}
           </div>
 
-          {/* Install Command Display */}
-          {showCommand && installCommand && (
-            <div className="border-border/60 flex-shrink-0 border-b px-4 py-3 sm:px-6">
-              <div className="bg-muted relative rounded-lg p-3">
-                <code className="text-foreground block font-mono text-xs leading-relaxed break-all select-all">
-                  {installCommand}
-                </code>
-              </div>
-            </div>
-          )}
-
           {/* Status Messages */}
           {(scriptFilesLoading || comparisonLoading || loadMessage) && (
             <div className="flex-shrink-0 px-4 pt-3 sm:px-6">
@@ -601,32 +553,16 @@ export function ScriptDetailModal({
                   </section>
                 )}
 
-                {installCommand && (
-                  <section className="glass-card-static rounded-2xl border p-5">
-                    <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-[0.1em] uppercase">
-                      Install
-                    </h2>
-                    <p className="text-muted-foreground mb-3 text-sm">
-                      Run the command below in the Proxmox VE Shell to install{" "}
-                      {script.name}.
-                    </p>
-                    <div className="group relative overflow-hidden rounded-lg bg-[#0c0e14]">
-                      <code className="block overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-[#f0eeeb] sm:text-sm">
-                        {installCommand}
-                      </code>
-                      <button
-                        onClick={() => void handleCopyCommand()}
-                        className="absolute top-2 right-2 rounded-md border border-white/10 bg-white/5 p-1.5 text-white/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-white/10 hover:text-white"
-                        title="Copy"
-                      >
-                        {copiedCommand ? (
-                          <Check className="h-3.5 w-3.5 text-green-400" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </section>
+                {script.type !== "misc" && (
+                  <InstallCommandBlock
+                    scriptType={script.type}
+                    slug={script.slug}
+                    scriptName={script.name}
+                    isDev={script.is_dev}
+                    hasAlpine={hasAlpine}
+                    defaults={installDefaults}
+                    hasArm={script.has_arm}
+                  />
                 )}
 
                 {scriptFilesData?.success && !scriptFilesLoading && (
