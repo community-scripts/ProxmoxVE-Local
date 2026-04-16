@@ -7,9 +7,7 @@ import type { Script } from "~/types/script";
 import type { Server } from "~/types/server";
 import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
-import { ExecutionModeModal } from "./ExecutionModeModal";
 import { ConfirmationModal } from "./ConfirmationModal";
-import { ScriptVersionModal } from "./ScriptVersionModal";
 import {
   TypeBadge,
   UpdateableBadge,
@@ -19,7 +17,6 @@ import {
 } from "./Badge";
 import { Button } from "./ui/button";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
-import { ScriptNotesPanel } from "./ScriptNotesPanel";
 import { InstallCommandBlock } from "./InstallCommandBlock";
 import type { InstallDefaults } from "./InstallCommandBlock";
 import {
@@ -30,7 +27,6 @@ import {
   Download,
   RefreshCw,
   Trash2,
-  Play,
   Eye,
   ExternalLink,
   Server as ServerIcon,
@@ -97,11 +93,6 @@ export function ScriptDetailModal({
   const [diffViewerOpen, setDiffViewerOpen] = useState(false);
   const [selectedDiffFile, setSelectedDiffFile] = useState<string | null>(null);
   const [textViewerOpen, setTextViewerOpen] = useState(false);
-  const [executionModeOpen, setExecutionModeOpen] = useState(false);
-  const [versionModalOpen, setVersionModalOpen] = useState(false);
-  const [selectedVersionType, setSelectedVersionType] = useState<string | null>(
-    null,
-  );
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -238,54 +229,6 @@ export function ScriptDetailModal({
     setIsLoading(true);
     setLoadMessage(null);
     loadScriptMutation.mutate({ slug: script.slug });
-  };
-
-  const handleInstallScript = () => {
-    if (!script) return;
-    const installMethods = script.install_methods || [];
-    const hasMultipleVariants =
-      installMethods.filter((m) => m.type === "default" || m.type === "alpine")
-        .length > 1;
-    if (hasMultipleVariants) {
-      setVersionModalOpen(true);
-    } else {
-      const defaultMethod = installMethods.find((m) => m.type === "default");
-      setSelectedVersionType(
-        defaultMethod?.type ?? installMethods[0]?.type ?? "default",
-      );
-      setExecutionModeOpen(true);
-    }
-  };
-
-  const handleVersionSelect = (versionType: string) => {
-    setSelectedVersionType(versionType);
-    setVersionModalOpen(false);
-    setExecutionModeOpen(true);
-  };
-
-  const handleExecuteScript = (
-    mode: "local" | "ssh",
-    server?: Server,
-    envVars?: Record<string, string | number | boolean>,
-  ) => {
-    if (!script || !onInstallScript) return;
-    const versionType = selectedVersionType ?? "default";
-    const scriptMethod =
-      script.install_methods?.find((m) => m.type === versionType) ??
-      script.install_methods?.[0];
-    if (scriptMethod) {
-      const scriptFile =
-        scriptMethod.script ??
-        deriveScriptPath(script.type, scriptMethod.type, script.slug);
-      onInstallScript(
-        `scripts/${scriptFile}`,
-        script.name,
-        mode,
-        server,
-        envVars,
-      );
-      onClose();
-    }
   };
 
   const handleConfirmDelete = () => {
@@ -452,16 +395,6 @@ export function ScriptDetailModal({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleInstallScript}
-                className="gap-1.5 text-xs"
-              >
-                <Play className="h-3.5 w-3.5" /> Install
-              </Button>
-            )}
-            {hasLocalFiles && (
-              <Button
-                variant="outline"
-                size="sm"
                 onClick={() => setTextViewerOpen(true)}
                 className="gap-1.5 text-xs"
               >
@@ -562,6 +495,34 @@ export function ScriptDetailModal({
                     hasAlpine={hasAlpine}
                     defaults={installDefaults}
                     hasArm={script.has_arm}
+                    onInstall={
+                      onInstallScript
+                        ? (mode, server, envVars) => {
+                            const versionType = "default";
+                            const scriptMethod =
+                              script.install_methods?.find(
+                                (m) => m.type === versionType,
+                              ) ?? script.install_methods?.[0];
+                            if (scriptMethod) {
+                              const scriptFile =
+                                scriptMethod.script ??
+                                deriveScriptPath(
+                                  script.type,
+                                  scriptMethod.type,
+                                  script.slug,
+                                );
+                              onInstallScript(
+                                `scripts/${scriptFile}`,
+                                script.name,
+                                mode,
+                                server,
+                                envVars,
+                              );
+                            }
+                          }
+                        : undefined
+                    }
+                    hasLocalFiles={!!hasLocalFiles}
                   />
                 )}
 
@@ -632,8 +593,6 @@ export function ScriptDetailModal({
                     </div>
                   </section>
                 )}
-
-                <ScriptNotesPanel slug={script.slug} />
               </div>
 
               {/* Right: Sidebar */}
@@ -877,23 +836,6 @@ export function ScriptDetailModal({
             script={script}
             isOpen={textViewerOpen}
             onClose={() => setTextViewerOpen(false)}
-          />
-        )}
-        {script && (
-          <ScriptVersionModal
-            script={script}
-            isOpen={versionModalOpen}
-            onClose={() => setVersionModalOpen(false)}
-            onSelectVersion={handleVersionSelect}
-          />
-        )}
-        {script && (
-          <ExecutionModeModal
-            scriptName={script.name}
-            script={script}
-            isOpen={executionModeOpen}
-            onClose={() => setExecutionModeOpen(false)}
-            onExecute={handleExecuteScript}
           />
         )}
         {script && (

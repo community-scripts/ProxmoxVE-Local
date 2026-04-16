@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   Copy,
   Check,
@@ -10,7 +10,11 @@ import {
   Settings,
   AlertTriangle,
   Info,
+  Play,
+  Loader2,
+  ChevronDown,
 } from "lucide-react";
+import type { Server as ServerType } from "~/types/server";
 
 // ---------------------------------------------------------------------------
 // Constants (mirrors ProxmoxVE-Frontend/lib/install-command.ts)
@@ -146,6 +150,14 @@ export interface InstallCommandBlockProps {
   hasAlpine: boolean;
   defaults?: InstallDefaults;
   hasArm?: boolean;
+  /** When provided, shows a Node selector + Install button below the command */
+  onInstall?: (
+    mode: "local" | "ssh",
+    server?: ServerType,
+    envVars?: Record<string, string | number | boolean>,
+  ) => void;
+  /** Whether the script has local files loaded */
+  hasLocalFiles?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +172,8 @@ export function InstallCommandBlock({
   hasAlpine,
   defaults,
   hasArm = false,
+  onInstall,
+  hasLocalFiles = false,
 }: InstallCommandBlockProps) {
   const [source, setSource] = useState<InstallSource>("github");
   const [env, setEnv] = useState<InstallEnv>("default");
@@ -167,6 +181,34 @@ export function InstallCommandBlock({
   const [installMode, setInstallMode] = useState<InstallMode>("");
   const [devConfirmed, setDevConfirmed] = useState(false);
   const [armEnabled, setArmEnabled] = useState(false);
+
+  // Server selection state
+  const [servers, setServers] = useState<ServerType[]>([]);
+  const [selectedServer, setSelectedServer] = useState<ServerType | null>(null);
+  const [serversLoading, setServersLoading] = useState(false);
+  const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
+
+  // Fetch servers when onInstall is provided
+  useEffect(() => {
+    if (!onInstall) return;
+    setServersLoading(true);
+    fetch("/api/servers")
+      .then((res) => res.json())
+      .then((data: ServerType[]) => {
+        const sorted = data.sort((a, b) =>
+          (a.name ?? "").localeCompare(b.name ?? ""),
+        );
+        setServers(sorted);
+        if (sorted.length === 1) setSelectedServer(sorted[0] ?? null);
+      })
+      .catch(() => setServers([]))
+      .finally(() => setServersLoading(false));
+  }, [onInstall]);
+
+  const handleInstall = () => {
+    if (!onInstall || !selectedServer) return;
+    onInstall("ssh", selectedServer);
+  };
 
   const [advCpu, setAdvCpu] = useState(
     snapToStep(defaults?.cpu ?? 1, CPU_PRESETS),
@@ -434,6 +476,93 @@ export function InstallCommandBlock({
           </button>
         </div>
       )}
+
+      {/* Server selector + Install button */}
+      {onInstall && hasLocalFiles && (
+        <div className="border-border/60 flex flex-wrap items-center gap-2 border-t pt-3">
+          {serversLoading ? (
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading servers…
+            </div>
+          ) : servers.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No servers configured. Add servers in Settings.
+            </p>
+          ) : (
+            <>
+              <div className="relative min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setServerDropdownOpen((o) => !o)}
+                  className="border-border bg-background text-foreground hover:bg-accent flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    {selectedServer ? (
+                      <>
+                        {selectedServer.color && (
+                          <span
+                            className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                            style={{
+                              backgroundColor: selectedServer.color,
+                            }}
+                          />
+                        )}
+                        <span className="truncate">
+                          {selectedServer.name} ({selectedServer.ip})
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Select node…
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${serverDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {serverDropdownOpen && (
+                  <div className="border-border bg-card absolute right-0 left-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg">
+                    {servers.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedServer(s);
+                          setServerDropdownOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                          selectedServer?.id === s.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {s.color && (
+                          <span
+                            className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                            style={{ backgroundColor: s.color }}
+                          />
+                        )}
+                        <span className="truncate">
+                          {s.name} ({s.ip}) — {s.user}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleInstall}
+                disabled={!selectedServer}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
+              >
+                <Play className="h-3.5 w-3.5" /> Install
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -567,7 +696,7 @@ function HighlightedCommand({ command }: { command: string }) {
 
   /* Strip leading env var tokens: mode=xxx or var_xxx="yyy" */
   const envRe = /^((?:(?:mode=\S+|var_\w+="[^"]*")\s+)+)/;
-  const envMatch = rest.match(envRe);
+  const envMatch = envRe.exec(rest);
   if (envMatch?.[1]) {
     const envStr = envMatch[1];
     rest = rest.slice(envStr.length);
@@ -595,7 +724,7 @@ function HighlightedCommand({ command }: { command: string }) {
 
   /* Highlight URL */
   const urlRe = /(https?:\/\/[^\s"')]+)/;
-  const urlMatch = rest.match(urlRe);
+  const urlMatch = urlRe.exec(rest);
   if (urlMatch?.index !== undefined) {
     const before = rest.slice(0, urlMatch.index);
     const url = urlMatch[1]!;
