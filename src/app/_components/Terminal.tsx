@@ -620,7 +620,7 @@ export function Terminal({
       {/* Terminal Output */}
       <div
         ref={terminalRef}
-        className={`mx-auto h-[16rem] w-full max-w-4xl sm:h-[24rem] lg:h-[32rem] ${isMobile ? "mobile-terminal" : ""}`}
+        className={`h-[16rem] w-full sm:h-[24rem] lg:h-[32rem] ${isMobile ? "mobile-terminal" : ""}`}
         style={{
           minHeight: "256px",
         }}

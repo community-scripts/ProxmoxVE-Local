@@ -138,6 +138,8 @@ export interface InstallCommandBlockProps {
   hasArm?: boolean;
   /** Whether the script has local files loaded */
   hasLocalFiles?: boolean;
+  /** Called when the inline terminal opens or closes */
+  onTerminalChange?: (active: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,7 @@ export function InstallCommandBlock({
   defaults,
   hasArm = false,
   hasLocalFiles = false,
+  onTerminalChange,
 }: InstallCommandBlockProps) {
   const [source, setSource] = useState<InstallSource>("github");
   const [env, setEnv] = useState<InstallEnv>("default");
@@ -247,6 +250,7 @@ export function InstallCommandBlock({
 
     setRunning({ scriptPath, envVars, server: selectedServer });
     setTerminalCollapsed(false);
+    onTerminalChange?.(true);
 
     // Scroll into view after a tick
     setTimeout(() => {
@@ -259,6 +263,7 @@ export function InstallCommandBlock({
 
   const handleCloseTerminal = () => {
     setRunning(null);
+    onTerminalChange?.(false);
   };
 
   return (
