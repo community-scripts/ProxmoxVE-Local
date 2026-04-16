@@ -13,11 +13,7 @@ import { Clock } from "lucide-react";
 import type { ScriptCard as ScriptCardType } from "~/types/script";
 import { getDefaultFilters, mergeFiltersWithDefaults } from "./filterUtils";
 
-interface ScriptsGridProps {
-  onInstallScript?: (scriptPath: string, scriptName: string) => void;
-}
-
-export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
+export function ScriptsGrid() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1315,7 +1311,7 @@ export function ScriptsGrid({ onInstallScript }: ScriptsGridProps) {
           script={scriptData?.success ? scriptData.script : null}
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          onInstallScript={onInstallScript}
+          
           orderedSlugs={[
             ...(!hasActiveFilters ? newestScripts.map((s) => s.slug) : []),
             ...filteredScripts.map((s) => s.slug),

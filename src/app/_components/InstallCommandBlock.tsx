@@ -226,7 +226,6 @@ export function InstallCommandBlock({
 
     // Build envVars from form state
     const envVars: Record<string, string> = {};
-    envVars.source = source;
 
     if (env === "advanced" && defaults) {
       if (installMode) {

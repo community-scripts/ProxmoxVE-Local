@@ -12,21 +12,9 @@ import { ConfirmationModal } from "./ConfirmationModal";
 import { Button } from "./ui/button";
 import { RefreshCw } from "lucide-react";
 import type { ScriptCard as ScriptCardType } from "~/types/script";
-import type { Server } from "~/types/server";
 import { getDefaultFilters, mergeFiltersWithDefaults } from "./filterUtils";
 
-interface DownloadedScriptsTabProps {
-  onInstallScript?: (
-    scriptPath: string,
-    scriptName: string,
-    mode?: "local" | "ssh",
-    server?: Server,
-  ) => void;
-}
-
-export function DownloadedScriptsTab({
-  onInstallScript,
-}: DownloadedScriptsTabProps) {
+export function DownloadedScriptsTab() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -721,7 +709,7 @@ export function DownloadedScriptsTab({
             script={scriptData?.success ? scriptData.script : null}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            onInstallScript={onInstallScript}
+            
             orderedSlugs={filteredScripts.map((s) => s.slug)}
             onSelectSlug={(slug) => setSelectedSlug(slug)}
           />

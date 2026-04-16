@@ -483,11 +483,11 @@ export default function Home() {
         {/* Tab Content */}
         <div className="animate-section-in">
           {activeTab === "scripts" && (
-            <ScriptsGrid onInstallScript={handleRunScript} />
+            <ScriptsGrid />
           )}
 
           {activeTab === "downloaded" && (
-            <DownloadedScriptsTab onInstallScript={handleRunScript} />
+            <DownloadedScriptsTab />
           )}
 
           {activeTab === "installed" && <InstalledScriptsTab />}

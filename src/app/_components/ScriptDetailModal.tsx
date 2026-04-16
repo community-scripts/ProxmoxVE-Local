@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useTransition } from "react";
 import Image from "next/image";
 import { api } from "~/trpc/react";
 import type { Script } from "~/types/script";
-import type { Server } from "~/types/server";
 import { DiffViewer } from "./DiffViewer";
 import { TextViewer } from "./TextViewer";
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -37,13 +36,6 @@ interface ScriptDetailModalProps {
   script: Script | null;
   isOpen: boolean;
   onClose: () => void;
-  onInstallScript?: (
-    scriptPath: string,
-    scriptName: string,
-    mode?: "local" | "ssh",
-    server?: Server,
-    envVars?: Record<string, string | number | boolean>,
-  ) => void;
   orderedSlugs?: string[];
   onSelectSlug?: (slug: string) => void;
 }
@@ -52,7 +44,6 @@ export function ScriptDetailModal({
   script,
   isOpen,
   onClose,
-  onInstallScript,
   orderedSlugs,
   onSelectSlug,
 }: ScriptDetailModalProps) {
@@ -365,7 +356,7 @@ export function ScriptDetailModal({
                 {isLoading ? "Updating..." : "Update Script"}
               </Button>
             )}
-            {hasLocalFiles && onInstallScript && (
+            {hasLocalFiles && (
               <Button
                 variant="outline"
                 size="sm"
