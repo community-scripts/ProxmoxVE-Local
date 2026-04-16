@@ -2307,7 +2307,7 @@ export const installedScriptsRouter = createTRPCRouter({
         const hasChanges = cachedConfig ? cachedConfig.config_hash !== configHash : false;
         
         // Update database cache
-        const configData = {
+        const configData: Record<string, unknown> = {
           ...parsedConfig,
           config_hash: configHash,
           synced_at: new Date()

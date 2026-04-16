@@ -4,7 +4,9 @@ interface InstalledScriptsFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: "all" | "success" | "failed" | "in_progress";
-  onStatusFilterChange: (value: "all" | "success" | "failed" | "in_progress") => void;
+  onStatusFilterChange: (
+    value: "all" | "success" | "failed" | "in_progress",
+  ) => void;
   serverFilter: string;
   onServerFilterChange: (value: string) => void;
   uniqueServers: string[];
