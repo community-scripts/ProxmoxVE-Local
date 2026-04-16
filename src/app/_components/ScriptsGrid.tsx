@@ -1311,7 +1311,6 @@ export function ScriptsGrid() {
           script={scriptData?.success ? scriptData.script : null}
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          
           orderedSlugs={[
             ...(!hasActiveFilters ? newestScripts.map((s) => s.slug) : []),
             ...filteredScripts.map((s) => s.slug),

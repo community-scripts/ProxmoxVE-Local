@@ -482,13 +482,9 @@ export default function Home() {
 
         {/* Tab Content */}
         <div className="animate-section-in">
-          {activeTab === "scripts" && (
-            <ScriptsGrid />
-          )}
+          {activeTab === "scripts" && <ScriptsGrid />}
 
-          {activeTab === "downloaded" && (
-            <DownloadedScriptsTab />
-          )}
+          {activeTab === "downloaded" && <DownloadedScriptsTab />}
 
           {activeTab === "installed" && <InstalledScriptsTab />}
 

@@ -520,7 +520,10 @@ export function InstallCommandBlock({
 
       {/* Inline Terminal — collapsible, breaks out of card padding */}
       {running && (
-        <div ref={terminalRef} className="-mx-5 -mb-5 space-y-0 border-t border-border/60">
+        <div
+          ref={terminalRef}
+          className="border-border/60 -mx-5 -mb-5 space-y-0 border-t"
+        >
           <button
             type="button"
             onClick={() => setTerminalCollapsed((c) => !c)}

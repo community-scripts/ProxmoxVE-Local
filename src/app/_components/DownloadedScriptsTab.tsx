@@ -709,7 +709,6 @@ export function DownloadedScriptsTab() {
             script={scriptData?.success ? scriptData.script : null}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            
             orderedSlugs={filteredScripts.map((s) => s.slug)}
             onSelectSlug={(slug) => setSelectedSlug(slug)}
           />
