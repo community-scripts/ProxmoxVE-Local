@@ -18,7 +18,7 @@
 #
 # Usage:
 #   - Sourced automatically by CT creation scripts
-#   - Requires core.func and error-handler.func to be loaded first
+#   - Requires core.func and error_handler.func to be loaded first
 #
 # ==============================================================================
 
@@ -986,13 +986,23 @@ base_settings() {
 
 	# Runtime check: Verify APT cacher is reachable if configured
 	if [[ -n "$APT_CACHER_IP" && "$APT_CACHER" == "yes" ]]; then
-		if ! curl -s --connect-timeout 2 "http://${APT_CACHER_IP}:3142" >/dev/null 2>&1; then
-			msg_warn "APT Cacher configured but not reachable at ${APT_CACHER_IP}:3142"
+		local _check_host _check_port _check_url
+		_check_host=$(echo "$APT_CACHER_IP" | sed -e 's|https\?://||' -e 's|/.*||' | cut -d: -f1)
+		_check_port=$(echo "$APT_CACHER_IP" | sed -e 's|https\?://||' -e 's|/.*||' | cut -s -d: -f2)
+		if [[ "$APT_CACHER_IP" =~ ^https?:// ]]; then
+			_check_url="$APT_CACHER_IP"
+			_check_port="${_check_port:-80}"
+		else
+			_check_port="${_check_port:-3142}"
+			_check_url="http://${APT_CACHER_IP}:${_check_port}"
+		fi
+		if ! curl -s --connect-timeout 2 "${_check_url}" >/dev/null 2>&1; then
+			msg_warn "APT Cacher configured but not reachable at ${_check_url}"
 			msg_custom "⚠️" "${YW}" "Disabling APT Cacher for this installation"
 			APT_CACHER=""
 			APT_CACHER_IP=""
 		else
-			msg_ok "APT Cacher verified at ${APT_CACHER_IP}:3142"
+			msg_ok "APT Cacher verified at ${_check_url}"
 		fi
 	fi
 
@@ -1044,7 +1054,7 @@ load_vars_file() {
 
 	# Allowed var_* keys
 	local VAR_WHITELIST=(
-		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu var_keyctl
+		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_github_token var_gpu var_keyctl
 		var_gateway var_hostname var_ipv6_method var_mac var_mknod var_mount_fs var_mtu
 		var_net var_nesting var_ns var_os var_protection var_pw var_ram var_tags var_timezone var_tun var_unprivileged
 		var_verbose var_version var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage var_searchdomain
@@ -1199,6 +1209,13 @@ load_vars_file() {
 						continue
 					fi
 					;;
+				var_apt_cacher_ip)
+					# Allow: plain IP/hostname, http://host, https://host:port
+					if [[ -n "$var_val" ]] && ! [[ "$var_val" =~ ^(https?://)?[a-zA-Z0-9._-]+(:[0-9]+)?(/.*)?$ ]]; then
+						msg_warn "Invalid APT Cacher address '$var_val' in $file, ignoring"
+						continue
+					fi
+					;;
 				var_container_storage | var_template_storage)
 					# Validate that the storage exists and is active on the current node
 					local _storage_status
@@ -1238,7 +1255,7 @@ default_var_settings() {
 	# Allowed var_* keys (alphabetically sorted)
 	# Note: Removed var_ctid (can only exist once), var_ipv6_static (static IPs are unique)
 	local VAR_WHITELIST=(
-		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu var_keyctl
+		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_github_token var_gpu var_keyctl
 		var_gateway var_hostname var_ipv6_method var_mac var_mknod var_mount_fs var_mtu
 		var_net var_nesting var_ns var_os var_protection var_pw var_ram var_tags var_timezone var_tun var_unprivileged
 		var_verbose var_version var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage
@@ -1311,9 +1328,11 @@ var_ipv6_method=none
 var_ssh=no
 # var_ssh_authorized_key=
 
-# APT cacher (optional - with example)
+# APT cacher (optional - IP or URL)
 # var_apt_cacher=yes
 # var_apt_cacher_ip=192.168.1.10
+# var_apt_cacher_ip=http://proxy.local
+# var_apt_cacher_ip=https://proxy.local:443
 
 # Features/Tags/verbosity
 var_fuse=no
@@ -1331,6 +1350,10 @@ var_verbose=no
 
 # Security (root PW) – empty => autologin
 # var_pw=
+
+# GitHub Personal Access Token (optional – avoids API rate limits during installs)
+# Create at https://github.com/settings/tokens – read-only public access is sufficient
+# var_github_token=ghp_your_token_here
 EOF
 
 		# Now choose storages (always prompt unless just one exists)
@@ -1368,6 +1391,11 @@ EOF
 		VERBOSE="no"
 	fi
 
+	# 4) Map var_github_token → GITHUB_TOKEN (only if not already set in environment)
+	if [[ -z "${GITHUB_TOKEN:-}" && -n "${var_github_token:-}" ]]; then
+		export GITHUB_TOKEN="${var_github_token}"
+	fi
+
 	# 4) Apply base settings and show summary
 	METHOD="mydefaults-global"
 	base_settings "$VERBOSE"
@@ -1400,7 +1428,7 @@ get_app_defaults_path() {
 if ! declare -p VAR_WHITELIST >/dev/null 2>&1; then
 	# Note: Removed var_ctid (can only exist once), var_ipv6_static (static IPs are unique)
 	declare -ag VAR_WHITELIST=(
-		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_gpu
+		var_apt_cacher var_apt_cacher_ip var_brg var_cpu var_disk var_fuse var_github_token var_gpu
 		var_gateway var_hostname var_ipv6_method var_mac var_mtu
 		var_net var_ns var_os var_pw var_ram var_tags var_tun var_unprivileged
 		var_verbose var_version var_vlan var_ssh var_ssh_authorized_key var_container_storage var_template_storage
@@ -2526,7 +2554,7 @@ advanced_settings() {
 				# Ask for IP if enabled
 				if result=$(whiptail --backtitle "Proxmox VE Helper Scripts [Step $STEP/$MAX_STEP]" \
 					--title "APT CACHER IP" \
-					--inputbox "\nEnter APT Cacher-NG server IP address:" 10 58 "$_apt_cacher_ip" \
+					--inputbox "\nEnter APT Cacher-NG IP or URL:\n(e.g. 192.168.1.10, http://host, https://host:443)" 12 62 "$_apt_cacher_ip" \
 					3>&1 1>&2 2>&3); then
 					_apt_cacher_ip="$result"
 				fi
@@ -3530,6 +3558,7 @@ build_container() {
 	# Gateway
 	if [[ -n "$GATE" ]]; then
 		case "$GATE" in
+		,gw=) ;;
 		,gw=*) NET_STRING+="$GATE" ;;
 		*) NET_STRING+=",gw=$GATE" ;;
 		esac
@@ -3584,8 +3613,6 @@ build_container() {
 	fi
 
 	# Build PCT_OPTIONS as string for export
-	TEMP_DIR=$(mktemp -d)
-	pushd "$TEMP_DIR" >/dev/null
 	local _func_url
 	if [ "$var_os" == "alpine" ]; then
 		_func_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/alpine-install.func"
@@ -3998,7 +4025,7 @@ EOF
 
 		# Wait for IP assignment (IPv4 or IPv6)
 		local ip_in_lxc=""
-		for i in {1..20}; do
+		for i in {1..60}; do
 			# Try IPv4 first
 			ip_in_lxc=$(pct exec "$CTID" -- ip -4 addr show dev eth0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
 			# Fallback to IPv6 if IPv4 not available
@@ -4006,11 +4033,18 @@ EOF
 				ip_in_lxc=$(pct exec "$CTID" -- ip -6 addr show dev eth0 scope global 2>/dev/null | awk '/inet6 / {print $2}' | cut -d/ -f1 | head -n1)
 			fi
 			[ -n "$ip_in_lxc" ] && break
-			sleep 1
+			# Progressive backoff: 1s for first 20, 2s for next 20, 3s for last 20
+			if [ "$i" -le 20 ]; then
+				sleep 1
+			elif [ "$i" -le 40 ]; then
+				sleep 2
+			else
+				sleep 3
+			fi
 		done
 
 		if [ -z "$ip_in_lxc" ]; then
-			msg_error "No IP assigned to CT $CTID after 20s"
+			msg_error "No IP assigned to CT $CTID after 60 attempts"
 			msg_custom "🔧" "${YW}" "Troubleshooting:"
 			echo "  • Verify bridge ${BRG} exists and has connectivity"
 			echo "  • Check if DHCP server is reachable (if using DHCP)"
@@ -4623,7 +4657,7 @@ EOF
 				if [[ "${DEV_MODE_MOTD:-false}" == "true" ]]; then
 					echo -e "${TAB}${HOLD}${DGN}Setting up MOTD and SSH for debugging...${CL}"
 					if pct exec "$CTID" -- bash -c "
-            source "$(dirname \"\${BASH_SOURCE[0]}\")/install.func"
+              source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func)
               declare -f motd_ssh >/dev/null 2>&1 && motd_ssh || true
             " >/dev/null 2>&1; then
 						local ct_ip=$(pct exec "$CTID" ip a s dev eth0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
@@ -5241,9 +5275,10 @@ create_lxc_container() {
 		exit 205
 	}
 	if qm status "$CTID" &>/dev/null || pct status "$CTID" &>/dev/null; then
-		unset CTID
-		msg_error "Cannot use ID that is already in use."
-		exit 206
+		msg_warn "Container/VM ID $CTID is already in use (detected late). Reassigning..."
+		CTID=$(get_valid_container_id "$((CTID + 1))")
+		export CTID
+		msg_ok "Reassigned to container ID $CTID"
 	fi
 
 	# Report installation start to API early - captures failures in storage/template/create
@@ -5719,30 +5754,77 @@ create_lxc_container() {
 	if ! pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" $PCT_OPTIONS >"$LOGFILE" 2>&1; then
 		msg_debug "Container creation failed on ${TEMPLATE_STORAGE}. Checking error..."
 
-		# Check if template issue - retry with fresh download
-		if grep -qiE 'unable to open|corrupt|invalid' "$LOGFILE"; then
-			msg_info "Template may be corrupted – re-downloading"
-			rm -f "$TEMPLATE_PATH"
-			pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >>"${BUILD_LOG:-/dev/null}" 2>&1
-			msg_ok "Template re-downloaded"
-		fi
+		# Check if CTID collision (race condition: ID claimed between validation and creation)
+		if grep -qiE 'already exists|already in use' "$LOGFILE"; then
+			local old_ctid="$CTID"
+			CTID=$(get_valid_container_id "$((CTID + 1))")
+			export CTID
+			msg_warn "Container ID $old_ctid was claimed by another process. Retrying with ID $CTID"
+			LOGFILE="/tmp/pct_create_${CTID}_$(date +%Y%m%d_%H%M%S)_${SESSION_ID}.log"
+			if pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" $PCT_OPTIONS >"$LOGFILE" 2>&1; then
+				msg_ok "Container successfully created with new ID $CTID"
+			else
+				msg_error "Container creation failed even with new ID $CTID. See $LOGFILE"
+				_flush_pct_log
+				exit 209
+			fi
+		else
+			# Not a CTID collision - check if template issue and retry with fresh download
+			if grep -qiE 'unable to open|corrupt|invalid' "$LOGFILE"; then
+				msg_info "Template may be corrupted – re-downloading"
+				rm -f "$TEMPLATE_PATH"
+				pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >>"${BUILD_LOG:-/dev/null}" 2>&1
+				msg_ok "Template re-downloaded"
+			fi
 
-		# Retry after repair
-		if ! pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" $PCT_OPTIONS >>"$LOGFILE" 2>&1; then
-			# Fallback to local storage if not already on local
-			if [[ "$TEMPLATE_STORAGE" != "local" ]]; then
-				msg_info "Retrying container creation with fallback to local storage"
-				LOCAL_TEMPLATE_PATH="/var/lib/vz/template/cache/$TEMPLATE"
-				if [[ ! -f "$LOCAL_TEMPLATE_PATH" ]]; then
-					msg_ok "Trying local storage fallback"
-					msg_info "Downloading template to local"
-					pveam download local "$TEMPLATE" >>"${BUILD_LOG:-/dev/null}" 2>&1
-					msg_ok "Template downloaded to local"
+			# Retry after repair
+			if ! pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" $PCT_OPTIONS >>"$LOGFILE" 2>&1; then
+				# Fallback to local storage if not already on local
+				if [[ "$TEMPLATE_STORAGE" != "local" ]]; then
+					msg_info "Retrying container creation with fallback to local storage"
+					LOCAL_TEMPLATE_PATH="/var/lib/vz/template/cache/$TEMPLATE"
+					if [[ ! -f "$LOCAL_TEMPLATE_PATH" ]]; then
+						msg_ok "Trying local storage fallback"
+						msg_info "Downloading template to local"
+						pveam download local "$TEMPLATE" >>"${BUILD_LOG:-/dev/null}" 2>&1
+						msg_ok "Template downloaded to local"
+					else
+						msg_ok "Trying local storage fallback"
+					fi
+					if ! pct create "$CTID" "local:vztmpl/${TEMPLATE}" $PCT_OPTIONS >>"$LOGFILE" 2>&1; then
+						# Local fallback also failed - check for LXC stack version issue
+						if grep -qiE 'unsupported .* version' "$LOGFILE"; then
+							msg_warn "pct reported 'unsupported version' – LXC stack might be too old for this template"
+							offer_lxc_stack_upgrade_and_maybe_retry "yes"
+							rc=$?
+							case $rc in
+							0) : ;; # success - container created, continue
+							2)
+								msg_error "Upgrade declined. Please update and re-run: apt update && apt install --only-upgrade pve-container lxc-pve"
+								_flush_pct_log
+								exit 231
+								;;
+							3)
+								msg_error "Upgrade and/or retry failed. Please inspect: $LOGFILE"
+								_flush_pct_log
+								exit 231
+								;;
+							esac
+						else
+							msg_error "Container creation failed. See $LOGFILE"
+							if whiptail --yesno "pct create failed.\nDo you want to enable verbose debug mode and view detailed logs?" 12 70; then
+								set -x
+								pct create "$CTID" "local:vztmpl/${TEMPLATE}" $PCT_OPTIONS 2>&1 | tee -a "$LOGFILE"
+								set +x
+							fi
+							_flush_pct_log
+							exit 209
+						fi
+					else
+						msg_ok "Container successfully created using local fallback."
+					fi
 				else
-					msg_ok "Trying local storage fallback"
-				fi
-				if ! pct create "$CTID" "local:vztmpl/${TEMPLATE}" $PCT_OPTIONS >>"$LOGFILE" 2>&1; then
-					# Local fallback also failed - check for LXC stack version issue
+					# Already on local storage and still failed - check LXC stack version
 					if grep -qiE 'unsupported .* version' "$LOGFILE"; then
 						msg_warn "pct reported 'unsupported version' – LXC stack might be too old for this template"
 						offer_lxc_stack_upgrade_and_maybe_retry "yes"
@@ -5770,50 +5852,28 @@ create_lxc_container() {
 						_flush_pct_log
 						exit 209
 					fi
-				else
-					msg_ok "Container successfully created using local fallback."
 				fi
 			else
-				# Already on local storage and still failed - check LXC stack version
-				if grep -qiE 'unsupported .* version' "$LOGFILE"; then
-					msg_warn "pct reported 'unsupported version' – LXC stack might be too old for this template"
-					offer_lxc_stack_upgrade_and_maybe_retry "yes"
-					rc=$?
-					case $rc in
-					0) : ;; # success - container created, continue
-					2)
-						msg_error "Upgrade declined. Please update and re-run: apt update && apt install --only-upgrade pve-container lxc-pve"
-						_flush_pct_log
-						exit 231
-						;;
-					3)
-						msg_error "Upgrade and/or retry failed. Please inspect: $LOGFILE"
-						_flush_pct_log
-						exit 231
-						;;
-					esac
-				else
-					msg_error "Container creation failed. See $LOGFILE"
-					if whiptail --yesno "pct create failed.\nDo you want to enable verbose debug mode and view detailed logs?" 12 70; then
-						set -x
-						pct create "$CTID" "local:vztmpl/${TEMPLATE}" $PCT_OPTIONS 2>&1 | tee -a "$LOGFILE"
-						set +x
-					fi
-					_flush_pct_log
-					exit 209
-				fi
+				msg_ok "Container successfully created after template repair."
 			fi
-		else
-			msg_ok "Container successfully created after template repair."
-		fi
+		fi # close CTID collision else-branch
 	fi
 
-	# Verify container exists
-	pct list | awk '{print $1}' | grep -qx "$CTID" || {
-		msg_error "Container ID $CTID not listed in 'pct list'. See $LOGFILE"
+	# Verify container exists (allow up to 10s for pmxcfs sync in clusters)
+	local _pct_visible=false
+	for _pct_check in {1..10}; do
+		if pct list | awk '{print $1}' | grep -qx "$CTID"; then
+			_pct_visible=true
+			break
+		fi
+		sleep 1
+	done
+	if [[ "$_pct_visible" != true ]]; then
+		msg_error "Container ID $CTID not listed in 'pct list' after 10s. See $LOGFILE"
+		msg_custom "🔧" "${YW}" "This can happen in clusters with pmxcfs sync delays."
 		_flush_pct_log
 		exit 215
-	}
+	fi
 
 	# Verify config rootfs
 	grep -q '^rootfs:' "/etc/pve/lxc/$CTID.conf" || {
@@ -5853,6 +5913,12 @@ create_lxc_container() {
 # ------------------------------------------------------------------------------
 description() {
 	IP=$(pct exec "$CTID" ip a s dev eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
+	local script_slug script_url donate_url
+
+	script_slug="${SCRIPT_SLUG:-${NSAPP}}"
+	script_slug="$(echo "$script_slug" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+	script_url="https://community-scripts.org/scripts/${script_slug}"
+	donate_url="https://community-scripts.org/donate"
 
 	# Generate LXC Description
 	DESCRIPTION=$(
@@ -5865,8 +5931,14 @@ description() {
   <h2 style='font-size: 24px; margin: 20px 0;'>${APP} LXC</h2>
 
   <p style='margin: 16px 0;'>
-    <a href='https://ko-fi.com/community_scripts' target='_blank' rel='noopener noreferrer'>
-      <img src='https://img.shields.io/badge/&#x2615;-Buy us a coffee-blue' alt='spend Coffee' />
+    <a href='${donate_url}' target='_blank' rel='noopener noreferrer'>
+      <img src='https://img.shields.io/badge/❤️-Sponsoring%20%26%20Donations-FF5E5B' alt='Sponsoring and donations' />
+    </a>
+  </p>
+
+  <p style='margin: 12px 0;'>
+    <a href='${script_url}' target='_blank' rel='noopener noreferrer'>
+      <img src='https://img.shields.io/badge/📦-Open%20Script%20Page-00617f' alt='Open script page' />
     </a>
   </p>
 
@@ -5959,9 +6031,9 @@ ensure_log_on_host() {
 # TRAP MANAGEMENT
 # ==============================================================================
 # All traps (ERR, EXIT, INT, TERM, HUP) are set by catch_errors() in
-# error-handler.func — called at the top of this file after sourcing.
+# error_handler.func — called at the top of this file after sourcing.
 #
-# Do NOT set duplicate traps here. The handlers in error-handler.func
+# Do NOT set duplicate traps here. The handlers in error_handler.func
 # (on_exit, on_interrupt, on_terminate, on_hangup, error_handler) already:
 #   - Send telemetry via post_update_to_api / _send_abort_telemetry
 #   - Stop orphaned containers via _stop_container_if_installing
