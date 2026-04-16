@@ -3613,15 +3613,27 @@ build_container() {
 	fi
 
 	# Build PCT_OPTIONS as string for export
-	local _func_url
+	local _func_file
+	local SCRIPT_DIR
+	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	if [ "$var_os" == "alpine" ]; then
-		_func_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/alpine-install.func"
+		_func_file="${SCRIPT_DIR}/alpine-install.func"
 	else
-		_func_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func"
+		_func_file="${SCRIPT_DIR}/install.func"
 	fi
-	export FUNCTIONS_FILE_PATH="$(curl -fsSL "$_func_url")"
+	if [[ -f "$_func_file" ]]; then
+		export FUNCTIONS_FILE_PATH="$(cat "$_func_file")"
+	else
+		local _func_url
+		if [ "$var_os" == "alpine" ]; then
+			_func_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/alpine-install.func"
+		else
+			_func_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func"
+		fi
+		export FUNCTIONS_FILE_PATH="$(curl -fsSL "$_func_url")"
+	fi
 	if [[ -z "$FUNCTIONS_FILE_PATH" || ${#FUNCTIONS_FILE_PATH} -lt 100 ]]; then
-		msg_error "Failed to download install functions from: $_func_url"
+		msg_error "Failed to load install functions"
 		exit 115
 	fi
 
@@ -4334,7 +4346,13 @@ EOF
 		# that sends "configuring" status AFTER the host already reported "failed"
 		export CONTAINER_INSTALLING=true
 
-		lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)"
+		# Use local install script if available, fallback to remote download
+		local _local_install="${SCRIPT_DIR}/../install/${var_install}.sh"
+		if [[ -f "$_local_install" ]]; then
+			lxc-attach -n "$CTID" -- bash -c "$(cat "$_local_install")"
+		else
+			lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)"
+		fi
 		local lxc_exit=$?
 
 		unset CONTAINER_INSTALLING
@@ -4657,7 +4675,7 @@ EOF
 				if [[ "${DEV_MODE_MOTD:-false}" == "true" ]]; then
 					echo -e "${TAB}${HOLD}${DGN}Setting up MOTD and SSH for debugging...${CL}"
 					if pct exec "$CTID" -- bash -c "
-              source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func)
+              source /tmp/scripts/core/install.func
               declare -f motd_ssh >/dev/null 2>&1 && motd_ssh || true
             " >/dev/null 2>&1; then
 						local ct_ip=$(pct exec "$CTID" ip a s dev eth0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
@@ -4729,7 +4747,11 @@ EOF
 					# Re-run install script in existing container (don't destroy/recreate)
 					set +Eeuo pipefail
 					trap - ERR
-					lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)"
+					if [[ -f "$_local_install" ]]; then
+						lxc-attach -n "$CTID" -- bash -c "$(cat "$_local_install")"
+					else
+						lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)"
+					fi
 					local apt_retry_exit=$?
 					set -Eeuo pipefail
 					trap 'error_handler' ERR

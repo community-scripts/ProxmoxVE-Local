@@ -53,15 +53,15 @@ export class ScriptExecutionHandler {
     });
   }
 
-  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; input?: string }) {
-    const { action, scriptPath, executionId, mode, server, input } = message;
+  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; input?: string; envVars?: Record<string, string | number | boolean> }) {
+    const { action, scriptPath, executionId, mode, server, input, envVars } = message;
     
 
 
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
-          await this.startScriptExecution(ws, scriptPath, executionId, mode, server);
+          await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars);
         } else {
           this.sendMessage(ws, {
             type: 'error',
@@ -100,7 +100,7 @@ export class ScriptExecutionHandler {
     }
   }
 
-  private async startScriptExecution(ws: WebSocket, scriptPath: string, executionId: string, mode?: 'local' | 'ssh', server?: any) {
+  private async startScriptExecution(ws: WebSocket, scriptPath: string, executionId: string, mode?: 'local' | 'ssh', server?: any, envVars?: Record<string, string | number | boolean>) {
    
     try {
       // Check if execution is already running
@@ -151,7 +151,8 @@ export class ScriptExecutionHandler {
                 timestamp: Date.now()
               });
               this.activeExecutions.delete(executionId);
-            }
+            },
+            envVars
           );
           
           process = (result as any).process;

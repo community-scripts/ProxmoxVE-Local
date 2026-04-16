@@ -149,6 +149,7 @@ export function ConfigurationModal({
         var_verbose: "no",
         var_apt_cacher: "no",
         var_apt_cacher_ip: "",
+        var_github_token: "",
 
         // Storage
         var_container_storage: "",
@@ -1523,6 +1524,23 @@ export function ConfigurationModal({
                           {errors.var_apt_cacher_ip}
                         </p>
                       )}
+                    </div>
+                    <div>
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        GitHub Token
+                      </label>
+                      <Input
+                        type="password"
+                        value={String(advancedVars.var_github_token ?? "")}
+                        onChange={(e) =>
+                          updateAdvancedVar("var_github_token", e.target.value)
+                        }
+                        placeholder="ghp_... (optional)"
+                        autoComplete="off"
+                      />
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Passed as GITHUB_TOKEN to avoid API rate limits
+                      </p>
                     </div>
                   </div>
                 </div>

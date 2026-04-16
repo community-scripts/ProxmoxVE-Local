@@ -421,10 +421,19 @@ EOF
   post_progress_to_api
 
   local tools_content
-  tools_content=$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/tools.func) || {
-    msg_error "Failed to download tools.func"
-    exit 115
-  }
+  local _tools_local
+  _tools_local="$(dirname "${BASH_SOURCE[0]}")/tools.func"
+  if [[ -f "$_tools_local" ]]; then
+    tools_content=$(cat "$_tools_local") || {
+      msg_error "Failed to load tools.func from local"
+      exit 115
+    }
+  else
+    tools_content=$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/tools.func) || {
+      msg_error "Failed to download tools.func"
+      exit 115
+    }
+  fi
   source /dev/stdin <<<"$tools_content"
   if ! declare -f fetch_and_deploy_gh_release >/dev/null 2>&1; then
     msg_error "tools.func loaded but incomplete — missing expected functions"
