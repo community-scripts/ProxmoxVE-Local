@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- Prisma raw results are typed as any throughout this router */
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database-prisma";
@@ -7,9 +7,9 @@ import type { Server } from "~/types/server";
 import { getStorageService } from "~/server/services/storageService";
 
 // Helper function to parse raw LXC config into structured data
-function parseRawConfig(rawConfig: string): any {
+function parseRawConfig(rawConfig: string): Record<string, any> {
   const lines = rawConfig.split('\n');
-  const config: any = { advanced: [] };
+  const config: Record<string, any> = { advanced: [] as string[] };
   
   for (const line of lines) {
     const trimmed = line.trim();
@@ -1425,7 +1425,7 @@ export const installedScriptsRouter = createTRPCRouter({
                   }
                 }
               } catch (error) {
-                console.error(`cleanupOrphanedScripts: Error checking script ${String((scriptData as any).script_name)}:`, error);
+                console.error(`cleanupOrphanedScripts: Error checking script ${String(scriptData.script_name)}:`, error);
               }
             }
           } catch (error) {
@@ -2610,7 +2610,7 @@ EOFCONFIG`;
         let serverHostname = '';
         try {
           await new Promise<void>((resolve, reject) => {
-            sshExecutionService.executeCommand(
+            void sshExecutionService.executeCommand(
               server as Server,
               'hostname',
               (data: string) => {
@@ -2750,7 +2750,7 @@ EOFCONFIG`;
         
         let output = '';
         await new Promise<void>((resolve, reject) => {
-          sshExecutionService.executeCommand(
+          void sshExecutionService.executeCommand(
             server as Server,
             'pvesh get /cluster/nextid',
             (data: string) => {
@@ -2822,7 +2822,7 @@ EOFCONFIG`;
         
         let configContent = '';
         await new Promise<void>((resolve) => {
-          sshExecutionService.executeCommand(
+          void sshExecutionService.executeCommand(
             server as Server,
             `cat "${configPath}" 2>/dev/null || echo ""`,
             (data: string) => {
@@ -2914,7 +2914,7 @@ EOFCONFIG`;
         let serverHostname = '';
         try {
           await new Promise<void>((resolve, reject) => {
-            sshExecutionService.executeCommand(
+            void sshExecutionService.executeCommand(
               server as Server,
               'hostname',
               (data: string) => {
@@ -3015,7 +3015,7 @@ EOFCONFIG`;
         let lxcOutput = '';
         try {
           await new Promise<void>((resolve) => {
-            sshExecutionService.executeCommand(
+            void sshExecutionService.executeCommand(
               server as Server,
               'pct list',
               (data: string) => {
@@ -3048,7 +3048,7 @@ EOFCONFIG`;
         let vmOutput = '';
         try {
           await new Promise<void>((resolve) => {
-            sshExecutionService.executeCommand(
+            void sshExecutionService.executeCommand(
               server as Server,
               'qm list',
               (data: string) => {
@@ -3218,7 +3218,7 @@ EOFCONFIG`;
         
         let configContent = '';
         await new Promise<void>((resolve) => {
-          sshExecutionService.executeCommand(
+          void sshExecutionService.executeCommand(
             server as Server,
             `cat "${configPath}" 2>/dev/null || echo ""`,
             (data: string) => {

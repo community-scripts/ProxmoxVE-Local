@@ -16,11 +16,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+import type { Server } from "~/types/server";
+
 interface TerminalProps {
   scriptPath: string;
   onClose: () => void;
   mode?: "local" | "ssh";
-  server?: any;
+  server?: Server;
   isUpdate?: boolean;
   isShell?: boolean;
   isBackup?: boolean;
@@ -752,7 +754,7 @@ export function Terminal({
                 onChange={(e) => setMobileInput(e.target.value)}
                 placeholder="Type command..."
                 className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary flex-1 rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleMobileInput(mobileInput);
                   }

@@ -15,6 +15,7 @@ import { BackupWarningModal } from "./BackupWarningModal";
 import { CloneCountInputModal } from "./CloneCountInputModal";
 import { ModalPortal } from "./modal/ModalStackProvider";
 import type { Storage } from "~/server/services/storageService";
+import type { Server } from "~/types/server";
 import { getContrastColor } from "../../lib/colorUtils";
 import {
   DropdownMenu,
@@ -24,6 +25,9 @@ import {
   DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
 import { Settings } from "lucide-react";
+import { InstalledScriptsStats } from "./installed-scripts/InstalledScriptsStats";
+import { InstalledScriptsFilters } from "./installed-scripts/InstalledScriptsFilters";
+import { StatusMessage } from "./installed-scripts/StatusMessage";
 
 interface InstalledScript {
   id: number;
@@ -50,6 +54,22 @@ interface InstalledScript {
   is_vm?: boolean;
 }
 
+function buildServerFromScript(script: InstalledScript): Server {
+  return {
+    id: script.server_id!,
+    name: script.server_name ?? "",
+    ip: script.server_ip ?? "",
+    user: script.server_user!,
+    password: script.server_password ?? undefined,
+    auth_type: (script.server_auth_type ?? "password") as Server["auth_type"],
+    ssh_key: script.server_ssh_key ?? undefined,
+    ssh_key_passphrase: script.server_ssh_key_passphrase ?? undefined,
+    ssh_port: script.server_ssh_port ?? 22,
+    created_at: null,
+    updated_at: null,
+  };
+}
+
 export function InstalledScriptsTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -67,7 +87,7 @@ export function InstalledScriptsTab() {
   const [updatingScript, setUpdatingScript] = useState<{
     id: number;
     containerId: string;
-    server?: any;
+    server?: Server;
     backupStorage?: string;
     isBackupOnly?: boolean;
     isClone?: boolean;
@@ -81,7 +101,7 @@ export function InstalledScriptsTab() {
   const [openingShell, setOpeningShell] = useState<{
     id: number;
     containerId: string;
-    server?: any;
+    server?: Server;
     containerType?: "lxc" | "vm";
   } | null>(null);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
@@ -210,7 +230,11 @@ export function InstalledScriptsTab() {
         });
       },
       onError: (error) => {
-        alert(`Error updating script: ${error.message}`);
+        setErrorModal({
+          isOpen: true,
+          title: "Update Failed",
+          message: `Error updating script: ${error.message}`,
+        });
       },
     });
 
@@ -227,7 +251,11 @@ export function InstalledScriptsTab() {
         });
       },
       onError: (error) => {
-        alert(`Error creating script: ${error.message}`);
+        setErrorModal({
+          isOpen: true,
+          title: "Create Failed",
+          message: `Error creating script: ${error.message}`,
+        });
       },
     });
 
@@ -610,6 +638,23 @@ export function InstalledScriptsTab() {
     [scripts, containerStatuses],
   );
 
+  const statusCounts = useMemo(() => {
+    let runningLxc = 0;
+    let runningVm = 0;
+    let stoppedLxc = 0;
+    let stoppedVm = 0;
+    for (const s of scriptsWithStatus) {
+      if (s.container_status === "running") {
+        if (s.is_vm) runningVm++;
+        else runningLxc++;
+      } else if (s.container_status === "stopped") {
+        if (s.is_vm) stoppedVm++;
+        else stoppedLxc++;
+      }
+    }
+    return { runningLxc, runningVm, stoppedLxc, stoppedVm };
+  }, [scriptsWithStatus]);
+
   // Filter and sort scripts
   const filteredScripts = useMemo(
     () =>
@@ -737,12 +782,17 @@ export function InstalledScriptsTab() {
         },
       });
     } else {
-      // For non-SSH scripts or scripts without container_id, use simple confirm
-      if (
-        confirm("Are you sure you want to delete this installation record?")
-      ) {
-        void deleteScriptMutation.mutate({ id });
-      }
+      // For non-SSH scripts or scripts without container_id, use confirmation modal
+      setConfirmationModal({
+        isOpen: true,
+        variant: "simple",
+        title: "Delete Installation Record",
+        message: "Are you sure you want to delete this installation record?",
+        onConfirm: () => {
+          void deleteScriptMutation.mutate({ id });
+          setConfirmationModal(null);
+        },
+      });
     }
   };
 
@@ -752,7 +802,11 @@ export function InstalledScriptsTab() {
     action: "start" | "stop",
   ) => {
     if (!script.container_id) {
-      alert("No Container ID available for this script");
+      setErrorModal({
+        isOpen: true,
+        title: "No Container ID",
+        message: "No Container ID available for this script",
+      });
       return;
     }
 
@@ -777,7 +831,11 @@ export function InstalledScriptsTab() {
 
   const handleDestroy = (script: InstalledScript) => {
     if (!script.container_id) {
-      alert("No Container ID available for this script");
+      setErrorModal({
+        isOpen: true,
+        title: "No Container ID",
+        message: "No Container ID available for this script",
+      });
       return;
     }
 
@@ -876,20 +934,10 @@ export function InstalledScriptsTab() {
     storageName: string,
   ) => {
     // Get server info
-    let server = null;
-    if (script.server_id && script.server_user) {
-      server = {
-        id: script.server_id,
-        name: script.server_name,
-        ip: script.server_ip,
-        user: script.server_user,
-        password: script.server_password,
-        auth_type: script.server_auth_type ?? "password",
-        ssh_key: script.server_ssh_key,
-        ssh_key_passphrase: script.server_ssh_key_passphrase,
-        ssh_port: script.server_ssh_port ?? 22,
-      };
-    }
+    const server =
+      script.server_id && script.server_user
+        ? buildServerFromScript(script)
+        : undefined;
 
     // Start backup terminal
     setUpdatingScript({
@@ -910,20 +958,10 @@ export function InstalledScriptsTab() {
     if (!pendingUpdateScript) return;
 
     // Get server info if it's SSH mode
-    let server = null;
-    if (pendingUpdateScript.server_id && pendingUpdateScript.server_user) {
-      server = {
-        id: pendingUpdateScript.server_id,
-        name: pendingUpdateScript.server_name,
-        ip: pendingUpdateScript.server_ip,
-        user: pendingUpdateScript.server_user,
-        password: pendingUpdateScript.server_password,
-        auth_type: pendingUpdateScript.server_auth_type ?? "password",
-        ssh_key: pendingUpdateScript.server_ssh_key,
-        ssh_key_passphrase: pendingUpdateScript.server_ssh_key_passphrase,
-        ssh_port: pendingUpdateScript.server_ssh_port ?? 22,
-      };
-    }
+    const server =
+      pendingUpdateScript.server_id && pendingUpdateScript.server_user
+        ? buildServerFromScript(pendingUpdateScript)
+        : undefined;
 
     setUpdatingScript({
       id: pendingUpdateScript.id,
@@ -959,20 +997,10 @@ export function InstalledScriptsTab() {
   };
 
   const startBatchUpdateFor = (script: InstalledScript) => {
-    let server = null;
-    if (script.server_id && script.server_user) {
-      server = {
-        id: script.server_id,
-        name: script.server_name,
-        ip: script.server_ip,
-        user: script.server_user,
-        password: script.server_password,
-        auth_type: script.server_auth_type ?? "password",
-        ssh_key: script.server_ssh_key,
-        ssh_key_passphrase: script.server_ssh_key_passphrase,
-        ssh_port: script.server_ssh_port ?? 22,
-      };
-    }
+    const server =
+      script.server_id && script.server_user
+        ? buildServerFromScript(script)
+        : undefined;
     setUpdatingScript({
       id: script.id,
       containerId: script.container_id!,
@@ -1198,18 +1226,8 @@ export function InstalledScriptsTab() {
       // Get server info for websocket
       const server =
         pendingCloneScript.server_id && pendingCloneScript.server_user
-          ? {
-              id: pendingCloneScript.server_id,
-              name: pendingCloneScript.server_name,
-              ip: pendingCloneScript.server_ip,
-              user: pendingCloneScript.server_user,
-              password: pendingCloneScript.server_password,
-              auth_type: pendingCloneScript.server_auth_type ?? "password",
-              ssh_key: pendingCloneScript.server_ssh_key,
-              ssh_key_passphrase: pendingCloneScript.server_ssh_key_passphrase,
-              ssh_port: pendingCloneScript.server_ssh_port ?? 22,
-            }
-          : null;
+          ? buildServerFromScript(pendingCloneScript)
+          : undefined;
 
       // Set up terminal for clone execution
       setUpdatingScript({
@@ -1254,20 +1272,10 @@ export function InstalledScriptsTab() {
     }
 
     // Get server info if it's SSH mode
-    let server = null;
-    if (script.server_id && script.server_user) {
-      server = {
-        id: script.server_id,
-        name: script.server_name,
-        ip: script.server_ip,
-        user: script.server_user,
-        password: script.server_password,
-        auth_type: script.server_auth_type ?? "password",
-        ssh_key: script.server_ssh_key,
-        ssh_key_passphrase: script.server_ssh_key_passphrase,
-        ssh_port: script.server_ssh_port ?? 22,
-      };
-    }
+    const server =
+      script.server_id && script.server_user
+        ? buildServerFromScript(script)
+        : undefined;
 
     setOpeningShell({
       id: script.id,
@@ -1402,7 +1410,11 @@ export function InstalledScriptsTab() {
 
   const handleAddScript = () => {
     if (!addFormData.script_name.trim()) {
-      alert("Script name is required");
+      setErrorModal({
+        isOpen: true,
+        title: "Validation Error",
+        message: "Script name is required",
+      });
       return;
     }
 
@@ -1489,14 +1501,6 @@ export function InstalledScriptsTab() {
     const port = script.web_ui_port ?? 80;
     const url = `http://${script.web_ui_ip}:${port}`;
     window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  // Helper function to check if a script has any actions available
-  const hasActions = (script: InstalledScript) => {
-    if (script.container_id && script.execution_mode === "ssh") return true;
-    if (script.web_ui_ip != null) return true;
-    if (!script.container_id || script.execution_mode !== "ssh") return true;
-    return false;
   };
 
   const formatDate = (dateString: string) => {
@@ -1587,56 +1591,13 @@ export function InstalledScriptsTab() {
         </h2>
 
         {stats && (
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            <div className="bg-info/10 border-info/20 rounded-lg border p-4 text-center">
-              <div className="text-info text-2xl font-bold">{stats.total}</div>
-              <div className="text-info/80 text-sm">Total Installations</div>
-            </div>
-            <div className="bg-success/10 border-success/20 rounded-lg border p-4 text-center">
-              <div className="text-success text-2xl font-bold">
-                {
-                  scriptsWithStatus.filter(
-                    (script) =>
-                      script.container_status === "running" && !script.is_vm,
-                  ).length
-                }
-              </div>
-              <div className="text-success/80 text-sm">Running LXC</div>
-            </div>
-            <div className="bg-success/10 border-success/20 rounded-lg border p-4 text-center">
-              <div className="text-success text-2xl font-bold">
-                {
-                  scriptsWithStatus.filter(
-                    (script) =>
-                      script.container_status === "running" && script.is_vm,
-                  ).length
-                }
-              </div>
-              <div className="text-success/80 text-sm">Running VMs</div>
-            </div>
-            <div className="bg-error/10 border-error/20 rounded-lg border p-4 text-center">
-              <div className="text-error text-2xl font-bold">
-                {
-                  scriptsWithStatus.filter(
-                    (script) =>
-                      script.container_status === "stopped" && !script.is_vm,
-                  ).length
-                }
-              </div>
-              <div className="text-error/80 text-sm">Stopped LXC</div>
-            </div>
-            <div className="bg-error/10 border-error/20 rounded-lg border p-4 text-center">
-              <div className="text-error text-2xl font-bold">
-                {
-                  scriptsWithStatus.filter(
-                    (script) =>
-                      script.container_status === "stopped" && script.is_vm,
-                  ).length
-                }
-              </div>
-              <div className="text-error/80 text-sm">Stopped VMs</div>
-            </div>
-          </div>
+          <InstalledScriptsStats
+            total={stats.total}
+            runningLxc={statusCounts.runningLxc}
+            runningVm={statusCounts.runningVm}
+            stoppedLxc={statusCounts.stoppedLxc}
+            stoppedVm={statusCounts.stoppedVm}
+          />
         )}
 
         {/* Add Script and Auto-Detect Buttons */}
@@ -1790,109 +1751,15 @@ export function InstalledScriptsTab() {
         {/* Status Messages */}
         {(autoDetectStatus.type ?? cleanupStatus.type) && (
           <div className="mb-4 space-y-2">
-            {/* Auto-Detect Status Message */}
-            {autoDetectStatus.type && (
-              <div
-                className={`rounded-lg border p-4 ${
-                  autoDetectStatus.type === "success"
-                    ? "bg-success/10 border-success/20"
-                    : "bg-error/10 border-error/20"
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    {autoDetectStatus.type === "success" ? (
-                      <svg
-                        className="text-success h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="text-error h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="ml-3">
-                    <p
-                      className={`text-sm font-medium ${
-                        autoDetectStatus.type === "success"
-                          ? "text-success-foreground"
-                          : "text-error-foreground"
-                      }`}
-                    >
-                      {autoDetectStatus.message}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Cleanup Status Message */}
-            {cleanupStatus.type && (
-              <div
-                className={`rounded-lg border p-4 ${
-                  cleanupStatus.type === "success"
-                    ? "bg-muted/50 border-muted"
-                    : "bg-error/10 border-error/20"
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    {cleanupStatus.type === "success" ? (
-                      <svg
-                        className="text-muted-foreground h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="text-error h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="ml-3">
-                    <p
-                      className={`text-sm font-medium ${
-                        cleanupStatus.type === "success"
-                          ? "text-foreground"
-                          : "text-error-foreground"
-                      }`}
-                    >
-                      {cleanupStatus.message}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            <StatusMessage
+              type={autoDetectStatus.type}
+              message={autoDetectStatus.message}
+            />
+            <StatusMessage
+              type={cleanupStatus.type}
+              message={cleanupStatus.message}
+              variant="info"
+            />
           </div>
         )}
 
@@ -1987,54 +1854,15 @@ export function InstalledScriptsTab() {
         )}
 
         {/* Filters */}
-        <div className="space-y-4">
-          {/* Search Input - Full Width on Mobile */}
-          <div className="w-full">
-            <input
-              type="text"
-              placeholder="Search scripts, container IDs, or servers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-border bg-card text-foreground placeholder-muted-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-            />
-          </div>
-
-          {/* Filter Dropdowns - Responsive Grid */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value as
-                    | "all"
-                    | "success"
-                    | "failed"
-                    | "in_progress",
-                )
-              }
-              className="border-border bg-card text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-            >
-              <option value="all">All Status</option>
-              <option value="success">Success</option>
-              <option value="failed">Failed</option>
-              <option value="in_progress">In Progress</option>
-            </select>
-
-            <select
-              value={serverFilter}
-              onChange={(e) => setServerFilter(e.target.value)}
-              className="border-border bg-card text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-            >
-              <option value="all">All Servers</option>
-              <option value="local">Local</option>
-              {uniqueServers.map((server) => (
-                <option key={server} value={server}>
-                  {server}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <InstalledScriptsFilters
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          serverFilter={serverFilter}
+          onServerFilterChange={setServerFilter}
+          uniqueServers={uniqueServers}
+        />
       </div>
 
       {/* Scripts Display - Mobile Cards / Desktop Table */}
@@ -2371,22 +2199,34 @@ export function InstalledScriptsTab() {
                               >
                                 Edit
                               </Button>
-                              {hasActions(script) && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="bg-muted/20 hover:bg-muted/30 border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground border transition-all duration-200 hover:scale-105 hover:shadow-md"
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-muted/20 hover:bg-muted/30 border-muted text-muted-foreground hover:text-foreground hover:border-muted-foreground border transition-all duration-200 hover:scale-105 hover:shadow-md"
+                                  >
+                                    Actions
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="bg-card border-border w-48">
+                                  {script.container_id && !script.is_vm && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleUpdateScript(script)}
+                                      disabled={
+                                        containerStatuses.get(script.id) ===
+                                        "stopped"
+                                      }
+                                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                     >
-                                      Actions
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent className="bg-card border-border w-48">
-                                    {script.container_id && !script.is_vm && (
+                                      Update
+                                    </DropdownMenuItem>
+                                  )}
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" && (
                                       <DropdownMenuItem
                                         onClick={() =>
-                                          handleUpdateScript(script)
+                                          handleBackupScript(script)
                                         }
                                         disabled={
                                           containerStatuses.get(script.id) ===
@@ -2394,187 +2234,144 @@ export function InstalledScriptsTab() {
                                         }
                                         className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
-                                        Update
+                                        Backup
                                       </DropdownMenuItem>
                                     )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" && (
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleBackupScript(script)
-                                          }
-                                          disabled={
-                                            containerStatuses.get(script.id) ===
-                                            "stopped"
-                                          }
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                        >
-                                          Backup
-                                        </DropdownMenuItem>
-                                      )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" && (
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleCloneScript(script)
-                                          }
-                                          disabled={
-                                            containerStatuses.get(script.id) ===
-                                            "stopped"
-                                          }
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                        >
-                                          Clone
-                                        </DropdownMenuItem>
-                                      )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" && (
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleOpenShell(script)
-                                          }
-                                          disabled={
-                                            containerStatuses.get(script.id) ===
-                                            "stopped"
-                                          }
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                          title={
-                                            script.is_vm
-                                              ? "VM serial console (requires serial port; detach with Ctrl+O)"
-                                              : undefined
-                                          }
-                                        >
-                                          Shell
-                                        </DropdownMenuItem>
-                                      )}
-                                    {script.web_ui_ip && (
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" && (
                                       <DropdownMenuItem
-                                        onClick={() => handleOpenWebUI(script)}
+                                        onClick={() =>
+                                          handleCloneScript(script)
+                                        }
                                         disabled={
                                           containerStatuses.get(script.id) ===
                                           "stopped"
                                         }
                                         className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
                                       >
-                                        Open UI
+                                        Clone
                                       </DropdownMenuItem>
                                     )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" &&
-                                      script.web_ui_ip && (
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleAutoDetectWebUI(script)
-                                          }
-                                          disabled={
-                                            autoDetectWebUIMutation.isPending ??
-                                            containerStatuses.get(script.id) ===
-                                              "stopped"
-                                          }
-                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                        >
-                                          {autoDetectWebUIMutation.isPending
-                                            ? "Re-detect..."
-                                            : "Re-detect IP/Port"}
-                                        </DropdownMenuItem>
-                                      )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" &&
-                                      !script.is_vm && (
-                                        <>
-                                          <DropdownMenuSeparator className="bg-border" />
-                                          <DropdownMenuItem
-                                            onClick={() =>
-                                              handleLXCSettings(script)
-                                            }
-                                            className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                          >
-                                            <Settings className="mr-2 h-4 w-4" />
-                                            LXC Settings
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator className="bg-border" />
-                                        </>
-                                      )}
-                                    {script.container_id &&
-                                      script.execution_mode === "ssh" && (
-                                        <>
-                                          {script.is_vm && (
-                                            <DropdownMenuSeparator className="bg-border" />
-                                          )}
-                                          <DropdownMenuItem
-                                            onClick={() =>
-                                              handleStartStop(
-                                                script,
-                                                (containerStatuses.get(
-                                                  script.id,
-                                                ) ?? "unknown") === "running"
-                                                  ? "stop"
-                                                  : "start",
-                                              )
-                                            }
-                                            disabled={
-                                              controllingScriptId ===
-                                                script.id ||
-                                              (containerStatuses.get(
-                                                script.id,
-                                              ) ?? "unknown") === "unknown"
-                                            }
-                                            className={
-                                              (containerStatuses.get(
-                                                script.id,
-                                              ) ?? "unknown") === "running"
-                                                ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
-                                                : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
-                                            }
-                                          >
-                                            {controllingScriptId === script.id
-                                              ? "Working..."
-                                              : (containerStatuses.get(
-                                                    script.id,
-                                                  ) ?? "unknown") === "running"
-                                                ? "Stop"
-                                                : "Start"}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() =>
-                                              handleDestroy(script)
-                                            }
-                                            disabled={
-                                              controllingScriptId === script.id
-                                            }
-                                            className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
-                                          >
-                                            {controllingScriptId === script.id
-                                              ? "Working..."
-                                              : "Destroy"}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator className="bg-border" />
-                                          <DropdownMenuItem
-                                            onClick={() =>
-                                              handleDeleteScript(
-                                                script.id,
-                                                script,
-                                              )
-                                            }
-                                            disabled={
-                                              deleteScriptMutation.isPending
-                                            }
-                                            className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
-                                          >
-                                            {deleteScriptMutation.isPending
-                                              ? "Deleting..."
-                                              : "Delete only from DB"}
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    {(!script.container_id ||
-                                      script.execution_mode !== "ssh") && (
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenShell(script)}
+                                        disabled={
+                                          containerStatuses.get(script.id) ===
+                                          "stopped"
+                                        }
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                        title={
+                                          script.is_vm
+                                            ? "VM serial console (requires serial port; detach with Ctrl+O)"
+                                            : undefined
+                                        }
+                                      >
+                                        Shell
+                                      </DropdownMenuItem>
+                                    )}
+                                  {script.web_ui_ip && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleOpenWebUI(script)}
+                                      disabled={
+                                        containerStatuses.get(script.id) ===
+                                        "stopped"
+                                      }
+                                      className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                    >
+                                      Open UI
+                                    </DropdownMenuItem>
+                                  )}
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" &&
+                                    script.web_ui_ip && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          handleAutoDetectWebUI(script)
+                                        }
+                                        disabled={
+                                          autoDetectWebUIMutation.isPending ??
+                                          containerStatuses.get(script.id) ===
+                                            "stopped"
+                                        }
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                      >
+                                        {autoDetectWebUIMutation.isPending
+                                          ? "Re-detect..."
+                                          : "Re-detect IP/Port"}
+                                      </DropdownMenuItem>
+                                    )}
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" &&
+                                    !script.is_vm && (
                                       <>
                                         <DropdownMenuSeparator className="bg-border" />
                                         <DropdownMenuItem
                                           onClick={() =>
+                                            handleLXCSettings(script)
+                                          }
+                                          className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                        >
+                                          <Settings className="mr-2 h-4 w-4" />
+                                          LXC Settings
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-border" />
+                                      </>
+                                    )}
+                                  {script.container_id &&
+                                    script.execution_mode === "ssh" && (
+                                      <>
+                                        {script.is_vm && (
+                                          <DropdownMenuSeparator className="bg-border" />
+                                        )}
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            handleStartStop(
+                                              script,
+                                              (containerStatuses.get(
+                                                script.id,
+                                              ) ?? "unknown") === "running"
+                                                ? "stop"
+                                                : "start",
+                                            )
+                                          }
+                                          disabled={
+                                            controllingScriptId === script.id ||
+                                            (containerStatuses.get(script.id) ??
+                                              "unknown") === "unknown"
+                                          }
+                                          className={
+                                            (containerStatuses.get(script.id) ??
+                                              "unknown") === "running"
+                                              ? "text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                              : "text-success hover:text-success-foreground hover:bg-success/20 focus:bg-success/20"
+                                          }
+                                        >
+                                          {controllingScriptId === script.id
+                                            ? "Working..."
+                                            : (containerStatuses.get(
+                                                  script.id,
+                                                ) ?? "unknown") === "running"
+                                              ? "Stop"
+                                              : "Start"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleDestroy(script)}
+                                          disabled={
+                                            controllingScriptId === script.id
+                                          }
+                                          className="text-error hover:text-error-foreground hover:bg-error/20 focus:bg-error/20"
+                                        >
+                                          {controllingScriptId === script.id
+                                            ? "Working..."
+                                            : "Destroy"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-border" />
+                                        <DropdownMenuItem
+                                          onClick={() =>
                                             handleDeleteScript(
-                                              Number(script.id),
+                                              script.id,
+                                              script,
                                             )
                                           }
                                           disabled={
@@ -2584,13 +2381,31 @@ export function InstalledScriptsTab() {
                                         >
                                           {deleteScriptMutation.isPending
                                             ? "Deleting..."
-                                            : "Delete"}
+                                            : "Delete only from DB"}
                                         </DropdownMenuItem>
                                       </>
                                     )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
+                                  {(!script.container_id ||
+                                    script.execution_mode !== "ssh") && (
+                                    <>
+                                      <DropdownMenuSeparator className="bg-border" />
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          handleDeleteScript(Number(script.id))
+                                        }
+                                        disabled={
+                                          deleteScriptMutation.isPending
+                                        }
+                                        className="text-muted-foreground hover:text-foreground hover:bg-muted/20 focus:bg-muted/20"
+                                      >
+                                        {deleteScriptMutation.isPending
+                                          ? "Deleting..."
+                                          : "Delete"}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </>
                           )}
                         </div>

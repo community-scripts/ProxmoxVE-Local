@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
+import { Terminal } from "./Terminal";
 import { Button } from "./ui/button";
 import {
   Cpu,
@@ -25,7 +26,6 @@ import {
 } from "lucide-react";
 import type { ScriptCard } from "~/types/script";
 import type { Script } from "~/types/script";
-import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
 
 /* ── Step definitions ── */
@@ -101,17 +101,13 @@ const VALIDATIONS = {
   },
 };
 
-interface GeneratorTabProps {
-  onInstallScript: (
-    scriptPath: string,
-    scriptName: string,
-    mode?: "local" | "ssh",
-    server?: Server,
-    envVars?: Record<string, string | number | boolean>,
-  ) => void;
-}
-
-export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
+export function GeneratorTab() {
+  const [runningScript, setRunningScript] = useState<{
+    path: string;
+    name: string;
+    envVars?: Record<string, string | number | boolean>;
+  } | null>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
   const { data: scriptCardsData } =
     api.scripts.getScriptCardsWithCategories.useQuery();
 
@@ -486,13 +482,14 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
     if (gpu) envVars.var_gpu = "yes";
     envVars.mode = "generated";
 
-    onInstallScript(
-      scriptPath,
-      selectedScript.name ?? "Script",
-      undefined,
-      undefined,
+    setRunningScript({
+      path: scriptPath,
+      name: selectedScript.name ?? "Script",
       envVars,
-    );
+    });
+    setTimeout(() => {
+      terminalRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }, [
     selectedScript,
     cpu,
@@ -512,7 +509,6 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
     nesting,
     fuse,
     gpu,
-    onInstallScript,
   ]);
 
   // Validation errors
@@ -1170,6 +1166,17 @@ export function GeneratorTab({ onInstallScript }: GeneratorTabProps) {
           </div>,
           document.body,
         )}
+
+      {/* Inline Terminal */}
+      {runningScript && (
+        <div ref={terminalRef} className="animate-card-in">
+          <Terminal
+            scriptPath={runningScript.path}
+            onClose={() => setRunningScript(null)}
+            envVars={runningScript.envVars}
+          />
+        </div>
+      )}
     </div>
   );
 }

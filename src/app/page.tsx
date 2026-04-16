@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { ScriptsGrid } from "./_components/ScriptsGrid";
 import { ResyncButton } from "./_components/SyncModal";
-import { Terminal } from "./_components/Terminal";
 import { ServerSettingsButton } from "./_components/ServerSettingsButton";
 import { SettingsButton } from "./_components/SettingsButton";
 import { AppearanceButton } from "./_components/AppearanceButton";
@@ -29,7 +28,6 @@ import {
 } from "lucide-react";
 import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
-import type { Server } from "~/types/server";
 import type { ScriptCard } from "~/types/script";
 
 // Lazy load heavy tab components — only the active tab is loaded
@@ -70,13 +68,6 @@ function TabSkeleton() {
 
 export default function Home() {
   const { isAuthenticated, logout } = useAuth();
-  const [runningScript, setRunningScript] = useState<{
-    path: string;
-    name: string;
-    mode?: "local" | "ssh";
-    server?: Server;
-    envVars?: Record<string, string | number | boolean>;
-  } | null>(null);
   const [activeTab, setActiveTab] = useState<
     "scripts" | "downloaded" | "installed" | "backups" | "generator"
   >(() => {
@@ -95,8 +86,6 @@ export default function Home() {
   const [highlightVersion, setHighlightVersion] = useState<string | undefined>(
     undefined,
   );
-  const terminalRef = useRef<HTMLDivElement>(null);
-
   // Core queries – always needed (fast, DB-only)
   const { data: scriptCardsData } =
     api.scripts.getScriptCardsWithCategories.useQuery();
@@ -196,137 +185,93 @@ export default function Home() {
     setHighlightVersion(undefined);
   };
 
-  // Calculate script counts
-  const scriptCounts = {
-    available: (() => {
-      if (!scriptCardsData?.success) return 0;
+  // Calculate script counts — memoize to avoid O(n²) on every render
+  const scriptCounts = useMemo(() => {
+    // Build local-slug lookup set once for O(1) matching
+    const normalizeId = (s?: string): string =>
+      (s ?? "")
+        .toLowerCase()
+        .replace(/\.(sh|bash|py|js|ts)$/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
 
-      // Deduplicate scripts using Map by slug (same logic as ScriptsGrid.tsx)
-      const scriptMap = new Map<string, ScriptCard>();
-
+    // Deduplicate GitHub scripts
+    const scriptMap = new Map<string, ScriptCard>();
+    if (scriptCardsData?.success) {
       scriptCardsData.cards?.forEach((script: ScriptCard) => {
-        if (script?.name && script?.slug) {
-          // Use slug as unique identifier, only keep first occurrence
-          if (!scriptMap.has(script.slug)) {
-            scriptMap.set(script.slug, script);
-          }
+        if (script?.name && script?.slug && !scriptMap.has(script.slug)) {
+          scriptMap.set(script.slug, script);
         }
-      });
-
-      return scriptMap.size;
-    })(),
-    downloaded: (() => {
-      if (!scriptCardsData?.success || !localScriptsData?.scripts) return 0;
-
-      // Helper to normalize identifiers for robust matching
-      const normalizeId = (s?: string): string =>
-        (s ?? "")
-          .toLowerCase()
-          .replace(/\.(sh|bash|py|js|ts)$/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-
-      // First deduplicate GitHub scripts using Map by slug
-      const scriptMap = new Map<string, ScriptCard>();
-
-      scriptCardsData.cards?.forEach((script: ScriptCard) => {
-        if (script?.name && script?.slug) {
-          if (!scriptMap.has(script.slug)) {
-            scriptMap.set(script.slug, script);
-          }
-        }
-      });
-
-      const deduplicatedGithubScripts = Array.from(scriptMap.values());
-      const localScripts = (localScriptsData.scripts ?? []) as Array<{
-        name?: string;
-        slug?: string;
-      }>;
-
-      // Count scripts that are both in deduplicated GitHub data and have local versions
-      // Use the same matching logic as DownloadedScriptsTab and ScriptsGrid
-      return deduplicatedGithubScripts.filter((script) => {
-        if (!script?.name) return false;
-
-        // Check if there's a corresponding local script
-        return localScripts.some((local) => {
-          if (!local?.name) return false;
-
-          // Primary: Exact slug-to-slug matching (most reliable)
-          if (local.slug && script.slug) {
-            if (local.slug.toLowerCase() === script.slug.toLowerCase()) {
-              return true;
-            }
-            // Also try normalized slug matching (handles filename-based slugs vs JSON slugs)
-            if (
-              normalizeId(local.slug ?? undefined) ===
-              normalizeId(script.slug ?? undefined)
-            ) {
-              return true;
-            }
-          }
-
-          // Secondary: Check install basenames (for edge cases where install script names differ from slugs)
-          const normalizedLocal = normalizeId(local.name ?? undefined);
-          const matchesInstallBasename =
-            script.install_basenames?.some(
-              (base) => normalizeId(String(base)) === normalizedLocal,
-            ) ?? false;
-          if (matchesInstallBasename) return true;
-
-          // Tertiary: Normalized filename to normalized slug matching
-          if (
-            script.slug &&
-            normalizeId(local.name ?? undefined) ===
-              normalizeId(script.slug ?? undefined)
-          ) {
-            return true;
-          }
-
-          return false;
-        });
-      }).length;
-    })(),
-    installed: installedScriptsData?.scripts?.length ?? cachedInstalledCount,
-    backups: backupsData?.success
-      ? backupsData.backups.length
-      : cachedBackupsCount,
-  };
-
-  const scrollToTerminal = () => {
-    if (terminalRef.current) {
-      // Get the element's position and scroll with a small offset for better mobile experience
-      const elementTop = terminalRef.current.offsetTop;
-      const offset = window.innerWidth < 768 ? 20 : 0; // Small offset on mobile
-
-      window.scrollTo({
-        top: elementTop - offset,
-        behavior: "smooth",
       });
     }
-  };
 
-  const handleRunScript = (
-    scriptPath: string,
-    scriptName: string,
-    mode?: "local" | "ssh",
-    server?: Server,
-    envVars?: Record<string, string | number | boolean>,
-  ) => {
-    setRunningScript({
-      path: scriptPath,
-      name: scriptName,
-      mode,
-      server,
-      envVars,
-    });
-    // Scroll to terminal after a short delay to ensure it's rendered
-    setTimeout(scrollToTerminal, 100);
-  };
+    const available = scriptMap.size;
 
-  const handleCloseTerminal = () => {
-    setRunningScript(null);
-  };
+    // Build local lookup sets for O(1) matching
+    const localScripts = (localScriptsData?.scripts ?? []) as Array<{
+      name?: string;
+      slug?: string;
+    }>;
+    const localSlugs = new Set<string>();
+    const localNormSlugs = new Set<string>();
+    const localNormNames = new Set<string>();
+    for (const local of localScripts) {
+      if (local.slug) {
+        localSlugs.add(local.slug.toLowerCase());
+        localNormSlugs.add(normalizeId(local.slug));
+      }
+      if (local.name) {
+        localNormNames.add(normalizeId(local.name));
+      }
+    }
+
+    let downloaded = 0;
+    if (scriptCardsData?.success && localScriptsData?.scripts) {
+      for (const script of scriptMap.values()) {
+        if (!script?.name) continue;
+        const slug = script.slug;
+        // Primary: exact slug match
+        if (slug && localSlugs.has(slug.toLowerCase())) {
+          downloaded++;
+          continue;
+        }
+        // Normalized slug match
+        if (slug && localNormSlugs.has(normalizeId(slug))) {
+          downloaded++;
+          continue;
+        }
+        // Secondary: install basenames
+        if (
+          script.install_basenames?.some((base) =>
+            localNormNames.has(normalizeId(String(base))),
+          )
+        ) {
+          downloaded++;
+          continue;
+        }
+        // Tertiary: normalized slug vs local names
+        if (slug && localNormNames.has(normalizeId(slug))) {
+          downloaded++;
+        }
+      }
+    }
+
+    return {
+      available,
+      downloaded,
+      installed: installedScriptsData?.scripts?.length ?? cachedInstalledCount,
+      backups: backupsData?.success
+        ? backupsData.backups.length
+        : cachedBackupsCount,
+    };
+  }, [
+    scriptCardsData,
+    localScriptsData,
+    installedScriptsData,
+    backupsData,
+    cachedInstalledCount,
+    cachedBackupsCount,
+  ]);
 
   const tabs = useMemo(
     () => [
@@ -467,19 +412,6 @@ export default function Home() {
           </nav>
         </div>
 
-        {/* Running Script Terminal */}
-        {runningScript && (
-          <div ref={terminalRef} className="animate-card-in mb-8">
-            <Terminal
-              scriptPath={runningScript.path}
-              onClose={handleCloseTerminal}
-              mode={runningScript.mode}
-              server={runningScript.server}
-              envVars={runningScript.envVars}
-            />
-          </div>
-        )}
-
         {/* Tab Content */}
         <div className="animate-section-in">
           {activeTab === "scripts" && <ScriptsGrid />}
@@ -490,9 +422,7 @@ export default function Home() {
 
           {activeTab === "backups" && <BackupsTab />}
 
-          {activeTab === "generator" && (
-            <GeneratorTab onInstallScript={handleRunScript} />
-          )}
+          {activeTab === "generator" && <GeneratorTab />}
         </div>
       </div>
 
