@@ -568,7 +568,7 @@ function HighlightedCommand({ command }: { command: string }) {
   /* Strip leading env var tokens: mode=xxx or var_xxx="yyy" */
   const envRe = /^((?:(?:mode=\S+|var_\w+="[^"]*")\s+)+)/;
   const envMatch = rest.match(envRe);
-  if (envMatch) {
+  if (envMatch?.[1]) {
     const envStr = envMatch[1];
     rest = rest.slice(envStr.length);
     const tokens = envStr.trim().split(/\s+/);
