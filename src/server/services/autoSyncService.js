@@ -388,14 +388,14 @@ export class AutoSyncService {
         description: pb.description,
         date_created: pb.script_created,
         categories: pb.categories.map(c => c.name),
-        install_methods: pb.install_methods_json.map(m => ({
+        install_methods: pb.install_methods.map(m => ({
           type: m.type,
           resources: m.resources,
           config_path: m.config_path,
           script: sds.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
         })),
         default_credentials: { username: pb.default_user, password: pb.default_passwd },
-        notes: pb.notes_json,
+        notes: pb.notes,
         is_dev: pb.is_dev,
         is_disabled: pb.is_disabled,
         is_deleted: pb.is_deleted,

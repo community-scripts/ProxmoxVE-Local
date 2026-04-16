@@ -68,11 +68,15 @@ export interface PBScript extends PBScriptCard {
   config_path: string | null;
   default_user: string | null;
   default_passwd: string | null;
-  install_methods_json: PBInstallMethod[];
-  notes_json: PBNote[];
+  install_methods: PBInstallMethod[];
+  notes: PBNote[];
   version: string | null;
   github: string | null;
   execute_in: string[];
+  github_data: Record<string, unknown> | null;
+  deleted_message: string | null;
+  disable_message: string | null;
+  last_update_commit: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +145,14 @@ function toScript(record: Record<string, unknown>): PBScript {
     config_path: (record.config_path as string | null) ?? null,
     default_user: (record.default_user as string | null) ?? null,
     default_passwd: (record.default_passwd as string | null) ?? null,
-    install_methods_json: parseJsonField<PBInstallMethod>(
-      record.install_methods_json,
+    install_methods: parseJsonField<PBInstallMethod>(
+      record.install_methods,
     ),
-    notes_json: parseJsonField<PBNote>(record.notes_json),
+    notes: parseJsonField<PBNote>(record.notes),
+    github_data: (record.github_data as Record<string, unknown> | null) ?? null,
+    deleted_message: (record.deleted_message as string | null) ?? null,
+    disable_message: (record.disable_message as string | null) ?? null,
+    last_update_commit: (record.last_update_commit as string | null) ?? null,
     version: (record.version as string | null) ?? null,
     github: (record.github as string | null) ?? null,
     execute_in: parseJsonField<string>(record.execute_in),

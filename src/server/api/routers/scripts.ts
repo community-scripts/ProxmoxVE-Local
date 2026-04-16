@@ -38,7 +38,7 @@ function pbToScript(pb: PBScript): Script {
     logo: pb.logo,
     config_path: pb.config_path,
     description: pb.description,
-    install_methods: pb.install_methods_json.map((m) => ({
+    install_methods: pb.install_methods.map((m) => ({
       type: m.type,
       resources: m.resources,
       config_path: m.config_path,
@@ -48,7 +48,7 @@ function pbToScript(pb: PBScript): Script {
       username: pb.default_user,
       password: pb.default_passwd,
     },
-    notes: pb.notes_json,
+    notes: pb.notes,
     is_dev: pb.is_dev,
     is_disabled: pb.is_disabled,
     is_deleted: pb.is_deleted,

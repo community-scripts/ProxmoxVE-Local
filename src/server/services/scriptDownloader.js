@@ -274,7 +274,7 @@ export class ScriptDownloaderService {
       }
 
       // Fallback: if install_methods was empty but this is a CT/LXC script,
-      // still try to download the main CT script (PocketBase may have empty install_methods_json)
+      // still try to download the main CT script (PocketBase may have empty install_methods)
       const typeNorm = (script.type || 'ct').toLowerCase();
       const isCtType = typeNorm === 'ct' || typeNorm === 'lxc';
       if ((!script.install_methods || script.install_methods.length === 0) && isCtType) {

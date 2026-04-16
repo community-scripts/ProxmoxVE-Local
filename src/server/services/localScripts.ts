@@ -55,13 +55,13 @@ export class LocalScriptsService {
         is_deleted: pb.is_deleted,
         has_arm: pb.has_arm,
         categories: pb.categories.map(c => c.name),
-        install_methods: pb.install_methods_json.map(m => ({
+        install_methods: pb.install_methods.map(m => ({
           type: m.type,
           resources: m.resources,
           config_path: m.config_path,
           script: scriptDownloaderService.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
         })),
-        notes: pb.notes_json.map(n => ({ text: n.text, type: n.type })),
+        notes: pb.notes.map(n => ({ text: n.text, type: n.type })),
       }));
 
       // Merge local user JSON scripts (only those not already in PocketBase)
@@ -133,13 +133,13 @@ export class LocalScriptsService {
           is_deleted: pb.is_deleted,
           has_arm: pb.has_arm,
           categories: pb.categories.map(c => c.name),
-          install_methods: pb.install_methods_json.map(m => ({
+          install_methods: pb.install_methods.map(m => ({
             type: m.type,
             resources: m.resources,
             config_path: m.config_path,
             script: scriptDownloaderService.deriveScriptPath(pb.type, m.type, pb.slug) ?? undefined,
           })),
-          notes: pb.notes_json.map(n => ({ text: n.text, type: n.type })),
+          notes: pb.notes.map(n => ({ text: n.text, type: n.type })),
         };
       }
     } catch (error) {
