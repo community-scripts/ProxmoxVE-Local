@@ -40,6 +40,7 @@ import {
   ExternalLink,
   Server as ServerIcon,
   Loader2,
+  Terminal,
 } from "lucide-react";
 
 function deriveScriptPath(
@@ -110,6 +111,7 @@ export function ScriptDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [copiedCommand, setCopiedCommand] = useState(false);
+  const [showCommand, setShowCommand] = useState(false);
   const [, startNavTransition] = useTransition();
 
   useEffect(() => {
@@ -434,6 +436,17 @@ export function ScriptDetailModal({
               )}
               {copiedCommand ? "Copied!" : "Copy Command"}
             </Button>
+            {installCommand && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCommand((v) => !v)}
+                className="gap-1.5 text-xs"
+              >
+                <Terminal className="h-3.5 w-3.5" />
+                {showCommand ? "Hide Command" : "Show Command"}
+              </Button>
+            )}
             {!hasLocalFiles ? (
               <Button
                 size="sm"
@@ -509,6 +522,17 @@ export function ScriptDetailModal({
               </Button>
             )}
           </div>
+
+          {/* Install Command Display */}
+          {showCommand && installCommand && (
+            <div className="border-border/60 flex-shrink-0 border-b px-4 py-3 sm:px-6">
+              <div className="bg-muted relative rounded-lg p-3">
+                <code className="text-foreground block font-mono text-xs leading-relaxed break-all select-all">
+                  {installCommand}
+                </code>
+              </div>
+            </div>
+          )}
 
           {/* Status Messages */}
           {(scriptFilesLoading || comparisonLoading || loadMessage) && (

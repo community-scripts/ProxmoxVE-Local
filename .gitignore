@@ -60,3 +60,4 @@ server.log
 # idea files
 .idea
 /generated/prisma
+/examples

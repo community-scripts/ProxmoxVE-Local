@@ -273,6 +273,26 @@ export class ScriptDownloaderService {
         }
       }
 
+      // Fallback: if install_methods was empty but this is a CT/LXC script,
+      // still try to download the main CT script (PocketBase may have empty install_methods_json)
+      const typeNorm = (script.type || 'ct').toLowerCase();
+      const isCtType = typeNorm === 'ct' || typeNorm === 'lxc';
+      if ((!script.install_methods || script.install_methods.length === 0) && isCtType) {
+        const fallbackPath = `ct/${script.slug}.sh`;
+        const fallbackFileName = `${script.slug}.sh`;
+        try {
+          console.log(`[Fallback] install_methods empty, downloading CT script: ${fallbackPath} from ${repoUrl}`);
+          const content = await this.downloadFileFromRepo(repoUrl, fallbackPath, branch);
+          const modifiedContent = this.modifyScriptContent(content);
+          const filePath = join(this.scriptsDirectory, 'ct', fallbackFileName);
+          await writeFile(filePath, modifiedContent, 'utf-8');
+          files.push(`ct/${fallbackFileName}`);
+          console.log(`[Fallback] Successfully downloaded: ct/${fallbackFileName}`);
+        } catch (error) {
+          console.log(`[Fallback] CT script not found in repository: ${fallbackPath}`);
+        }
+      }
+
       // Only download install script for CT/LXC scripts
       const scriptTypeNorm = (script.type || 'ct').toLowerCase();
       const hasCtScript = scriptTypeNorm === 'ct' || scriptTypeNorm === 'lxc';
@@ -320,15 +340,20 @@ export class ScriptDownloaderService {
       }
 
       return {
-        success: true,
-        message: `Successfully loaded ${files.length} script(s) for ${script.name}`,
+        success: files.length > 0,
+        message: files.length > 0
+          ? `Successfully loaded ${files.length} script(s) for ${script.name}`
+          : `No script files found in repository for ${script.name}. The script may not be available yet.`,
         files
       };
     } catch (error) {
       console.error('Error loading script:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load script';
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to load script',
+        message: errorMsg.includes('404')
+          ? `Script "${script.name}" not found in repository. It may be a new script that hasn't been published yet.`
+          : errorMsg,
         files: []
       };
     }
@@ -451,9 +476,23 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Check for install script for CT/LXC scripts
+      // Fallback: if install_methods is empty but this is a CT/LXC script,
+      // still check for the main CT script file (may have been downloaded via fallback)
       const chkTypeNorm = (script.type || 'ct').toLowerCase();
       const hasCtScript = chkTypeNorm === 'ct' || chkTypeNorm === 'lxc';
+      if ((!script.install_methods || script.install_methods.length === 0) && hasCtScript) {
+        const fallbackFileName = `${script.slug}.sh`;
+        const fallbackPath = join(this.scriptsDirectory, 'ct', fallbackFileName);
+        try {
+          await access(fallbackPath);
+          files.push(`ct/${fallbackFileName}`);
+          ctExists = true;
+        } catch {
+          // File doesn't exist
+        }
+      }
+
+      // Check for install script for CT/LXC scripts
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         const installPath = join(this.scriptsDirectory, 'install', installScriptName);

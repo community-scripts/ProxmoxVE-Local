@@ -426,8 +426,10 @@ class BackupService {
     const escapedFingerprint = fingerprint ? fingerprint.replace(/'/g, "'\\''") : '';
     const snapshotEnvParts = escapedFingerprint ? [`PBS_FINGERPRINT='${escapedFingerprint}'`] : [];
     const snapshotEnvStr = snapshotEnvParts.length ? snapshotEnvParts.join(' ') + ' ' : '';
+    // Include --ns flag if the storage has a namespace configured
+    const pbsNamespace = (storage as any).namespace ? `--ns ${(storage as any).namespace}` : '';
     // Use correct command: snapshot list ct/<CT_ID> --repository <full_repo_string>
-    const command = `${snapshotEnvStr}timeout 30 proxmox-backup-client snapshot list ct/${ctId} --repository ${repository} 2>&1 || echo "PBS_ERROR"`;
+    const command = `${snapshotEnvStr}timeout 30 proxmox-backup-client snapshot list ct/${ctId} --repository ${repository} ${pbsNamespace} 2>&1 || echo "PBS_ERROR"`;
     let output = '';
     
     console.log(`[BackupService] Discovering PBS backups for CT ${ctId} on repository ${repository}`);

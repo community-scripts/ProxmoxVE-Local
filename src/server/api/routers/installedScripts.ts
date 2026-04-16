@@ -641,10 +641,9 @@ export const installedScriptsRouter = createTRPCRouter({
           if (script.container_id && script.server_id) {
             if (containerTypeMap.has(script.container_id)) {
               is_vm = containerTypeMap.get(script.container_id) ?? false;
-            } else {
-              const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
-              is_vm = !hasLXCConfig;
             }
+            // If not in batch detection map, default to LXC (false) for safety
+            // Only the batch detection (pct list / qm list) can reliably determine VM vs LXC
           }
           
           return {
@@ -698,18 +697,14 @@ export const installedScriptsRouter = createTRPCRouter({
         
         // Transform scripts to flatten server data for frontend compatibility
         const transformedScripts = scripts.map((script: any) => {
-          // Determine if it's a VM or LXC from batch detection map, fall back to LXCConfig check if not found
+          // Determine if it's a VM or LXC from batch detection map
           let is_vm = false;
           if (script.container_id && script.server_id) {
-            // First check if we have it in the batch detection map
             if (containerTypeMap.has(script.container_id)) {
               is_vm = containerTypeMap.get(script.container_id) ?? false;
-            } else {
-              // Fall back to checking LXCConfig in database (fast, no SSH needed)
-              // If LXCConfig exists, it's an LXC container
-              const hasLXCConfig = script.lxc_config !== null && script.lxc_config !== undefined;
-              is_vm = !hasLXCConfig; // If no LXCConfig, might be VM, but default to false for safety
             }
+            // If not in batch detection map, default to LXC (false) for safety
+            // Only the batch detection (pct list / qm list) can reliably determine VM vs LXC
           }
           
           return {
