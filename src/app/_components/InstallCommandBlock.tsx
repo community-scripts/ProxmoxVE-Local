@@ -230,12 +230,18 @@ export function InstallCommandBlock({
 
     if (env === "advanced" && defaults) {
       if (installMode) {
+        // mydefaults / appdefaults
         envVars.mode = installMode;
       } else {
-        if (advCpu !== defaults.cpu) envVars.var_cpu = String(advCpu);
-        if (advRam !== defaults.ram) envVars.var_ram = String(advRam);
-        if (advHdd !== defaults.hdd) envVars.var_disk = String(advHdd);
+        // Custom sliders — use "generated" to skip all dialogs
+        envVars.mode = "generated";
+        envVars.var_cpu = String(advCpu);
+        envVars.var_ram = String(advRam);
+        envVars.var_disk = String(advHdd);
       }
+    } else {
+      // Default or Alpine — skip dialog with mode=default
+      envVars.mode = "default";
     }
 
     if (hasArm && armEnabled) envVars.var_arm = "true";
@@ -245,7 +251,10 @@ export function InstallCommandBlock({
 
     // Scroll into view after a tick
     setTimeout(() => {
-      terminalRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      terminalRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }, 100);
   };
 
@@ -510,23 +519,21 @@ export function InstallCommandBlock({
         </div>
       )}
 
-      {/* Inline Terminal — collapsible */}
+      {/* Inline Terminal — collapsible, breaks out of card padding */}
       {running && (
-        <div ref={terminalRef} className="space-y-2">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setTerminalCollapsed((c) => !c)}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
-            >
-              {terminalCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5" />
-              )}
-              Console Output
-            </button>
-          </div>
+        <div ref={terminalRef} className="-mx-5 -mb-5 space-y-0 border-t border-border/60">
+          <button
+            type="button"
+            onClick={() => setTerminalCollapsed((c) => !c)}
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center gap-1 px-5 py-2 text-xs font-medium transition-colors"
+          >
+            {terminalCollapsed ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
+            Console Output
+          </button>
           {!terminalCollapsed && (
             <Terminal
               scriptPath={running.scriptPath}
