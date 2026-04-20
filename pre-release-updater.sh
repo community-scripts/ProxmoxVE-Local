@@ -24,7 +24,7 @@ set -euo pipefail
 REPO_OWNER="community-scripts"
 REPO_NAME="ProxmoxVE-Local"
 GITHUB_API="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}"
-INSTALL_DIR="/opt/pve-scripts-local"
+INSTALL_DIR="/opt/ProxmoxVE-Local"
 BACKUP_DIR="/tmp/pve-prerelease-backup-$(date +%Y%m%d-%H%M%S)"
 SERVICE_NAME="pve-scripts-local"
 
@@ -275,12 +275,12 @@ install_prerelease() {
 
 	msg_ok "Files installed"
 
-	# Install dependencies
+	# Install dependencies (dev deps needed for prisma generate & build)
 	msg "Installing npm dependencies..."
 	cd "$INSTALL_DIR"
-	if ! npm ci --omit=dev 2>/dev/null; then
+	if ! npm ci 2>/dev/null; then
 		msg_warn "npm ci failed, trying npm install..."
-		npm install --omit=dev
+		npm install
 	fi
 	msg_ok "Dependencies installed"
 
