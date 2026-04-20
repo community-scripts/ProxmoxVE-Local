@@ -407,7 +407,9 @@ export function ScriptDetailModal({
 
           {/* 2-column content */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-            <div className={`flex flex-col gap-5 ${terminalActive ? "" : "lg:grid lg:grid-cols-[minmax(0,1.55fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1.7fr)_24rem]"}`}>
+            <div
+              className={`flex flex-col gap-5 ${terminalActive ? "" : "lg:grid lg:grid-cols-[minmax(0,1.55fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1.7fr)_24rem]"}`}
+            >
               {/* Left: Main Content */}
               <div className="min-w-0 space-y-4">
                 <section className="glass-card-static rounded-2xl border p-5">

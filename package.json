@@ -1,6 +1,6 @@
 {
   "name": "pve-scripts-local",
-  "version": "0.5.8",
+  "version": "1.0.0-pre1",
   "private": true,
   "type": "module",
   "scripts": {
