@@ -24,6 +24,7 @@ import {
   Loader2,
   AlertTriangle,
   Server as ServerIcon,
+  Box,
 } from "lucide-react";
 import type { ScriptCard } from "~/types/script";
 import type { Script } from "~/types/script";
@@ -124,7 +125,15 @@ export function GeneratorTab() {
   // Servers for execution target
   const [servers, setServers] = useState<Server[]>([]);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null); // null = local
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedContainerIsVm, setSelectedContainerIsVm] = useState(false);
   const [serversLoading, setServersLoading] = useState(false);
+
+  // Reset container selection when server or script changes
+  useEffect(() => {
+    setSelectedContainerId(null);
+    setSelectedContainerIsVm(false);
+  }, [selectedServer?.id, selectedSlug]);
 
   useEffect(() => {
     setServersLoading(true);
@@ -234,6 +243,55 @@ export function GeneratorTab() {
     { slug: selectedSlug ?? "" },
     { enabled: !!selectedSlug },
   );
+
+  const executeIn = useMemo((): string[] => {
+    if (!scriptDetailData?.success || !scriptDetailData.script) return [];
+    return scriptDetailData.script.execute_in ?? [];
+  }, [scriptDetailData]);
+
+  const needsContainerPicker = useMemo(
+    () => executeIn.some((e) => ["lxc", "vm", "pbs", "pmg"].includes(e)),
+    [executeIn],
+  );
+
+  const { data: containersData, isLoading: containersLoading } =
+    api.installedScripts.listContainersOnServer.useQuery(
+      { serverId: selectedServer?.id ?? 0 },
+      { enabled: needsContainerPicker && !!selectedServer },
+    );
+
+  const containerPickerOptions = useMemo(() => {
+    if (!containersData) return [];
+    const opts: Array<{
+      id: string;
+      name: string;
+      isVm: boolean;
+      status: string;
+      pinned: boolean;
+    }> = [];
+    const wantLxc = executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
+    const wantVm = executeIn.includes("vm");
+    if (wantLxc) {
+      for (const c of containersData.lxc) {
+        const pinned =
+          (executeIn.includes("pbs") &&
+            c.name.toLowerCase().includes("proxmox-backup-server")) ||
+          (executeIn.includes("pmg") &&
+            c.name.toLowerCase().includes("proxmox-mail-gateway"));
+        opts.push({ ...c, isVm: false, pinned });
+      }
+    }
+    if (wantVm) {
+      for (const v of containersData.vm) {
+        opts.push({ ...v, isVm: true, pinned: false });
+      }
+    }
+    return opts.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [executeIn, containersData]);
 
   const scriptDetail: Script | null = useMemo(
     () =>
@@ -508,6 +566,8 @@ export function GeneratorTab() {
     if (fuse) envVars.var_fuse = "1";
     if (gpu) envVars.var_gpu = "yes";
     envVars.mode = "generated";
+    // For addon scripts that must execute inside a specific container
+    if (selectedContainerId) envVars.CTID = selectedContainerId;
 
     setRunningScript({
       path: scriptPath,
@@ -522,6 +582,8 @@ export function GeneratorTab() {
   }, [
     selectedScript,
     selectedServer,
+    selectedContainerId,
+    needsContainerPicker,
     cpu,
     ram,
     disk,
@@ -1118,6 +1180,68 @@ export function GeneratorTab() {
                       not on a remote Proxmox node.
                     </p>
                   )}
+
+                  {/* Container picker for addon/pbs/pmg scripts */}
+                  {needsContainerPicker && selectedServer && (
+                    <div className="border-border/60 mt-3 border-t pt-3">
+                      <div className="mb-2 flex items-center gap-1.5">
+                        <Box className="text-muted-foreground h-3.5 w-3.5" />
+                        <span className="text-muted-foreground text-xs font-medium">
+                          Target container
+                        </span>
+                        {containersLoading && (
+                          <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
+                        )}
+                      </div>
+                      {containersData?.error ? (
+                        <p className="text-destructive text-xs">
+                          {containersData.error}
+                        </p>
+                      ) : containerPickerOptions.length === 0 &&
+                        !containersLoading ? (
+                        <p className="text-muted-foreground text-xs">
+                          No containers found on this server
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {containerPickerOptions.map((c) => (
+                            <button
+                              key={`${c.isVm ? "vm" : "lxc"}-${c.id}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedContainerId(c.id);
+                                setSelectedContainerIsVm(c.isVm);
+                              }}
+                              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                selectedContainerId === c.id
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : c.pinned
+                                    ? "border-amber-500/50 text-amber-600 dark:text-amber-400 hover:border-amber-500"
+                                    : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                              }`}
+                            >
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                  c.isVm
+                                    ? "bg-blue-500/10 text-blue-500"
+                                    : "bg-green-500/10 text-green-500"
+                                }`}
+                              >
+                                {c.isVm ? "VM" : "LXC"}
+                              </span>
+                              {c.pinned && (
+                                <span className="text-amber-500">★</span>
+                              )}
+                              <span>{c.name}</span>
+                              <span className="text-muted-foreground/60">
+                                #{c.id}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end gap-3">
@@ -1133,7 +1257,10 @@ export function GeneratorTab() {
                     disabled={
                       hasErrors ||
                       !selectedScript ||
-                      !isScriptDownloaded(selectedScript.slug)
+                      !isScriptDownloaded(selectedScript.slug) ||
+                      (needsContainerPicker &&
+                        !!selectedServer &&
+                        !selectedContainerId)
                     }
                     className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
                   >

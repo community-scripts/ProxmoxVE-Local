@@ -3325,5 +3325,98 @@ EOFCONFIG`;
           scriptId: null
         };
       }
-    })
+    }),
+
+  // List LXC containers and VMs available on a given server
+  listContainersOnServer: publicProcedure
+    .input(z.object({ serverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDatabase();
+      const server = await db.getServerById(input.serverId);
+      if (!server) {
+        return { lxc: [], vm: [], error: 'Server not found' };
+      }
+
+      const { default: SSHService } = await import('~/server/ssh-service');
+      const { default: SSHExecutionService } = await import('~/server/ssh-execution-service');
+      const sshService = new SSHService();
+      const sshExecutionService = new SSHExecutionService();
+
+      const connectionTest = await sshService.testSSHConnection(server as Server);
+      if (!(connectionTest as any).success) {
+        return { lxc: [], vm: [], error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}` };
+      }
+
+      /** Parse `pct list` output: VMID Status Lock Name */
+      const parsePctList = (output: string): Array<{ id: string; name: string; status: string }> => {
+        const results: Array<{ id: string; name: string; status: string }> = [];
+        for (const line of output.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || /VMID|CTID/i.test(trimmed)) continue;
+          const parts = trimmed.split(/\s+/);
+          const id = parts[0] ?? '';
+          if (!/^\d+$/.test(id)) continue;
+          // pct list columns: VMID  Status  [Lock]  Name
+          // Lock is optional (empty when unlocked), so name can be col 2 or 3
+          let status = parts[1] ?? '';
+          let name = '';
+          if (parts.length === 3) {
+            // VMID Status Name (no lock)
+            name = parts[2] ?? '';
+          } else if (parts.length >= 4) {
+            // VMID Status Lock Name
+            name = parts[3] ?? '';
+          } else {
+            name = id;
+          }
+          results.push({ id, name: name || id, status });
+        }
+        return results;
+      };
+
+      /** Parse `qm list` output: VMID NAME STATUS MEM BOOTDISK PID */
+      const parseQmList = (output: string): Array<{ id: string; name: string; status: string }> => {
+        const results: Array<{ id: string; name: string; status: string }> = [];
+        for (const line of output.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || /VMID/i.test(trimmed)) continue;
+          const parts = trimmed.split(/\s+/);
+          const id = parts[0] ?? '';
+          if (!/^\d+$/.test(id)) continue;
+          const name = parts[1] ?? id;
+          const status = parts[2] ?? '';
+          results.push({ id, name: name || id, status });
+        }
+        return results;
+      };
+
+      let pctOutput = '';
+      let qmOutput = '';
+
+      await new Promise<void>((resolve) => {
+        void sshExecutionService.executeCommand(
+          server as Server,
+          'pct list',
+          (data: string) => { pctOutput += data; },
+          (_err: string) => { resolve(); },
+          (_exitCode: number) => { resolve(); }
+        );
+      });
+
+      await new Promise<void>((resolve) => {
+        void sshExecutionService.executeCommand(
+          server as Server,
+          'qm list',
+          (data: string) => { qmOutput += data; },
+          (_err: string) => { resolve(); },
+          (_exitCode: number) => { resolve(); }
+        );
+      });
+
+      return {
+        lxc: parsePctList(pctOutput),
+        vm: parseQmList(qmOutput),
+        error: null,
+      };
+    }),
 });

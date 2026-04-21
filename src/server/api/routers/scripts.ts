@@ -54,6 +54,7 @@ function pbToScript(pb: PBScript): Script {
     is_deleted: pb.is_deleted,
     has_arm: pb.has_arm,
     version: pb.version,
+    execute_in: pb.execute_in,
   };
 }
 
