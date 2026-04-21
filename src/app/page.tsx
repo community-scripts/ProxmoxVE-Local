@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
+import { ShellProvider } from "./_components/ShellContext";
+import { FloatingShell } from "./_components/FloatingShell";
 import type { ScriptCard } from "~/types/script";
 
 // Lazy load heavy tab components — only the active tab is loaded
@@ -66,8 +68,7 @@ function TabSkeleton() {
   );
 }
 
-export default function Home() {
-  const { isAuthenticated, logout } = useAuth();
+function Home() {
   const [activeTab, setActiveTab] = useState<
     "scripts" | "downloaded" | "installed" | "backups" | "generator"
   >(() => {
@@ -436,5 +437,14 @@ export default function Home() {
         highlightVersion={highlightVersion}
       />
     </main>
+  );
+}
+
+export default function HomeWithShell() {
+  return (
+    <ShellProvider>
+      <Home />
+      <FloatingShell />
+    </ShellProvider>
   );
 }

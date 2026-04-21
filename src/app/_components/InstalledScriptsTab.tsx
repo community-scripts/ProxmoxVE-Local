@@ -16,6 +16,7 @@ import { CloneCountInputModal } from "./CloneCountInputModal";
 import { ModalPortal } from "./modal/ModalStackProvider";
 import type { Storage } from "~/server/services/storageService";
 import type { Server } from "~/types/server";
+import { useShell } from "./ShellContext";
 import { getContrastColor } from "../../lib/colorUtils";
 import {
   DropdownMenu,
@@ -84,6 +85,7 @@ function buildServerFromScript(script: InstalledScript): Server {
 }
 
 export function InstalledScriptsTab() {
+  const { open: openShell } = useShell();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "success" | "failed" | "in_progress"
@@ -111,12 +113,23 @@ export function InstalledScriptsTab() {
     storage?: string;
     envVars?: Record<string, string>;
   } | null>(null);
-  const [openingShell, setOpeningShell] = useState<{
-    id: number;
-    containerId: string;
-    server?: Server;
-    containerType?: "lxc" | "vm";
-  } | null>(null);
+  const [openingShell, _setOpeningShellUnused] = useState<null>(null); // replaced by ShellContext — kept to avoid refactoring refs below
+  const setOpeningShell = (
+    v: {
+      id: number;
+      containerId: string;
+      server?: Server;
+      containerType?: "lxc" | "vm";
+    } | null,
+  ) => {
+    if (v) {
+      openShell({
+        containerId: v.containerId,
+        server: v.server,
+        containerType: v.containerType ?? "lxc",
+      });
+    }
+  };
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const [showStorageSelection, setShowStorageSelection] = useState(false);
   const [pendingUpdateScript, setPendingUpdateScript] =
@@ -1337,31 +1350,7 @@ export function InstalledScriptsTab() {
     setOpeningShell(null);
   };
 
-  // Auto-scroll to terminals when they open
-  useEffect(() => {
-    if (openingShell) {
-      // Small delay to ensure the terminal is rendered
-      setTimeout(() => {
-        const terminalElement = document.querySelector(
-          '[data-terminal="shell"]',
-        );
-        if (terminalElement) {
-          // Scroll to the terminal with smooth animation
-          terminalElement.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-            inline: "nearest",
-          });
-
-          // Add a subtle highlight effect
-          terminalElement.classList.add("animate-pulse");
-          setTimeout(() => {
-            terminalElement.classList.remove("animate-pulse");
-          }, 2000);
-        }
-      }, 200);
-    }
-  }, [openingShell]);
+  // Auto-scroll useEffect for shell removed — shell now renders as FloatingShell dialog
 
   useEffect(() => {
     if (updatingScript) {
@@ -1607,31 +1596,7 @@ export function InstalledScriptsTab() {
         </div>
       )}
 
-      {/* Shell Terminal */}
-      {openingShell && (
-        <div className="mb-8" data-terminal="shell">
-          {openingShell.containerType === "vm" && (
-            <p className="text-muted-foreground mb-2 text-sm">
-              VM shell uses the Proxmox serial console. The VM must have a
-              serial port configured (e.g.{" "}
-              <code className="bg-muted rounded px-1">
-                qm set {openingShell.containerId} -serial0 socket
-              </code>
-              ). Detach with <kbd className="bg-muted rounded px-1">Ctrl+O</kbd>
-              .
-            </p>
-          )}
-          <Terminal
-            scriptPath={`shell-${openingShell.containerId}`}
-            onClose={handleCloseShellTerminal}
-            mode={openingShell.server ? "ssh" : "local"}
-            server={openingShell.server}
-            isShell={true}
-            containerId={openingShell.containerId}
-            containerType={openingShell.containerType}
-          />
-        </div>
-      )}
+      {/* Shell Terminal — now rendered as FloatingShell dialog (see ShellContext) */}
 
       {/* Header with Stats */}
       <div className="bg-card border-border rounded-lg border p-6 shadow-sm">

@@ -5,11 +5,10 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Toggle } from "./ui/toggle";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
-import { useTheme } from "./ThemeProvider";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { api } from "~/trpc/react";
 import { useAuth } from "./AuthProvider";
-import { Trash2, ExternalLink } from "lucide-react";
+import { Trash2, ExternalLink, FlaskConical } from "lucide-react";
 
 interface AutoSyncSettings {
   autoSyncEnabled: boolean;
@@ -39,7 +38,6 @@ export function GeneralSettingsModal({
     allowEscape: true,
     onClose,
   });
-  const { theme, setTheme } = useTheme();
   const { isAuthenticated, expirationTime, checkAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<
     "general" | "github" | "auth" | "auto-sync" | "repositories"
@@ -50,6 +48,10 @@ export function GeneralSettingsModal({
   const [saveFilter, setSaveFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<any>(null);
   const [colorCodingEnabled, setColorCodingEnabled] = useState(false);
+  const [showDevScripts, setShowDevScripts] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("showDevScripts") === "true";
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -726,68 +728,29 @@ export function GeneralSettingsModal({
           </div>
 
           {/* Tabs */}
-          <div className="border-border border-b">
-            <nav className="flex flex-col space-y-1 px-4 sm:flex-row sm:space-y-0 sm:space-x-8 sm:px-6">
-              <Button
-                onClick={() => setActiveTab("general")}
-                variant="ghost"
-                size="null"
-                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                  activeTab === "general"
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-                }`}
-              >
-                General
-              </Button>
-              <Button
-                onClick={() => setActiveTab("github")}
-                variant="ghost"
-                size="null"
-                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                  activeTab === "github"
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-                }`}
-              >
-                GitHub
-              </Button>
-              <Button
-                onClick={() => setActiveTab("auth")}
-                variant="ghost"
-                size="null"
-                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                  activeTab === "auth"
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-                }`}
-              >
-                Authentication
-              </Button>
-              <Button
-                onClick={() => setActiveTab("auto-sync")}
-                variant="ghost"
-                size="null"
-                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                  activeTab === "auto-sync"
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-                }`}
-              >
-                Auto-Sync
-              </Button>
-              <Button
-                onClick={() => setActiveTab("repositories")}
-                variant="ghost"
-                size="null"
-                className={`w-full border-b-2 px-1 py-3 text-sm font-medium sm:w-auto sm:py-4 ${
-                  activeTab === "repositories"
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent"
-                }`}
-              >
-                Repositories
-              </Button>
+          <div className="border-border border-b px-4 pb-0 sm:px-6">
+            <nav className="glass-card-static -mb-px flex flex-wrap gap-0.5 border p-1">
+              {(
+                [
+                  { key: "general", label: "General" },
+                  { key: "github", label: "GitHub" },
+                  { key: "auth", label: "Auth" },
+                  { key: "auto-sync", label: "Auto-Sync" },
+                  { key: "repositories", label: "Repositories" },
+                ] as const
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all sm:text-sm ${
+                    activeTab === key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
           </div>
 
@@ -803,36 +766,32 @@ export function GeneralSettingsModal({
                 </p>
                 <div className="space-y-4">
                   <div className="border-border rounded-lg border p-4">
-                    <h4 className="text-foreground mb-2 font-medium">Theme</h4>
-                    <p className="text-muted-foreground mb-4 text-sm">
-                      Choose your preferred color theme for the application.
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-foreground text-sm font-medium">
-                          Current Theme
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {theme === "light" ? "Light mode" : "Dark mode"}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => setTheme("light")}
-                          variant={theme === "light" ? "default" : "outline"}
-                          size="sm"
-                        >
-                          Light
-                        </Button>
-                        <Button
-                          onClick={() => setTheme("dark")}
-                          variant={theme === "dark" ? "default" : "outline"}
-                          size="sm"
-                        >
-                          Dark
-                        </Button>
-                      </div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <FlaskConical className="text-primary h-4 w-4" />
+                      <h4 className="text-foreground font-medium">
+                        ProxmoxVED (Dev Scripts)
+                      </h4>
                     </div>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Show scripts from the community-scripts development
+                      branch. Disabled by default.
+                    </p>
+                    <Toggle
+                      checked={showDevScripts}
+                      onCheckedChange={(checked) => {
+                        setShowDevScripts(checked);
+                        localStorage.setItem("showDevScripts", String(checked));
+                        // Notify other components via storage event
+                        window.dispatchEvent(
+                          new StorageEvent("storage", {
+                            key: "showDevScripts",
+                            newValue: String(checked),
+                            storageArea: localStorage,
+                          }),
+                        );
+                      }}
+                      label="Show development (in-dev) scripts"
+                    />
                   </div>
 
                   <div className="border-border rounded-lg border p-4">

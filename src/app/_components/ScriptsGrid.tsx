@@ -28,6 +28,22 @@ export function ScriptsGrid() {
   const [filters, setFilters] = useState<FilterState>(getDefaultFilters());
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
+
+  // ProxmoxVED / dev scripts visibility setting
+  const [showDevScripts, setShowDevScripts] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("showDevScripts") === "true";
+  });
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "showDevScripts") {
+        setShowDevScripts(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   const [isNewestMinimized, setIsNewestMinimized] = useState(false);
   const downloadAbortRef = useRef(false);
   const filtersInitRef = useRef(false);
@@ -316,7 +332,9 @@ export function ScriptsGrid() {
   // Get the 6 newest scripts based on date_created field
   const newestScripts = React.useMemo((): ScriptCardType[] => {
     return scriptsWithStatus
-      .filter((script) => script?.date_created) // Only scripts with date_created
+      .filter(
+        (script) => script?.date_created && (showDevScripts || !script?.is_dev),
+      ) // Never show dev in newest unless ProxmoxVED enabled
       .sort((a, b) => {
         const aCreated = a?.date_created ?? "";
         const bCreated = b?.date_created ?? "";
@@ -324,11 +342,16 @@ export function ScriptsGrid() {
         return bCreated.localeCompare(aCreated);
       })
       .slice(0, 6); // Take only the first 6
-  }, [scriptsWithStatus]);
+  }, [scriptsWithStatus, showDevScripts]);
 
   // Filter scripts based on all filters and category
   const filteredScripts = React.useMemo((): ScriptCardType[] => {
     let scripts = scriptsWithStatus;
+
+    // Hide dev scripts entirely when ProxmoxVED is disabled
+    if (!showDevScripts) {
+      scripts = scripts.filter((s) => !s?.is_dev);
+    }
 
     // Filter by search query (use filters.searchQuery instead of deprecated searchQuery)
     if (filters.searchQuery?.trim()) {
@@ -472,7 +495,13 @@ export function ScriptsGrid() {
     });
 
     return scripts;
-  }, [scriptsWithStatus, filters, hasActiveFilters, newestScripts]);
+  }, [
+    scriptsWithStatus,
+    filters,
+    hasActiveFilters,
+    newestScripts,
+    showDevScripts,
+  ]);
 
   // Calculate filter counts for FilterBar
   const filterCounts = React.useMemo(() => {
@@ -862,6 +891,7 @@ export function ScriptsGrid() {
           isLoadingFilters={isLoadingFilters}
           categories={categories}
           categoryCounts={categoryCounts}
+          showDevScripts={showDevScripts}
         />
 
         {/* View Toggle */}

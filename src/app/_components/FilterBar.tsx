@@ -54,6 +54,7 @@ interface FilterBarProps {
   isLoadingFilters?: boolean;
   categories?: string[];
   categoryCounts?: Record<string, number>;
+  showDevScripts?: boolean;
 }
 
 const SCRIPT_TYPES = [
@@ -73,6 +74,7 @@ export function FilterBar({
   isLoadingFilters = false,
   categories = [],
   categoryCounts = {},
+  showDevScripts = false,
 }: FilterBarProps) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
@@ -189,7 +191,9 @@ export function FilterBar({
               { key: "all" as const, label: "All", Icon: Layers },
               { key: "new" as const, label: "New", Icon: Sparkles },
               { key: "updated" as const, label: "Updated", Icon: Clock },
-              { key: "dev" as const, label: "In Dev", Icon: FlaskConical },
+              ...(showDevScripts
+                ? [{ key: "dev" as const, label: "In Dev", Icon: FlaskConical }]
+                : []),
               { key: "arm" as const, label: "ARM", Icon: Cpu },
             ].map(({ key, label, Icon }) => {
               const isActive = filters.quickFilter === key;
