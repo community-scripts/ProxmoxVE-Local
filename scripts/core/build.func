@@ -3622,7 +3622,17 @@ build_container() {
 		_func_file="${SCRIPT_DIR}/install.func"
 	fi
 	if [[ -f "$_func_file" ]]; then
-		export FUNCTIONS_FILE_PATH="$(cat "$_func_file")"
+		# Concatenate core dependencies + install func so the container has
+		# everything via a single `source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"`.
+		# install.func has `source $(dirname BASH_SOURCE)/core.func` which
+		# resolves to /dev/core.func when sourced from stdin — this avoids that.
+		local _core_file="${SCRIPT_DIR}/core.func"
+		local _err_file="${SCRIPT_DIR}/error-handler.func"
+		local _combined=""
+		[[ -f "$_core_file" ]] && _combined+="$(cat "$_core_file")"$'\n'
+		[[ -f "$_err_file" ]] && _combined+="$(cat "$_err_file")"$'\n'
+		_combined+="$(cat "$_func_file")"
+		export FUNCTIONS_FILE_PATH="$_combined"
 	else
 		local _func_url
 		if [ "$var_os" == "alpine" ]; then

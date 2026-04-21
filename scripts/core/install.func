@@ -32,8 +32,13 @@ if ! command -v curl >/dev/null 2>&1; then
   apt update >/dev/null 2>&1
   apt install -y curl >/dev/null 2>&1
 fi
-source "$(dirname "${BASH_SOURCE[0]}")/core.func"
-source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
+# Only source sibling files when running directly (not via stdin/FUNCTIONS_FILE_PATH).
+# When sourced as `source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"`, BASH_SOURCE[0] is
+# /dev/stdin — dirname resolves to /dev, which doesn't contain these files.
+if [[ "${BASH_SOURCE[0]}" != "/dev/stdin" && "${BASH_SOURCE[0]}" != "stdin" ]]; then
+  source "$(dirname "${BASH_SOURCE[0]}")/core.func"
+  source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
+fi
 load_functions
 catch_errors
 
