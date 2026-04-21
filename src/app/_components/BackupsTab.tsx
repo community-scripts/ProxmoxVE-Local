@@ -730,54 +730,54 @@ export function BackupsTab() {
               {/* Step: Container selection (new mode only) */}
               {createDialog.mode === "new" &&
                 createDialog.serverId != null &&
-                createDialog.containerId == null && (
-                  <div className="space-y-2">
-                    {containersQuery.isLoading ? (
-                      <div className="flex items-center gap-2 py-4">
-                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                        <span className="text-muted-foreground text-sm">
-                          Loading containers…
-                        </span>
-                      </div>
-                    ) : ([
-                        ...(containersQuery.data?.lxc ?? []).map((c) => ({ ...c, type: "CT" })),
-                        ...(containersQuery.data?.vm ?? []).map((c) => ({ ...c, type: "VM" })),
-                      ]).length ===
-                      0 ? (
-                      <p className="text-muted-foreground py-4 text-center text-sm">
-                        No containers found on this server.
-                      </p>
-                    ) : (
-                      [
-                        ...(containersQuery.data?.lxc ?? []).map((c) => ({ ...c, type: "CT" })),
-                        ...(containersQuery.data?.vm ?? []).map((c) => ({ ...c, type: "VM" })),
-                      ].map((ct) => (
-                        <button
-                          key={ct.id}
-                          onClick={() => {
-                            setCreateDialog((d) =>
-                              d
-                                ? {
-                                    ...d,
-                                    containerId: ct.id,
-                                  }
-                                : null,
-                            );
-                            setSelectedStorage("");
-                          }}
-                          className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
-                        >
-                          <span className="font-medium">{ct.type} {ct.id}</span>
-                          {ct.name && ct.name !== ct.id && (
-                            <span className="ml-2 text-xs opacity-60">
-                              {ct.name}
+                createDialog.containerId == null && (() => {
+                  type CT = { id: string; name: string; status: string; type: string };
+                  const lxcItems: CT[] = (containersQuery.data?.lxc ?? []).map(
+                    (c) => ({ id: c.id, name: c.name, status: c.status, type: "CT" }),
+                  );
+                  const vmItems: CT[] = (containersQuery.data?.vm ?? []).map(
+                    (c) => ({ id: c.id, name: c.name, status: c.status, type: "VM" }),
+                  );
+                  const allContainers = [...lxcItems, ...vmItems];
+                  return (
+                    <div className="space-y-2">
+                      {containersQuery.isLoading ? (
+                        <div className="flex items-center gap-2 py-4">
+                          <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground text-sm">
+                            Loading containers…
+                          </span>
+                        </div>
+                      ) : allContainers.length === 0 ? (
+                        <p className="text-muted-foreground py-4 text-center text-sm">
+                          No containers found on this server.
+                        </p>
+                      ) : (
+                        allContainers.map((ct) => (
+                          <button
+                            key={ct.id}
+                            onClick={() => {
+                              setCreateDialog((d) =>
+                                d ? { ...d, containerId: ct.id } : null,
+                              );
+                              setSelectedStorage("");
+                            }}
+                            className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
+                          >
+                            <span className="font-medium">
+                              {ct.type} {ct.id}
                             </span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
+                            {ct.name && ct.name !== ct.id && (
+                              <span className="ml-2 text-xs opacity-60">
+                                {ct.name}
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  );
+                })()}
 
               {/* Step: Storage selection */}
               {createDialog.containerId != null && (
