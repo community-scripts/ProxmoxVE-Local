@@ -23,9 +23,11 @@ import {
   Search,
   Loader2,
   AlertTriangle,
+  Server as ServerIcon,
 } from "lucide-react";
 import type { ScriptCard } from "~/types/script";
 import type { Script } from "~/types/script";
+import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
 
 /* ── Step definitions ── */
@@ -106,6 +108,8 @@ export function GeneratorTab() {
     path: string;
     name: string;
     envVars?: Record<string, string | number | boolean>;
+    mode: "local" | "ssh";
+    server?: Server;
   } | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const { data: scriptCardsData } =
@@ -116,6 +120,27 @@ export function GeneratorTab() {
     api.scripts.getAllDownloadedScripts.useQuery();
 
   const utils = api.useUtils();
+
+  // Servers for execution target
+  const [servers, setServers] = useState<Server[]>([]);
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null); // null = local
+  const [serversLoading, setServersLoading] = useState(false);
+
+  useEffect(() => {
+    setServersLoading(true);
+    fetch("/api/servers")
+      .then((r) => r.json())
+      .then((data: Server[]) => {
+        const sorted = [...data].sort((a, b) =>
+          (a.name ?? "").localeCompare(b.name ?? ""),
+        );
+        setServers(sorted);
+        // Auto-select single server
+        if (sorted.length === 1) setSelectedServer(sorted[0] ?? null);
+      })
+      .catch(() => {/* non-critical */})
+      .finally(() => setServersLoading(false));
+  }, []);
 
   const loadScriptMutation = api.scripts.loadScript.useMutation({
     onSuccess: () => {
@@ -486,12 +511,13 @@ export function GeneratorTab() {
       path: scriptPath,
       name: selectedScript.name ?? "Script",
       envVars,
+      mode: selectedServer ? "ssh" : "local",
+      server: selectedServer ?? undefined,
     });
     setTimeout(() => {
-      terminalRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  }, [
+    }, [
     selectedScript,
+    selectedServer,
     cpu,
     ram,
     disk,
@@ -510,6 +536,7 @@ export function GeneratorTab() {
     fuse,
     gpu,
   ]);
+
 
   // Validation errors
   const errors = useMemo(
@@ -1017,25 +1044,101 @@ export function GeneratorTab() {
 
             {/* Execute button */}
             {generatedCommand && (
-              <div className="mt-4 flex items-center justify-end gap-3">
-                {selectedScript && !isScriptDownloaded(selectedScript.slug) && (
-                  <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
-                    Script not downloaded
-                  </span>
-                )}
-                <Button
-                  onClick={handleExecute}
-                  disabled={
-                    hasErrors ||
-                    !selectedScript ||
-                    !isScriptDownloaded(selectedScript.slug)
-                  }
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
-                >
-                  <Play className="h-4 w-4" />
-                  Execute on Server
-                </Button>
+              <div className="mt-4 space-y-3">
+                {/* Server / execution target selection */}
+                <div className="glass-card-static rounded-lg border p-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <ServerIcon className="text-muted-foreground h-3.5 w-3.5" />
+                    <span className="text-muted-foreground text-xs font-medium">
+                      Execute on
+                    </span>
+                    {serversLoading && (
+                      <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Local option */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedServer(null)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        !selectedServer
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                      }`}
+                    >
+                      This machine (local)
+                    </button>
+                    {/* Server options */}
+                    {servers.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedServer(s)}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          selectedServer?.id === s.id
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                        }`}
+                        style={
+                          s.color
+                            ? {
+                                borderColor:
+                                  selectedServer?.id === s.id
+                                    ? s.color
+                                    : undefined,
+                                backgroundColor:
+                                  selectedServer?.id === s.id
+                                    ? `${s.color}1a`
+                                    : undefined,
+                                color:
+                                  selectedServer?.id === s.id
+                                    ? s.color
+                                    : undefined,
+                              }
+                            : undefined
+                        }
+                      >
+                        {s.color && (
+                          <span
+                            className="h-2 w-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: s.color }}
+                          />
+                        )}
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                  {!selectedServer && (
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      ⚠ Local execution runs on the machine hosting this app,
+                      not on a remote Proxmox node.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3">
+                  {selectedScript && !isScriptDownloaded(selectedScript.slug) && (
+                    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                      Script not downloaded
+                    </span>
+                  )}
+                  <Button
+                    onClick={handleExecute}
+                    disabled={
+                      hasErrors ||
+                      !selectedScript ||
+                      !isScriptDownloaded(selectedScript.slug)
+                    }
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                  >
+                    <Play className="h-4 w-4" />
+                    {selectedServer
+                      ? `Execute on ${selectedServer.name}`
+                      : "Execute Locally"}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -1132,9 +1235,15 @@ export function GeneratorTab() {
                       { slug: downloadDialogSlug },
                       {
                         onSuccess: () => {
-                          setSelectedSlug(downloadDialogSlug);
-                          setDownloadDialogSlug(null);
-                          handleReset();
+                          // Wait for the query cache to refresh before selecting,
+                          // so isScriptDownloaded returns true and Execute is enabled
+                          void utils.scripts.getAllDownloadedScripts
+                            .refetch()
+                            .then(() => {
+                              setSelectedSlug(downloadDialogSlug);
+                              setDownloadDialogSlug(null);
+                              handleReset();
+                            });
                         },
                         onError: () => {
                           // Keep dialog open so user sees the error state
@@ -1174,6 +1283,8 @@ export function GeneratorTab() {
             scriptPath={runningScript.path}
             onClose={() => setRunningScript(null)}
             envVars={runningScript.envVars}
+            mode={runningScript.mode}
+            server={runningScript.server}
           />
         </div>
       )}
