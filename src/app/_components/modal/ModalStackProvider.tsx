@@ -76,13 +76,32 @@ export function useRegisterModal(
 ): number {
   const ctx = useContext(ModalStackContext);
   const [zIndex, setZIndex] = useState(50);
+  // Keep a mutable ref so the stack always has the latest callbacks
+  // without triggering re-registration on every render.
+  const modalRef = useRef<RegisteredModal>(modal);
+  modalRef.current = modal;
 
   useEffect(() => {
     if (!ctx || !enabled) return;
-    const result = ctx.register(modal);
+    // Register a stable proxy that always delegates to the latest ref values.
+    // This prevents z-index races caused by inline object literals re-triggering
+    // registration on parent re-renders.
+    const proxy: RegisteredModal = {
+      get id() {
+        return modalRef.current.id;
+      },
+      get allowEscape() {
+        return modalRef.current.allowEscape;
+      },
+      get onClose() {
+        return modalRef.current.onClose;
+      },
+    };
+    const result = ctx.register(proxy);
     setZIndex(result.zIndex);
     return result.unregister;
-  }, [ctx, enabled, modal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, enabled]);
 
   return zIndex;
 }

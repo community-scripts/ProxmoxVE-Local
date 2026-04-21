@@ -24,7 +24,20 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
-import { Settings } from "lucide-react";
+import {
+  Settings,
+  FolderOpen,
+  Plus,
+  ScanSearch,
+  Eraser,
+  RefreshCw,
+  UploadCloud,
+  ChevronUp,
+  ChevronDown,
+  FolderX,
+  Loader2,
+  Info,
+} from "lucide-react";
 import { InstalledScriptsStats } from "./installed-scripts/InstalledScriptsStats";
 import { InstalledScriptsFilters } from "./installed-scripts/InstalledScriptsFilters";
 import { StatusMessage } from "./installed-scripts/StatusMessage";
@@ -1509,10 +1522,11 @@ export function InstalledScriptsTab() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-muted-foreground">
-          Loading installed scripts...
-        </div>
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+        <p className="text-muted-foreground text-sm">
+          Loading installed scripts…
+        </p>
       </div>
     );
   }
@@ -1585,10 +1599,21 @@ export function InstalledScriptsTab() {
       )}
 
       {/* Header with Stats */}
-      <div className="bg-card rounded-lg p-6 shadow">
-        <h2 className="text-foreground mb-4 text-2xl font-bold">
-          Installed Scripts
-        </h2>
+      <div className="bg-card border-border rounded-lg border p-6 shadow-sm">
+        {/* Title row */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="bg-primary/10 rounded-lg p-2">
+            <FolderOpen className="text-primary h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-foreground text-xl font-bold">
+              Installed Scripts
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Manage containers, run updates, and control services
+            </p>
+          </div>
+        </div>
 
         {stats && (
           <InstalledScriptsStats
@@ -1600,41 +1625,41 @@ export function InstalledScriptsTab() {
           />
         )}
 
-        {/* Add Script and Auto-Detect Buttons */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        {/* Action Toolbar */}
+        <div className="mb-4 flex flex-wrap gap-2">
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
             variant={showAddForm ? "outline" : "default"}
-            size="default"
+            size="sm"
+            className="gap-2"
           >
-            {showAddForm ? "Cancel Add Script" : "+ Add Manual Script Entry"}
+            <Plus className="h-4 w-4" />
+            {showAddForm ? "Cancel" : "Add Script"}
           </Button>
           <Button
             onClick={() => setShowAutoDetectForm(!showAutoDetectForm)}
             variant={showAutoDetectForm ? "outline" : "secondary"}
-            size="default"
+            size="sm"
+            className="gap-2"
           >
-            {showAutoDetectForm
-              ? "Cancel Auto-Detect"
-              : "🔍 Auto-Detect Containers & VMs (tag: community-script)"}
+            <ScanSearch className="h-4 w-4" />
+            {showAutoDetectForm ? "Cancel Auto-Detect" : "Auto-Detect"}
           </Button>
           <Button
             onClick={() => {
-              cleanupRunRef.current = false; // Allow cleanup to run again
+              cleanupRunRef.current = false;
               void cleanupMutation.mutate();
             }}
             disabled={cleanupMutation.isPending}
             variant="outline"
-            size="default"
-            className="border-warning/30 text-warning hover:bg-warning/10"
+            size="sm"
+            className="border-warning/30 text-warning hover:bg-warning/10 gap-2"
           >
-            {cleanupMutation.isPending
-              ? "🧹 Cleaning up..."
-              : "🧹 Cleanup Orphaned Scripts"}
+            <Eraser className="h-4 w-4" />
+            {cleanupMutation.isPending ? "Cleaning…" : "Cleanup Orphaned"}
           </Button>
           <Button
             onClick={() => {
-              // Trigger status check by calling the mutation directly
               const serverIds = [
                 ...new Set(
                   scripts
@@ -1648,11 +1673,13 @@ export function InstalledScriptsTab() {
             }}
             disabled={containerStatusMutation.isPending ?? scripts.length === 0}
             variant="outline"
-            size="default"
+            size="sm"
+            className="gap-2"
           >
-            {containerStatusMutation.isPending
-              ? "🔄 Checking..."
-              : "🔄 Refresh Container Status"}
+            <RefreshCw
+              className={`h-4 w-4 ${containerStatusMutation.isPending ? "animate-spin" : ""}`}
+            />
+            {containerStatusMutation.isPending ? "Checking…" : "Refresh Status"}
           </Button>
           <Button
             onClick={handleBatchUpdateAll}
@@ -1662,25 +1689,26 @@ export function InstalledScriptsTab() {
                 .length === 0
             }
             variant="outline"
-            size="default"
-            className="border-primary/30 text-primary hover:bg-primary/10"
+            size="sm"
+            className="border-primary/30 text-primary hover:bg-primary/10 gap-2"
           >
+            <UploadCloud className="h-4 w-4" />
             {isBatchUpdating
-              ? `🔄 Updating ${batchUpdateIndex + 1}/${batchUpdateQueue.length}...`
-              : "🔄 Update All Containers"}
+              ? `Updating ${batchUpdateIndex + 1}/${batchUpdateQueue.length}…`
+              : "Update All"}
           </Button>
         </div>
 
         {/* Add Script Form */}
         {showAddForm && (
-          <div className="bg-card border-border mb-6 rounded-lg border p-4 shadow-sm sm:p-6">
-            <h3 className="text-foreground mb-4 text-lg font-semibold sm:mb-6">
+          <div className="border-border mb-4 rounded-lg border p-4 shadow-sm sm:p-6">
+            <h3 className="text-foreground mb-4 text-base font-semibold">
               Add Manual Script Entry
             </h3>
-            <div className="space-y-4 sm:space-y-6">
-              <div className="space-y-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
                 <label className="text-foreground block text-sm font-medium">
-                  Script Name *
+                  Script Name <span className="text-error">*</span>
                 </label>
                 <input
                   type="text"
@@ -1688,11 +1716,11 @@ export function InstalledScriptsTab() {
                   onChange={(e) =>
                     handleAddFormChange("script_name", e.target.value)
                   }
-                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-                  placeholder="Enter script name"
+                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g. my-container"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-foreground block text-sm font-medium">
                   Container ID
                 </label>
@@ -1702,11 +1730,11 @@ export function InstalledScriptsTab() {
                   onChange={(e) =>
                     handleAddFormChange("container_id", e.target.value)
                   }
-                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-                  placeholder="Enter container ID"
+                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g. 100"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-foreground block text-sm font-medium">
                   Server
                 </label>
@@ -1715,9 +1743,9 @@ export function InstalledScriptsTab() {
                   onChange={(e) =>
                     handleAddFormChange("server_id", e.target.value)
                   }
-                  className="border-input bg-background text-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
+                  className="border-input bg-background text-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                 >
-                  <option value="local">Select Server</option>
+                  <option value="local">Local</option>
                   {serversData?.servers?.map((server: any) => (
                     <option key={server.id} value={server.id}>
                       {server.name}
@@ -1726,23 +1754,17 @@ export function InstalledScriptsTab() {
                 </select>
               </div>
             </div>
-            <div className="mt-4 flex flex-col justify-end gap-3 sm:mt-6 sm:flex-row">
-              <Button
-                onClick={handleCancelAdd}
-                variant="outline"
-                size="default"
-                className="w-full sm:w-auto"
-              >
+            <div className="mt-4 flex justify-end gap-2">
+              <Button onClick={handleCancelAdd} variant="outline" size="sm">
                 Cancel
               </Button>
               <Button
                 onClick={handleAddScript}
                 disabled={createScriptMutation.isPending}
                 variant="default"
-                size="default"
-                className="w-full sm:w-auto"
+                size="sm"
               >
-                {createScriptMutation.isPending ? "Adding..." : "Add Script"}
+                {createScriptMutation.isPending ? "Adding…" : "Add Script"}
               </Button>
             </div>
           </div>
@@ -1765,62 +1787,38 @@ export function InstalledScriptsTab() {
 
         {/* Auto-Detect Containers & VMs Form */}
         {showAutoDetectForm && (
-          <div className="bg-card border-border mb-6 rounded-lg border p-4 shadow-sm sm:p-6">
-            <h3 className="text-foreground mb-4 text-lg font-semibold sm:mb-6">
-              Auto-Detect Containers &amp; VMs (tag: community-script)
+          <div className="border-border mb-4 rounded-lg border p-4 shadow-sm sm:p-6">
+            <h3 className="text-foreground mb-4 text-base font-semibold">
+              Auto-Detect Containers &amp; VMs
             </h3>
-            <div className="space-y-4 sm:space-y-6">
-              <div className="bg-muted/30 border-muted rounded-lg border p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="text-muted-foreground h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h4 className="text-foreground text-sm font-medium">
-                      How it works
-                    </h4>
-                    <div className="text-muted-foreground mt-2 text-sm">
-                      <p>This feature will:</p>
-                      <ul className="mt-1 list-inside list-disc space-y-1">
-                        <li>Connect to the selected server via SSH</li>
-                        <li>
-                          Scan LXC configs in /etc/pve/lxc/ and VM configs in
-                          /etc/pve/qemu-server/
-                        </li>
-                        <li>
-                          Find containers and VMs with
-                          &quot;community-script&quot; in their tags
-                        </li>
-                        <li>
-                          Extract the container/VM ID and hostname or name
-                        </li>
-                        <li>Add them as installed script entries</li>
-                      </ul>
-                    </div>
-                  </div>
+            <div className="space-y-4">
+              <div className="bg-muted/40 border-border flex items-start gap-3 rounded-lg border p-4">
+                <Info className="text-muted-foreground mt-0.5 h-4 w-4 flex-shrink-0" />
+                <div className="text-muted-foreground text-sm">
+                  <p className="font-medium">How it works</p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    <li>Connects via SSH and scans LXC &amp; VM configs</li>
+                    <li>
+                      Finds containers tagged{" "}
+                      <code className="bg-muted rounded px-1">
+                        community-script
+                      </code>
+                    </li>
+                    <li>Adds matching entries to the installed scripts list</li>
+                  </ul>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-foreground block text-sm font-medium">
-                  Select Server *
+                  Select Server <span className="text-error">*</span>
                 </label>
                 <select
                   value={autoDetectServerId}
                   onChange={(e) => setAutoDetectServerId(e.target.value)}
-                  className="border-input bg-background text-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
+                  className="border-input bg-background text-foreground focus:ring-ring focus:border-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-80"
                 >
-                  <option value="">Choose a server...</option>
+                  <option value="">Choose a server…</option>
                   {serversData?.servers?.map((server: any) => (
                     <option key={server.id} value={server.id}>
                       {server.name} ({server.ip})
@@ -1829,12 +1827,11 @@ export function InstalledScriptsTab() {
                 </select>
               </div>
             </div>
-            <div className="mt-4 flex flex-col justify-end gap-3 sm:mt-6 sm:flex-row">
+            <div className="mt-4 flex justify-end gap-2">
               <Button
                 onClick={handleCancelAutoDetect}
                 variant="outline"
-                size="default"
-                className="w-full sm:w-auto"
+                size="sm"
               >
                 Cancel
               </Button>
@@ -1842,36 +1839,42 @@ export function InstalledScriptsTab() {
                 onClick={handleAutoDetect}
                 disabled={autoDetectMutation.isPending ?? !autoDetectServerId}
                 variant="default"
-                size="default"
-                className="w-full sm:w-auto"
+                size="sm"
+                className="gap-2"
               >
+                <ScanSearch className="h-4 w-4" />
                 {autoDetectMutation.isPending
-                  ? "🔍 Scanning..."
-                  : "🔍 Start Auto-Detection"}
+                  ? "Scanning…"
+                  : "Start Auto-Detection"}
               </Button>
             </div>
           </div>
         )}
 
         {/* Filters */}
-        <InstalledScriptsFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          serverFilter={serverFilter}
-          onServerFilterChange={setServerFilter}
-          uniqueServers={uniqueServers}
-        />
+        <div className="border-border rounded-lg border p-4">
+          <InstalledScriptsFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            serverFilter={serverFilter}
+            onServerFilterChange={setServerFilter}
+            uniqueServers={uniqueServers}
+          />
+        </div>
       </div>
 
       {/* Scripts Display - Mobile Cards / Desktop Table */}
-      <div className="bg-card overflow-hidden rounded-lg shadow">
+      <div className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
         {filteredScripts.length === 0 ? (
-          <div className="text-muted-foreground py-8 text-center">
-            {scripts.length === 0
-              ? "No installed scripts found."
-              : "No scripts match your filters."}
+          <div className="flex flex-col items-center justify-center gap-3 py-16">
+            <FolderX className="text-muted-foreground/40 h-12 w-12" />
+            <p className="text-muted-foreground text-sm">
+              {scripts.length === 0
+                ? "No installed scripts yet."
+                : "No scripts match your filters."}
+            </p>
           </div>
         ) : (
           <>
@@ -1909,33 +1912,37 @@ export function InstalledScriptsTab() {
 
             {/* Desktop Table Layout */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-muted">
+              <table className="min-w-full">
+                <thead className="border-border bg-muted/50 border-b">
                   <tr>
                     <th
                       className="text-muted-foreground hover:bg-muted/80 cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider uppercase select-none"
                       onClick={() => handleSort("script_name")}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>Script Name</span>
-                        {sortField === "script_name" && (
-                          <span className="text-primary">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
+                        {sortField === "script_name" ? (
+                          sortDirection === "asc" ? (
+                            <ChevronUp className="text-primary h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="text-primary h-3.5 w-3.5" />
+                          )
+                        ) : null}
                       </div>
                     </th>
                     <th
                       className="text-muted-foreground hover:bg-muted/80 cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider uppercase select-none"
                       onClick={() => handleSort("container_id")}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>Container ID</span>
-                        {sortField === "container_id" && (
-                          <span className="text-primary">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
+                        {sortField === "container_id" ? (
+                          sortDirection === "asc" ? (
+                            <ChevronUp className="text-primary h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="text-primary h-3.5 w-3.5" />
+                          )
+                        ) : null}
                       </div>
                     </th>
                     <th className="text-muted-foreground px-6 py-3 text-left text-xs font-medium tracking-wider uppercase">
@@ -1945,39 +1952,45 @@ export function InstalledScriptsTab() {
                       className="text-muted-foreground hover:bg-muted/80 cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider uppercase select-none"
                       onClick={() => handleSort("server_name")}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>Server</span>
-                        {sortField === "server_name" && (
-                          <span className="text-primary">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
+                        {sortField === "server_name" ? (
+                          sortDirection === "asc" ? (
+                            <ChevronUp className="text-primary h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="text-primary h-3.5 w-3.5" />
+                          )
+                        ) : null}
                       </div>
                     </th>
                     <th
                       className="text-muted-foreground hover:bg-muted/80 cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider uppercase select-none"
                       onClick={() => handleSort("status")}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>Status</span>
-                        {sortField === "status" && (
-                          <span className="text-primary">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
+                        {sortField === "status" ? (
+                          sortDirection === "asc" ? (
+                            <ChevronUp className="text-primary h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="text-primary h-3.5 w-3.5" />
+                          )
+                        ) : null}
                       </div>
                     </th>
                     <th
                       className="text-muted-foreground hover:bg-muted/80 cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider uppercase select-none"
                       onClick={() => handleSort("installation_date")}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>Installation Date</span>
-                        {sortField === "installation_date" && (
-                          <span className="text-primary">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>
-                        )}
+                        {sortField === "installation_date" ? (
+                          sortDirection === "asc" ? (
+                            <ChevronUp className="text-primary h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="text-primary h-3.5 w-3.5" />
+                          )
+                        ) : null}
                       </div>
                     </th>
                     <th className="text-muted-foreground px-6 py-3 text-left text-xs font-medium tracking-wider uppercase">
@@ -1985,7 +1998,7 @@ export function InstalledScriptsTab() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-card divide-y divide-gray-200">
+                <tbody className="bg-card divide-border divide-y">
                   {filteredScripts.map((script) => (
                     <tr
                       key={script.id}
