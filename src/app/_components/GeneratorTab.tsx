@@ -515,7 +515,9 @@ export function GeneratorTab() {
       server: selectedServer ?? undefined,
     });
     setTimeout(() => {
-    }, [
+      terminalRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }, [
     selectedScript,
     selectedServer,
     cpu,
