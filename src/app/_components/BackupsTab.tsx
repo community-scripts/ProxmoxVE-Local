@@ -14,6 +14,7 @@ import {
   CheckCircle,
   AlertCircle,
   Plus,
+  ArrowLeft,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,6 +24,8 @@ import {
 } from "./ui/dropdown-menu";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { LoadingModal } from "./LoadingModal";
+import { useShell } from "./ShellContext";
+import type { Server as ServerType } from "~/types/server";
 
 interface Backup {
   id: number;
@@ -48,6 +51,8 @@ export function BackupsTab() {
   const [expandedContainers, setExpandedContainers] = useState<Set<string>>(
     new Set(),
   );
+  const shell = useShell();
+  const [servers, setServers] = useState<ServerType[]>([]);
   const [hasAutoDiscovered, setHasAutoDiscovered] = useState(false);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<{
@@ -59,16 +64,15 @@ export function BackupsTab() {
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [shouldPollRestore, setShouldPollRestore] = useState(false);
 
-  // Create-backup state
-  const [createBackupTarget, setCreateBackupTarget] = useState<{
-    containerId: string;
-    serverId: number;
+  // Create-backup dialog state
+  // mode "existing": opened from container row (serverId + containerId pre-filled, just pick storage)
+  // mode "new":      opened from header button (pick server → container → storage)
+  const [createDialog, setCreateDialog] = useState<{
+    mode: "existing" | "new";
+    serverId: number | null;
+    containerId: string | null;
   } | null>(null);
-  const [selectedBackupStorage, setSelectedBackupStorage] = useState("");
-  const [createBackupSuccess, setCreateBackupSuccess] = useState(false);
-  const [createBackupError, setCreateBackupError] = useState<string | null>(
-    null,
-  );
+  const [selectedStorage, setSelectedStorage] = useState("");
 
   const {
     data: backupsData,
@@ -81,29 +85,26 @@ export function BackupsTab() {
     },
   });
 
-  // Storages for create-backup modal (lazy: only fetches when a target is selected)
-  const backupStoragesQuery = api.installedScripts.getBackupStorages.useQuery(
-    { serverId: createBackupTarget?.serverId ?? 0 },
-    { enabled: (createBackupTarget?.serverId ?? 0) > 0 },
+  // Storages for create-backup dialog
+  const storagesQuery = api.installedScripts.getBackupStorages.useQuery(
+    { serverId: createDialog?.serverId ?? 0 },
+    {
+      enabled:
+        (createDialog?.serverId ?? 0) > 0 &&
+        createDialog?.containerId != null,
+    },
   );
 
-  const createBackupMutation = api.backups.createBackup.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        setCreateBackupTarget(null);
-        setCreateBackupSuccess(true);
-        setCreateBackupError(null);
-        void refetchBackups();
-      } else {
-        setCreateBackupTarget(null);
-        setCreateBackupError(data.error ?? "Backup failed");
-      }
+  // Containers for new-backup dialog (when server is picked but container isn't yet)
+  const containersQuery = api.installedScripts.listContainersOnServer.useQuery(
+    { serverId: createDialog?.serverId ?? 0 },
+    {
+      enabled:
+        createDialog?.mode === "new" &&
+        (createDialog?.serverId ?? 0) > 0 &&
+        createDialog?.containerId == null,
     },
-    onError: (error) => {
-      setCreateBackupTarget(null);
-      setCreateBackupError(error.message ?? "Backup failed");
-    },
-  });
+  );
 
   // Poll for restore progress
   const { data: restoreLogsData } = api.backups.getRestoreProgress.useQuery(
@@ -190,6 +191,14 @@ export function BackupsTab() {
       ? restoreProgress[restoreProgress.length - 1]
       : "Restoring backup...";
 
+  // Load servers for the create-backup dialog
+  useEffect(() => {
+    fetch("/api/servers")
+      .then((r) => r.json())
+      .then((data: ServerType[]) => setServers(data))
+      .catch(() => {/* ignore */});
+  }, []);
+
   // Auto-discover backups when tab is first opened
   useEffect(() => {
     if (!hasAutoDiscovered && !isLoading && backupsData) {
@@ -206,19 +215,24 @@ export function BackupsTab() {
   };
 
   const handleOpenCreateBackup = (containerId: string, serverId: number) => {
-    setCreateBackupTarget({ containerId, serverId });
-    setSelectedBackupStorage("");
-    setCreateBackupError(null);
-    setCreateBackupSuccess(false);
+    setCreateDialog({ mode: "existing", serverId, containerId });
+    setSelectedStorage("");
   };
 
   const handleStartBackup = () => {
-    if (!createBackupTarget || !selectedBackupStorage) return;
-    createBackupMutation.mutate({
-      serverId: createBackupTarget.serverId,
-      containerId: createBackupTarget.containerId,
-      storage: selectedBackupStorage,
+    if (!createDialog?.containerId || !createDialog?.serverId || !selectedStorage)
+      return;
+    const server = servers.find((s) => s.id === createDialog.serverId);
+    if (!server) return;
+    shell.open({
+      containerId: createDialog.containerId,
+      server,
+      containerType: "lxc",
+      backupStorage: selectedStorage,
+      onComplete: () => void refetchBackups(),
     });
+    setCreateDialog(null);
+    setSelectedStorage("");
   };
 
   const handleRestoreClick = (backup: Backup, containerId: string) => {
@@ -305,16 +319,29 @@ export function BackupsTab() {
             Discovered backups grouped by container ID
           </p>
         </div>
-        <Button
-          onClick={handleDiscoverBackups}
-          disabled={isDiscovering}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isDiscovering ? "animate-spin" : ""}`}
-          />
-          {isDiscovering ? "Discovering..." : "Discover Backups"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreateDialog({ mode: "new", serverId: null, containerId: null });
+              setSelectedStorage("");
+            }}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            New Backup
+          </Button>
+          <Button
+            onClick={handleDiscoverBackups}
+            disabled={isDiscovering}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isDiscovering ? "animate-spin" : ""}`}
+            />
+            {isDiscovering ? "Discovering..." : "Discover Backups"}
+          </Button>
+        </div>
       </div>
 
       {/* Loading state */}
@@ -617,133 +644,194 @@ export function BackupsTab() {
         </div>
       )}
 
-      {/* ── Create Backup: Storage Selection Modal ── */}
-      {createBackupTarget && !createBackupMutation.isPending && (
+      {/* ── Create Backup Dialog (unified: existing container or new) ── */}
+      {createDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-card border-border w-full max-w-md rounded-xl border shadow-2xl">
+            {/* Header */}
             <div className="border-border border-b p-5">
-              <h3 className="text-foreground text-lg font-semibold">
-                Create Backup
-              </h3>
-              <p className="text-muted-foreground mt-1 text-sm">
-                CT {createBackupTarget.containerId} — select a backup storage
-              </p>
-            </div>
-            <div className="p-5">
-              {backupStoragesQuery.isLoading ? (
-                <div className="flex items-center gap-2 py-4">
-                  <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                  <span className="text-muted-foreground text-sm">
-                    Loading storages…
-                  </span>
+              <div className="flex items-center gap-2">
+                {createDialog.mode === "new" &&
+                  (createDialog.serverId != null) && (
+                    <button
+                      onClick={() =>
+                        setCreateDialog((d) =>
+                          d
+                            ? d.containerId != null
+                              ? { ...d, containerId: null }
+                              : { ...d, serverId: null }
+                            : null,
+                        )
+                      }
+                      className="text-muted-foreground hover:text-foreground mr-1"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                  )}
+                <div>
+                  <h3 className="text-foreground text-lg font-semibold">
+                    {createDialog.mode === "existing"
+                      ? "Create Backup"
+                      : createDialog.serverId == null
+                        ? "New Backup — Select Server"
+                        : createDialog.containerId == null
+                          ? "New Backup — Select Container"
+                          : "New Backup — Select Storage"}
+                  </h3>
+                  {createDialog.mode === "existing" &&
+                    createDialog.containerId && (
+                      <p className="text-muted-foreground mt-1 text-sm">
+                        CT {createDialog.containerId} — select a backup storage
+                      </p>
+                    )}
                 </div>
-              ) : (
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5">
+              {/* Step: Server selection (new mode only) */}
+              {createDialog.mode === "new" && createDialog.serverId == null && (
                 <div className="space-y-2">
-                  {(
-                    backupStoragesQuery.data?.storages?.filter(
-                      (s) => s.supportsBackup,
-                    ) ?? []
-                  ).length === 0 ? (
+                  {servers.length === 0 ? (
                     <p className="text-muted-foreground py-4 text-center text-sm">
-                      No backup-capable storages found on this server.
+                      No servers configured.
                     </p>
                   ) : (
-                    backupStoragesQuery.data?.storages
-                      ?.filter((s) => s.supportsBackup)
-                      .map((storage) => (
+                    servers.map((srv) => (
+                      <button
+                        key={srv.id}
+                        onClick={() =>
+                          setCreateDialog((d) =>
+                            d ? { ...d, serverId: srv.id } : null,
+                          )
+                        }
+                        className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
+                      >
+                        <span className="font-medium">{srv.name}</span>
+                        <span className="ml-2 text-xs opacity-60">
+                          {srv.host}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Step: Container selection (new mode only) */}
+              {createDialog.mode === "new" &&
+                createDialog.serverId != null &&
+                createDialog.containerId == null && (
+                  <div className="space-y-2">
+                    {containersQuery.isLoading ? (
+                      <div className="flex items-center gap-2 py-4">
+                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                        <span className="text-muted-foreground text-sm">
+                          Loading containers…
+                        </span>
+                      </div>
+                    ) : (containersQuery.data?.containers ?? []).length ===
+                      0 ? (
+                      <p className="text-muted-foreground py-4 text-center text-sm">
+                        No containers found on this server.
+                      </p>
+                    ) : (
+                      containersQuery.data?.containers?.map((ct) => (
                         <button
-                          key={storage.name}
-                          onClick={() => setSelectedBackupStorage(storage.name)}
-                          className={[
-                            "w-full rounded-lg border px-4 py-3 text-left transition-colors",
-                            selectedBackupStorage === storage.name
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground",
-                          ].join(" ")}
+                          key={ct.vmid}
+                          onClick={() => {
+                            setCreateDialog((d) =>
+                              d
+                                ? {
+                                    ...d,
+                                    containerId: String(ct.vmid),
+                                  }
+                                : null,
+                            );
+                            setSelectedStorage("");
+                          }}
+                          className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
                         >
-                          <span className="font-medium">{storage.name}</span>
-                          <span className="ml-2 text-xs opacity-60">
-                            {storage.type}
+                          <span className="font-medium">
+                            CT {ct.vmid}
                           </span>
+                          {ct.name && (
+                            <span className="ml-2 text-xs opacity-60">
+                              {ct.name}
+                            </span>
+                          )}
                         </button>
                       ))
+                    )}
+                  </div>
+                )}
+
+              {/* Step: Storage selection */}
+              {createDialog.containerId != null && (
+                <div className="space-y-2">
+                  {storagesQuery.isLoading ? (
+                    <div className="flex items-center gap-2 py-4">
+                      <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                      <span className="text-muted-foreground text-sm">
+                        Loading storages…
+                      </span>
+                    </div>
+                  ) : (
+                    (
+                      storagesQuery.data?.storages?.filter(
+                        (s) => s.supportsBackup,
+                      ) ?? []
+                    ).length === 0 ? (
+                      <p className="text-muted-foreground py-4 text-center text-sm">
+                        No backup-capable storages found on this server.
+                      </p>
+                    ) : (
+                      storagesQuery.data?.storages
+                        ?.filter((s) => s.supportsBackup)
+                        .map((storage) => (
+                          <button
+                            key={storage.name}
+                            onClick={() => setSelectedStorage(storage.name)}
+                            className={[
+                              "w-full rounded-lg border px-4 py-3 text-left transition-colors",
+                              selectedStorage === storage.name
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+                            ].join(" ")}
+                          >
+                            <span className="font-medium">{storage.name}</span>
+                            <span className="ml-2 text-xs opacity-60">
+                              {storage.type}
+                            </span>
+                          </button>
+                        ))
+                    )
                   )}
                 </div>
               )}
             </div>
+
+            {/* Footer */}
             <div className="border-border flex justify-end gap-3 border-t p-4">
               <Button
                 variant="outline"
-                onClick={() => setCreateBackupTarget(null)}
+                onClick={() => {
+                  setCreateDialog(null);
+                  setSelectedStorage("");
+                }}
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleStartBackup}
-                disabled={
-                  !selectedBackupStorage || backupStoragesQuery.isLoading
-                }
-              >
-                Start Backup
-              </Button>
+              {createDialog.containerId != null && (
+                <Button
+                  onClick={handleStartBackup}
+                  disabled={!selectedStorage || storagesQuery.isLoading}
+                >
+                  Start Backup
+                </Button>
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ── Create Backup: Progress Modal ── */}
-      {createBackupMutation.isPending && (
-        <LoadingModal
-          isOpen={true}
-          action="Creating backup via vzdump… this may take several minutes."
-          title="Creating Backup"
-        />
-      )}
-
-      {/* ── Create Backup: Success Banner ── */}
-      {createBackupSuccess && (
-        <div className="bg-success/10 border-success/20 rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="text-success h-5 w-5" />
-              <span className="text-success font-medium">
-                Backup completed successfully
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCreateBackupSuccess(false)}
-              className="h-6 w-6 p-0"
-            >
-              ×
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Create Backup: Error Banner ── */}
-      {createBackupError && (
-        <div className="bg-destructive/10 border-destructive/30 rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="text-destructive h-5 w-5" />
-              <span className="text-destructive font-medium">
-                Backup failed
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCreateBackupError(null)}
-              className="h-6 w-6 p-0"
-            >
-              ×
-            </Button>
-          </div>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {createBackupError}
-          </p>
         </div>
       )}
     </div>

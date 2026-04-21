@@ -16,6 +16,12 @@ export interface ShellSession {
   containerName?: string;
   server?: Server;
   containerType: "lxc" | "vm";
+  /** If set, the floating shell runs this backup instead of an interactive shell. */
+  backupStorage?: string;
+  /** Custom title shown in the floating shell header. */
+  title?: string;
+  /** Callback fired when the terminal closes (e.g. to trigger re-discovery). */
+  onComplete?: () => void;
 }
 
 interface ShellContextValue {

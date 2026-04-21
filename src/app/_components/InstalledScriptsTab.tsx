@@ -449,21 +449,12 @@ export function InstalledScriptsTab() {
       if (result.data?.success) {
         setBackupStorages(result.data.storages);
       } else {
-        setErrorModal({
-          isOpen: true,
-          title: "Failed to Fetch Storages",
-          message: result.data?.error ?? "Unknown error occurred",
-          type: "error",
-        });
+        // Let StorageSelectionModal's empty state handle the "no storages" case
+        setBackupStorages([]);
       }
-    } catch (error) {
-      setErrorModal({
-        isOpen: true,
-        title: "Failed to Fetch Storages",
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
-        type: "error",
-      });
+    } catch {
+      // Let StorageSelectionModal handle the empty state
+      setBackupStorages([]);
     } finally {
       setIsLoadingStorages(false);
     }

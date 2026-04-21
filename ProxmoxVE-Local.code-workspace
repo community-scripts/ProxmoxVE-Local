@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../ProxmoxVE-Frontend"
+		}
+	],
+	"settings": {
+		"WillLuke.nextjs.hasPrompted": true
+	}
+}
