@@ -125,15 +125,11 @@ export function GeneratorTab() {
   // Servers for execution target
   const [servers, setServers] = useState<Server[]>([]);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null); // null = local
-  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(
+    null,
+  );
   const [selectedContainerIsVm, setSelectedContainerIsVm] = useState(false);
   const [serversLoading, setServersLoading] = useState(false);
-
-  // Reset container selection when server or script changes
-  useEffect(() => {
-    setSelectedContainerId(null);
-    setSelectedContainerIsVm(false);
-  }, [selectedServer?.id, selectedSlug]);
 
   useEffect(() => {
     setServersLoading(true);
@@ -195,6 +191,13 @@ export function GeneratorTab() {
 
   // Script selection
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+
+  // Reset container selection when server or script changes
+  useEffect(() => {
+    setSelectedContainerId(null);
+    setSelectedContainerIsVm(false);
+  }, [selectedServer?.id, selectedSlug]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -1216,7 +1219,7 @@ export function GeneratorTab() {
                                 selectedContainerId === c.id
                                   ? "border-primary bg-primary/10 text-primary"
                                   : c.pinned
-                                    ? "border-amber-500/50 text-amber-600 dark:text-amber-400 hover:border-amber-500"
+                                    ? "border-amber-500/50 text-amber-600 hover:border-amber-500 dark:text-amber-400"
                                     : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
                               }`}
                             >
