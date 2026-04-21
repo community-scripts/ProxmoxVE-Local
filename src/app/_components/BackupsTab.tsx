@@ -90,8 +90,7 @@ export function BackupsTab() {
     { serverId: createDialog?.serverId ?? 0 },
     {
       enabled:
-        (createDialog?.serverId ?? 0) > 0 &&
-        createDialog?.containerId != null,
+        (createDialog?.serverId ?? 0) > 0 && createDialog?.containerId != null,
     },
   );
 
@@ -196,7 +195,9 @@ export function BackupsTab() {
     fetch("/api/servers")
       .then((r) => r.json())
       .then((data: ServerType[]) => setServers(data))
-      .catch(() => {/* ignore */});
+      .catch(() => {
+        /* ignore */
+      });
   }, []);
 
   // Auto-discover backups when tab is first opened
@@ -220,7 +221,11 @@ export function BackupsTab() {
   };
 
   const handleStartBackup = () => {
-    if (!createDialog?.containerId || !createDialog?.serverId || !selectedStorage)
+    if (
+      !createDialog?.containerId ||
+      !createDialog?.serverId ||
+      !selectedStorage
+    )
       return;
     const server = servers.find((s) => s.id === createDialog.serverId);
     if (!server) return;
@@ -323,7 +328,11 @@ export function BackupsTab() {
           <Button
             variant="outline"
             onClick={() => {
-              setCreateDialog({ mode: "new", serverId: null, containerId: null });
+              setCreateDialog({
+                mode: "new",
+                serverId: null,
+                containerId: null,
+              });
               setSelectedStorage("");
             }}
             className="flex items-center gap-2"
@@ -652,7 +661,7 @@ export function BackupsTab() {
             <div className="border-border border-b p-5">
               <div className="flex items-center gap-2">
                 {createDialog.mode === "new" &&
-                  (createDialog.serverId != null) && (
+                  createDialog.serverId != null && (
                     <button
                       onClick={() =>
                         setCreateDialog((d) =>
@@ -710,7 +719,7 @@ export function BackupsTab() {
                       >
                         <span className="font-medium">{srv.name}</span>
                         <span className="ml-2 text-xs opacity-60">
-                          {srv.host}
+                          {srv.ip}
                         </span>
                       </button>
                     ))
@@ -752,9 +761,7 @@ export function BackupsTab() {
                           }}
                           className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
                         >
-                          <span className="font-medium">
-                            CT {ct.vmid}
-                          </span>
+                          <span className="font-medium">CT {ct.vmid}</span>
                           {ct.name && (
                             <span className="ml-2 text-xs opacity-60">
                               {ct.name}
@@ -777,35 +784,33 @@ export function BackupsTab() {
                       </span>
                     </div>
                   ) : (
-                    (
                       storagesQuery.data?.storages?.filter(
                         (s) => s.supportsBackup,
                       ) ?? []
                     ).length === 0 ? (
-                      <p className="text-muted-foreground py-4 text-center text-sm">
-                        No backup-capable storages found on this server.
-                      </p>
-                    ) : (
-                      storagesQuery.data?.storages
-                        ?.filter((s) => s.supportsBackup)
-                        .map((storage) => (
-                          <button
-                            key={storage.name}
-                            onClick={() => setSelectedStorage(storage.name)}
-                            className={[
-                              "w-full rounded-lg border px-4 py-3 text-left transition-colors",
-                              selectedStorage === storage.name
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground",
-                            ].join(" ")}
-                          >
-                            <span className="font-medium">{storage.name}</span>
-                            <span className="ml-2 text-xs opacity-60">
-                              {storage.type}
-                            </span>
-                          </button>
-                        ))
-                    )
+                    <p className="text-muted-foreground py-4 text-center text-sm">
+                      No backup-capable storages found on this server.
+                    </p>
+                  ) : (
+                    storagesQuery.data?.storages
+                      ?.filter((s) => s.supportsBackup)
+                      .map((storage) => (
+                        <button
+                          key={storage.name}
+                          onClick={() => setSelectedStorage(storage.name)}
+                          className={[
+                            "w-full rounded-lg border px-4 py-3 text-left transition-colors",
+                            selectedStorage === storage.name
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+                          ].join(" ")}
+                        >
+                          <span className="font-medium">{storage.name}</span>
+                          <span className="ml-2 text-xs opacity-60">
+                            {storage.type}
+                          </span>
+                        </button>
+                      ))
                   )}
                 </div>
               )}
