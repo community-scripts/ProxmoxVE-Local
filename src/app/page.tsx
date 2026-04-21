@@ -69,6 +69,7 @@ function TabSkeleton() {
 }
 
 function Home() {
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<
     "scripts" | "downloaded" | "installed" | "backups" | "generator"
   >(() => {

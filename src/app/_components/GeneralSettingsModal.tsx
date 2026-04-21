@@ -94,6 +94,9 @@ export function GeneralSettingsModal({
   const [aptProxyEnabled, setAptProxyEnabled] = useState(false);
   const [aptProxyIp, setAptProxyIp] = useState("");
 
+  // Prerelease channel state
+  const [allowPrerelease, setAllowPrerelease] = useState(false);
+
   // Repository management state
   const [newRepoUrl, setNewRepoUrl] = useState("");
   const [newRepoEnabled, setNewRepoEnabled] = useState(true);
@@ -119,8 +122,37 @@ export function GeneralSettingsModal({
       void loadColorCodingSetting();
       void loadAutoSyncSettings();
       void loadAptProxySettings();
+      void loadPrereleaseSettings();
     }
   }, [isOpen]);
+
+  const loadPrereleaseSettings = async () => {
+    try {
+      const response = await fetch("/api/settings/prerelease");
+      if (response.ok) {
+        const data = (await response.json()) as { enabled: boolean };
+        setAllowPrerelease(data.enabled ?? false);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const savePrereleaseSettings = async (enabled: boolean) => {
+    try {
+      await fetch("/api/settings/prerelease", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      setAllowPrerelease(enabled);
+      setMessage({ type: "success", text: "Update channel saved" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: "error", text: "Failed to save update channel" });
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
   const loadAptProxySettings = async () => {
     try {
@@ -901,6 +933,24 @@ export function GeneralSettingsModal({
                         </Button>
                       </div>
                     )}
+                  </div>
+
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-2 font-medium">
+                      Update Channel
+                    </h4>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      When enabled, the updater will also consider pre-release
+                      versions (e.g. <code>v1.0.0-pre3</code>). Useful for
+                      testing new features early.
+                    </p>
+                    <Toggle
+                      checked={allowPrerelease}
+                      onCheckedChange={(checked) =>
+                        void savePrereleaseSettings(checked)
+                      }
+                      label="Include pre-releases when checking for updates"
+                    />
                   </div>
                 </div>
               </div>

@@ -37,6 +37,8 @@ export const env = createEnv({
     JWT_SECRET: z.string().optional(),
     // Server Color Coding Configuration
     SERVER_COLOR_CODING_ENABLED: z.string().optional(),
+    // Update Channel
+    ALLOW_PRERELEASE: z.string().optional(),
   },
 
   /**
@@ -79,6 +81,8 @@ export const env = createEnv({
     JWT_SECRET: process.env.JWT_SECRET,
     // Server Color Coding Configuration
     SERVER_COLOR_CODING_ENABLED: process.env.SERVER_COLOR_CODING_ENABLED,
+    // Update Channel
+    ALLOW_PRERELEASE: process.env.ALLOW_PRERELEASE,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

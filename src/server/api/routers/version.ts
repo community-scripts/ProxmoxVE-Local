@@ -12,6 +12,7 @@ interface GitHubRelease {
   published_at: string;
   html_url: string;
   body: string;
+  prerelease: boolean;
 }
 
 // Helper function to fetch from GitHub API with optional authentication
@@ -53,13 +54,21 @@ export const versionRouter = createTRPCRouter({
   getLatestRelease: publicProcedure
     .query(async () => {
       try {
-        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
-        
-        if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
+        const allowPrerelease = env.ALLOW_PRERELEASE === 'true';
+        let release: GitHubRelease;
+
+        if (allowPrerelease) {
+          const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases');
+          if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+          const releases: GitHubRelease[] = await response.json();
+          const sorted = releases.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+          if (!sorted[0]) throw new Error('No releases found');
+          release = sorted[0];
+        } else {
+          const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+          if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+          release = await response.json();
         }
-        
-        const release: GitHubRelease = await response.json();
         
         return {
           success: true,
@@ -84,18 +93,24 @@ export const versionRouter = createTRPCRouter({
   getVersionStatus: publicProcedure
     .query(async () => {
       try {
-
         const versionPath = join(process.cwd(), 'VERSION');
         const currentVersion = (await readFile(versionPath, 'utf-8')).trim();
-        
 
-        const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
-        
-        if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
+        const allowPrerelease = env.ALLOW_PRERELEASE === 'true';
+        let release: GitHubRelease;
+
+        if (allowPrerelease) {
+          const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases');
+          if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+          const releases: GitHubRelease[] = await response.json();
+          const sorted = releases.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+          if (!sorted[0]) throw new Error('No releases found');
+          release = sorted[0];
+        } else {
+          const response = await fetchGitHubAPI('https://api.github.com/repos/community-scripts/ProxmoxVE-Local/releases/latest');
+          if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+          release = await response.json();
         }
-        
-        const release: GitHubRelease = await response.json();
         const latestVersion = release.tag_name.replace('v', ''); 
         
 
