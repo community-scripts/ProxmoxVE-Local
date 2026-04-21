@@ -466,12 +466,12 @@ export function InstalledScriptsTab() {
         setControllingScriptId(null);
 
         if (data.success) {
-          // Update container status immediately in UI for instant feedback
-          const newStatus =
-            variables.action === "start" ? "running" : "stopped";
+          // Restart/reboot → container goes back to running; start → running; stop → stopped
+          const newStatus: "running" | "stopped" =
+            variables.action === "stop" ? "stopped" : "running";
+
           setContainerStatuses((prev) => {
             const newMap = new Map(prev);
-            // Find the script ID for this container using the container ID from the response
             const currentScripts = scriptsRef.current;
             const script = currentScripts.find(
               (s) => s.container_id === data.containerId,
@@ -482,22 +482,25 @@ export function InstalledScriptsTab() {
             return newMap;
           });
 
-          // Show success modal
+          const actionLabel =
+            variables.action === "start"
+              ? "Started"
+              : variables.action === "stop"
+                ? "Stopped"
+                : variables.action === "restart"
+                  ? "Restarted"
+                  : "Rebooted";
+
           setErrorModal({
             isOpen: true,
-            title: `Container ${variables.action === "start" ? "Started" : "Stopped"}`,
+            title: `Container ${actionLabel}`,
             message:
               data.message ??
-              `Container has been ${variables.action === "start" ? "started" : "stopped"} successfully.`,
+              `Container has been ${actionLabel.toLowerCase()} successfully.`,
             details: undefined,
             type: "success",
           });
-
-          // Re-fetch status for all containers using bulk method (in background)
-          // Trigger status check by updating scripts length dependency
-          // This will be handled by the useEffect that watches scripts.length
         } else {
-          // Show error message from backend
           const errorMessage = data.error ?? "Unknown error occurred";
           setErrorModal({
             isOpen: true,
@@ -835,6 +838,38 @@ export function InstalledScriptsTab() {
         setLoadingModal({
           isOpen: true,
           action: `${action === "start" ? "Starting" : "Stopping"} ${containerType}...`,
+        });
+        void controlContainerMutation.mutate({ id: script.id, action });
+        setConfirmationModal(null);
+      },
+    });
+  };
+
+  const handleRestart = (script: InstalledScript) => {
+    if (!script.container_id) {
+      setErrorModal({
+        isOpen: true,
+        title: "No Container ID",
+        message: "No Container ID available for this script",
+      });
+      return;
+    }
+
+    const containerType = script.is_vm ? "VM" : "LXC";
+    // VMs use qm reboot (graceful), LXC use pct restart
+    const action = script.is_vm ? ("reboot" as const) : ("restart" as const);
+    const label = script.is_vm ? "Reboot" : "Restart";
+
+    setConfirmationModal({
+      isOpen: true,
+      variant: "simple",
+      title: `${label} Container`,
+      message: `Are you sure you want to ${label.toLowerCase()} container ${script.container_id} (${script.script_name})?`,
+      onConfirm: () => {
+        setControllingScriptId(script.id);
+        setLoadingModal({
+          isOpen: true,
+          action: `${label}ing ${containerType}...`,
         });
         void controlContainerMutation.mutate({ id: script.id, action });
         setConfirmationModal(null);
@@ -2368,6 +2403,25 @@ export function InstalledScriptsTab() {
                                               ? "Stop"
                                               : "Start"}
                                         </DropdownMenuItem>
+                                        {/* Restart / Reboot — only available when running */}
+                                        {(containerStatuses.get(script.id) ??
+                                          "unknown") === "running" && (
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              handleRestart(script)
+                                            }
+                                            disabled={
+                                              controllingScriptId === script.id
+                                            }
+                                            className="text-warning hover:text-warning-foreground hover:bg-warning/20 focus:bg-warning/20"
+                                          >
+                                            {controllingScriptId === script.id
+                                              ? "Working..."
+                                              : script.is_vm
+                                                ? "Reboot"
+                                                : "Restart"}
+                                          </DropdownMenuItem>
+                                        )}
                                         <DropdownMenuItem
                                           onClick={() => handleDestroy(script)}
                                           disabled={

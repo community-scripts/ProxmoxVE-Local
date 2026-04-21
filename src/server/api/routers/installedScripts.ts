@@ -1230,13 +1230,26 @@ export const installedScriptsRouter = createTRPCRouter({
         const sshExecutionService = new SSHExecutionService();
 
         const deletedScripts: string[] = [];
-        const scriptsToCheck = allScripts.filter((script: any) => 
+
+        // --- Pass 1: Remove records whose server no longer exists (any mode) ---
+        const serverIds = new Set(allServers.map((s: any) => Number(s.id)));
+        for (const script of allScripts) {
+          const scriptData = script as any;
+          if (scriptData.server_id && !serverIds.has(Number(scriptData.server_id))) {
+            await db.deleteInstalledScript(Number(scriptData.id));
+            deletedScripts.push(String(scriptData.script_name));
+          }
+        }
+
+        // Re-fetch after deletions so we don't double-process
+        const remainingScripts = (await db.getAllInstalledScripts()) as any[];
+
+        // --- Pass 2: SSH scripts whose container_id no longer exists on the server ---
+        const scriptsToCheck = remainingScripts.filter((script: any) => 
           script.execution_mode === 'ssh' && 
           script.server_id && 
           script.container_id
         );
-
-
         // Group scripts by server to batch check containers
         const scriptsByServer = new Map<number, any[]>();
         for (const script of scriptsToCheck) {
@@ -1728,7 +1741,7 @@ export const installedScriptsRouter = createTRPCRouter({
   controlContainer: publicProcedure
     .input(z.object({ 
       id: z.number(), 
-      action: z.enum(['start', 'stop']) 
+      action: z.enum(['start', 'stop', 'restart', 'reboot']) 
     }))
     .mutation(async ({ input }) => {
       try {
@@ -1780,10 +1793,22 @@ export const installedScriptsRouter = createTRPCRouter({
         // Determine if it's a VM or LXC
         const vm = await isVM(input.id, scriptData.container_id, scriptData.server_id);
         
+        // Map action to correct pct/qm sub-command
+        // pct supports: start, stop, restart
+        // qm supports:  start, stop, reset (hard reboot), reboot (graceful)
+        let subCommand: string;
+        if (input.action === 'restart') {
+          subCommand = vm ? 'reset' : 'restart';
+        } else if (input.action === 'reboot') {
+          subCommand = vm ? 'reboot' : 'restart';
+        } else {
+          subCommand = input.action; // start | stop
+        }
+        
         // Execute control command (use qm for VMs, pct for LXC)
         const controlCommand = vm
-          ? `qm ${input.action} ${scriptData.container_id}`
-          : `pct ${input.action} ${scriptData.container_id}`;
+          ? `qm ${subCommand} ${scriptData.container_id}`
+          : `pct ${subCommand} ${scriptData.container_id}`;
         let commandOutput = '';
         let commandError = '';
         
@@ -1811,8 +1836,9 @@ export const installedScriptsRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: `Container ${scriptData.container_id} ${input.action} command executed successfully`,
-          containerId: scriptData.container_id
+          message: `Container ${scriptData.container_id} ${input.action} executed successfully`,
+          containerId: scriptData.container_id,
+          action: input.action
         };
       } catch (error) {
         console.error('Error in controlContainer:', error);
