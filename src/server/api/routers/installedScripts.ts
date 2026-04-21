@@ -1242,7 +1242,22 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         // Re-fetch after deletions so we don't double-process
-        const remainingScripts = (await db.getAllInstalledScripts()) as any[];
+        const afterPass1 = (await db.getAllInstalledScripts()) as any[];
+
+        // --- Pass 1.5: SSH records with a valid server but no container_id (stuck/failed installs) ---
+        const noContainerScripts = afterPass1.filter((script: any) =>
+          script.execution_mode === 'ssh' &&
+          script.server_id &&
+          !script.container_id
+        );
+        for (const script of noContainerScripts) {
+          await db.deleteInstalledScript(Number((script as any).id));
+          deletedScripts.push(String((script as any).script_name));
+        }
+
+        const remainingScripts = noContainerScripts.length > 0
+          ? (await db.getAllInstalledScripts()) as any[]
+          : afterPass1;
 
         // --- Pass 2: SSH scripts whose container_id no longer exists on the server ---
         const scriptsToCheck = remainingScripts.filter((script: any) => 

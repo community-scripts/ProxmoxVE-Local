@@ -167,5 +167,72 @@ export const backupsRouter = createTRPCRouter({
         };
       }
     }),
+
+  // Create a new backup via vzdump
+  createBackup: publicProcedure
+    .input(z.object({
+      serverId: z.number(),
+      containerId: z.string(),
+      storage: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+
+        if (!server) {
+          return { success: false, error: 'Server not found' };
+        }
+
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = getSSHExecutionService();
+
+        // Test SSH connection first
+        const connectionTest = await sshService.testSSHConnection(server as any);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+          };
+        }
+
+        // vzdump with snapshot mode (non-disruptive) and zstd compression
+        const command = `vzdump ${input.containerId} --storage ${input.storage} --compress zstd --mode snapshot 2>&1`;
+        let output = '';
+
+        await new Promise<void>((resolve, reject) => {
+          sshExecutionService.executeCommand(
+            server as any,
+            command,
+            (data: string) => { output += data; },
+            (error: string) => { reject(new Error(error || 'vzdump failed')); },
+            (exitCode: number) => {
+              if (exitCode !== 0) {
+                reject(new Error(`vzdump failed (exit ${exitCode}): ${output.trim()}`));
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
+
+        // Trigger background re-discovery so the new backup appears immediately
+        const backupService = getBackupService();
+        void backupService.discoverAllBackups().catch(() => {/* non-critical */});
+
+        return {
+          success: true,
+          message: `Backup of container ${input.containerId} completed on storage "${input.storage}"`,
+        };
+      } catch (error) {
+        console.error('Error in createBackup:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create backup',
+        };
+      }
+    }),
 });
 

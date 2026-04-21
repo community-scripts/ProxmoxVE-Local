@@ -13,6 +13,7 @@ import {
   Server,
   CheckCircle,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -58,6 +59,17 @@ export function BackupsTab() {
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [shouldPollRestore, setShouldPollRestore] = useState(false);
 
+  // Create-backup state
+  const [createBackupTarget, setCreateBackupTarget] = useState<{
+    containerId: string;
+    serverId: number;
+  } | null>(null);
+  const [selectedBackupStorage, setSelectedBackupStorage] = useState("");
+  const [createBackupSuccess, setCreateBackupSuccess] = useState(false);
+  const [createBackupError, setCreateBackupError] = useState<string | null>(
+    null,
+  );
+
   const {
     data: backupsData,
     refetch: refetchBackups,
@@ -66,6 +78,30 @@ export function BackupsTab() {
   const discoverMutation = api.backups.discoverBackups.useMutation({
     onSuccess: () => {
       void refetchBackups();
+    },
+  });
+
+  // Storages for create-backup modal (lazy: only fetches when a target is selected)
+  const backupStoragesQuery = api.installedScripts.getBackupStorages.useQuery(
+    { serverId: createBackupTarget?.serverId ?? 0 },
+    { enabled: (createBackupTarget?.serverId ?? 0) > 0 },
+  );
+
+  const createBackupMutation = api.backups.createBackup.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setCreateBackupTarget(null);
+        setCreateBackupSuccess(true);
+        setCreateBackupError(null);
+        void refetchBackups();
+      } else {
+        setCreateBackupTarget(null);
+        setCreateBackupError(data.error ?? "Backup failed");
+      }
+    },
+    onError: (error) => {
+      setCreateBackupTarget(null);
+      setCreateBackupError(error.message ?? "Backup failed");
     },
   });
 
@@ -167,6 +203,22 @@ export function BackupsTab() {
 
   const handleDiscoverBackups = () => {
     discoverMutation.mutate();
+  };
+
+  const handleOpenCreateBackup = (containerId: string, serverId: number) => {
+    setCreateBackupTarget({ containerId, serverId });
+    setSelectedBackupStorage("");
+    setCreateBackupError(null);
+    setCreateBackupSuccess(false);
+  };
+
+  const handleStartBackup = () => {
+    if (!createBackupTarget || !selectedBackupStorage) return;
+    createBackupMutation.mutate({
+      serverId: createBackupTarget.serverId,
+      containerId: createBackupTarget.containerId,
+      storage: selectedBackupStorage,
+    });
   };
 
   const handleRestoreClick = (backup: Backup, containerId: string) => {
@@ -308,11 +360,11 @@ export function BackupsTab() {
                 className="bg-card border-border overflow-hidden rounded-lg border shadow-sm"
               >
                 {/* Container header - collapsible */}
-                <button
-                  onClick={() => toggleContainer(container.container_id)}
-                  className="hover:bg-accent/50 flex w-full items-center justify-between p-4 text-left transition-colors"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="hover:bg-accent/50 flex w-full items-center justify-between p-4 transition-colors">
+                  <button
+                    onClick={() => toggleContainer(container.container_id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
                     {isExpanded ? (
                       <ChevronDown className="text-muted-foreground h-5 w-5 flex-shrink-0" />
                     ) : (
@@ -336,8 +388,26 @@ export function BackupsTab() {
                         {backupCount} {backupCount === 1 ? "backup" : "backups"}
                       </p>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  {/* Create Backup button — only shown when server is known */}
+                  {(container.backups[0]?.server_id ?? 0) > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenCreateBackup(
+                          container.container_id,
+                          container.backups[0]!.server_id!,
+                        );
+                      }}
+                      className="ml-3 flex-shrink-0 gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Backup
+                    </Button>
+                  )}
+                </div>
 
                 {/* Container content - backups list */}
                 {isExpanded && (
@@ -544,6 +614,134 @@ export function BackupsTab() {
           >
             Dismiss
           </Button>
+        </div>
+      )}
+
+      {/* ── Create Backup: Storage Selection Modal ── */}
+      {createBackupTarget && !createBackupMutation.isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card border-border w-full max-w-md rounded-xl border shadow-2xl">
+            <div className="border-border border-b p-5">
+              <h3 className="text-foreground text-lg font-semibold">
+                Create Backup
+              </h3>
+              <p className="text-muted-foreground mt-1 text-sm">
+                CT {createBackupTarget.containerId} — select a backup storage
+              </p>
+            </div>
+            <div className="p-5">
+              {backupStoragesQuery.isLoading ? (
+                <div className="flex items-center gap-2 py-4">
+                  <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                  <span className="text-muted-foreground text-sm">
+                    Loading storages…
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(
+                    backupStoragesQuery.data?.storages?.filter(
+                      (s) => s.supportsBackup,
+                    ) ?? []
+                  ).length === 0 ? (
+                    <p className="text-muted-foreground py-4 text-center text-sm">
+                      No backup-capable storages found on this server.
+                    </p>
+                  ) : (
+                    backupStoragesQuery.data?.storages
+                      ?.filter((s) => s.supportsBackup)
+                      .map((storage) => (
+                        <button
+                          key={storage.name}
+                          onClick={() =>
+                            setSelectedBackupStorage(storage.name)
+                          }
+                          className={[
+                            "w-full rounded-lg border px-4 py-3 text-left transition-colors",
+                            selectedBackupStorage === storage.name
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+                          ].join(" ")}
+                        >
+                          <span className="font-medium">{storage.name}</span>
+                          <span className="text-xs ml-2 opacity-60">
+                            {storage.type}
+                          </span>
+                        </button>
+                      ))
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="border-border flex justify-end gap-3 border-t p-4">
+              <Button
+                variant="outline"
+                onClick={() => setCreateBackupTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleStartBackup}
+                disabled={
+                  !selectedBackupStorage || backupStoragesQuery.isLoading
+                }
+              >
+                Start Backup
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create Backup: Progress Modal ── */}
+      {createBackupMutation.isPending && (
+        <LoadingModal
+          isOpen={true}
+          action="Creating backup via vzdump… this may take several minutes."
+          title="Creating Backup"
+        />
+      )}
+
+      {/* ── Create Backup: Success Banner ── */}
+      {createBackupSuccess && (
+        <div className="bg-success/10 border-success/20 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="text-success h-5 w-5" />
+              <span className="text-success font-medium">
+                Backup completed successfully
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCreateBackupSuccess(false)}
+              className="h-6 w-6 p-0"
+            >
+              ×
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create Backup: Error Banner ── */}
+      {createBackupError && (
+        <div className="bg-destructive/10 border-destructive/30 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="text-destructive h-5 w-5" />
+              <span className="text-destructive font-medium">Backup failed</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCreateBackupError(null)}
+              className="h-6 w-6 p-0"
+            >
+              ×
+            </Button>
+          </div>
+          <p className="text-muted-foreground mt-2 text-sm">{createBackupError}</p>
         </div>
       )}
     </div>
