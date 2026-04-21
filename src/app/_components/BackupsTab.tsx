@@ -739,21 +739,27 @@ export function BackupsTab() {
                           Loading containers…
                         </span>
                       </div>
-                    ) : (containersQuery.data?.containers ?? []).length ===
+                    ) : ([
+                        ...(containersQuery.data?.lxc ?? []).map((c) => ({ ...c, type: "CT" })),
+                        ...(containersQuery.data?.vm ?? []).map((c) => ({ ...c, type: "VM" })),
+                      ]).length ===
                       0 ? (
                       <p className="text-muted-foreground py-4 text-center text-sm">
                         No containers found on this server.
                       </p>
                     ) : (
-                      containersQuery.data?.containers?.map((ct) => (
+                      [
+                        ...(containersQuery.data?.lxc ?? []).map((c) => ({ ...c, type: "CT" })),
+                        ...(containersQuery.data?.vm ?? []).map((c) => ({ ...c, type: "VM" })),
+                      ].map((ct) => (
                         <button
-                          key={ct.vmid}
+                          key={ct.id}
                           onClick={() => {
                             setCreateDialog((d) =>
                               d
                                 ? {
                                     ...d,
-                                    containerId: String(ct.vmid),
+                                    containerId: ct.id,
                                   }
                                 : null,
                             );
@@ -761,8 +767,8 @@ export function BackupsTab() {
                           }}
                           className="border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground w-full rounded-lg border px-4 py-3 text-left transition-colors"
                         >
-                          <span className="font-medium">CT {ct.vmid}</span>
-                          {ct.name && (
+                          <span className="font-medium">{ct.type} {ct.id}</span>
+                          {ct.name && ct.name !== ct.id && (
                             <span className="ml-2 text-xs opacity-60">
                               {ct.name}
                             </span>
