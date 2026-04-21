@@ -653,9 +653,7 @@ export function BackupsTab() {
                       .map((storage) => (
                         <button
                           key={storage.name}
-                          onClick={() =>
-                            setSelectedBackupStorage(storage.name)
-                          }
+                          onClick={() => setSelectedBackupStorage(storage.name)}
                           className={[
                             "w-full rounded-lg border px-4 py-3 text-left transition-colors",
                             selectedBackupStorage === storage.name
@@ -664,7 +662,7 @@ export function BackupsTab() {
                           ].join(" ")}
                         >
                           <span className="font-medium">{storage.name}</span>
-                          <span className="text-xs ml-2 opacity-60">
+                          <span className="ml-2 text-xs opacity-60">
                             {storage.type}
                           </span>
                         </button>
@@ -730,7 +728,9 @@ export function BackupsTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="text-destructive h-5 w-5" />
-              <span className="text-destructive font-medium">Backup failed</span>
+              <span className="text-destructive font-medium">
+                Backup failed
+              </span>
             </div>
             <Button
               variant="ghost"
@@ -741,7 +741,9 @@ export function BackupsTab() {
               ×
             </Button>
           </div>
-          <p className="text-muted-foreground mt-2 text-sm">{createBackupError}</p>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {createBackupError}
+          </p>
         </div>
       )}
     </div>

@@ -138,7 +138,9 @@ export function GeneratorTab() {
         // Auto-select single server
         if (sorted.length === 1) setSelectedServer(sorted[0] ?? null);
       })
-      .catch(() => {/* non-critical */})
+      .catch(() => {
+        /* non-critical */
+      })
       .finally(() => setServersLoading(false));
   }, []);
 
@@ -538,7 +540,6 @@ export function GeneratorTab() {
     fuse,
     gpu,
   ]);
-
 
   // Validation errors
   const errors = useMemo(
@@ -1103,7 +1104,7 @@ export function GeneratorTab() {
                       >
                         {s.color && (
                           <span
-                            className="h-2 w-2 rounded-full flex-shrink-0"
+                            className="h-2 w-2 flex-shrink-0 rounded-full"
                             style={{ backgroundColor: s.color }}
                           />
                         )}
@@ -1120,12 +1121,13 @@ export function GeneratorTab() {
                 </div>
 
                 <div className="flex items-center justify-end gap-3">
-                  {selectedScript && !isScriptDownloaded(selectedScript.slug) && (
-                    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
-                      Script not downloaded
-                    </span>
-                  )}
+                  {selectedScript &&
+                    !isScriptDownloaded(selectedScript.slug) && (
+                      <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                        <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+                        Script not downloaded
+                      </span>
+                    )}
                   <Button
                     onClick={handleExecute}
                     disabled={
