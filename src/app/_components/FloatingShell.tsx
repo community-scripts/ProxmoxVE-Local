@@ -85,10 +85,7 @@ function FloatingShellWindow({
         setPos({
           x: Math.max(
             0,
-            Math.min(
-              window.innerWidth - WIN_W,
-              dragRef.current.startWinX + dx,
-            ),
+            Math.min(window.innerWidth - WIN_W, dragRef.current.startWinX + dx),
           ),
           y: Math.max(
             0,

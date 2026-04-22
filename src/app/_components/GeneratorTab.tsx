@@ -593,7 +593,9 @@ export function GeneratorTab() {
       mode: selectedServer ? "ssh" : "local",
       server: selectedServer ?? undefined,
       executeInContainer: execInContainer,
-      containerId: execInContainer ? (selectedContainerId ?? undefined) : undefined,
+      containerId: execInContainer
+        ? (selectedContainerId ?? undefined)
+        : undefined,
       containerType: selectedContainerIsVm ? "vm" : "lxc",
     });
     setTimeout(() => {

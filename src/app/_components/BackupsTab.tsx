@@ -100,8 +100,7 @@ export function BackupsTab() {
     { serverId: createDialog?.serverId ?? 0 },
     {
       enabled:
-        createDialog?.mode === "new" &&
-        (createDialog?.serverId ?? 0) > 0,
+        createDialog?.mode === "new" && (createDialog?.serverId ?? 0) > 0,
     },
   );
 
@@ -216,7 +215,11 @@ export function BackupsTab() {
   };
 
   const handleOpenCreateBackup = (containerId: string, serverId: number) => {
-    setCreateDialog({ mode: "existing", serverId, containerIds: [containerId] });
+    setCreateDialog({
+      mode: "existing",
+      serverId,
+      containerIds: [containerId],
+    });
     setSelectedStorage("");
   };
 
@@ -656,289 +659,348 @@ export function BackupsTab() {
       )}
 
       {/* ── Create Backup Dialog ── */}
-      {createDialog && (() => {
-        // Build typed container list once
-        type CT = { id: string; name: string; status: string; type: "CT" | "VM" };
-        const lxcItems: CT[] = (containersQuery.data?.lxc ?? []).map((c) => ({
-          id: c.id, name: c.name, status: c.status, type: "CT" as const,
-        }));
-        const vmItems: CT[] = (containersQuery.data?.vm ?? []).map((c) => ({
-          id: c.id, name: c.name, status: c.status, type: "VM" as const,
-        }));
-        const allContainers: CT[] = [...lxcItems, ...vmItems];
+      {createDialog &&
+        (() => {
+          // Build typed container list once
+          type CT = {
+            id: string;
+            name: string;
+            status: string;
+            type: "CT" | "VM";
+          };
+          const lxcItems: CT[] = (containersQuery.data?.lxc ?? []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            type: "CT" as const,
+          }));
+          const vmItems: CT[] = (containersQuery.data?.vm ?? []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            type: "VM" as const,
+          }));
+          const allContainers: CT[] = [...lxcItems, ...vmItems];
 
-        const isContainerStep =
-          createDialog.mode === "new" && createDialog.serverId != null;
-        const isStorageStep = createDialog.containerIds.length > 0;
+          const isContainerStep =
+            createDialog.mode === "new" && createDialog.serverId != null;
+          const isStorageStep = createDialog.containerIds.length > 0;
 
-        const stepLabel =
-          createDialog.mode === "existing"
-            ? `Backup CT ${createDialog.containerIds[0]} — select storage`
-            : createDialog.serverId == null
-              ? "Select Server"
-              : isStorageStep
-                ? `${createDialog.containerIds.length} container${createDialog.containerIds.length > 1 ? "s" : ""} selected — select storage`
-                : "Select Containers";
+          const stepLabel =
+            createDialog.mode === "existing"
+              ? `Backup CT ${createDialog.containerIds[0]} — select storage`
+              : createDialog.serverId == null
+                ? "Select Server"
+                : isStorageStep
+                  ? `${createDialog.containerIds.length} container${createDialog.containerIds.length > 1 ? "s" : ""} selected — select storage`
+                  : "Select Containers";
 
-        return (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
-            <div className="bg-card border-border w-full max-w-2xl rounded-2xl border shadow-2xl">
-              {/* Header */}
-              <div className="border-border flex items-center gap-3 border-b px-6 py-4">
-                {createDialog.mode === "new" && createDialog.serverId != null && (
+          return (
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+              <div className="bg-card border-border w-full max-w-2xl rounded-2xl border shadow-2xl">
+                {/* Header */}
+                <div className="border-border flex items-center gap-3 border-b px-6 py-4">
+                  {createDialog.mode === "new" &&
+                    createDialog.serverId != null && (
+                      <button
+                        onClick={() =>
+                          setCreateDialog((d) => {
+                            if (!d) return null;
+                            if (isStorageStep)
+                              return { ...d, containerIds: [] };
+                            return { ...d, serverId: null, containerIds: [] };
+                          })
+                        }
+                        className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                    )}
+                  <div className="flex-1">
+                    <h3 className="text-foreground text-lg font-semibold">
+                      {createDialog.mode === "existing"
+                        ? "Create Backup"
+                        : "New Backup"}
+                    </h3>
+                    <p className="text-muted-foreground mt-0.5 text-sm">
+                      {stepLabel}
+                    </p>
+                  </div>
                   <button
-                    onClick={() =>
-                      setCreateDialog((d) => {
-                        if (!d) return null;
-                        if (isStorageStep)
-                          return { ...d, containerIds: [] };
-                        return { ...d, serverId: null, containerIds: [] };
-                      })
-                    }
-                    className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+                    onClick={() => {
+                      setCreateDialog(null);
+                      setSelectedStorage("");
+                    }}
+                    className="text-muted-foreground hover:text-foreground rounded p-1.5 transition-colors"
                   >
-                    <ArrowLeft className="h-4 w-4" />
+                    ×
                   </button>
-                )}
-                <div className="flex-1">
-                  <h3 className="text-foreground text-lg font-semibold">
-                    {createDialog.mode === "existing" ? "Create Backup" : "New Backup"}
-                  </h3>
-                  <p className="text-muted-foreground mt-0.5 text-sm">{stepLabel}</p>
                 </div>
-                <button
-                  onClick={() => { setCreateDialog(null); setSelectedStorage(""); }}
-                  className="text-muted-foreground hover:text-foreground rounded p-1.5 transition-colors"
-                >
-                  ×
-                </button>
-              </div>
 
-              {/* Body */}
-              <div className="p-6">
-                {/* Step 1: Server selection (new mode only) */}
-                {createDialog.mode === "new" && createDialog.serverId == null && (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
-                      Choose a server
-                    </p>
-                    {servers.length === 0 ? (
-                      <p className="text-muted-foreground py-6 text-center text-sm">
-                        No servers configured.
-                      </p>
-                    ) : (
-                      servers.map((srv) => (
-                        <button
-                          key={srv.id}
-                          onClick={() =>
-                            setCreateDialog((d) =>
-                              d ? { ...d, serverId: srv.id } : null,
-                            )
-                          }
-                          className="border-border hover:border-primary/60 hover:bg-primary/5 group flex w-full items-center rounded-xl border px-5 py-4 text-left transition-colors"
-                        >
-                          <div className="bg-primary/10 mr-4 flex h-9 w-9 items-center justify-center rounded-lg">
-                            <Server className="text-primary h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-foreground font-medium">{srv.name}</p>
-                            <p className="text-muted-foreground text-sm">{srv.ip}</p>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* Step 2: Container multi-select (new mode, server chosen, no storage yet) */}
-                {isContainerStep && !isStorageStep && (
-                  <div>
-                    <p className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
-                      Select containers (multiple allowed)
-                    </p>
-                    {containersQuery.isLoading ? (
-                      <div className="flex items-center gap-2 py-6">
-                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                        <span className="text-muted-foreground text-sm">Loading containers…</span>
-                      </div>
-                    ) : allContainers.length === 0 ? (
-                      <p className="text-muted-foreground py-6 text-center text-sm">
-                        No containers found on this server.
-                      </p>
-                    ) : (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {allContainers.map((ct) => {
-                          const selected = createDialog.containerIds.includes(ct.id);
-                          return (
-                            <button
-                              key={ct.id}
-                              onClick={() =>
-                                setCreateDialog((d) => {
-                                  if (!d) return null;
-                                  const ids = d.containerIds.includes(ct.id)
-                                    ? d.containerIds.filter((id) => id !== ct.id)
-                                    : [...d.containerIds, ct.id];
-                                  return { ...d, containerIds: ids };
-                                })
-                              }
-                              className={[
-                                "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-                                selected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/40 hover:bg-accent/50",
-                              ].join(" ")}
-                            >
-                              <div
-                                className={[
-                                  "flex h-5 w-5 items-center justify-center rounded border transition-colors",
-                                  selected
-                                    ? "border-primary bg-primary"
-                                    : "border-border bg-background",
-                                ].join(" ")}
-                              >
-                                {selected && (
-                                  <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={[
-                                      "rounded px-1.5 py-0.5 text-[10px] font-bold",
-                                      ct.type === "VM"
-                                        ? "bg-blue-500/10 text-blue-500"
-                                        : "bg-green-500/10 text-green-500",
-                                    ].join(" ")}
-                                  >
-                                    {ct.type}
-                                  </span>
-                                  <span className={`text-sm font-medium ${selected ? "text-primary" : "text-foreground"}`}>
-                                    {ct.id}
-                                  </span>
-                                </div>
-                                {ct.name && ct.name !== ct.id && (
-                                  <p className="text-muted-foreground mt-0.5 truncate text-xs">
-                                    {ct.name}
-                                  </p>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 3: Storage selection (once containers are chosen) */}
-                {isStorageStep && (
-                  <div>
-                    {createDialog.mode === "new" && (
-                      <div className="border-border bg-primary/5 mb-4 flex flex-wrap gap-2 rounded-lg border px-4 py-3">
-                        {createDialog.containerIds.map((id) => (
-                          <span
-                            key={id}
-                            className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium"
-                          >
-                            CT {id}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
-                      Select backup storage
-                    </p>
-                    {storagesQuery.isLoading ? (
-                      <div className="flex items-center gap-2 py-6">
-                        <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                        <span className="text-muted-foreground text-sm">Loading storages…</span>
-                      </div>
-                    ) : (storagesQuery.data?.storages?.filter((s) => s.supportsBackup) ?? []).length === 0 ? (
-                      <p className="text-muted-foreground py-6 text-center text-sm">
-                        No backup-capable storages found on this server.
-                      </p>
-                    ) : (
+                {/* Body */}
+                <div className="p-6">
+                  {/* Step 1: Server selection (new mode only) */}
+                  {createDialog.mode === "new" &&
+                    createDialog.serverId == null && (
                       <div className="space-y-2">
-                        {storagesQuery.data?.storages
-                          ?.filter((s) => s.supportsBackup)
-                          .map((storage) => (
+                        <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                          Choose a server
+                        </p>
+                        {servers.length === 0 ? (
+                          <p className="text-muted-foreground py-6 text-center text-sm">
+                            No servers configured.
+                          </p>
+                        ) : (
+                          servers.map((srv) => (
                             <button
-                              key={storage.name}
-                              onClick={() => setSelectedStorage(storage.name)}
-                              className={[
-                                "flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors",
-                                selectedStorage === storage.name
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/40 hover:bg-accent/50",
-                              ].join(" ")}
+                              key={srv.id}
+                              onClick={() =>
+                                setCreateDialog((d) =>
+                                  d ? { ...d, serverId: srv.id } : null,
+                                )
+                              }
+                              className="border-border hover:border-primary/60 hover:bg-primary/5 group flex w-full items-center rounded-xl border px-5 py-4 text-left transition-colors"
                             >
-                              <div
-                                className={[
-                                  "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors",
-                                  selectedStorage === storage.name
-                                    ? "border-primary"
-                                    : "border-border",
-                                ].join(" ")}
-                              >
-                                {selectedStorage === storage.name && (
-                                  <div className="bg-primary h-2.5 w-2.5 rounded-full" />
-                                )}
+                              <div className="bg-primary/10 mr-4 flex h-9 w-9 items-center justify-center rounded-lg">
+                                <Server className="text-primary h-4 w-4" />
                               </div>
                               <div>
-                                <p className={`font-medium ${selectedStorage === storage.name ? "text-primary" : "text-foreground"}`}>
-                                  {storage.name}
+                                <p className="text-foreground font-medium">
+                                  {srv.name}
                                 </p>
-                                <p className="text-muted-foreground text-xs">{storage.type}</p>
+                                <p className="text-muted-foreground text-sm">
+                                  {srv.ip}
+                                </p>
                               </div>
                             </button>
-                          ))}
+                          ))
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
 
-              {/* Footer */}
-              <div className="border-border flex justify-between gap-3 border-t px-6 py-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => { setCreateDialog(null); setSelectedStorage(""); }}
-                >
-                  Cancel
-                </Button>
-                <div className="flex items-center gap-3">
-                  {/* "Continue" button when containers are chosen but no storage yet */}
+                  {/* Step 2: Container multi-select (new mode, server chosen, no storage yet) */}
                   {isContainerStep && !isStorageStep && (
-                    <Button
-                      disabled={createDialog.containerIds.length === 0}
-                      onClick={() => {
-                        /* containerIds already set — UI will show storage step automatically */
-                        setCreateDialog((d) =>
-                          d
-                            ? { ...d, containerIds: [...d.containerIds] }
-                            : null,
-                        );
-                      }}
-                    >
-                      Continue ({createDialog.containerIds.length} selected)
-                    </Button>
+                    <div>
+                      <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                        Select containers (multiple allowed)
+                      </p>
+                      {containersQuery.isLoading ? (
+                        <div className="flex items-center gap-2 py-6">
+                          <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground text-sm">
+                            Loading containers…
+                          </span>
+                        </div>
+                      ) : allContainers.length === 0 ? (
+                        <p className="text-muted-foreground py-6 text-center text-sm">
+                          No containers found on this server.
+                        </p>
+                      ) : (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {allContainers.map((ct) => {
+                            const selected = createDialog.containerIds.includes(
+                              ct.id,
+                            );
+                            return (
+                              <button
+                                key={ct.id}
+                                onClick={() =>
+                                  setCreateDialog((d) => {
+                                    if (!d) return null;
+                                    const ids = d.containerIds.includes(ct.id)
+                                      ? d.containerIds.filter(
+                                          (id) => id !== ct.id,
+                                        )
+                                      : [...d.containerIds, ct.id];
+                                    return { ...d, containerIds: ids };
+                                  })
+                                }
+                                className={[
+                                  "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                                  selected
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border hover:border-primary/40 hover:bg-accent/50",
+                                ].join(" ")}
+                              >
+                                <div
+                                  className={[
+                                    "flex h-5 w-5 items-center justify-center rounded border transition-colors",
+                                    selected
+                                      ? "border-primary bg-primary"
+                                      : "border-border bg-background",
+                                  ].join(" ")}
+                                >
+                                  {selected && (
+                                    <svg
+                                      className="h-3 w-3 text-white"
+                                      viewBox="0 0 12 12"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M2 6l3 3 5-5"
+                                        stroke="currentColor"
+                                        strokeWidth="1.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={[
+                                        "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                                        ct.type === "VM"
+                                          ? "bg-blue-500/10 text-blue-500"
+                                          : "bg-green-500/10 text-green-500",
+                                      ].join(" ")}
+                                    >
+                                      {ct.type}
+                                    </span>
+                                    <span
+                                      className={`text-sm font-medium ${selected ? "text-primary" : "text-foreground"}`}
+                                    >
+                                      {ct.id}
+                                    </span>
+                                  </div>
+                                  {ct.name && ct.name !== ct.id && (
+                                    <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                                      {ct.name}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )}
+
+                  {/* Step 3: Storage selection (once containers are chosen) */}
                   {isStorageStep && (
-                    <Button
-                      onClick={handleStartBackup}
-                      disabled={!selectedStorage || storagesQuery.isLoading}
-                    >
-                      Start Backup{createDialog.containerIds.length > 1 ? ` (${createDialog.containerIds.length})` : ""}
-                    </Button>
+                    <div>
+                      {createDialog.mode === "new" && (
+                        <div className="border-border bg-primary/5 mb-4 flex flex-wrap gap-2 rounded-lg border px-4 py-3">
+                          {createDialog.containerIds.map((id) => (
+                            <span
+                              key={id}
+                              className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            >
+                              CT {id}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                        Select backup storage
+                      </p>
+                      {storagesQuery.isLoading ? (
+                        <div className="flex items-center gap-2 py-6">
+                          <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground text-sm">
+                            Loading storages…
+                          </span>
+                        </div>
+                      ) : (
+                          storagesQuery.data?.storages?.filter(
+                            (s) => s.supportsBackup,
+                          ) ?? []
+                        ).length === 0 ? (
+                        <p className="text-muted-foreground py-6 text-center text-sm">
+                          No backup-capable storages found on this server.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {storagesQuery.data?.storages
+                            ?.filter((s) => s.supportsBackup)
+                            .map((storage) => (
+                              <button
+                                key={storage.name}
+                                onClick={() => setSelectedStorage(storage.name)}
+                                className={[
+                                  "flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors",
+                                  selectedStorage === storage.name
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border hover:border-primary/40 hover:bg-accent/50",
+                                ].join(" ")}
+                              >
+                                <div
+                                  className={[
+                                    "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors",
+                                    selectedStorage === storage.name
+                                      ? "border-primary"
+                                      : "border-border",
+                                  ].join(" ")}
+                                >
+                                  {selectedStorage === storage.name && (
+                                    <div className="bg-primary h-2.5 w-2.5 rounded-full" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p
+                                    className={`font-medium ${selectedStorage === storage.name ? "text-primary" : "text-foreground"}`}
+                                  >
+                                    {storage.name}
+                                  </p>
+                                  <p className="text-muted-foreground text-xs">
+                                    {storage.type}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   )}
+                </div>
+
+                {/* Footer */}
+                <div className="border-border flex justify-between gap-3 border-t px-6 py-4">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setCreateDialog(null);
+                      setSelectedStorage("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    {/* "Continue" button when containers are chosen but no storage yet */}
+                    {isContainerStep && !isStorageStep && (
+                      <Button
+                        disabled={createDialog.containerIds.length === 0}
+                        onClick={() => {
+                          /* containerIds already set — UI will show storage step automatically */
+                          setCreateDialog((d) =>
+                            d
+                              ? { ...d, containerIds: [...d.containerIds] }
+                              : null,
+                          );
+                        }}
+                      >
+                        Continue ({createDialog.containerIds.length} selected)
+                      </Button>
+                    )}
+                    {isStorageStep && (
+                      <Button
+                        onClick={handleStartBackup}
+                        disabled={!selectedStorage || storagesQuery.isLoading}
+                      >
+                        Start Backup
+                        {createDialog.containerIds.length > 1
+                          ? ` (${createDialog.containerIds.length})`
+                          : ""}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 }

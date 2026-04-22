@@ -559,7 +559,10 @@ export function DownloadedScriptsTab() {
           {/* Update all downloaded scripts */}
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <Button
-              onClick={() => { void refetch(); void refetchLocal(); }}
+              onClick={() => {
+                void refetch();
+                void refetchLocal();
+              }}
               variant="outline"
               size="default"
               className="flex items-center gap-2"
