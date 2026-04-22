@@ -600,8 +600,8 @@ class ScriptExecutionHandler {
 
         // Transfer scripts folder (same as normal SSH execution)
         await sshService.transferScriptsFolder(server,
-          (data) => this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() }),
-          (err) => this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() })
+          (/** @type {string} */ data) => this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() }),
+          (/** @type {string} */ err) => this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() })
         );
 
         // Build the in-container command
@@ -612,15 +612,15 @@ class ScriptExecutionHandler {
         this.activeExecutions.set(executionId, { process: null, ws, installationId, outputBuffer: '' });
 
         await sshService.executeCommand(server, inContainerCmd,
-          (data) => {
+          (/** @type {string} */ data) => {
             const execution = this.activeExecutions.get(executionId);
             if (execution) execution.outputBuffer += data;
             this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() });
           },
-          (err) => {
+          (/** @type {string} */ err) => {
             this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() });
           },
-          async (exitCode) => {
+          async (/** @type {number} */ exitCode) => {
             const execution = this.activeExecutions.get(executionId);
             if (installationId && execution) {
               await this.updateInstallationRecord(installationId, {
