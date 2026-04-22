@@ -87,6 +87,7 @@ export async function cacheLogos(
 
     for (let j = 0; j < results.length; j++) {
       const r = results[j];
+      if (!r) continue;
       if (r.status === 'rejected') {
         errors++;
         if (verbose) {
