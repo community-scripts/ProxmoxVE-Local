@@ -79,6 +79,7 @@ const handle = app.getRequestHandler();
  * @property {boolean} [isShell]
  * @property {boolean} [isBackup]
  * @property {boolean} [isClone]
+ * @property {boolean} [executeInContainer]
  * @property {string} [containerId]
  * @property {string} [storage]
  * @property {string} [backupStorage]
