@@ -111,6 +111,9 @@ export function GeneratorTab() {
     envVars?: Record<string, string | number | boolean>;
     mode: "local" | "ssh";
     server?: Server;
+    executeInContainer?: boolean;
+    containerId?: string;
+    containerType?: "lxc" | "vm";
   } | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const { data: scriptCardsData } =
@@ -354,9 +357,15 @@ export function GeneratorTab() {
             : type === "turnkey"
               ? "turnkey"
               : "ct";
-    const url = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/${pathPrefix}/${slug}.sh`;
-    const baseCmd = `bash -c "$(curl -fsSL ${url})"`;
 
+    // For remote servers show the canonical upstream curl command.
+    // For local ("This machine") show the local script path since the app
+    // already has the scripts downloaded — no external call needed.
+    const remoteUrl = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/${pathPrefix}/${slug}.sh`;
+    const localPath = `scripts/${pathPrefix}/${slug}.sh`;
+    const baseCmd = selectedServer
+      ? `bash -c "$(curl -fsSL ${remoteUrl})"`
+      : `bash ${localPath}`;
     const overrides: string[] = [];
     if (cpu !== defaults.cpu) overrides.push(`var_cpu="${cpu}"`);
     if (ram !== defaults.ram) overrides.push(`var_ram="${ram}"`);
@@ -381,6 +390,7 @@ export function GeneratorTab() {
     return `mode=generated ${overrides.join(" ")} ${baseCmd}`;
   }, [
     selectedScript,
+    selectedServer,
     cpu,
     ram,
     disk,
@@ -569,8 +579,12 @@ export function GeneratorTab() {
     if (fuse) envVars.var_fuse = "1";
     if (gpu) envVars.var_gpu = "yes";
     envVars.mode = "generated";
-    // For addon scripts that must execute inside a specific container
-    if (selectedContainerId) envVars.CTID = selectedContainerId;
+
+    // Determine whether to execute inside the container.
+    // execute_in: ["lxc"] (or vm/pbs/pmg) means the script runs INSIDE the
+    // selected container rather than on the PVE host.
+    const execInContainer =
+      needsContainerPicker && !!selectedContainerId && !!selectedServer;
 
     setRunningScript({
       path: scriptPath,
@@ -578,6 +592,9 @@ export function GeneratorTab() {
       envVars,
       mode: selectedServer ? "ssh" : "local",
       server: selectedServer ?? undefined,
+      executeInContainer: execInContainer,
+      containerId: execInContainer ? (selectedContainerId ?? undefined) : undefined,
+      containerType: selectedContainerIsVm ? "vm" : "lxc",
     });
     setTimeout(() => {
       terminalRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1419,6 +1436,9 @@ export function GeneratorTab() {
             envVars={runningScript.envVars}
             mode={runningScript.mode}
             server={runningScript.server}
+            executeInContainer={runningScript.executeInContainer}
+            containerId={runningScript.containerId}
+            containerType={runningScript.containerType}
           />
         </div>
       )}

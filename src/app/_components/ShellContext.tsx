@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import type { Server } from "~/types/server";
 
-export type ShellState = "open" | "minimized" | "closed";
+export type ShellState = "open" | "minimized";
 
 export interface ShellSession {
   containerId: string;
@@ -24,37 +24,67 @@ export interface ShellSession {
   onComplete?: () => void;
 }
 
-interface ShellContextValue {
-  session: ShellSession | null;
+export interface ShellEntry {
+  id: string;
+  session: ShellSession;
   state: ShellState;
+}
+
+interface ShellContextValue {
+  sessions: ShellEntry[];
   open: (session: ShellSession) => void;
-  close: () => void;
-  minimize: () => void;
-  restore: () => void;
+  close: (id: string) => void;
+  minimize: (id: string) => void;
+  restore: (id: string) => void;
 }
 
 const ShellContext = createContext<ShellContextValue | null>(null);
 
 export function ShellProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<ShellSession | null>(null);
-  const [state, setState] = useState<ShellState>("closed");
+  const [sessions, setSessions] = useState<ShellEntry[]>([]);
 
   const open = useCallback((s: ShellSession) => {
-    setSession(s);
-    setState("open");
+    setSessions((prev) => {
+      // If a session with the same containerId+backupStorage key is already open, restore it
+      const key = `${s.containerId}-${s.backupStorage ?? "shell"}`;
+      const existing = prev.find(
+        (e) =>
+          `${e.session.containerId}-${e.session.backupStorage ?? "shell"}` ===
+          key,
+      );
+      if (existing) {
+        return prev.map((e) =>
+          e.id === existing.id ? { ...e, state: "open" as ShellState } : e,
+        );
+      }
+      const id = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      return [...prev, { id, session: s, state: "open" }];
+    });
   }, []);
 
-  const close = useCallback(() => {
-    setSession(null);
-    setState("closed");
+  const close = useCallback((id: string) => {
+    setSessions((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
-  const minimize = useCallback(() => setState("minimized"), []);
-  const restore = useCallback(() => setState("open"), []);
+  const minimize = useCallback((id: string) => {
+    setSessions((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, state: "minimized" as ShellState } : e,
+      ),
+    );
+  }, []);
+
+  const restore = useCallback((id: string) => {
+    setSessions((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, state: "open" as ShellState } : e,
+      ),
+    );
+  }, []);
 
   const value = useMemo(
-    () => ({ session, state, open, close, minimize, restore }),
-    [session, state, open, close, minimize, restore],
+    () => ({ sessions, open, close, minimize, restore }),
+    [sessions, open, close, minimize, restore],
   );
 
   return (

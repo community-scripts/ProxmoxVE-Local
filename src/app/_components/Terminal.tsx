@@ -27,6 +27,9 @@ interface TerminalProps {
   isShell?: boolean;
   isBackup?: boolean;
   isClone?: boolean;
+  /** When true the script is executed INSIDE the target container via pct exec,
+   *  rather than on the PVE host. Requires containerId + containerType. */
+  executeInContainer?: boolean;
   containerId?: string;
   storage?: string;
   backupStorage?: string;
@@ -52,6 +55,7 @@ export function Terminal({
   isShell = false,
   isBackup = false,
   isClone = false,
+  executeInContainer = false,
   containerId,
   storage,
   backupStorage,
@@ -432,6 +436,7 @@ export function Terminal({
             isShell,
             isBackup,
             isClone,
+            executeInContainer,
             containerId,
             storage,
             backupStorage,

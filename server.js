@@ -317,7 +317,7 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars } = message;
 
     switch (action) {
       case 'start':
@@ -335,6 +335,8 @@ class ScriptExecutionHandler {
             await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars);
           } else if (isShell && containerId) {
             await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
+          } else if (executeInContainer && containerId) {
+            await this.startInContainerScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, containerId, containerType ?? 'lxc');
           } else {
             await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars);
           }
@@ -549,6 +551,135 @@ class ScriptExecutionHandler {
       if (installationId) {
         await this.updateInstallationRecord(installationId, { status: 'failed' });
       }
+    }
+  }
+
+
+  /**
+   * Execute a script INSIDE a container via `pct exec` (LXC) or `qm guest exec` (VM).
+   * For SSH mode the scripts folder is already transferred to /tmp/scripts on the PVE host by
+   * startSSHScriptExecution; we re-use that mechanism and then run the script inside the CT.
+   * For local mode we pipe the script through `pct exec`.
+   *
+   * @param {ExtendedWebSocket} ws
+   * @param {string} scriptPath
+   * @param {string} executionId
+   * @param {string} mode
+   * @param {ServerInfo|null} server
+   * @param {Object} envVars
+   * @param {string} containerId
+   * @param {'lxc'|'vm'} containerType
+   */
+  async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc') {
+    let installationId = null;
+    try {
+      if (this.activeExecutions.has(executionId)) {
+        this.sendMessage(ws, { type: 'error', data: 'Script execution already running', timestamp: Date.now() });
+        return;
+      }
+
+      const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
+      const serverId = server ? (server.id ?? null) : null;
+      installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId);
+
+      // Build env-var export prefix
+      const envExports = Object.entries(envVars ?? {})
+        .map(([k, v]) => `export ${k}=${JSON.stringify(String(v))}`)
+        .join('; ');
+      const envPrefix = envExports ? `${envExports}; ` : '';
+
+      if (mode === 'ssh' && server) {
+        // Transfer scripts folder to PVE host, then exec inside container
+        const sshService = getSSHExecutionService();
+        this.sendMessage(ws, { type: 'start', data: `Connecting to ${server.ip}…`, timestamp: Date.now() });
+
+        const relScript = scriptPath.replace(/^scripts[/\\]/, '');
+        const remoteScript = `/tmp/scripts/${relScript}`;
+
+        // Transfer scripts folder (same as normal SSH execution)
+        await sshService.transferScriptsFolder(server,
+          (data) => this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() }),
+          (err) => this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() })
+        );
+
+        // Build the in-container command
+        const inContainerCmd = containerType === 'lxc'
+          ? `pct exec ${containerId} -- bash -c "${envPrefix}bash ${remoteScript}"`
+          : `qm guest exec ${containerId} -- bash -c "${envPrefix}bash ${remoteScript}"`;
+
+        this.activeExecutions.set(executionId, { process: null, ws, installationId, outputBuffer: '' });
+
+        await sshService.executeCommand(server, inContainerCmd,
+          (data) => {
+            const execution = this.activeExecutions.get(executionId);
+            if (execution) execution.outputBuffer += data;
+            this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() });
+          },
+          (err) => {
+            this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() });
+          },
+          async (exitCode) => {
+            const execution = this.activeExecutions.get(executionId);
+            if (installationId && execution) {
+              await this.updateInstallationRecord(installationId, {
+                status: exitCode === 0 ? 'success' : 'failed',
+                output_log: execution.outputBuffer
+              });
+            }
+            this.sendMessage(ws, { type: 'end', data: `Finished with code: ${exitCode}`, timestamp: Date.now() });
+            this.activeExecutions.delete(executionId);
+          }
+        );
+        return;
+      }
+
+      // Local mode: pipe the script content into `pct exec <ctid> -- bash`
+      const scriptsDir = join(process.cwd(), 'scripts');
+      const resolvedPath = resolve(scriptPath);
+      if (!resolvedPath.startsWith(resolve(scriptsDir))) {
+        this.sendMessage(ws, { type: 'error', data: 'Script path outside scripts directory', timestamp: Date.now() });
+        if (installationId) await this.updateInstallationRecord(installationId, { status: 'failed' });
+        return;
+      }
+
+      const bashCmd = `${envPrefix}bash ${resolvedPath}`;
+      const args = containerType === 'lxc'
+        ? ['exec', containerId, '--', 'bash', '-c', bashCmd]
+        : ['guest', 'exec', containerId, '--', 'bash', '-c', bashCmd];
+      const cmd = containerType === 'lxc' ? 'pct' : 'qm';
+
+      const childProcess = ptySpawn(cmd, args, {
+        cwd: scriptsDir,
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        env: { ...process.env, TERM: 'xterm-256color' }
+      });
+
+      this.activeExecutions.set(executionId, { process: childProcess, ws, installationId, outputBuffer: '' });
+      this.sendMessage(ws, { type: 'start', data: `Executing inside container ${containerId}…`, timestamp: Date.now() });
+
+      childProcess.onData((data) => {
+        const execution = this.activeExecutions.get(executionId);
+        if (execution) execution.outputBuffer += data;
+        this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() });
+      });
+
+      childProcess.onExit(async (e) => {
+        const execution = this.activeExecutions.get(executionId);
+        if (installationId && execution) {
+          await this.updateInstallationRecord(installationId, {
+            status: e.exitCode === 0 ? 'success' : 'failed',
+            output_log: execution.outputBuffer
+          });
+        }
+        this.sendMessage(ws, { type: 'end', data: `Script finished with code: ${e.exitCode}`, timestamp: Date.now() });
+        this.activeExecutions.delete(executionId);
+      });
+
+    } catch (error) {
+      this.sendMessage(ws, { type: 'error', data: `Failed to start in-container script: ${error instanceof Error ? error.message : String(error)}`, timestamp: Date.now() });
+      if (installationId) await this.updateInstallationRecord(installationId, { status: 'failed' });
     }
   }
 
