@@ -583,8 +583,7 @@ export function GeneratorTab() {
     // Determine whether to execute inside the container.
     // execute_in: ["lxc"] (or vm/pbs/pmg) means the script runs INSIDE the
     // selected container rather than on the PVE host.
-    const execInContainer =
-      needsContainerPicker && !!selectedContainerId && !!selectedServer;
+    const execInContainer = needsContainerPicker && !!selectedContainerId;
 
     setRunningScript({
       path: scriptPath,

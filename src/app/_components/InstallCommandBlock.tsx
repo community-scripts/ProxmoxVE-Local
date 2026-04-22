@@ -14,16 +14,20 @@ import {
 } from "lucide-react";
 import type { Server as ServerType } from "~/types/server";
 import { Terminal } from "./Terminal";
+import { api } from "~/trpc/react";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-type InstallSource = "github" | "gitea";
-type InstallEnv = "default" | "alpine" | "advanced";
+type InstallEnv =
+  | "default"
+  | "mydefaults"
+  | "appdefaults"
+  | "alpine"
+  | "advanced";
 
-const GITEA_INFO =
-  "When to use Gitea: GitHub may have issues including slow connections, delayed updates after bug fixes, no IPv6 support, API rate limits (60/hour). Use our Gitea mirror as a reliable alternative when experiencing these issues.";
+const CONTAINER_TYPES = ["lxc", "vm", "pbs", "pmg"] as const;
 
 // ---------------------------------------------------------------------------
 // Presets (mirrors Frontend)
@@ -60,13 +64,6 @@ function snapToStep(value: number, steps: number[]): number {
   }
   return closest;
 }
-
-const INSTALL_MODES = [
-  { value: "" as const, label: "Custom" },
-  { value: "mydefaults" as const, label: "My Defaults" },
-  { value: "appdefaults" as const, label: "App Defaults" },
-] as const;
-type InstallMode = (typeof INSTALL_MODES)[number]["value"];
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
   mydefaults:
@@ -140,6 +137,8 @@ export interface InstallCommandBlockProps {
   hasLocalFiles?: boolean;
   /** Called when the inline terminal opens or closes */
   onTerminalChange?: (active: boolean) => void;
+  /** Environments the script must execute in (from script.execute_in) */
+  executeIn?: string[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,10 +155,9 @@ export function InstallCommandBlock({
   hasArm = false,
   hasLocalFiles = false,
   onTerminalChange,
+  executeIn,
 }: InstallCommandBlockProps) {
-  const [source, setSource] = useState<InstallSource>("github");
   const [env, setEnv] = useState<InstallEnv>("default");
-  const [installMode, setInstallMode] = useState<InstallMode>("");
   const [armEnabled, setArmEnabled] = useState(false);
 
   // Server selection state
@@ -168,11 +166,51 @@ export function InstallCommandBlock({
   const [serversLoading, setServersLoading] = useState(false);
   const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
 
+  // Container picker state (for addon scripts with execute_in)
+  const needsContainerPicker = !!executeIn?.some((e) =>
+    CONTAINER_TYPES.includes(e as (typeof CONTAINER_TYPES)[number]),
+  );
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(
+    null,
+  );
+  const [selectedContainerIsVm, setSelectedContainerIsVm] = useState(false);
+  const [containerDropdownOpen, setContainerDropdownOpen] = useState(false);
+
+  const containerQuery = api.installedScripts.listContainersOnServer.useQuery(
+    { serverId: selectedServer?.id ?? "" },
+    { enabled: needsContainerPicker && !!selectedServer },
+  );
+
+  const containerOptions = (() => {
+    if (!containerQuery.data) return [];
+    const opts: { id: string; name: string; isVm: boolean }[] = [];
+    for (const c of containerQuery.data.lxc) {
+      if (!executeIn || executeIn.includes("lxc"))
+        opts.push({
+          id: String(c.vmid),
+          name: c.name ?? String(c.vmid),
+          isVm: false,
+        });
+    }
+    for (const v of containerQuery.data.vm) {
+      if (!executeIn || executeIn.includes("vm"))
+        opts.push({
+          id: String(v.vmid),
+          name: v.name ?? String(v.vmid),
+          isVm: true,
+        });
+    }
+    return opts;
+  })();
+
   // Inline terminal state
   const [running, setRunning] = useState<{
     scriptPath: string;
     envVars: Record<string, string>;
     server: ServerType;
+    executeInContainer?: boolean;
+    containerId?: string;
+    containerType?: string;
   } | null>(null);
   const [terminalCollapsed, setTerminalCollapsed] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -212,13 +250,13 @@ export function InstallCommandBlock({
   const hasOverrides =
     env === "advanced" &&
     defaults &&
-    !installMode &&
     (advCpu !== defaults.cpu ||
       advRam !== defaults.ram ||
       advHdd !== defaults.hdd);
 
   const handleInstall = () => {
     if (!selectedServer) return;
+    if (needsContainerPicker && !selectedContainerId) return;
 
     // Derive script path based on env selection
     let scriptFile = defaultPath;
@@ -230,17 +268,16 @@ export function InstallCommandBlock({
     // Build envVars from form state
     const envVars: Record<string, string> = {};
 
-    if (env === "advanced" && defaults) {
-      if (installMode) {
-        // mydefaults / appdefaults
-        envVars.mode = installMode;
-      } else {
-        // Custom sliders — use "generated" to skip all dialogs
-        envVars.mode = "generated";
-        envVars.var_cpu = String(advCpu);
-        envVars.var_ram = String(advRam);
-        envVars.var_disk = String(advHdd);
-      }
+    if (env === "mydefaults") {
+      envVars.mode = "mydefaults";
+    } else if (env === "appdefaults") {
+      envVars.mode = "appdefaults";
+    } else if (env === "advanced" && defaults) {
+      // Custom sliders
+      envVars.mode = "generated";
+      envVars.var_cpu = String(advCpu);
+      envVars.var_ram = String(advRam);
+      envVars.var_disk = String(advHdd);
     } else {
       // Default or Alpine — skip dialog with mode=default
       envVars.mode = "default";
@@ -248,7 +285,18 @@ export function InstallCommandBlock({
 
     if (hasArm && armEnabled) envVars.var_arm = "true";
 
-    setRunning({ scriptPath, envVars, server: selectedServer });
+    const execInContainer = needsContainerPicker && !!selectedContainerId;
+
+    setRunning({
+      scriptPath,
+      envVars,
+      server: selectedServer,
+      executeInContainer: execInContainer,
+      containerId: execInContainer
+        ? (selectedContainerId ?? undefined)
+        : undefined,
+      containerType: selectedContainerIsVm ? "vm" : "lxc",
+    });
     setTerminalCollapsed(false);
     onTerminalChange?.(true);
 
@@ -272,132 +320,85 @@ export function InstallCommandBlock({
         Install
       </h2>
 
-      {/* Source + Env toggles */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <fieldset className="m-0 flex border-0 p-0">
-          <legend className="sr-only">Install source</legend>
-          <div className="bg-muted/40 flex rounded-lg p-0.5">
+      {/* Install mode tabs */}
+      <fieldset className="m-0 flex border-0 p-0">
+        <legend className="sr-only">Install mode</legend>
+        <div className="bg-muted/40 flex flex-wrap rounded-lg p-0.5">
+          <OptionToggle
+            selected={env === "default"}
+            onClick={() => setEnv("default")}
+            label="Default"
+          />
+          <OptionToggle
+            selected={env === "mydefaults"}
+            onClick={() => setEnv("mydefaults")}
+            label="My Defaults"
+            title={MODE_DESCRIPTIONS.mydefaults}
+          />
+          <OptionToggle
+            selected={env === "appdefaults"}
+            onClick={() => setEnv("appdefaults")}
+            label="App Defaults"
+            title={MODE_DESCRIPTIONS.appdefaults}
+          />
+          {hasAlpine && (
             <OptionToggle
-              selected={source === "github"}
-              onClick={() => setSource("github")}
-              label="GitHub"
+              selected={env === "alpine"}
+              onClick={() => setEnv("alpine")}
+              label="Alpine"
             />
+          )}
+          {showAdvanced && defaults && (
             <OptionToggle
-              selected={source === "gitea"}
-              onClick={() => setSource("gitea")}
-              label="Gitea"
+              selected={env === "advanced"}
+              onClick={() => setEnv("advanced")}
+              label="Advanced"
+              icon={<Settings className="h-3 w-3" />}
             />
-          </div>
-        </fieldset>
-
-        <div className="bg-border hidden h-4 w-px sm:block" aria-hidden />
-
-        <fieldset className="m-0 flex border-0 p-0">
-          <legend className="sr-only">Install mode</legend>
-          <div className="bg-muted/40 flex rounded-lg p-0.5">
+          )}
+          {hasArm && (
             <OptionToggle
-              selected={env === "default"}
-              onClick={() => setEnv("default")}
-              label="Default"
+              selected={armEnabled}
+              onClick={() => setArmEnabled((e) => !e)}
+              label="ARM"
             />
-            {hasAlpine && (
-              <OptionToggle
-                selected={env === "alpine"}
-                onClick={() => setEnv("alpine")}
-                label="Alpine"
-              />
-            )}
-            {showAdvanced && defaults && (
-              <OptionToggle
-                selected={env === "advanced"}
-                onClick={() => setEnv("advanced")}
-                label="Advanced"
-                icon={<Settings className="h-3 w-3" />}
-              />
-            )}
-            {hasArm && (
-              <OptionToggle
-                selected={armEnabled}
-                onClick={() => setArmEnabled((e) => !e)}
-                label="ARM"
-              />
-            )}
-          </div>
-        </fieldset>
-      </div>
-
-      {/* Gitea info */}
-      {source === "gitea" && (
-        <div className="text-muted-foreground bg-muted/30 border-border flex gap-2 rounded-md border px-3 py-2 text-sm">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <p>{GITEA_INFO}</p>
+          )}
         </div>
-      )}
+      </fieldset>
 
       {/* Advanced configurator */}
       {env === "advanced" && defaults && (
         <div className="border-border bg-muted/20 rounded-xl border p-3.5 dark:bg-white/[0.02]">
-          {/* Install mode pills */}
-          <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-muted-foreground mr-1 text-[0.625rem] font-semibold tracking-wider uppercase">
-              Mode
-            </span>
-            {INSTALL_MODES.map(({ value, label }) => (
-              <button
-                type="button"
-                key={value || "custom"}
-                title={MODE_DESCRIPTIONS[value]}
-                onClick={() => setInstallMode(value)}
-                className={`rounded-full border px-2.5 py-0.5 text-[0.6875rem] font-medium transition-colors ${
-                  installMode === value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Custom resource sliders */}
+          <div className="space-y-3.5">
+            <PresetSlider
+              label="CPU"
+              icon={<Cpu className="text-primary h-3 w-3" />}
+              presets={CPU_PRESETS}
+              value={advCpu}
+              onChange={setAdvCpu}
+              defaultValue={defaults.cpu}
+              format={(v) => `${v} Core${v !== 1 ? "s" : ""}`}
+            />
+            <PresetSlider
+              label="RAM"
+              icon={<Server className="text-primary h-3 w-3" />}
+              presets={RAM_PRESETS}
+              value={advRam}
+              onChange={setAdvRam}
+              defaultValue={defaults.ram}
+              format={formatRam}
+            />
+            <PresetSlider
+              label="Disk"
+              icon={<HardDrive className="text-primary h-3 w-3" />}
+              presets={HDD_PRESETS}
+              value={advHdd}
+              onChange={setAdvHdd}
+              defaultValue={defaults.hdd}
+              format={(v) => `${v} GB`}
+            />
           </div>
-
-          {/* Sliders — only in Custom mode */}
-          {!installMode && (
-            <div className="space-y-3.5">
-              <PresetSlider
-                label="CPU"
-                icon={<Cpu className="text-primary h-3 w-3" />}
-                presets={CPU_PRESETS}
-                value={advCpu}
-                onChange={setAdvCpu}
-                defaultValue={defaults.cpu}
-                format={(v) => `${v} Core${v !== 1 ? "s" : ""}`}
-              />
-              <PresetSlider
-                label="RAM"
-                icon={<Server className="text-primary h-3 w-3" />}
-                presets={RAM_PRESETS}
-                value={advRam}
-                onChange={setAdvRam}
-                defaultValue={defaults.ram}
-                format={formatRam}
-              />
-              <PresetSlider
-                label="Disk"
-                icon={<HardDrive className="text-primary h-3 w-3" />}
-                presets={HDD_PRESETS}
-                value={advHdd}
-                onChange={setAdvHdd}
-                defaultValue={defaults.hdd}
-                format={(v) => `${v} GB`}
-              />
-            </div>
-          )}
-
-          {/* Mode note */}
-          {installMode && MODE_DESCRIPTIONS[installMode] && (
-            <p className="text-muted-foreground mt-2 text-[0.6875rem]">
-              {MODE_DESCRIPTIONS[installMode]}
-            </p>
-          )}
 
           {hasOverrides && (
             <button
@@ -418,9 +419,13 @@ export function InstallCommandBlock({
       <p className="text-muted-foreground text-sm">
         {env === "alpine" && hasAlpine
           ? "Alpine Linux — faster creation, minimal resources."
-          : env === "advanced"
-            ? "Customize resources below, then select a node and install."
-            : `Select a node below to install ${scriptName}.`}
+          : env === "mydefaults"
+            ? MODE_DESCRIPTIONS.mydefaults
+            : env === "appdefaults"
+              ? MODE_DESCRIPTIONS.appdefaults
+              : env === "advanced"
+                ? "Customize resources below, then select a node and install."
+                : `Select a node below to install ${scriptName}.`}
       </p>
 
       {/* DEV warning */}
@@ -428,6 +433,67 @@ export function InstallCommandBlock({
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>Development script — may be unstable or incomplete.</span>
+        </div>
+      )}
+
+      {/* Container picker (for addon/execute_in scripts) */}
+      {needsContainerPicker && hasLocalFiles && selectedServer && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground text-sm">Container:</span>
+          <div className="relative min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setContainerDropdownOpen((o) => !o)}
+              className="border-border bg-background text-foreground hover:bg-accent flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm"
+            >
+              <span className="truncate">
+                {selectedContainerId
+                  ? (containerOptions.find((c) => c.id === selectedContainerId)
+                      ?.name ?? selectedContainerId)
+                  : containerQuery.isLoading
+                    ? "Loading…"
+                    : "Select container…"}
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${containerDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {containerDropdownOpen && (
+              <div className="border-border bg-card absolute right-0 left-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg">
+                {containerOptions.length === 0 ? (
+                  <p className="text-muted-foreground px-3 py-2 text-sm">
+                    {containerQuery.isLoading
+                      ? "Loading containers…"
+                      : "No containers found"}
+                  </p>
+                ) : (
+                  containerOptions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedContainerId(c.id);
+                        setSelectedContainerIsVm(c.isVm);
+                        setContainerDropdownOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                        selectedContainerId === c.id
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      <span className="text-muted-foreground text-xs">
+                        {c.isVm ? "VM" : "LXC"}
+                      </span>
+                      <span className="truncate">
+                        {c.name} ({c.id})
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -508,7 +574,11 @@ export function InstallCommandBlock({
               <button
                 type="button"
                 onClick={handleInstall}
-                disabled={!selectedServer || !!running}
+                disabled={
+                  !selectedServer ||
+                  !!running ||
+                  (needsContainerPicker && !selectedContainerId)
+                }
                 className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
               >
                 {running ? (
@@ -548,6 +618,9 @@ export function InstallCommandBlock({
               mode="ssh"
               server={running.server}
               envVars={running.envVars}
+              executeInContainer={running.executeInContainer}
+              containerId={running.containerId}
+              containerType={running.containerType}
             />
           )}
         </div>
@@ -565,16 +638,19 @@ function OptionToggle({
   onClick,
   label,
   icon,
+  title,
 }: {
   selected: boolean;
   onClick: () => void;
   label: string;
   icon?: React.ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
         selected
           ? "bg-primary/15 text-primary ring-primary/30 ring-1"

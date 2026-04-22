@@ -466,6 +466,7 @@ export function ScriptDetailModal({
                     hasArm={script.has_arm}
                     hasLocalFiles={!!hasLocalFiles}
                     onTerminalChange={setTerminalActive}
+                    executeIn={script.execute_in}
                   />
                 )}
 
@@ -588,6 +589,21 @@ export function ScriptDetailModal({
                       Details
                     </h2>
                     <dl className="space-y-3 text-sm">
+                      {script.execute_in && script.execute_in.length > 0 && (
+                        <div className="flex items-start justify-between gap-3">
+                          <dt className="text-muted-foreground">Runs in</dt>
+                          <dd className="flex flex-wrap justify-end gap-1">
+                            {script.execute_in.map((env) => (
+                              <span
+                                key={env}
+                                className="bg-muted/50 text-muted-foreground rounded-full px-2 py-0.5 text-[0.6875rem] font-medium uppercase dark:bg-white/[0.06]"
+                              >
+                                {env}
+                              </span>
+                            ))}
+                          </dd>
+                        </div>
+                      )}
                       {script.version && (
                         <div className="flex items-start justify-between gap-3">
                           <dt className="text-muted-foreground">Version</dt>
