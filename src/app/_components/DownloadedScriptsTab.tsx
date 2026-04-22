@@ -43,6 +43,7 @@ export function DownloadedScriptsTab() {
     data: localScriptsData,
     isLoading: localLoading,
     error: localError,
+    refetch: refetchLocal,
   } = api.scripts.getAllDownloadedScripts.useQuery();
   const { data: scriptData } = api.scripts.getScriptBySlug.useQuery(
     { slug: selectedSlug ?? "" },
@@ -557,6 +558,16 @@ export function DownloadedScriptsTab() {
         <div className="order-1 min-w-0 flex-1 lg:order-2" ref={gridRef}>
           {/* Update all downloaded scripts */}
           <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => { void refetch(); void refetchLocal(); }}
+              variant="outline"
+              size="default"
+              className="flex items-center gap-2"
+              title="Refresh downloaded scripts list"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Refresh</span>
+            </Button>
             <Button
               onClick={handleUpdateAllClick}
               disabled={loadMultipleScriptsMutation.isPending}
