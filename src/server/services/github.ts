@@ -35,9 +35,12 @@ export class GitHubService {
       'User-Agent': 'PVEScripts-Local/1.0',
     };
     
-    // Add GitHub token authentication if available
-    if (env.GITHUB_TOKEN) {
-      headers.Authorization = `token ${env.GITHUB_TOKEN}`;
+    // Add GitHub token authentication if available.
+    // Read directly from process.env so tokens saved at runtime (without restart) are picked up.
+    // Both classic PATs (ghp_) and fine-grained PATs (github_pat_) work with Bearer.
+    const githubToken = process.env.GITHUB_TOKEN;
+    if (githubToken) {
+      headers.Authorization = `Bearer ${githubToken}`;
     }
     
     const response = await fetch(`${this.baseUrl}${endpoint}`, { headers });

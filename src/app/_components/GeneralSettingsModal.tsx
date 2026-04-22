@@ -972,8 +972,12 @@ export function GeneralSettingsModal({
                         GitHub Personal Access Token
                       </h4>
                       <p className="text-muted-foreground mb-4 text-sm">
-                        Save a GitHub Personal Access Token to circumvent GitHub
-                        API rate limits.
+                        Save a GitHub Personal Access Token to increase API rate
+                        limits. Both classic tokens (
+                        <code className="text-xs">ghp_…</code>) and fine-grained
+                        tokens (
+                        <code className="text-xs">github_pat_…</code>) are
+                        supported. Read-only public access is sufficient.
                       </p>
 
                       <div className="space-y-3">
@@ -1001,8 +1005,8 @@ export function GeneralSettingsModal({
                           <div
                             className={`rounded-md p-3 text-sm ${
                               message.type === "success"
-                                ? "bg-success/10 text-success-foreground border-success/20 border"
-                                : "bg-error/10 text-error-foreground border-error/20 border"
+                                ? "bg-success/10 text-success border-success/20 border"
+                                : "bg-error/10 text-error border-error/20 border"
                             }`}
                           >
                             {message.text}
@@ -1244,8 +1248,8 @@ export function GeneralSettingsModal({
                           <div
                             className={`rounded-md p-3 text-sm ${
                               message.type === "success"
-                                ? "bg-success/10 text-success-foreground border-success/20 border"
-                                : "bg-error/10 text-error-foreground border-error/20 border"
+                                ? "bg-success/10 text-success border-success/20 border"
+                                : "bg-error/10 text-error border-error/20 border"
                             }`}
                           >
                             {message.text}
@@ -1611,7 +1615,7 @@ export function GeneralSettingsModal({
                         )}
 
                         {lastAutoSyncError && (
-                          <div className="bg-error/10 text-error-foreground border-error/20 rounded-md border p-3">
+                          <div className="bg-error/10 text-error border-error/20 rounded-md border p-3">
                             <div className="flex items-start gap-2">
                               <svg
                                 className="mt-0.5 h-4 w-4 flex-shrink-0"
@@ -1672,8 +1676,8 @@ export function GeneralSettingsModal({
                     <div
                       className={`rounded-md p-3 text-sm ${
                         message.type === "success"
-                          ? "bg-success/10 text-success-foreground border-success/20 border"
-                          : "bg-error/10 text-error-foreground border-error/20 border"
+                          ? "bg-success/10 text-success border-success/20 border"
+                          : "bg-error/10 text-error border-error/20 border"
                       }`}
                     >
                       {message.text}
@@ -1953,8 +1957,8 @@ export function GeneralSettingsModal({
                     <div
                       className={`rounded-md p-3 text-sm ${
                         message.type === "success"
-                          ? "bg-success/10 text-success-foreground border-success/20 border"
-                          : "bg-error/10 text-error-foreground border-error/20 border"
+                          ? "bg-success/10 text-success border-success/20 border"
+                          : "bg-error/10 text-error border-error/20 border"
                       }`}
                     >
                       {message.text}

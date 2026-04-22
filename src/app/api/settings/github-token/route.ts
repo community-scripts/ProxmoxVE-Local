@@ -39,6 +39,10 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
     // Write back to .env file
     fs.writeFileSync(envPath, envContent);
 
+    // Apply immediately to the running process so callers using process.env.GITHUB_TOKEN
+    // see the new value without a restart.
+    process.env.GITHUB_TOKEN = token;
+
     return NextResponse.json({ success: true, message: 'GitHub token saved successfully' });
   } catch {
     // Error handled by withApiLogging
