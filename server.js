@@ -572,6 +572,7 @@ class ScriptExecutionHandler {
    * @param {'lxc'|'vm'} containerType
    */
   async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc') {
+    /** @type {number|null} */
     let installationId = null;
     try {
       if (this.activeExecutions.has(executionId)) {

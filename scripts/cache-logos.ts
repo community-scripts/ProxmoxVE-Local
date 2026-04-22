@@ -21,7 +21,7 @@ async function main() {
 
   console.log(`[cache-logos] Caching ${entries.length} logos...`);
    
-  const result = await cacheLogos(entries);
+  const result = await cacheLogos(entries, { verbose: true });
   console.log(
     `[cache-logos] Done: ${result.downloaded} downloaded, ${result.skipped} already cached, ${result.errors} errors`,
   );

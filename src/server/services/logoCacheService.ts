@@ -43,12 +43,13 @@ export interface LogoEntry {
  */
 export async function cacheLogos(
   entries: LogoEntry[],
-  options?: { force?: boolean; concurrency?: number }
+  options?: { force?: boolean; concurrency?: number; verbose?: boolean }
 ): Promise<{ downloaded: number; skipped: number; errors: number }> {
   ensureLogosDir();
 
   const force = options?.force ?? false;
   const concurrency = options?.concurrency ?? 10;
+  const verbose = options?.verbose ?? false;
   let downloaded = 0;
   let skipped = 0;
   let errors = 0;
@@ -84,9 +85,14 @@ export async function cacheLogos(
       }),
     );
 
-    for (const r of results) {
+    for (let j = 0; j < results.length; j++) {
+      const r = results[j];
       if (r.status === 'rejected') {
         errors++;
+        if (verbose) {
+          const entry = batch[j];
+          console.warn(`[cache-logos] Error for ${entry?.slug} (${entry?.url}): ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+        }
       }
     }
   }
