@@ -177,7 +177,7 @@ export function InstallCommandBlock({
   const [containerDropdownOpen, setContainerDropdownOpen] = useState(false);
 
   const containerQuery = api.installedScripts.listContainersOnServer.useQuery(
-    { serverId: selectedServer?.id ?? "" },
+    { serverId: selectedServer?.id ?? 0 },
     { enabled: needsContainerPicker && !!selectedServer },
   );
 
@@ -187,16 +187,16 @@ export function InstallCommandBlock({
     for (const c of containerQuery.data.lxc) {
       if (!executeIn || executeIn.includes("lxc"))
         opts.push({
-          id: String(c.vmid),
-          name: c.name ?? String(c.vmid),
+          id: String(c.id),
+          name: c.name ?? String(c.id),
           isVm: false,
         });
     }
     for (const v of containerQuery.data.vm) {
       if (!executeIn || executeIn.includes("vm"))
         opts.push({
-          id: String(v.vmid),
-          name: v.name ?? String(v.vmid),
+          id: String(v.id),
+          name: v.name ?? String(v.id),
           isVm: true,
         });
     }
@@ -210,7 +210,7 @@ export function InstallCommandBlock({
     server: ServerType;
     executeInContainer?: boolean;
     containerId?: string;
-    containerType?: string;
+    containerType?: "lxc" | "vm";
   } | null>(null);
   const [terminalCollapsed, setTerminalCollapsed] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
