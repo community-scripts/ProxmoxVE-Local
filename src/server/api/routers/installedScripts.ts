@@ -2675,6 +2675,15 @@ EOFCONFIG`;
         }
         
         const normalizedHostname = serverHostname.trim().toLowerCase();
+
+        const toNumber = (value: unknown): number | null => {
+          if (typeof value === 'number' && Number.isFinite(value)) return value;
+          if (typeof value === 'string') {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+          }
+          return null;
+        };
         
         // Check if we have cached data
         const wasCached = !input.forceRefresh;
@@ -2698,11 +2707,58 @@ EOFCONFIG`;
           const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
           return normalizedNodes.includes(normalizedHostname);
         });
+
+        // Best-effort runtime storage usage from pvesm (bytes -> GB)
+        const storageStats = new Map<string, { availableGB: number | null; usedGB: number | null; totalGB: number | null }>();
+        try {
+          let pvesmOutput = '';
+          await new Promise<void>((resolve) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              'pvesm status --verbose --output-format json 2>/dev/null || true',
+              (data: string) => {
+                pvesmOutput += data;
+              },
+              () => resolve(),
+              () => resolve()
+            );
+          });
+
+          const parsed = JSON.parse(pvesmOutput) as Array<Record<string, unknown>>;
+          if (Array.isArray(parsed)) {
+            for (const row of parsed) {
+              const storageName = typeof row.storage === 'string' ? row.storage : null;
+              if (!storageName) continue;
+              const avail = toNumber(row.avail);
+              const used = toNumber(row.used);
+              const total = toNumber(row.total);
+              const toGb = (bytes: number | null) =>
+                bytes != null ? Math.max(0, Math.floor(bytes / (1024 ** 3))) : null;
+              storageStats.set(storageName, {
+                availableGB: toGb(avail),
+                usedGB: toGb(used),
+                totalGB: toGb(total),
+              });
+            }
+          }
+        } catch {
+          // Ignore parsing/runtime issues: storage usage is optional UX metadata.
+        }
+
+        const enrichedStorages = applicableStorages.map((storage) => {
+          const stat = storageStats.get(storage.name);
+          return {
+            ...storage,
+            availableGB: stat?.availableGB ?? null,
+            usedGB: stat?.usedGB ?? null,
+            totalGB: stat?.totalGB ?? null,
+          };
+        });
         
         return {
           success: true,
-          storages: applicableStorages,
-          cached: wasCached && applicableStorages.length > 0
+          storages: enrichedStorages,
+          cached: wasCached && enrichedStorages.length > 0
         };
       } catch (error) {
         console.error('Error in getBackupStorages:', error);
@@ -3323,6 +3379,123 @@ EOFCONFIG`;
           success: false,
           error: error instanceof Error ? error.message : 'Failed to add cloned container to database',
           scriptId: null
+        };
+      }
+    }),
+
+  // Get resource templates (CPU/RAM/DISK) from existing containers/VMs
+  getContainersResourceTemplates: publicProcedure
+    .input(
+      z.object({
+        serverId: z.number(),
+        containerIds: z.array(z.string()).min(1).max(100),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        const db = getDatabase();
+        const server = await db.getServerById(input.serverId);
+        if (!server) {
+          return { success: false, error: 'Server not found', templates: {} as Record<string, { cpu: number | null; ramMB: number | null; diskGB: number | null }> };
+        }
+
+        const { default: SSHService } = await import('~/server/ssh-service');
+        const { getSSHExecutionService } = await import('~/server/ssh-execution-service');
+        const sshService = new SSHService();
+        const sshExecutionService = getSSHExecutionService();
+
+        const connectionTest = await sshService.testSSHConnection(server as Server);
+        if (!(connectionTest as any).success) {
+          return {
+            success: false,
+            error: `SSH connection failed: ${(connectionTest as any).error ?? 'Unknown error'}`,
+            templates: {} as Record<string, { cpu: number | null; ramMB: number | null; diskGB: number | null }>,
+          };
+        }
+
+        const parseDiskToGB = (raw: string | null): number | null => {
+          if (!raw) return null;
+          const m = /([0-9]+(?:\.[0-9]+)?)([KMGTP])?/.exec(raw.trim());
+          if (!m) return null;
+          const num = Number(m[1]);
+          if (!Number.isFinite(num)) return null;
+          const unit = (m[2] ?? 'G').toUpperCase();
+          const factor: Record<string, number> = {
+            K: 1 / (1024 * 1024),
+            M: 1 / 1024,
+            G: 1,
+            T: 1024,
+            P: 1024 * 1024,
+          };
+          return Math.max(1, Math.ceil(num * (factor[unit] ?? 1)));
+        };
+
+        const templates: Record<string, { cpu: number | null; ramMB: number | null; diskGB: number | null }> = {};
+
+        for (const containerId of input.containerIds) {
+          const cleanId = containerId.trim();
+          if (!/^\d+$/.test(cleanId)) continue;
+
+          // Try LXC first
+          let lxcConfig = '';
+          await new Promise<void>((resolve) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              `pct config ${cleanId} 2>/dev/null || true`,
+              (data: string) => {
+                lxcConfig += data;
+              },
+              () => resolve(),
+              () => resolve()
+            );
+          });
+
+          if (lxcConfig.trim()) {
+            const cores = /(?:^|\n)cores:\s*(\d+)/.exec(lxcConfig)?.[1] ?? null;
+            const memory = /(?:^|\n)memory:\s*(\d+)/.exec(lxcConfig)?.[1] ?? null;
+            const rootfsSize = /rootfs:[^\n]*size=([0-9.]+[KMGTP]?)/.exec(lxcConfig)?.[1] ?? null;
+            templates[cleanId] = {
+              cpu: cores ? Number(cores) : null,
+              ramMB: memory ? Number(memory) : null,
+              diskGB: parseDiskToGB(rootfsSize),
+            };
+            continue;
+          }
+
+          // Fallback to VM config
+          let vmConfig = '';
+          await new Promise<void>((resolve) => {
+            void sshExecutionService.executeCommand(
+              server as Server,
+              `qm config ${cleanId} 2>/dev/null || true`,
+              (data: string) => {
+                vmConfig += data;
+              },
+              () => resolve(),
+              () => resolve()
+            );
+          });
+
+          const cores = /(?:^|\n)cores:\s*(\d+)/.exec(vmConfig)?.[1] ?? null;
+          const memory = /(?:^|\n)memory:\s*(\d+)/.exec(vmConfig)?.[1] ?? null;
+          const vmDisk =
+            /(?:^|\n)(?:scsi\d+|virtio\d+|sata\d+|ide\d+):[^\n]*size=([0-9.]+[KMGTP]?)/.exec(vmConfig)?.[1] ??
+            null;
+
+          templates[cleanId] = {
+            cpu: cores ? Number(cores) : null,
+            ramMB: memory ? Number(memory) : null,
+            diskGB: parseDiskToGB(vmDisk),
+          };
+        }
+
+        return { success: true, templates, error: null };
+      } catch (error) {
+        console.error('Error in getContainersResourceTemplates:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch resource templates',
+          templates: {} as Record<string, { cpu: number | null; ramMB: number | null; diskGB: number | null }>,
         };
       }
     }),

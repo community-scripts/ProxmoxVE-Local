@@ -127,7 +127,7 @@ export function GeneratorTab() {
 
   // Servers for execution target
   const [servers, setServers] = useState<Server[]>([]);
-  const [selectedServer, setSelectedServer] = useState<Server | null>(null); // null = local
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(
     null,
   );
@@ -209,6 +209,9 @@ export function GeneratorTab() {
   const [ramIdx, setRamIdx] = useState(closestIdx(RAM_STEPS, 2048));
   const [diskIdx, setDiskIdx] = useState(closestIdx(DISK_STEPS, 8));
   const [privileged, setPrivileged] = useState(false);
+  const [installMode, setInstallMode] = useState<
+    "default" | "mydefaults" | "appdefaults" | "advanced"
+  >("default");
 
   // Advanced
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -316,8 +319,8 @@ export function GeneratorTab() {
     );
   }, [allScripts, searchQuery]);
 
-  // Defaults from selected script's install_methods
-  const defaults = useMemo(() => {
+  // App defaults from selected script's install_methods
+  const appDefaults = useMemo(() => {
     const fallback = { cpu: 2, ram: 2048, hdd: 8, privileged: false };
     if (!scriptDetail?.install_methods?.length) return fallback;
     const m = scriptDetail.install_methods[0];
@@ -330,13 +333,36 @@ export function GeneratorTab() {
     };
   }, [scriptDetail]);
 
-  // Apply defaults when script changes
+  const selectedContainerTemplateQuery =
+    api.installedScripts.getContainersResourceTemplates.useQuery(
+      {
+        serverId: selectedServer?.id ?? 0,
+        containerIds: selectedContainerId ? [selectedContainerId] : [],
+      },
+      {
+        enabled: !!selectedServer && !!selectedContainerId,
+      },
+    );
+
+  const templateDefaults = useMemo(() => {
+    if (!selectedContainerId) return appDefaults;
+    const t = selectedContainerTemplateQuery.data?.templates?.[selectedContainerId];
+    if (!t) return appDefaults;
+    return {
+      cpu: t.cpu ?? appDefaults.cpu,
+      ram: t.ramMB ?? appDefaults.ram,
+      hdd: t.diskGB ?? appDefaults.hdd,
+      privileged: appDefaults.privileged,
+    };
+  }, [selectedContainerId, selectedContainerTemplateQuery.data, appDefaults]);
+
+  // Apply template defaults when script/container context changes
   useEffect(() => {
-    setCpu(defaults.cpu);
-    setRamIdx(closestIdx(RAM_STEPS, defaults.ram));
-    setDiskIdx(closestIdx(DISK_STEPS, defaults.hdd));
-    setPrivileged(defaults.privileged);
-  }, [defaults]);
+    setCpu(templateDefaults.cpu);
+    setRamIdx(closestIdx(RAM_STEPS, templateDefaults.ram));
+    setDiskIdx(closestIdx(DISK_STEPS, templateDefaults.hdd));
+    setPrivileged(templateDefaults.privileged);
+  }, [templateDefaults]);
 
   const ram = RAM_STEPS[ramIdx] ?? 2048;
   const disk = DISK_STEPS[diskIdx] ?? 8;
@@ -358,44 +384,41 @@ export function GeneratorTab() {
               ? "turnkey"
               : "ct";
 
-    // For remote servers show the canonical upstream curl command.
-    // For local ("This machine") show the local script path since the app
-    // already has the scripts downloaded — no external call needed.
-    const remoteUrl = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/${pathPrefix}/${slug}.sh`;
     const localPath = `scripts/${pathPrefix}/${slug}.sh`;
-    const baseCmd = selectedServer
-      ? `bash -c "$(curl -fsSL ${remoteUrl})"`
-      : `bash ${localPath}`;
+    const baseCmd = `bash ${localPath}`;
     const overrides: string[] = [];
-    if (cpu !== defaults.cpu) overrides.push(`var_cpu="${cpu}"`);
-    if (ram !== defaults.ram) overrides.push(`var_ram="${ram}"`);
-    if (disk !== defaults.hdd) overrides.push(`var_disk="${disk}"`);
-    if (privileged !== defaults.privileged)
+    if (cpu !== templateDefaults.cpu) overrides.push(`var_cpu="${cpu}"`);
+    if (ram !== templateDefaults.ram) overrides.push(`var_ram="${ram}"`);
+    if (disk !== templateDefaults.hdd) overrides.push(`var_disk="${disk}"`);
+    if (privileged !== templateDefaults.privileged)
       overrides.push(`var_unprivileged="${privileged ? 0 : 1}"`);
-    if (ctid.trim()) overrides.push(`var_ctid="${ctid.trim()}"`);
-    if (hostname.trim()) overrides.push(`var_hostname="${hostname.trim()}"`);
-    if (bridge !== "vmbr0") overrides.push(`var_bridge="${bridge}"`);
-    if (ip.trim()) overrides.push(`var_net="static"`);
-    if (ip.trim()) overrides.push(`var_ip="${ip.trim()}"`);
-    if (gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
-    if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
-    if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
-    if (mtu.trim()) overrides.push(`var_mtu="${mtu.trim()}"`);
-    if (ssh) overrides.push('var_ssh="yes"');
-    if (nesting) overrides.push('var_nesting="1"');
-    if (fuse) overrides.push('var_fuse="1"');
-    if (gpu) overrides.push('var_gpu="yes"');
+    if (installMode === "advanced") {
+      if (ctid.trim()) overrides.push(`var_ctid="${ctid.trim()}"`);
+      if (hostname.trim()) overrides.push(`var_hostname="${hostname.trim()}"`);
+      if (bridge !== "vmbr0") overrides.push(`var_bridge="${bridge}"`);
+      if (ip.trim()) overrides.push(`var_net="static"`);
+      if (ip.trim()) overrides.push(`var_ip="${ip.trim()}"`);
+      if (gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
+      if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
+      if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
+      if (mtu.trim()) overrides.push(`var_mtu="${mtu.trim()}"`);
+      if (ssh) overrides.push('var_ssh="yes"');
+      if (nesting) overrides.push('var_nesting="1"');
+      if (fuse) overrides.push('var_fuse="1"');
+      if (gpu) overrides.push('var_gpu="yes"');
+      if (overrides.length === 0) return `mode=generated ${baseCmd}`;
+      return `mode=generated ${overrides.join(" ")} ${baseCmd}`;
+    }
 
-    if (overrides.length === 0) return baseCmd;
-    return `mode=generated ${overrides.join(" ")} ${baseCmd}`;
+    return `mode=${installMode} ${baseCmd}`;
   }, [
     selectedScript,
-    selectedServer,
+    installMode,
     cpu,
     ram,
     disk,
     privileged,
-    defaults,
+    templateDefaults,
     ctid,
     hostname,
     bridge,
@@ -418,10 +441,10 @@ export function GeneratorTab() {
   }, [generatedCommand]);
 
   const handleReset = useCallback(() => {
-    setCpu(defaults.cpu);
-    setRamIdx(closestIdx(RAM_STEPS, defaults.ram));
-    setDiskIdx(closestIdx(DISK_STEPS, defaults.hdd));
-    setPrivileged(defaults.privileged);
+    setCpu(templateDefaults.cpu);
+    setRamIdx(closestIdx(RAM_STEPS, templateDefaults.ram));
+    setDiskIdx(closestIdx(DISK_STEPS, templateDefaults.hdd));
+    setPrivileged(templateDefaults.privileged);
     setCtid("");
     setHostname("");
     setBridge("vmbr0");
@@ -434,7 +457,7 @@ export function GeneratorTab() {
     setNesting(false);
     setFuse(false);
     setGpu(false);
-  }, [defaults]);
+  }, [templateDefaults]);
 
   const handleExport = useCallback(() => {
     const config = {
@@ -544,6 +567,7 @@ export function GeneratorTab() {
 
   const handleExecute = useCallback(() => {
     if (!selectedScript?.slug) return;
+    if (!selectedServer) return;
     const type = selectedScript.type ?? "ct";
     const pathPrefix =
       type === "pve"
@@ -558,27 +582,31 @@ export function GeneratorTab() {
     const scriptPath = `scripts/${pathPrefix}/${selectedScript.slug}.sh`;
 
     const envVars: Record<string, string | number | boolean> = {};
-    if (cpu !== defaults.cpu) envVars.var_cpu = cpu;
-    if (ram !== defaults.ram) envVars.var_ram = ram;
-    if (disk !== defaults.hdd) envVars.var_disk = disk;
-    if (privileged !== defaults.privileged)
-      envVars.var_unprivileged = privileged ? 0 : 1;
-    if (ctid.trim()) envVars.var_ctid = ctid.trim();
-    if (hostname.trim()) envVars.var_hostname = hostname.trim();
-    if (bridge !== "vmbr0") envVars.var_bridge = bridge;
-    if (ip.trim()) {
-      envVars.var_net = "static";
-      envVars.var_ip = ip.trim();
+    if (installMode === "advanced") {
+      if (cpu !== templateDefaults.cpu) envVars.var_cpu = cpu;
+      if (ram !== templateDefaults.ram) envVars.var_ram = ram;
+      if (disk !== templateDefaults.hdd) envVars.var_disk = disk;
+      if (privileged !== templateDefaults.privileged)
+        envVars.var_unprivileged = privileged ? 0 : 1;
+      if (ctid.trim()) envVars.var_ctid = ctid.trim();
+      if (hostname.trim()) envVars.var_hostname = hostname.trim();
+      if (bridge !== "vmbr0") envVars.var_bridge = bridge;
+      if (ip.trim()) {
+        envVars.var_net = "static";
+        envVars.var_ip = ip.trim();
+      }
+      if (gateway.trim()) envVars.var_gateway = gateway.trim();
+      if (mac.trim()) envVars.var_mac = mac.trim();
+      if (vlan.trim()) envVars.var_vlan = vlan.trim();
+      if (mtu.trim()) envVars.var_mtu = mtu.trim();
+      if (ssh) envVars.var_ssh = "yes";
+      if (nesting) envVars.var_nesting = "1";
+      if (fuse) envVars.var_fuse = "1";
+      if (gpu) envVars.var_gpu = "yes";
+      envVars.mode = "generated";
+    } else {
+      envVars.mode = installMode;
     }
-    if (gateway.trim()) envVars.var_gateway = gateway.trim();
-    if (mac.trim()) envVars.var_mac = mac.trim();
-    if (vlan.trim()) envVars.var_vlan = vlan.trim();
-    if (mtu.trim()) envVars.var_mtu = mtu.trim();
-    if (ssh) envVars.var_ssh = "yes";
-    if (nesting) envVars.var_nesting = "1";
-    if (fuse) envVars.var_fuse = "1";
-    if (gpu) envVars.var_gpu = "yes";
-    envVars.mode = "generated";
 
     // Determine whether to execute inside the container.
     // execute_in: ["lxc"] (or vm/pbs/pmg) means the script runs INSIDE the
@@ -589,8 +617,8 @@ export function GeneratorTab() {
       path: scriptPath,
       name: selectedScript.name ?? "Script",
       envVars,
-      mode: selectedServer ? "ssh" : "local",
-      server: selectedServer ?? undefined,
+      mode: "ssh",
+      server: selectedServer,
       executeInContainer: execInContainer,
       containerId: execInContainer
         ? (selectedContainerId ?? undefined)
@@ -605,11 +633,12 @@ export function GeneratorTab() {
     selectedServer,
     selectedContainerId,
     needsContainerPicker,
+    installMode,
     cpu,
     ram,
     disk,
     privileged,
-    defaults,
+    templateDefaults,
     ctid,
     hostname,
     bridge,
@@ -828,6 +857,36 @@ export function GeneratorTab() {
               Resources
             </h2>
 
+            <div className="bg-muted/40 mb-5 flex flex-wrap rounded-lg p-0.5">
+              {[
+                { key: "default", label: "Default" },
+                { key: "mydefaults", label: "My Defaults" },
+                { key: "appdefaults", label: "App Defaults" },
+                { key: "advanced", label: "⚙ Advanced" },
+              ].map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() =>
+                    setInstallMode(
+                      m.key as
+                        | "default"
+                        | "mydefaults"
+                        | "appdefaults"
+                        | "advanced",
+                    )
+                  }
+                  className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                    installMode === m.key
+                      ? "bg-primary/15 text-primary ring-primary/30 ring-1"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-6 sm:grid-cols-3">
               {/* CPU */}
               <div>
@@ -907,13 +966,13 @@ export function GeneratorTab() {
                     App Defaults:
                   </span>
                   <span className="bg-background rounded px-2 py-0.5 font-mono">
-                    {defaults.cpu} CPU
+                    {appDefaults.cpu} CPU
                   </span>
                   <span className="bg-background rounded px-2 py-0.5 font-mono">
-                    {fmtRam(defaults.ram)}
+                    {fmtRam(appDefaults.ram)}
                   </span>
                   <span className="bg-background rounded px-2 py-0.5 font-mono">
-                    {defaults.hdd} GB
+                    {appDefaults.hdd} GB
                   </span>
                   {scriptDetail.install_methods[0]?.resources?.os && (
                     <span className="bg-background rounded px-2 py-0.5 font-mono">
@@ -929,6 +988,21 @@ export function GeneratorTab() {
                   )}
                 </div>
               )}
+
+            {selectedContainerId && (
+              <div className="bg-muted/30 border-border mt-3 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Template from CT/VM:</span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {templateDefaults.cpu} CPU
+                </span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {fmtRam(templateDefaults.ram)}
+                </span>
+                <span className="bg-background rounded px-2 py-0.5 font-mono">
+                  {templateDefaults.hdd} GB
+                </span>
+              </div>
+            )}
 
             {/* Privileged toggle */}
             <div className="mt-6 flex items-center gap-3">
@@ -950,7 +1024,8 @@ export function GeneratorTab() {
           </div>
 
           {/* Advanced Settings */}
-          <div className="glass-card-static animate-card-in border">
+          {installMode === "advanced" && (
+            <div className="glass-card-static animate-card-in border">
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex w-full items-center justify-between p-6 text-left"
@@ -1064,7 +1139,8 @@ export function GeneratorTab() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Generated Command */}
           <div className="glass-card-static animate-card-in border p-6">
@@ -1143,18 +1219,6 @@ export function GeneratorTab() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {/* Local option */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedServer(null)}
-                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                        !selectedServer
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
-                      }`}
-                    >
-                      This machine (local)
-                    </button>
                     {/* Server options */}
                     {servers.map((s) => (
                       <button
@@ -1197,8 +1261,7 @@ export function GeneratorTab() {
                   </div>
                   {!selectedServer && (
                     <p className="text-muted-foreground mt-2 text-xs">
-                      ⚠ Local execution runs on the machine hosting this app,
-                      not on a remote Proxmox node.
+                      Select a Proxmox node to execute scripts.
                     </p>
                   )}
 
@@ -1276,6 +1339,7 @@ export function GeneratorTab() {
                   <Button
                     onClick={handleExecute}
                     disabled={
+                      !selectedServer ||
                       hasErrors ||
                       !selectedScript ||
                       !isScriptDownloaded(selectedScript.slug) ||
@@ -1288,7 +1352,7 @@ export function GeneratorTab() {
                     <Play className="h-4 w-4" />
                     {selectedServer
                       ? `Execute on ${selectedServer.name}`
-                      : "Execute Locally"}
+                      : "Select node"}
                   </Button>
                 </div>
               </div>
