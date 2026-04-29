@@ -735,25 +735,36 @@ export function BackupsTab() {
                 <div className="bg-card border-border w-full max-w-3xl rounded-2xl border shadow-2xl">
                   {/* Header */}
                   <div className="border-border flex items-center gap-3 border-b px-6 py-4">
-                    {createDialog.mode === "new" && createDialog.step !== "server" && (
-                      <button
-                        onClick={() =>
-                          setCreateDialog((d) => {
-                            if (!d) return null;
-                            if (d.step === "storage") return { ...d, step: "containers" };
-                            return { ...d, step: "server", serverId: null, containerIds: [] };
-                          })
-                        }
-                        className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                      </button>
-                    )}
+                    {createDialog.mode === "new" &&
+                      createDialog.step !== "server" && (
+                        <button
+                          onClick={() =>
+                            setCreateDialog((d) => {
+                              if (!d) return null;
+                              if (d.step === "storage")
+                                return { ...d, step: "containers" };
+                              return {
+                                ...d,
+                                step: "server",
+                                serverId: null,
+                                containerIds: [],
+                              };
+                            })
+                          }
+                          className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                        </button>
+                      )}
                     <div className="flex-1">
                       <h3 className="text-foreground text-lg font-semibold">
-                        {createDialog.mode === "existing" ? "Create Backup" : "New Backup"}
+                        {createDialog.mode === "existing"
+                          ? "Create Backup"
+                          : "New Backup"}
                       </h3>
-                      <p className="text-muted-foreground mt-0.5 text-sm">{stepLabel}</p>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        {stepLabel}
+                      </p>
                     </div>
                     <button
                       onClick={() => {
@@ -784,7 +795,11 @@ export function BackupsTab() {
                               onClick={() =>
                                 setCreateDialog((d) =>
                                   d
-                                    ? { ...d, serverId: srv.id, step: "containers" }
+                                    ? {
+                                        ...d,
+                                        serverId: srv.id,
+                                        step: "containers",
+                                      }
                                     : null,
                                 )
                               }
@@ -794,8 +809,12 @@ export function BackupsTab() {
                                 <Server className="text-primary h-4 w-4" />
                               </div>
                               <div>
-                                <p className="text-foreground font-medium">{srv.name}</p>
-                                <p className="text-muted-foreground text-sm">{srv.ip}</p>
+                                <p className="text-foreground font-medium">
+                                  {srv.name}
+                                </p>
+                                <p className="text-muted-foreground text-sm">
+                                  {srv.ip}
+                                </p>
                               </div>
                             </button>
                           ))
@@ -811,7 +830,9 @@ export function BackupsTab() {
                         {containersQuery.isLoading ? (
                           <div className="flex items-center gap-2 py-6">
                             <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                            <span className="text-muted-foreground text-sm">Loading containers…</span>
+                            <span className="text-muted-foreground text-sm">
+                              Loading containers…
+                            </span>
                           </div>
                         ) : allContainers.length === 0 ? (
                           <p className="text-muted-foreground py-6 text-center text-sm">
@@ -820,7 +841,8 @@ export function BackupsTab() {
                         ) : (
                           <div className="grid gap-2 sm:grid-cols-2">
                             {allContainers.map((ct) => {
-                              const selected = createDialog.containerIds.includes(ct.id);
+                              const selected =
+                                createDialog.containerIds.includes(ct.id);
                               return (
                                 <button
                                   key={ct.id}
@@ -828,7 +850,9 @@ export function BackupsTab() {
                                     setCreateDialog((d) => {
                                       if (!d) return null;
                                       const ids = d.containerIds.includes(ct.id)
-                                        ? d.containerIds.filter((id) => id !== ct.id)
+                                        ? d.containerIds.filter(
+                                            (id) => id !== ct.id,
+                                          )
                                         : [...d.containerIds, ct.id];
                                       return { ...d, containerIds: ids };
                                     })
@@ -849,7 +873,11 @@ export function BackupsTab() {
                                     ].join(" ")}
                                   >
                                     {selected && (
-                                      <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
+                                      <svg
+                                        className="h-3 w-3 text-white"
+                                        viewBox="0 0 12 12"
+                                        fill="none"
+                                      >
                                         <path
                                           d="M2 6l3 3 5-5"
                                           stroke="currentColor"
@@ -879,7 +907,9 @@ export function BackupsTab() {
                                       </span>
                                     </div>
                                     {ct.name && ct.name !== ct.id && (
-                                      <p className="text-muted-foreground mt-0.5 truncate text-xs">{ct.name}</p>
+                                      <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                                        {ct.name}
+                                      </p>
                                     )}
                                   </div>
                                 </button>
@@ -907,12 +937,18 @@ export function BackupsTab() {
 
                         {createDialog.containerIds.length > 0 && (
                           <div className="bg-muted/40 border-border mb-3 rounded-lg border px-3 py-2 text-xs">
-                            <span className="text-muted-foreground">Estimated maximum backup size: </span>
+                            <span className="text-muted-foreground">
+                              Estimated maximum backup size:{" "}
+                            </span>
                             <span className="text-foreground font-semibold">
-                              {estimatedBackupGb > 0 ? `${estimatedBackupGb} GB` : "Unknown"}
+                              {estimatedBackupGb > 0
+                                ? `${estimatedBackupGb} GB`
+                                : "Unknown"}
                             </span>
                             {resourceTemplatesQuery.isLoading && (
-                              <span className="text-muted-foreground ml-2">(calculating…)</span>
+                              <span className="text-muted-foreground ml-2">
+                                (calculating…)
+                              </span>
                             )}
                           </div>
                         )}
@@ -924,7 +960,9 @@ export function BackupsTab() {
                         {storagesQuery.isLoading ? (
                           <div className="flex items-center gap-2 py-6">
                             <RefreshCw className="text-muted-foreground h-4 w-4 animate-spin" />
-                            <span className="text-muted-foreground text-sm">Loading storages…</span>
+                            <span className="text-muted-foreground text-sm">
+                              Loading storages…
+                            </span>
                           </div>
                         ) : storageOptions.length === 0 ? (
                           <p className="text-muted-foreground py-6 text-center text-sm">
@@ -934,13 +972,19 @@ export function BackupsTab() {
                           <div className="space-y-2">
                             {storageOptions.map((storage) => {
                               const availableGb =
-                                typeof storage.availableGB === "number" ? storage.availableGB : null;
+                                typeof storage.availableGB === "number"
+                                  ? storage.availableGB
+                                  : null;
                               const lowSpace =
-                                availableGb != null && estimatedBackupGb > 0 && estimatedBackupGb > availableGb;
+                                availableGb != null &&
+                                estimatedBackupGb > 0 &&
+                                estimatedBackupGb > availableGb;
                               return (
                                 <button
                                   key={storage.name}
-                                  onClick={() => setSelectedStorage(storage.name)}
+                                  onClick={() =>
+                                    setSelectedStorage(storage.name)
+                                  }
                                   className={[
                                     "flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors",
                                     selectedStorage === storage.name
@@ -969,7 +1013,9 @@ export function BackupsTab() {
                                     </p>
                                     <p className="text-muted-foreground text-xs">
                                       {storage.type}
-                                      {availableGb != null ? ` • Free: ${availableGb} GB` : " • Free: unknown"}
+                                      {availableGb != null
+                                        ? ` • Free: ${availableGb} GB`
+                                        : " • Free: unknown"}
                                       {lowSpace ? " • may be too small" : ""}
                                     </p>
                                   </div>
@@ -998,7 +1044,9 @@ export function BackupsTab() {
                         <Button
                           disabled={createDialog.containerIds.length === 0}
                           onClick={() =>
-                            setCreateDialog((d) => (d ? { ...d, step: "storage" } : null))
+                            setCreateDialog((d) =>
+                              d ? { ...d, step: "storage" } : null,
+                            )
                           }
                         >
                           Continue ({createDialog.containerIds.length} selected)

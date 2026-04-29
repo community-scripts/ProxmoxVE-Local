@@ -975,9 +975,8 @@ export function GeneralSettingsModal({
                         Save a GitHub Personal Access Token to increase API rate
                         limits. Both classic tokens (
                         <code className="text-xs">ghp_…</code>) and fine-grained
-                        tokens (
-                        <code className="text-xs">github_pat_…</code>) are
-                        supported. Read-only public access is sufficient.
+                        tokens (<code className="text-xs">github_pat_…</code>)
+                        are supported. Read-only public access is sufficient.
                       </p>
 
                       <div className="space-y-3">
