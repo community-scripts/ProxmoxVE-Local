@@ -218,6 +218,7 @@ export function GeneratorTab() {
   const [ctid, setCtid] = useState("");
   const [hostname, setHostname] = useState("");
   const [bridge, setBridge] = useState("vmbr0");
+  const [ipMode, setIpMode] = useState<"dhcp" | "static">("dhcp");
   const [ip, setIp] = useState("");
   const [gateway, setGateway] = useState("");
   const [mac, setMac] = useState("");
@@ -432,8 +433,8 @@ export function GeneratorTab() {
         overrides.push(`var_template_storage="${templateStorage.trim()}"`);
       if (protection) overrides.push('var_protection="yes"');
       if (bridge !== "vmbr0") overrides.push(`var_brg="${bridge}"`);
-      if (ip.trim()) overrides.push(`var_net="${ip.trim()}"`);
-      if (gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
+      if (ipMode === "static" && ip.trim()) overrides.push(`var_net="${ip.trim()}"`);
+      if (ipMode === "static" && gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
       if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
       if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
       if (mtu.trim()) overrides.push(`var_mtu="${mtu.trim()}"`);
@@ -482,6 +483,7 @@ export function GeneratorTab() {
     templateStorage,
     protection,
     bridge,
+    ipMode,
     ip,
     gateway,
     mac,
@@ -527,6 +529,7 @@ export function GeneratorTab() {
     setTemplateStorage("");
     setProtection(false);
     setBridge("vmbr0");
+    setIpMode("dhcp");
     setIp("");
     setGateway("");
     setMac("");
@@ -570,6 +573,7 @@ export function GeneratorTab() {
         templateStorage,
         protection,
         bridge,
+        ipMode,
         ip,
         gateway,
         mac,
@@ -645,6 +649,7 @@ export function GeneratorTab() {
             templateStorage?: string;
             protection?: boolean;
             bridge?: string;
+            ipMode?: "dhcp" | "static";
             ip?: string;
             gateway?: string;
             mac?: string;
@@ -684,6 +689,7 @@ export function GeneratorTab() {
         if (c.templateStorage != null) setTemplateStorage(c.templateStorage);
         if (c.protection != null) setProtection(c.protection);
         if (c.bridge != null) setBridge(c.bridge);
+        if (c.ipMode != null) setIpMode(c.ipMode);
         if (c.ip != null) setIp(c.ip);
         if (c.gateway != null) setGateway(c.gateway);
         if (c.mac != null) setMac(c.mac);
@@ -748,10 +754,8 @@ export function GeneratorTab() {
         envVars.var_template_storage = templateStorage.trim();
       if (protection) envVars.var_protection = "yes";
       if (bridge !== "vmbr0") envVars.var_brg = bridge;
-      if (ip.trim()) {
-        envVars.var_net = ip.trim();
-      }
-      if (gateway.trim()) envVars.var_gateway = gateway.trim();
+      if (ipMode === "static" && ip.trim()) envVars.var_net = ip.trim();
+      if (ipMode === "static" && gateway.trim()) envVars.var_gateway = gateway.trim();
       if (mac.trim()) envVars.var_mac = mac.trim();
       if (vlan.trim()) envVars.var_vlan = vlan.trim();
       if (mtu.trim()) envVars.var_mtu = mtu.trim();
@@ -821,6 +825,7 @@ export function GeneratorTab() {
     templateStorage,
     protection,
     bridge,
+    ipMode,
     ip,
     gateway,
     mac,
@@ -852,10 +857,10 @@ export function GeneratorTab() {
       mac: VALIDATIONS.mac(mac),
       vlan: VALIDATIONS.vlan(vlan),
       mtu: VALIDATIONS.mtu(mtu),
-      ip: VALIDATIONS.ip(ip),
+      ip: ipMode === "static" ? VALIDATIONS.ip(ip) : null,
       hostname: VALIDATIONS.hostname(hostname),
     }),
-    [mac, vlan, mtu, ip, hostname],
+    [mac, vlan, mtu, ipMode, ip, hostname],
   );
 
   const hasErrors = Object.values(errors).some(Boolean);
@@ -1311,19 +1316,44 @@ export function GeneratorTab() {
                         onChange={setBridge}
                         placeholder="vmbr0"
                       />
-                      <FieldInput
-                        label="IP Address (CIDR)"
-                        value={ip}
-                        onChange={setIp}
-                        placeholder="DHCP"
-                        error={errors.ip}
-                      />
-                      <FieldInput
-                        label="Gateway"
-                        value={gateway}
-                        onChange={setGateway}
-                        placeholder="Auto"
-                      />
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <label className="text-foreground mb-2 block text-sm font-medium">
+                          IP Mode
+                        </label>
+                        <div className="flex gap-2">
+                          {(["dhcp", "static"] as const).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setIpMode(m)}
+                              className={`rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                                ipMode === m
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {ipMode === "static" && (
+                        <>
+                          <FieldInput
+                            label="IPv4 Address (CIDR)"
+                            value={ip}
+                            onChange={setIp}
+                            placeholder="192.168.1.100/24"
+                            error={errors.ip}
+                          />
+                          <FieldInput
+                            label="IPv4 Gateway"
+                            value={gateway}
+                            onChange={setGateway}
+                            placeholder="192.168.1.1"
+                          />
+                        </>
+                      )}
                       <FieldInput
                         label="MAC Address"
                         value={mac}
