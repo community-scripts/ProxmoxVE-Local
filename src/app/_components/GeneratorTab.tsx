@@ -228,6 +228,33 @@ export function GeneratorTab() {
   const [fuse, setFuse] = useState(false);
   const [gpu, setGpu] = useState(false);
 
+  // Container identity extras
+  const [password, setPassword] = useState("");
+  const [tags, setTags] = useState("");
+  const [timezone, setTimezone] = useState("");
+  const [containerStorage, setContainerStorage] = useState("");
+  const [templateStorage, setTemplateStorage] = useState("");
+  const [protection, setProtection] = useState(false);
+
+  // Network extras
+  const [ipv6Method, setIpv6Method] = useState<
+    "auto" | "dhcp" | "static" | "none"
+  >("auto");
+  const [ipv6Ip, setIpv6Ip] = useState("");
+  const [ipv6Gateway, setIpv6Gateway] = useState("");
+  const [searchdomain, setSearchdomain] = useState("");
+  const [ns, setNs] = useState("");
+
+  // Feature extras
+  const [tun, setTun] = useState(false);
+  const [keyctl, setKeyctl] = useState(false);
+  const [mknod, setMknod] = useState(false);
+  const [verbose, setVerbose] = useState(false);
+  const [aptCacher, setAptCacher] = useState(false);
+  const [aptCacherIp, setAptCacherIp] = useState("");
+  const [mountFs, setMountFs] = useState("");
+  const [sshAuthorizedKey, setSshAuthorizedKey] = useState("");
+
   const [copied, setCopied] = useState(false);
 
   // Scripts list
@@ -346,7 +373,8 @@ export function GeneratorTab() {
 
   const templateDefaults = useMemo(() => {
     if (!selectedContainerId) return appDefaults;
-    const t = selectedContainerTemplateQuery.data?.templates?.[selectedContainerId];
+    const t =
+      selectedContainerTemplateQuery.data?.templates?.[selectedContainerId];
     if (!t) return appDefaults;
     return {
       cpu: t.cpu ?? appDefaults.cpu,
@@ -395,6 +423,14 @@ export function GeneratorTab() {
     if (installMode === "advanced") {
       if (ctid.trim()) overrides.push(`var_ctid="${ctid.trim()}"`);
       if (hostname.trim()) overrides.push(`var_hostname="${hostname.trim()}"`);
+      if (password.trim()) overrides.push(`var_pw="${password.trim()}"`);
+      if (tags.trim()) overrides.push(`var_tags="${tags.trim()}"`);
+      if (timezone.trim()) overrides.push(`var_timezone="${timezone.trim()}"`);
+      if (containerStorage.trim())
+        overrides.push(`var_container_storage="${containerStorage.trim()}"`);
+      if (templateStorage.trim())
+        overrides.push(`var_template_storage="${templateStorage.trim()}"`);
+      if (protection) overrides.push('var_protection="yes"');
       if (bridge !== "vmbr0") overrides.push(`var_bridge="${bridge}"`);
       if (ip.trim()) overrides.push(`var_net="static"`);
       if (ip.trim()) overrides.push(`var_ip="${ip.trim()}"`);
@@ -402,10 +438,29 @@ export function GeneratorTab() {
       if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
       if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
       if (mtu.trim()) overrides.push(`var_mtu="${mtu.trim()}"`);
+      if (ipv6Method !== "auto")
+        overrides.push(`var_ipv6_method="${ipv6Method}"`);
+      if (ipv6Method === "static" && ipv6Ip.trim())
+        overrides.push(`var_ipv6="${ipv6Ip.trim()}"`);
+      if (ipv6Method === "static" && ipv6Gateway.trim())
+        overrides.push(`var_ipv6_gateway="${ipv6Gateway.trim()}"`);
+      if (searchdomain.trim())
+        overrides.push(`var_searchdomain="${searchdomain.trim()}"`);
+      if (ns.trim()) overrides.push(`var_ns="${ns.trim()}"`);
       if (ssh) overrides.push('var_ssh="yes"');
+      if (ssh && sshAuthorizedKey.trim())
+        overrides.push(`var_ssh_authorized_key="${sshAuthorizedKey.trim()}"`);
       if (nesting) overrides.push('var_nesting="1"');
       if (fuse) overrides.push('var_fuse="1"');
+      if (tun) overrides.push('var_tun="yes"');
       if (gpu) overrides.push('var_gpu="yes"');
+      if (keyctl) overrides.push('var_keyctl="1"');
+      if (mknod) overrides.push('var_mknod="1"');
+      if (verbose) overrides.push('var_verbose="yes"');
+      if (aptCacher) overrides.push('var_apt_cacher="yes"');
+      if (aptCacher && aptCacherIp.trim())
+        overrides.push(`var_apt_cacher_ip="${aptCacherIp.trim()}"`);
+      if (mountFs.trim()) overrides.push(`var_mount_fs="${mountFs.trim()}"`);
       if (overrides.length === 0) return `mode=generated ${baseCmd}`;
       return `mode=generated ${overrides.join(" ")} ${baseCmd}`;
     }
@@ -421,16 +476,35 @@ export function GeneratorTab() {
     templateDefaults,
     ctid,
     hostname,
+    password,
+    tags,
+    timezone,
+    containerStorage,
+    templateStorage,
+    protection,
     bridge,
     ip,
     gateway,
     mac,
     vlan,
     mtu,
+    ipv6Method,
+    ipv6Ip,
+    ipv6Gateway,
+    searchdomain,
+    ns,
     ssh,
+    sshAuthorizedKey,
     nesting,
     fuse,
+    tun,
     gpu,
+    keyctl,
+    mknod,
+    verbose,
+    aptCacher,
+    aptCacherIp,
+    mountFs,
   ]);
 
   const handleCopy = useCallback(() => {
@@ -447,16 +521,35 @@ export function GeneratorTab() {
     setPrivileged(templateDefaults.privileged);
     setCtid("");
     setHostname("");
+    setPassword("");
+    setTags("");
+    setTimezone("");
+    setContainerStorage("");
+    setTemplateStorage("");
+    setProtection(false);
     setBridge("vmbr0");
     setIp("");
     setGateway("");
     setMac("");
     setVlan("");
     setMtu("");
+    setIpv6Method("auto");
+    setIpv6Ip("");
+    setIpv6Gateway("");
+    setSearchdomain("");
+    setNs("");
     setSsh(false);
+    setSshAuthorizedKey("");
     setNesting(false);
     setFuse(false);
+    setTun(false);
     setGpu(false);
+    setKeyctl(false);
+    setMknod(false);
+    setVerbose(false);
+    setAptCacher(false);
+    setAptCacherIp("");
+    setMountFs("");
   }, [templateDefaults]);
 
   const handleExport = useCallback(() => {
@@ -471,16 +564,35 @@ export function GeneratorTab() {
         privileged,
         ctid,
         hostname,
+        password,
+        tags,
+        timezone,
+        containerStorage,
+        templateStorage,
+        protection,
         bridge,
         ip,
         gateway,
         mac,
         vlan,
         mtu,
+        ipv6Method,
+        ipv6Ip,
+        ipv6Gateway,
+        searchdomain,
+        ns,
         ssh,
+        sshAuthorizedKey,
         nesting,
         fuse,
+        tun,
         gpu,
+        keyctl,
+        mknod,
+        verbose,
+        aptCacher,
+        aptCacherIp,
+        mountFs,
       },
     };
     const blob = new Blob([JSON.stringify(config, null, 2)], {
@@ -527,16 +639,35 @@ export function GeneratorTab() {
             privileged?: boolean;
             ctid?: string;
             hostname?: string;
+            password?: string;
+            tags?: string;
+            timezone?: string;
+            containerStorage?: string;
+            templateStorage?: string;
+            protection?: boolean;
             bridge?: string;
             ip?: string;
             gateway?: string;
             mac?: string;
             vlan?: string;
             mtu?: string;
+            ipv6Method?: "auto" | "dhcp" | "static" | "none";
+            ipv6Ip?: string;
+            ipv6Gateway?: string;
+            searchdomain?: string;
+            ns?: string;
             ssh?: boolean;
+            sshAuthorizedKey?: string;
             nesting?: boolean;
             fuse?: boolean;
+            tun?: boolean;
             gpu?: boolean;
+            keyctl?: boolean;
+            mknod?: boolean;
+            verbose?: boolean;
+            aptCacher?: boolean;
+            aptCacherIp?: string;
+            mountFs?: string;
           };
         };
         const c = parsed.config;
@@ -547,16 +678,35 @@ export function GeneratorTab() {
         if (c.privileged != null) setPrivileged(c.privileged);
         if (c.ctid != null) setCtid(c.ctid);
         if (c.hostname != null) setHostname(c.hostname);
+        if (c.password != null) setPassword(c.password);
+        if (c.tags != null) setTags(c.tags);
+        if (c.timezone != null) setTimezone(c.timezone);
+        if (c.containerStorage != null) setContainerStorage(c.containerStorage);
+        if (c.templateStorage != null) setTemplateStorage(c.templateStorage);
+        if (c.protection != null) setProtection(c.protection);
         if (c.bridge != null) setBridge(c.bridge);
         if (c.ip != null) setIp(c.ip);
         if (c.gateway != null) setGateway(c.gateway);
         if (c.mac != null) setMac(c.mac);
         if (c.vlan != null) setVlan(c.vlan);
         if (c.mtu != null) setMtu(c.mtu);
+        if (c.ipv6Method != null) setIpv6Method(c.ipv6Method);
+        if (c.ipv6Ip != null) setIpv6Ip(c.ipv6Ip);
+        if (c.ipv6Gateway != null) setIpv6Gateway(c.ipv6Gateway);
+        if (c.searchdomain != null) setSearchdomain(c.searchdomain);
+        if (c.ns != null) setNs(c.ns);
         if (c.ssh != null) setSsh(c.ssh);
+        if (c.sshAuthorizedKey != null) setSshAuthorizedKey(c.sshAuthorizedKey);
         if (c.nesting != null) setNesting(c.nesting);
         if (c.fuse != null) setFuse(c.fuse);
+        if (c.tun != null) setTun(c.tun);
         if (c.gpu != null) setGpu(c.gpu);
+        if (c.keyctl != null) setKeyctl(c.keyctl);
+        if (c.mknod != null) setMknod(c.mknod);
+        if (c.verbose != null) setVerbose(c.verbose);
+        if (c.aptCacher != null) setAptCacher(c.aptCacher);
+        if (c.aptCacherIp != null) setAptCacherIp(c.aptCacherIp);
+        if (c.mountFs != null) setMountFs(c.mountFs);
       } catch {
         // Silently fail on invalid JSON
       }
@@ -590,6 +740,14 @@ export function GeneratorTab() {
         envVars.var_unprivileged = privileged ? 0 : 1;
       if (ctid.trim()) envVars.var_ctid = ctid.trim();
       if (hostname.trim()) envVars.var_hostname = hostname.trim();
+      if (password.trim()) envVars.var_pw = password.trim();
+      if (tags.trim()) envVars.var_tags = tags.trim();
+      if (timezone.trim()) envVars.var_timezone = timezone.trim();
+      if (containerStorage.trim())
+        envVars.var_container_storage = containerStorage.trim();
+      if (templateStorage.trim())
+        envVars.var_template_storage = templateStorage.trim();
+      if (protection) envVars.var_protection = "yes";
       if (bridge !== "vmbr0") envVars.var_bridge = bridge;
       if (ip.trim()) {
         envVars.var_net = "static";
@@ -599,10 +757,27 @@ export function GeneratorTab() {
       if (mac.trim()) envVars.var_mac = mac.trim();
       if (vlan.trim()) envVars.var_vlan = vlan.trim();
       if (mtu.trim()) envVars.var_mtu = mtu.trim();
+      if (ipv6Method !== "auto") envVars.var_ipv6_method = ipv6Method;
+      if (ipv6Method === "static" && ipv6Ip.trim())
+        envVars.var_ipv6 = ipv6Ip.trim();
+      if (ipv6Method === "static" && ipv6Gateway.trim())
+        envVars.var_ipv6_gateway = ipv6Gateway.trim();
+      if (searchdomain.trim()) envVars.var_searchdomain = searchdomain.trim();
+      if (ns.trim()) envVars.var_ns = ns.trim();
       if (ssh) envVars.var_ssh = "yes";
+      if (ssh && sshAuthorizedKey.trim())
+        envVars.var_ssh_authorized_key = sshAuthorizedKey.trim();
       if (nesting) envVars.var_nesting = "1";
       if (fuse) envVars.var_fuse = "1";
+      if (tun) envVars.var_tun = "yes";
       if (gpu) envVars.var_gpu = "yes";
+      if (keyctl) envVars.var_keyctl = "1";
+      if (mknod) envVars.var_mknod = "1";
+      if (verbose) envVars.var_verbose = "yes";
+      if (aptCacher) envVars.var_apt_cacher = "yes";
+      if (aptCacher && aptCacherIp.trim())
+        envVars.var_apt_cacher_ip = aptCacherIp.trim();
+      if (mountFs.trim()) envVars.var_mount_fs = mountFs.trim();
       envVars.mode = "generated";
     } else {
       envVars.mode = installMode;
@@ -641,16 +816,36 @@ export function GeneratorTab() {
     templateDefaults,
     ctid,
     hostname,
+    password,
+    tags,
+    timezone,
+    containerStorage,
+    templateStorage,
+    protection,
     bridge,
     ip,
     gateway,
     mac,
     vlan,
     mtu,
+    ipv6Method,
+    ipv6Ip,
+    ipv6Gateway,
+    searchdomain,
+    ns,
     ssh,
+    sshAuthorizedKey,
     nesting,
     fuse,
+    tun,
     gpu,
+    keyctl,
+    mknod,
+    verbose,
+    aptCacher,
+    aptCacherIp,
+    mountFs,
+    selectedContainerIsVm,
   ]);
 
   // Validation errors
@@ -991,7 +1186,9 @@ export function GeneratorTab() {
 
             {selectedContainerId && (
               <div className="bg-muted/30 border-border mt-3 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
-                <span className="text-muted-foreground">Template from CT/VM:</span>
+                <span className="text-muted-foreground">
+                  Template from CT/VM:
+                </span>
                 <span className="bg-background rounded px-2 py-0.5 font-mono">
                   {templateDefaults.cpu} CPU
                 </span>
@@ -1026,119 +1223,269 @@ export function GeneratorTab() {
           {/* Advanced Settings */}
           {installMode === "advanced" && (
             <div className="glass-card-static animate-card-in border">
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex w-full items-center justify-between p-6 text-left"
-            >
-              <h2 className="text-foreground flex items-center gap-2 text-lg font-semibold">
-                <Network className="text-primary h-5 w-5" />
-                Advanced Settings
-              </h2>
-              {showAdvanced ? (
-                <ChevronUp className="text-muted-foreground h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-muted-foreground h-5 w-5" />
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex w-full items-center justify-between p-6 text-left"
+              >
+                <h2 className="text-foreground flex items-center gap-2 text-lg font-semibold">
+                  <Network className="text-primary h-5 w-5" />
+                  Advanced Settings
+                </h2>
+                {showAdvanced ? (
+                  <ChevronUp className="text-muted-foreground h-5 w-5" />
+                ) : (
+                  <ChevronDown className="text-muted-foreground h-5 w-5" />
+                )}
+              </button>
+
+              {showAdvanced && (
+                <div className="animate-section-in border-border/60 space-y-6 border-t p-6">
+                  {/* Container */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
+                      Container
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <FieldInput
+                        label="Container ID (CTID)"
+                        value={ctid}
+                        onChange={setCtid}
+                        placeholder="Auto"
+                      />
+                      <FieldInput
+                        label="Hostname"
+                        value={hostname}
+                        onChange={setHostname}
+                        placeholder="Auto"
+                        error={errors.hostname}
+                      />
+                      <FieldInput
+                        label="Password"
+                        value={password}
+                        onChange={setPassword}
+                        placeholder="leave empty for auto"
+                        type="password"
+                      />
+                      <FieldInput
+                        label="Tags"
+                        value={tags}
+                        onChange={setTags}
+                        placeholder="community-scripts"
+                        hint="Semicolon-separated"
+                      />
+                      <FieldInput
+                        label="Timezone"
+                        value={timezone}
+                        onChange={setTimezone}
+                        placeholder="auto (host timezone)"
+                      />
+                      <FieldInput
+                        label="Container Storage"
+                        value={containerStorage}
+                        onChange={setContainerStorage}
+                        placeholder="local-lvm"
+                      />
+                      <FieldInput
+                        label="Template Storage"
+                        value={templateStorage}
+                        onChange={setTemplateStorage}
+                        placeholder="local"
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <ToggleSwitch
+                        label="Protection (prevent accidental deletion)"
+                        checked={protection}
+                        onChange={setProtection}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Networking */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
+                      Networking
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <FieldInput
+                        label="Bridge"
+                        value={bridge}
+                        onChange={setBridge}
+                        placeholder="vmbr0"
+                      />
+                      <FieldInput
+                        label="IP Address (CIDR)"
+                        value={ip}
+                        onChange={setIp}
+                        placeholder="DHCP"
+                        error={errors.ip}
+                      />
+                      <FieldInput
+                        label="Gateway"
+                        value={gateway}
+                        onChange={setGateway}
+                        placeholder="Auto"
+                      />
+                      <FieldInput
+                        label="MAC Address"
+                        value={mac}
+                        onChange={setMac}
+                        placeholder="Auto"
+                        error={errors.mac}
+                      />
+                      <FieldInput
+                        label="VLAN Tag"
+                        value={vlan}
+                        onChange={setVlan}
+                        placeholder="None"
+                        error={errors.vlan}
+                      />
+                      <FieldInput
+                        label="MTU"
+                        value={mtu}
+                        onChange={setMtu}
+                        placeholder="Default"
+                        error={errors.mtu}
+                      />
+                      <FieldInput
+                        label="Search Domain"
+                        value={searchdomain}
+                        onChange={setSearchdomain}
+                        placeholder="auto"
+                      />
+                      <FieldInput
+                        label="Nameserver (DNS)"
+                        value={ns}
+                        onChange={setNs}
+                        placeholder="auto"
+                      />
+                    </div>
+                    {/* IPv6 */}
+                    <div className="mt-4">
+                      <label className="text-foreground mb-2 block text-sm font-medium">
+                        IPv6 Method
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {(["auto", "dhcp", "static", "none"] as const).map(
+                          (m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setIpv6Method(m)}
+                              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                ipv6Method === m
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                      {ipv6Method === "static" && (
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <FieldInput
+                            label="IPv6 Address (CIDR)"
+                            value={ipv6Ip}
+                            onChange={setIpv6Ip}
+                            placeholder="e.g. 2001:db8::1/64"
+                          />
+                          <FieldInput
+                            label="IPv6 Gateway"
+                            value={ipv6Gateway}
+                            onChange={setIpv6Gateway}
+                            placeholder="e.g. 2001:db8::1"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Features & Services */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
+                      Features &amp; Services
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <ToggleSwitch
+                        label="SSH Access"
+                        checked={ssh}
+                        onChange={setSsh}
+                      />
+                      <ToggleSwitch
+                        label="Nesting"
+                        checked={nesting}
+                        onChange={setNesting}
+                      />
+                      <ToggleSwitch
+                        label="FUSE"
+                        checked={fuse}
+                        onChange={setFuse}
+                      />
+                      <ToggleSwitch
+                        label="TUN"
+                        checked={tun}
+                        onChange={setTun}
+                      />
+                      <ToggleSwitch
+                        label="GPU Passthrough"
+                        checked={gpu}
+                        onChange={setGpu}
+                      />
+                      <ToggleSwitch
+                        label="Keyctl"
+                        checked={keyctl}
+                        onChange={setKeyctl}
+                      />
+                      <ToggleSwitch
+                        label="Mknod"
+                        checked={mknod}
+                        onChange={setMknod}
+                      />
+                      <ToggleSwitch
+                        label="Verbose"
+                        checked={verbose}
+                        onChange={setVerbose}
+                      />
+                      <ToggleSwitch
+                        label="APT Cacher"
+                        checked={aptCacher}
+                        onChange={setAptCacher}
+                      />
+                    </div>
+                    {aptCacher && (
+                      <div className="mt-3 max-w-sm">
+                        <FieldInput
+                          label="APT Cacher IP / URL"
+                          value={aptCacherIp}
+                          onChange={setAptCacherIp}
+                          placeholder="e.g. 192.168.1.10"
+                        />
+                      </div>
+                    )}
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                      <FieldInput
+                        label="Mount Filesystem"
+                        value={mountFs}
+                        onChange={setMountFs}
+                        placeholder="nfs;cifs"
+                        hint="Semicolon-separated filesystem types"
+                      />
+                    </div>
+                    {ssh && (
+                      <div className="mt-3">
+                        <FieldInput
+                          label="SSH Authorized Key"
+                          value={sshAuthorizedKey}
+                          onChange={setSshAuthorizedKey}
+                          placeholder="ssh-ed25519 AAAA..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
-
-            {showAdvanced && (
-              <div className="animate-section-in border-border/60 space-y-6 border-t p-6">
-                {/* Container ID & Hostname */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FieldInput
-                    label="Container ID (CTID)"
-                    value={ctid}
-                    onChange={setCtid}
-                    placeholder="Auto"
-                  />
-                  <FieldInput
-                    label="Hostname"
-                    value={hostname}
-                    onChange={setHostname}
-                    placeholder="Auto"
-                    error={errors.hostname}
-                  />
-                </div>
-
-                {/* Networking */}
-                <div>
-                  <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
-                    Networking
-                  </h3>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <FieldInput
-                      label="Bridge"
-                      value={bridge}
-                      onChange={setBridge}
-                      placeholder="vmbr0"
-                    />
-                    <FieldInput
-                      label="IP Address (CIDR)"
-                      value={ip}
-                      onChange={setIp}
-                      placeholder="DHCP"
-                      error={errors.ip}
-                    />
-                    <FieldInput
-                      label="Gateway"
-                      value={gateway}
-                      onChange={setGateway}
-                      placeholder="Auto"
-                    />
-                    <FieldInput
-                      label="MAC Address"
-                      value={mac}
-                      onChange={setMac}
-                      placeholder="Auto"
-                      error={errors.mac}
-                    />
-                    <FieldInput
-                      label="VLAN Tag"
-                      value={vlan}
-                      onChange={setVlan}
-                      placeholder="None"
-                      error={errors.vlan}
-                    />
-                    <FieldInput
-                      label="MTU"
-                      value={mtu}
-                      onChange={setMtu}
-                      placeholder="Default"
-                      error={errors.mtu}
-                    />
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div>
-                  <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
-                    Features
-                  </h3>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <ToggleSwitch
-                      label="SSH Access"
-                      checked={ssh}
-                      onChange={setSsh}
-                    />
-                    <ToggleSwitch
-                      label="Nesting"
-                      checked={nesting}
-                      onChange={setNesting}
-                    />
-                    <ToggleSwitch
-                      label="FUSE"
-                      checked={fuse}
-                      onChange={setFuse}
-                    />
-                    <ToggleSwitch
-                      label="GPU Passthrough"
-                      checked={gpu}
-                      onChange={setGpu}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
             </div>
           )}
 
@@ -1519,12 +1866,16 @@ function FieldInput({
   onChange,
   placeholder,
   error,
+  type = "text",
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   error?: string | null;
+  type?: string;
+  hint?: string;
 }) {
   return (
     <div>
@@ -1532,7 +1883,7 @@ function FieldInput({
         {label}
       </label>
       <input
-        type="text"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -1540,6 +1891,9 @@ function FieldInput({
           error ? "border-destructive" : "border-input"
         }`}
       />
+      {hint && !error && (
+        <p className="text-muted-foreground mt-1 text-xs">{hint}</p>
+      )}
       {error && <p className="text-destructive mt-1 text-xs">{error}</p>}
     </div>
   );
