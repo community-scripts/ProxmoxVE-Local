@@ -188,9 +188,7 @@ export const scriptsRouter = createTRPCRouter({
         const cards = await getScriptCards();
         return {
           success: true,
-          cards: cards
-            .filter((c) => !UNSUPPORTED_TYPES.includes(c.type as typeof UNSUPPORTED_TYPES[number]))
-            .map((c) => {
+          cards: cards.map((c) => {
             const card = pbCardToScriptCard(c);
             card.logo = getLocalLogoPath(c.slug, card.logo);
             return card;
@@ -269,9 +267,7 @@ export const scriptsRouter = createTRPCRouter({
           pbGetMetadata(),
         ]);
 
-        const scriptCards = cards
-          .filter((c) => !UNSUPPORTED_TYPES.includes(c.type as typeof UNSUPPORTED_TYPES[number]))
-          .map((c) => {
+        const scriptCards = cards.map((c) => {
           const card = pbCardToScriptCard(c);
           card.logo = getLocalLogoPath(c.slug, card.logo);
           return card;

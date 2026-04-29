@@ -192,7 +192,7 @@ export function ScriptsGrid() {
       .filter((name): name is string => typeof name === "string");
   }, [scriptCardsData]);
 
-  // Get GitHub scripts with download status (deduplicated)
+  // Get GitHub scripts with download status (deduplicated), excluding unsupported types
   const combinedScripts = React.useMemo((): ScriptCardType[] => {
     if (!scriptCardsData?.success) return [];
 
@@ -201,6 +201,8 @@ export function ScriptsGrid() {
 
     scriptCardsData.cards?.forEach((script: ScriptCardType) => {
       if (script?.name && script?.slug) {
+        // Exclude addon/pve types from the Scripts grid
+        if (script.type === "addon" || script.type === "pve") return;
         // Use slug as unique identifier, only keep first occurrence
         if (!scriptMap.has(script.slug)) {
           scriptMap.set(script.slug, {
@@ -809,7 +811,7 @@ export function ScriptsGrid() {
       if (!map.has(key)) map.set(key, s);
     }
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installedScriptsData]);
 
   const handleShellClick = useCallback(
