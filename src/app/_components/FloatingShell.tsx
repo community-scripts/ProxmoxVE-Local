@@ -25,11 +25,13 @@ function FloatingShellWindow({
   stackIndex,
   onClose,
   onMinimize,
+  isVisible,
 }: {
   entry: ShellEntry;
   stackIndex: number;
   onClose: () => void;
   onMinimize: () => void;
+  isVisible: boolean;
 }) {
   const { session } = entry;
   const [isMaximized, setIsMaximized] = useState(false);
@@ -169,7 +171,7 @@ function FloatingShellWindow({
     <div
       ref={windowRef}
       className="bg-card border-border fixed z-[200] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
-      style={windowStyle}
+      style={{ ...windowStyle, display: isVisible ? undefined : "none" }}
     >
       {/* Header — drag handle */}
       <div
@@ -239,19 +241,24 @@ export function FloatingShell() {
 
   return createPortal(
     <>
-      {/* Open windows */}
-      {openSessions.map((entry, idx) => (
-        <FloatingShellWindow
-          key={entry.id}
-          entry={entry}
-          stackIndex={idx}
-          onClose={() => {
-            close(entry.id);
-            entry.session.onComplete?.();
-          }}
-          onMinimize={() => minimize(entry.id)}
-        />
-      ))}
+      {/* All windows — minimized ones are hidden via CSS to preserve terminal state */}
+      {sessions.map((entry, idx) => {
+        const isVisible = entry.state === "open";
+        const stackIndex = openSessions.indexOf(entry);
+        return (
+          <FloatingShellWindow
+            key={entry.id}
+            entry={entry}
+            stackIndex={stackIndex >= 0 ? stackIndex : idx}
+            isVisible={isVisible}
+            onClose={() => {
+              close(entry.id);
+              entry.session.onComplete?.();
+            }}
+            onMinimize={() => minimize(entry.id)}
+          />
+        );
+      })}
 
       {/* Minimised pills — stacked bottom-right */}
       {minimizedSessions.length > 0 && (
