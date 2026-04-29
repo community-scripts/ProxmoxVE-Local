@@ -98,6 +98,7 @@ type PBSStorageCredential = {
   storage_name: string;
   pbs_ip: string;
   pbs_datastore: string;
+  pbs_username: string;
   pbs_password: string;
   pbs_fingerprint: string;
   created_at: Date;
