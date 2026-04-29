@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { api } from "~/trpc/react";
 import { ScriptCard } from "./ScriptCard";
 import { ScriptCardList } from "./ScriptCardList";
@@ -470,7 +476,7 @@ export function DownloadedScriptsTab() {
       if (!map.has(key)) map.set(key, s);
     }
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installedScriptsData]);
 
   const handleShellClick = useCallback(

@@ -128,7 +128,7 @@ export function ScriptDetailModal({
       const sn = normalizeScriptId(s.script_name);
       return sn === slug || sn === name;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [script, installedScriptsData]);
 
   const hasAlpine = useMemo(() => {
@@ -644,10 +644,11 @@ export function ScriptDetailModal({
                                         ip: container.server_ip ?? "",
                                         user: container.server_user,
                                         password:
-                                          container.server_password ?? undefined,
-                                        auth_type: (
-                                          container.server_auth_type ?? "password"
-                                        ) as any,
+                                          container.server_password ??
+                                          undefined,
+                                        auth_type:
+                                          (container.server_auth_type ??
+                                            "password") as any,
                                         ssh_key:
                                           container.server_ssh_key ?? undefined,
                                         ssh_key_passphrase:
