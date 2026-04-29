@@ -267,14 +267,15 @@ export function CategorySidebar({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {showDevScripts && (categoryDevCounts?.[category] ?? 0) > 0 && (
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-500/10 px-1.5 text-[10px] leading-none font-semibold text-violet-600 dark:text-violet-400">
-                        {categoryDevCounts?.[category]}{" "}
-                        <span className="ml-0.5 text-[8px] font-normal opacity-70">
-                          dev
+                    {showDevScripts &&
+                      (categoryDevCounts?.[category] ?? 0) > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-500/10 px-1.5 text-[10px] leading-none font-semibold text-violet-600 dark:text-violet-400">
+                          {categoryDevCounts?.[category]}{" "}
+                          <span className="ml-0.5 text-[8px] font-normal opacity-70">
+                            dev
+                          </span>
                         </span>
-                      </span>
-                    )}
+                      )}
                     <span
                       className={`rounded-full px-2 py-1 text-sm ${
                         isSelected

@@ -433,8 +433,10 @@ export function GeneratorTab() {
         overrides.push(`var_template_storage="${templateStorage.trim()}"`);
       if (protection) overrides.push('var_protection="yes"');
       if (bridge !== "vmbr0") overrides.push(`var_brg="${bridge}"`);
-      if (ipMode === "static" && ip.trim()) overrides.push(`var_net="${ip.trim()}"`);
-      if (ipMode === "static" && gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
+      if (ipMode === "static" && ip.trim())
+        overrides.push(`var_net="${ip.trim()}"`);
+      if (ipMode === "static" && gateway.trim())
+        overrides.push(`var_gateway="${gateway.trim()}"`);
       if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
       if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
       if (mtu.trim()) overrides.push(`var_mtu="${mtu.trim()}"`);
@@ -755,7 +757,8 @@ export function GeneratorTab() {
       if (protection) envVars.var_protection = "yes";
       if (bridge !== "vmbr0") envVars.var_brg = bridge;
       if (ipMode === "static" && ip.trim()) envVars.var_net = ip.trim();
-      if (ipMode === "static" && gateway.trim()) envVars.var_gateway = gateway.trim();
+      if (ipMode === "static" && gateway.trim())
+        envVars.var_gateway = gateway.trim();
       if (mac.trim()) envVars.var_mac = mac.trim();
       if (vlan.trim()) envVars.var_vlan = vlan.trim();
       if (mtu.trim()) envVars.var_mtu = mtu.trim();
@@ -1326,7 +1329,7 @@ export function GeneratorTab() {
                               key={m}
                               type="button"
                               onClick={() => setIpMode(m)}
-                              className={`rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                              className={`rounded-full border px-4 py-1.5 text-xs font-semibold tracking-wide uppercase transition-colors ${
                                 ipMode === m
                                   ? "border-primary bg-primary text-primary-foreground"
                                   : "border-border text-muted-foreground hover:text-foreground"
