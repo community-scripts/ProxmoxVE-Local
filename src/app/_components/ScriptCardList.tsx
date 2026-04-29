@@ -4,12 +4,14 @@ import { memo, useState } from "react";
 import Image from "next/image";
 import type { ScriptCard as ScriptCardType } from "~/types/script";
 import { TypeBadge, UpdateableBadge } from "./Badge";
+import { Terminal } from "lucide-react";
 
 interface ScriptCardListProps {
   script: ScriptCardType;
   onClick: (script: ScriptCardType) => void;
   isSelected?: boolean;
   onToggleSelect?: (slug: string) => void;
+  onShell?: () => void;
 }
 
 export const ScriptCardList = memo(function ScriptCardList({
@@ -17,6 +19,7 @@ export const ScriptCardList = memo(function ScriptCardList({
   onClick,
   isSelected = false,
   onToggleSelect,
+  onShell,
 }: ScriptCardListProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -146,31 +149,47 @@ export const ScriptCardList = memo(function ScriptCardList({
                 </div>
               </div>
 
-              {/* Right side - Website link */}
-              {script.website && (
-                <a
-                  href={script.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-info hover:text-info/80 ml-4 flex items-center space-x-1 text-sm font-medium"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span>Website</span>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {/* Right side - Website link + Shell */}
+              <div className="ml-4 flex shrink-0 items-center gap-2">
+                {script.website && (
+                  <a
+                    href={script.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-info hover:text-info/80 flex items-center space-x-1 text-sm font-medium"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </a>
-              )}
+                    <span>Website</span>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </a>
+                )}
+                {onShell && (
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShell();
+                    }}
+                    title="Open shell"
+                  >
+                    <Terminal className="h-3.5 w-3.5" />
+                    Shell
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Description */}

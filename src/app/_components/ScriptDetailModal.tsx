@@ -18,6 +18,7 @@ import { Button } from "./ui/button";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { InstallCommandBlock } from "./InstallCommandBlock";
 import type { InstallDefaults } from "./InstallCommandBlock";
+import { useShell } from "./ShellContext";
 import {
   Check,
   X,
@@ -29,6 +30,7 @@ import {
   Eye,
   ExternalLink,
   Server as ServerIcon,
+  Terminal,
   Loader2,
 } from "lucide-react";
 
@@ -52,6 +54,11 @@ export function ScriptDetailModal({
     allowEscape: true,
     onClose,
   });
+  const { open: openShell } = useShell();
+  const { data: installedScriptsData } =
+    api.installedScripts.getAllInstalledScripts.useQuery(undefined, {
+      enabled: isOpen,
+    });
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
@@ -104,6 +111,25 @@ export function ScriptDetailModal({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onSelectSlug, previousSlug, nextSlug]);
+
+  const normalizeScriptId = (s?: string): string =>
+    (s ?? "")
+      .toLowerCase()
+      .replace(/\.(sh|bash|py|js|ts)$/i, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+  const matchingContainers = useMemo(() => {
+    if (!script || !installedScriptsData?.success) return [];
+    const slug = normalizeScriptId(script.slug);
+    const name = normalizeScriptId(script.name);
+    return ((installedScriptsData as any).scripts ?? []).filter((s: any) => {
+      if (!s.container_id || s.status === "failed") return false;
+      const sn = normalizeScriptId(s.script_name);
+      return sn === slug || sn === name;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [script, installedScriptsData]);
 
   const hasAlpine = useMemo(() => {
     if (!script) return false;
@@ -581,6 +607,71 @@ export function ScriptDetailModal({
                           </div>
                         )}
                       </dl>
+                    </div>
+                  )}
+
+                  {matchingContainers.length > 0 && (
+                    <div className="border-primary/20 bg-primary/5 dark:bg-primary/[0.07] rounded-2xl border p-4">
+                      <h3 className="text-primary mb-3 flex items-center gap-1.5 text-sm font-semibold tracking-[0.1em] uppercase">
+                        <Terminal className="h-3.5 w-3.5" /> Containers
+                      </h3>
+                      <div className="space-y-2">
+                        {matchingContainers.map((container: any) => (
+                          <div
+                            key={container.id}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium">
+                                {container.container_id}
+                              </span>
+                              {container.server_name && (
+                                <span className="text-muted-foreground ml-1 text-xs">
+                                  ({container.server_name})
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 shrink-0 gap-1 text-xs"
+                              onClick={() => {
+                                const server =
+                                  container.server_id && container.server_user
+                                    ? {
+                                        id: container.server_id,
+                                        name: container.server_name ?? "",
+                                        ip: container.server_ip ?? "",
+                                        user: container.server_user,
+                                        password:
+                                          container.server_password ?? undefined,
+                                        auth_type: (
+                                          container.server_auth_type ?? "password"
+                                        ) as any,
+                                        ssh_key:
+                                          container.server_ssh_key ?? undefined,
+                                        ssh_key_passphrase:
+                                          container.server_ssh_key_passphrase ??
+                                          undefined,
+                                        ssh_port:
+                                          container.server_ssh_port ?? 22,
+                                        created_at: null,
+                                        updated_at: null,
+                                      }
+                                    : undefined;
+                                openShell({
+                                  containerId: container.container_id,
+                                  containerName: container.script_name,
+                                  server,
+                                  containerType: container.is_vm ? "vm" : "lxc",
+                                });
+                              }}
+                            >
+                              <Terminal className="h-3 w-3" /> Shell
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 

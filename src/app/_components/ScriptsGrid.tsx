@@ -12,6 +12,7 @@ import { Button } from "./ui/button";
 import { Clock } from "lucide-react";
 import type { ScriptCard as ScriptCardType } from "~/types/script";
 import { getDefaultFilters, mergeFiltersWithDefaults } from "./filterUtils";
+import { useShell } from "./ShellContext";
 
 export function ScriptsGrid() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -63,6 +64,9 @@ export function ScriptsGrid() {
     isLoading: localLoading,
     error: localError,
   } = api.scripts.getAllDownloadedScripts.useQuery();
+  const { data: installedScriptsData } =
+    api.installedScripts.getAllInstalledScripts.useQuery();
+  const { open: openShell } = useShell();
   const { data: scriptData } = api.scripts.getScriptBySlug.useQuery(
     { slug: selectedSlug ?? "" },
     { enabled: !!selectedSlug },
@@ -788,6 +792,58 @@ export function ScriptsGrid() {
     setIsModalOpen(true);
   }, []);
 
+  const normalizeSlug = (s?: string): string =>
+    (s ?? "")
+      .toLowerCase()
+      .replace(/\.(sh|bash|py|js|ts)$/i, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+  // Map normalized slug → first installed container with a container_id
+  const installedContainerMap = React.useMemo((): Map<string, any> => {
+    const map = new Map<string, any>();
+    const scripts = (installedScriptsData as any)?.scripts ?? [];
+    for (const s of scripts) {
+      if (!s.container_id || s.status === "failed") continue;
+      const key = normalizeSlug(s.script_name);
+      if (!map.has(key)) map.set(key, s);
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installedScriptsData]);
+
+  const handleShellClick = useCallback(
+    (script: ScriptCardType) => {
+      const container = installedContainerMap.get(normalizeSlug(script.slug));
+      if (!container) return;
+      const server =
+        container.server_id && container.server_user
+          ? {
+              id: container.server_id,
+              name: container.server_name ?? "",
+              ip: container.server_ip ?? "",
+              user: container.server_user,
+              password: container.server_password ?? undefined,
+              auth_type: (container.server_auth_type ?? "password") as any,
+              ssh_key: container.server_ssh_key ?? undefined,
+              ssh_key_passphrase:
+                container.server_ssh_key_passphrase ?? undefined,
+              ssh_port: container.server_ssh_port ?? 22,
+              created_at: null,
+              updated_at: null,
+            }
+          : undefined;
+      openShell({
+        containerId: container.container_id,
+        containerName: container.script_name,
+        server,
+        containerType: container.is_vm ? "vm" : "lxc",
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [installedContainerMap, openShell],
+  );
+
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedSlug(null);
@@ -963,6 +1019,13 @@ export function ScriptsGrid() {
                               onClick={handleCardClick}
                               isSelected={selectedSlugs.has(script.slug ?? "")}
                               onToggleSelect={toggleScriptSelection}
+                              onShell={
+                                installedContainerMap.has(
+                                  normalizeSlug(script.slug),
+                                )
+                                  ? () => handleShellClick(script)
+                                  : undefined
+                              }
                             />
                             {/* NEW badge */}
                             <div className="bg-success text-success-foreground absolute top-2 right-2 z-10 rounded-md px-2 py-1 text-xs font-semibold shadow-md">
@@ -1310,6 +1373,11 @@ export function ScriptsGrid() {
                   onClick={handleCardClick}
                   isSelected={selectedSlugs.has(script.slug ?? "")}
                   onToggleSelect={toggleScriptSelection}
+                  onShell={
+                    installedContainerMap.has(normalizeSlug(script.slug))
+                      ? () => handleShellClick(script)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -1332,6 +1400,11 @@ export function ScriptsGrid() {
                   onClick={handleCardClick}
                   isSelected={selectedSlugs.has(script.slug ?? "")}
                   onToggleSelect={toggleScriptSelection}
+                  onShell={
+                    installedContainerMap.has(normalizeSlug(script.slug))
+                      ? () => handleShellClick(script)
+                      : undefined
+                  }
                 />
               );
             })}
