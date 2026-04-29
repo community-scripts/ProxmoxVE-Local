@@ -875,6 +875,7 @@ export function ScriptsGrid() {
           totalScripts={scriptsWithStatus.length}
           selectedCategory={filters.selectedCategory}
           onCategorySelect={handleCategorySelect}
+          showDevScripts={showDevScripts}
         />
       </div>
 
