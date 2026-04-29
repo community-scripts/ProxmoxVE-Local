@@ -6,8 +6,6 @@ import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import {
   Package,
   Monitor,
-  Wrench,
-  Server,
   FileText,
   Calendar,
   RefreshCw,
@@ -60,8 +58,6 @@ interface FilterBarProps {
 const SCRIPT_TYPES = [
   { value: "ct", label: "LXC Container", Icon: Package },
   { value: "vm", label: "Virtual Machine", Icon: Monitor },
-  { value: "addon", label: "Add-on", Icon: Wrench },
-  { value: "pve", label: "PVE Host", Icon: Server },
 ];
 
 export function FilterBar({

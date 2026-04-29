@@ -431,9 +431,8 @@ export function GeneratorTab() {
       if (templateStorage.trim())
         overrides.push(`var_template_storage="${templateStorage.trim()}"`);
       if (protection) overrides.push('var_protection="yes"');
-      if (bridge !== "vmbr0") overrides.push(`var_bridge="${bridge}"`);
-      if (ip.trim()) overrides.push(`var_net="static"`);
-      if (ip.trim()) overrides.push(`var_ip="${ip.trim()}"`);
+      if (bridge !== "vmbr0") overrides.push(`var_brg="${bridge}"`);
+      if (ip.trim()) overrides.push(`var_net="${ip.trim()}"`);
       if (gateway.trim()) overrides.push(`var_gateway="${gateway.trim()}"`);
       if (mac.trim()) overrides.push(`var_mac="${mac.trim()}"`);
       if (vlan.trim()) overrides.push(`var_vlan="${vlan.trim()}"`);
@@ -748,10 +747,9 @@ export function GeneratorTab() {
       if (templateStorage.trim())
         envVars.var_template_storage = templateStorage.trim();
       if (protection) envVars.var_protection = "yes";
-      if (bridge !== "vmbr0") envVars.var_bridge = bridge;
+      if (bridge !== "vmbr0") envVars.var_brg = bridge;
       if (ip.trim()) {
-        envVars.var_net = "static";
-        envVars.var_ip = ip.trim();
+        envVars.var_net = ip.trim();
       }
       if (gateway.trim()) envVars.var_gateway = gateway.trim();
       if (mac.trim()) envVars.var_mac = mac.trim();

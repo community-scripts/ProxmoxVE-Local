@@ -323,9 +323,10 @@ class BackupService {
     }
     
     // Build login command
-    // Format: proxmox-backup-client login --repository root@pam@<IP>:<DATASTORE>
+    // Format: proxmox-backup-client login --repository <user>@<IP>:<DATASTORE>
     // PBS supports PBS_PASSWORD and PBS_REPOSITORY environment variables for non-interactive login
-    const repository = `root@pam@${pbsIp}:${pbsDatastore}`;
+    const pbsUsername = credential.pbs_username ?? 'root@pam';
+    const repository = `${pbsUsername}@${pbsIp}:${pbsDatastore}`;
     
     // Escape password and fingerprint for shell safety (single quotes)
     const escapedPassword = credential.pbs_password.replace(/'/g, "'\\''");

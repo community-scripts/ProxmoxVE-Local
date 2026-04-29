@@ -20,6 +20,9 @@ import type { Script, ScriptCard } from "~/types/script";
 import type { Server } from "~/types/server";
 import { cacheLogos, getLocalLogoPath } from "~/server/services/logoCacheService";
 
+// Script types not yet supported in PVE-Local
+const UNSUPPORTED_TYPES = ['addon', 'pve'] as const;
+
 // ---------------------------------------------------------------------------
 // Mapper: PocketBase record → internal Script type (used by scriptDownloader)
 // ---------------------------------------------------------------------------
@@ -185,7 +188,9 @@ export const scriptsRouter = createTRPCRouter({
         const cards = await getScriptCards();
         return {
           success: true,
-          cards: cards.map((c) => {
+          cards: cards
+            .filter((c) => !UNSUPPORTED_TYPES.includes(c.type as typeof UNSUPPORTED_TYPES[number]))
+            .map((c) => {
             const card = pbCardToScriptCard(c);
             card.logo = getLocalLogoPath(c.slug, card.logo);
             return card;
@@ -264,7 +269,9 @@ export const scriptsRouter = createTRPCRouter({
           pbGetMetadata(),
         ]);
 
-        const scriptCards = cards.map((c) => {
+        const scriptCards = cards
+          .filter((c) => !UNSUPPORTED_TYPES.includes(c.type as typeof UNSUPPORTED_TYPES[number]))
+          .map((c) => {
           const card = pbCardToScriptCard(c);
           card.logo = getLocalLogoPath(c.slug, card.logo);
           return card;
@@ -319,6 +326,9 @@ export const scriptsRouter = createTRPCRouter({
         if (!pb) {
           return { success: false, error: 'Script not found', files: [] };
         }
+        if (UNSUPPORTED_TYPES.includes(pb.type as typeof UNSUPPORTED_TYPES[number])) {
+          return { success: false, error: `Script type '${pb.type}' is not supported yet`, files: [] };
+        }
         const result = await scriptDownloaderService.loadScript(pbToScript(pb));
         return result;
       } catch (error) {
@@ -348,6 +358,9 @@ export const scriptsRouter = createTRPCRouter({
               const pb = await pbGetScriptBySlug(slug);
               if (!pb) {
                 throw Object.assign(new Error('Script not found'), { slug });
+              }
+              if (UNSUPPORTED_TYPES.includes(pb.type as typeof UNSUPPORTED_TYPES[number])) {
+                throw Object.assign(new Error(`Script type '${pb.type}' is not supported yet`), { slug });
               }
               const result = await scriptDownloaderService.loadScript(pbToScript(pb));
               if (!result.success) {

@@ -30,6 +30,7 @@ export const pbsCredentialsRouter = createTRPCRouter({
             storage_name: credential.storage_name,
             pbs_ip: credential.pbs_ip,
             pbs_datastore: credential.pbs_datastore,
+            pbs_username: credential.pbs_username,
             pbs_fingerprint: credential.pbs_fingerprint,
             // Don't return password for security
           },
@@ -56,12 +57,13 @@ export const pbsCredentialsRouter = createTRPCRouter({
         
         return {
           success: true,
-          credentials: credentials.map((c: { id: number; server_id: number; storage_name: string; pbs_ip: string; pbs_datastore: string; pbs_fingerprint: string; pbs_password: string }) => ({
+          credentials: credentials.map((c: { id: number; server_id: number; storage_name: string; pbs_ip: string; pbs_datastore: string; pbs_username: string; pbs_fingerprint: string; pbs_password: string }) => ({
             id: c.id,
             server_id: c.server_id,
             storage_name: c.storage_name,
             pbs_ip: c.pbs_ip,
             pbs_datastore: c.pbs_datastore,
+            pbs_username: c.pbs_username,
             pbs_fingerprint: c.pbs_fingerprint,
             // Don't return password for security
           })),
@@ -83,6 +85,7 @@ export const pbsCredentialsRouter = createTRPCRouter({
       storageName: z.string(),
       pbs_ip: z.string(),
       pbs_datastore: z.string(),
+      pbs_username: z.string().default('root@pam'),
       pbs_password: z.string().optional(), // Optional to allow updating without changing password
       pbs_fingerprint: z.string(),
     }))
@@ -109,6 +112,7 @@ export const pbsCredentialsRouter = createTRPCRouter({
           storage_name: input.storageName,
           pbs_ip: input.pbs_ip,
           pbs_datastore: input.pbs_datastore,
+          pbs_username: input.pbs_username,
           pbs_password: passwordToSave ?? '',
           pbs_fingerprint: input.pbs_fingerprint,
         });

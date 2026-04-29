@@ -123,6 +123,7 @@ model PBSStorageCredential {
   storage_name      String
   pbs_ip            String
   pbs_datastore     String
+  pbs_username      String    @default("root@pam")
   pbs_password      String
   pbs_fingerprint   String
   created_at        DateTime  @default(now())

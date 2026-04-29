@@ -24,6 +24,7 @@ export function PBSCredentialsModal({
 }: PBSCredentialsModalProps) {
   const [pbsIp, setPbsIp] = useState("");
   const [pbsDatastore, setPbsDatastore] = useState("");
+  const [pbsUsername, setPbsUsername] = useState("root@pam");
   const [pbsPassword, setPbsPassword] = useState("");
   const [pbsFingerprint, setPbsFingerprint] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +48,9 @@ export function PBSCredentialsModal({
         // Load existing credentials
         setPbsIp(String(credentialData.credential.pbs_ip));
         setPbsDatastore(String(credentialData.credential.pbs_datastore));
+        setPbsUsername(
+          String(credentialData.credential.pbs_username ?? "root@pam"),
+        );
         setPbsPassword(""); // Don't show password
         setPbsFingerprint(
           String(credentialData.credential.pbs_fingerprint ?? ""),
@@ -55,6 +59,7 @@ export function PBSCredentialsModal({
         // Initialize with storage config values
         setPbsIp(pbsIpFromStorage ?? "");
         setPbsDatastore(pbsDatastoreFromStorage ?? "");
+        setPbsUsername("root@pam");
         setPbsPassword("");
         setPbsFingerprint("");
       }
@@ -105,6 +110,7 @@ export function PBSCredentialsModal({
         storageName: storage.name,
         pbs_ip: pbsIp,
         pbs_datastore: pbsDatastore,
+        pbs_username: pbsUsername,
         pbs_password: pbsPassword || undefined, // Undefined means keep existing password
         pbs_fingerprint: pbsFingerprint,
       });
@@ -237,6 +243,30 @@ export function PBSCredentialsModal({
                 />
                 <p className="text-muted-foreground mt-1 text-xs">
                   Name of the datastore on the PBS server
+                </p>
+              </div>
+
+              {/* PBS Username */}
+              <div>
+                <label
+                  htmlFor="pbs-username"
+                  className="text-foreground mb-1 block text-sm font-medium"
+                >
+                  PBS Username <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="pbs-username"
+                  value={pbsUsername}
+                  onChange={(e) => setPbsUsername(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="bg-card text-foreground placeholder-muted-foreground focus:ring-ring focus:border-ring border-border w-full rounded-md border px-3 py-2 shadow-sm focus:ring-2 focus:outline-none"
+                  placeholder="e.g., root@pam or backup@pbs!mytoken"
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  PBS user (e.g. <code>root@pam</code>) or API token (e.g.{" "}
+                  <code>backup@pbs!tokenid</code>)
                 </p>
               </div>
 
