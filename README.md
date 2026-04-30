@@ -99,8 +99,8 @@ apt install -y nodejs
 #### Step 3: Clone and Setup Application
 ```bash
 # Clone the repository
-git clone https://github.com/community-scripts/ProxmoxVE-Local.git /opt/ProxmoxVE-Local
-cd /opt/ProxmoxVE-Local
+git clone https://github.com/community-scripts/ProxmoxVE-Local.git /opt/PVESciptslocal
+cd /opt/PVESciptslocal
 
 # Install dependencies and build
 npm install
