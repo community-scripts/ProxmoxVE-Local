@@ -625,7 +625,7 @@ export const installedScriptsRouter = createTRPCRouter({
           try {
             const serverTypeMap = await batchDetectContainerTypes(server);
             for (const [containerId, isVM] of serverTypeMap.entries()) {
-              containerTypeMap.set(containerId, isVM);
+              containerTypeMap.set(`${serverId}:${containerId}`, isVM);
             }
           } catch (error) {
             console.error(`Error batch detecting types for server ${serverId}:`, error);
@@ -639,8 +639,9 @@ export const installedScriptsRouter = createTRPCRouter({
           // Use SSH detection result, fall back to DB heuristic
           let is_vm = false;
           if (script.container_id && script.server_id) {
-            if (containerTypeMap.has(script.container_id)) {
-              is_vm = containerTypeMap.get(script.container_id) ?? false;
+            const key = `${script.server_id}:${script.container_id}`;
+            if (containerTypeMap.has(key)) {
+              is_vm = containerTypeMap.get(key) ?? false;
             }
             // If not in batch detection map, default to LXC (false) for safety
             // Only the batch detection (pct list / qm list) can reliably determine VM vs LXC
@@ -1639,7 +1640,12 @@ export const installedScriptsRouter = createTRPCRouter({
             const vmStatuses = parseListStatuses(qmOutput);
             
             // Merge both status maps (VMs will overwrite containers if same ID, but that's unlikely)
-            Object.assign(statusMap, containerStatuses, vmStatuses);
+            for (const [id, status] of Object.entries(containerStatuses)) {
+              statusMap[`${(server as any).id}:${id}`] = status;
+            }
+            for (const [id, status] of Object.entries(vmStatuses)) {
+              statusMap[`${(server as any).id}:${id}`] = status;
+            }
           } catch (error) {
             console.error(`Error processing server ${(server as any).name}:`, error);
           }

@@ -346,12 +346,21 @@ export function InstalledScriptsTab() {
           // For each script, find its container status
           currentScripts.forEach((script) => {
             if (script.container_id && data.statusMap) {
+              const scopedKey = script.server_id
+                ? `${script.server_id}:${script.container_id}`
+                : script.container_id;
               const containerStatus = (
                 data.statusMap as Record<
                   string,
                   "running" | "stopped" | "unknown"
                 >
-              )[script.container_id];
+              )[scopedKey] ??
+                (
+                  data.statusMap as Record<
+                    string,
+                    "running" | "stopped" | "unknown"
+                  >
+                )[script.container_id];
               if (containerStatus) {
                 statusMap.set(script.id, containerStatus);
               } else {
@@ -1571,7 +1580,6 @@ export function InstalledScriptsTab() {
 
   return (
     <div className="space-y-6">
-
       {/* Shell Terminal — now rendered as FloatingShell dialog (see ShellContext) */}
 
       {/* Header with Stats */}
