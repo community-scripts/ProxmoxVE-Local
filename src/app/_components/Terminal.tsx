@@ -47,7 +47,7 @@ interface TerminalMessage {
   timestamp: number;
 }
 
-type TerminalThemeMode = "midnight" | "proxmox";
+type TerminalThemeMode = "midnight" | "dracula" | "solarized" | "light";
 
 const TERMINAL_THEMES: Record<TerminalThemeMode, any> = {
   midnight: {
@@ -72,28 +72,79 @@ const TERMINAL_THEMES: Record<TerminalThemeMode, any> = {
     brightCyan: "#56d364",
     brightWhite: "#f0f6fc",
   },
-  proxmox: {
-    background: "#5b9be6",
-    foreground: "#0a223f",
-    cursor: "#ff5f56",
-    cursorAccent: "#5b9be6",
-    black: "#3a4f66",
-    red: "#d94b4b",
-    green: "#1f8a4c",
-    yellow: "#b07d12",
-    blue: "#2b5f8a",
-    magenta: "#7a4ea3",
-    cyan: "#2d8a8a",
-    white: "#f2f6fb",
-    brightBlack: "#50667f",
-    brightRed: "#ff6b6b",
-    brightGreen: "#2fbf71",
-    brightYellow: "#d6a436",
-    brightBlue: "#3a8fd6",
-    brightMagenta: "#a77bd4",
-    brightCyan: "#4cb6b6",
+  dracula: {
+    background: "#282a36",
+    foreground: "#f8f8f2",
+    cursor: "#ff79c6",
+    cursorAccent: "#282a36",
+    black: "#21222c",
+    red: "#ff5555",
+    green: "#50fa7b",
+    yellow: "#f1fa8c",
+    blue: "#6272a4",
+    magenta: "#ff79c6",
+    cyan: "#8be9fd",
+    white: "#f8f8f2",
+    brightBlack: "#6272a4",
+    brightRed: "#ff6e6e",
+    brightGreen: "#69ff94",
+    brightYellow: "#ffffa5",
+    brightBlue: "#d6acff",
+    brightMagenta: "#ff92df",
+    brightCyan: "#a4ffff",
     brightWhite: "#ffffff",
   },
+  solarized: {
+    background: "#002b36",
+    foreground: "#839496",
+    cursor: "#268bd2",
+    cursorAccent: "#002b36",
+    black: "#073642",
+    red: "#dc322f",
+    green: "#859900",
+    yellow: "#b58900",
+    blue: "#268bd2",
+    magenta: "#d33682",
+    cyan: "#2aa198",
+    white: "#eee8d5",
+    brightBlack: "#586e75",
+    brightRed: "#cb4b16",
+    brightGreen: "#586e75",
+    brightYellow: "#657b83",
+    brightBlue: "#839496",
+    brightMagenta: "#6c71c4",
+    brightCyan: "#93a1a1",
+    brightWhite: "#fdf6e3",
+  },
+  light: {
+    background: "#ffffff",
+    foreground: "#24292e",
+    cursor: "#0366d6",
+    cursorAccent: "#ffffff",
+    black: "#586069",
+    red: "#d73a49",
+    green: "#22863a",
+    yellow: "#b08800",
+    blue: "#0366d6",
+    magenta: "#6f42c1",
+    cyan: "#0075aa",
+    white: "#24292e",
+    brightBlack: "#959da5",
+    brightRed: "#cb2431",
+    brightGreen: "#28a745",
+    brightYellow: "#d9a80a",
+    brightBlue: "#2188ff",
+    brightMagenta: "#8a63d2",
+    brightCyan: "#0095d6",
+    brightWhite: "#ffffff",
+  },
+};
+
+const THEME_META: Record<TerminalThemeMode, { label: string; bg: string; fg: string; accent: string }> = {
+  midnight: { label: "Midnight", bg: "#0d1117", fg: "#e6edf3", accent: "#58a6ff" },
+  dracula:  { label: "Dracula",  bg: "#282a36", fg: "#f8f8f2", accent: "#ff79c6" },
+  solarized:{ label: "Solarized",bg: "#002b36", fg: "#839496", accent: "#268bd2" },
+  light:    { label: "Light",    bg: "#ffffff", fg: "#24292e", accent: "#0366d6" },
 };
 
 export function Terminal({
@@ -125,6 +176,20 @@ export function Terminal({
   const [isStopped, setIsStopped] = useState(false);
   const [isTerminalReady, setIsTerminalReady] = useState(false);
   const [themeMode, setThemeMode] = useState<TerminalThemeMode>("midnight");
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const themePickerRef = useRef<HTMLDivElement>(null);
+
+  // Close theme picker when clicking outside
+  useEffect(() => {
+    if (!showThemePicker) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (themePickerRef.current && !themePickerRef.current.contains(e.target as Node)) {
+        setShowThemePicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [showThemePicker]);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -235,7 +300,7 @@ export function Terminal({
     setIsMobile(window.innerWidth < 768);
 
     const storedTheme = window.localStorage.getItem("terminalTheme");
-    if (storedTheme === "midnight" || storedTheme === "proxmox") {
+    if (storedTheme === "midnight" || storedTheme === "dracula" || storedTheme === "solarized" || storedTheme === "light") {
       setThemeMode(storedTheme);
     }
   }, []);
@@ -656,17 +721,48 @@ export function Terminal({
         </div>
 
         <div className="flex flex-shrink-0 items-center space-x-1 sm:space-x-2">
-          <button
-            onClick={() =>
-              setThemeMode((prev) =>
-                prev === "midnight" ? "proxmox" : "midnight",
-              )
-            }
-            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-1 transition-colors"
-            title={`Theme: ${themeMode === "midnight" ? "Midnight" : "Proxmox Blue"}`}
-          >
-            <Palette className="h-3.5 w-3.5" />
-          </button>
+          {/* Theme picker */}
+          <div className="relative" ref={themePickerRef}>
+            <button
+              onClick={() => setShowThemePicker((v) => !v)}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-1 transition-colors"
+              title="Change terminal theme"
+            >
+              <Palette className="h-3.5 w-3.5" />
+            </button>
+            {showThemePicker && (
+              <div className="bg-popover border-border absolute right-0 top-full z-50 mt-1 rounded-lg border p-2 shadow-xl">
+                <p className="text-muted-foreground mb-2 px-1 text-[10px] font-medium uppercase tracking-wider">Terminal Theme</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(Object.keys(THEME_META) as TerminalThemeMode[]).map((key) => {
+                    const meta = THEME_META[key];
+                    const active = themeMode === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { setThemeMode(key); setShowThemePicker(false); }}
+                        className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all ${
+                          active
+                            ? "border-primary ring-primary/30 ring-1"
+                            : "border-border hover:border-border/80"
+                        }`}
+                        style={{ background: meta.bg }}
+                        title={meta.label}
+                      >
+                        <span
+                          className="h-3 w-3 flex-shrink-0 rounded-full"
+                          style={{ background: meta.accent }}
+                        />
+                        <span className="text-[11px] font-medium" style={{ color: meta.fg }}>
+                          {meta.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <div
             className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
           ></div>

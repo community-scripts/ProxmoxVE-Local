@@ -598,10 +598,16 @@ class ScriptExecutionHandler {
         const relScript = scriptPath.replace(/^scripts[/\\]/, '');
         const remoteScript = `/tmp/scripts/${relScript}`;
 
-        // Transfer scripts folder (same as normal SSH execution)
+        // Transfer scripts folder silently — suppress verbose rsync file listing
+        this.sendMessage(ws, { type: 'output', data: 'Syncing scripts…\r\n', timestamp: Date.now() });
         await sshService.transferScriptsFolder(server,
-          (/** @type {string} */ data) => this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() }),
-          (/** @type {string} */ err) => this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() })
+          () => {}, // suppress rsync stdout (verbose file listing)
+          (/** @type {string} */ err) => {
+            // Ignore harmless SSH host-key / known-hosts notices from rsync stderr
+            if (!err.includes('Warning:') && !err.includes('Permanently added')) {
+              this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() });
+            }
+          }
         );
 
         let inContainerCmd;
@@ -612,14 +618,11 @@ class ScriptExecutionHandler {
           const remoteTarget = `/tmp/${scriptName}`;
           const pushCmd = `pct push ${containerId} ${remoteScript} ${remoteTarget}`;
 
+          // Run pct push silently (no terminal output needed for this bookkeeping step)
           await new Promise((resolve, reject) => {
             sshService.executeCommand(server, pushCmd,
-              (/** @type {string} */ data) => {
-                this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() });
-              },
-              (/** @type {string} */ err) => {
-                this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() });
-              },
+              () => {}, // suppress push output
+              () => {}, // suppress push stderr
               (/** @type {number} */ code) => {
                 if (code === 0) resolve(true);
                 else reject(new Error(`pct push failed with exit code ${code}`));
@@ -635,7 +638,9 @@ class ScriptExecutionHandler {
 
         this.activeExecutions.set(executionId, { process: null, ws, installationId, outputBuffer: '' });
 
-        await sshService.executeCommand(server, inContainerCmd,
+        // executeCommand resolves immediately with the PTY process — store it so
+        // interactive input (y/n prompts etc.) can be forwarded via sendInputToProcess.
+        const execResult = await sshService.executeCommand(server, inContainerCmd,
           (/** @type {string} */ data) => {
             const execution = this.activeExecutions.get(executionId);
             if (execution) execution.outputBuffer += data;
@@ -656,6 +661,12 @@ class ScriptExecutionHandler {
             this.activeExecutions.delete(executionId);
           }
         );
+
+        // Attach the real PTY process so keyboard input can reach interactive prompts
+        const storedExec = this.activeExecutions.get(executionId);
+        if (storedExec && execResult && /** @type {any} */(execResult).process) {
+          storedExec.process = /** @type {any} */(execResult).process;
+        }
         return;
       }
 

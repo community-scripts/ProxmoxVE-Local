@@ -92,7 +92,16 @@ class SSHExecutionService {
    */
   async executeScript(server, scriptPath, onData, onError, onExit, envVars = {}) {
     try {
-      await this.transferScriptsFolder(server, onData, onError);
+      // Suppress verbose rsync file-listing output; only forward real errors
+      await this.transferScriptsFolder(
+        server,
+        () => {},
+        (/** @type {string} */ err) => {
+          if (!err.includes('Warning:') && !err.includes('Permanently added')) {
+            onError(err);
+          }
+        },
+      );
       
       return new Promise((resolve, reject) => {
         const relativeScriptPath = scriptPath.startsWith('scripts/') ? scriptPath.substring(8) : scriptPath;
@@ -236,7 +245,7 @@ class SSHExecutionService {
         }
 
         const rsyncCommand = spawn('rsync', [
-          '-avz',
+          '-az',
           '--delete',
           '--exclude=*.log',
           '--exclude=*.tmp',

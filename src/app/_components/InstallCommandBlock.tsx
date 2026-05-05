@@ -188,18 +188,18 @@ export function InstallCommandBlock({
       status?: string;
       pinned?: boolean;
     }[] = [];
-    const wantLxc = !executeIn || executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
+    const wantLxc =
+      !executeIn || executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
     const wantVm = !executeIn || executeIn.includes("vm");
 
     if (wantLxc) {
       for (const c of containerQuery.data.lxc) {
         const lower = (c.name ?? "").toLowerCase();
-        const pinned =
-          executeIn?.includes("pbs")
-            ? lower.includes("proxmox-backup-server")
-            : executeIn?.includes("pmg")
-              ? lower.includes("proxmox-mail-gateway")
-              : false;
+        const pinned = executeIn?.includes("pbs")
+          ? lower.includes("proxmox-backup-server")
+          : executeIn?.includes("pmg")
+            ? lower.includes("proxmox-mail-gateway")
+            : false;
         opts.push({
           id: String(c.id),
           name: c.name ?? String(c.id),
@@ -225,7 +225,7 @@ export function InstallCommandBlock({
     return opts.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return a.name.localeCompare(b.name);
+      return parseInt(a.id, 10) - parseInt(b.id, 10);
     });
   })();
 
@@ -260,7 +260,8 @@ export function InstallCommandBlock({
   );
 
   const isAddonScript = (scriptType ?? "").toLowerCase() === "addon";
-  const showAdvanced = scriptType === "ct" || scriptType === "lxc" || isAddonScript;
+  const showAdvanced =
+    scriptType === "ct" || scriptType === "lxc" || isAddonScript;
 
   useEffect(() => {
     if (isAddonScript && (env === "mydefaults" || env === "appdefaults")) {
@@ -479,7 +480,7 @@ export function InstallCommandBlock({
           ) : (
             <>
               <div>
-                <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
                   Select Node
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -528,7 +529,7 @@ export function InstallCommandBlock({
 
               {needsContainerPicker && selectedServer && (
                 <div>
-                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                  <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
                     Select Container
                   </p>
                   {containerQuery.isLoading ? (
@@ -575,9 +576,13 @@ export function InstallCommandBlock({
                           >
                             {c.isVm ? "VM" : "LXC"}
                           </span>
-                          {c.pinned && <span className="text-amber-500">★</span>}
+                          {c.pinned && (
+                            <span className="text-amber-500">★</span>
+                          )}
                           <span className="truncate">{c.name}</span>
-                          <span className="text-muted-foreground/60">#{c.id}</span>
+                          <span className="text-muted-foreground/60">
+                            #{c.id}
+                          </span>
                         </button>
                       ))}
                     </div>

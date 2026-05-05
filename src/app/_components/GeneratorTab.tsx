@@ -327,7 +327,7 @@ export function GeneratorTab() {
     return opts.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return a.name.localeCompare(b.name);
+      return parseInt(a.id, 10) - parseInt(b.id, 10);
     });
   }, [executeIn, containersData]);
 
@@ -1890,7 +1890,6 @@ export function GeneratorTab() {
           </div>,
           document.body,
         )}
-
     </div>
   );
 }
