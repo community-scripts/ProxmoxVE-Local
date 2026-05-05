@@ -45,17 +45,18 @@ self_update() {
 
     # Fetch remote version from main branch
     local remote_version
-    if ! remote_version=$(curl -fsSL --connect-timeout 10 --max-time 15 \
-            "${RAW_BASE}/UPDATER_VERSION" 2>/dev/null); then
-        msg_err "Failed to check for engine updates (network error)."
-        msg_err "Cannot verify update-engine integrity. Aborting."
-        exit 1
-    fi
-    remote_version=$(echo "$remote_version" | tr -d '[:space:]')
+    local http_status
+    remote_version=$(curl -sSL --connect-timeout 10 --max-time 15 \
+            -w "\n%{http_code}" "${RAW_BASE}/UPDATER_VERSION" 2>/dev/null) || true
+    http_status=$(echo "$remote_version" | tail -1)
+    remote_version=$(echo "$remote_version" | head -1 | tr -d '[:space:]')
 
-    if [ -z "$remote_version" ]; then
-        msg_err "Remote UPDATER_VERSION is empty. Aborting."
-        exit 1
+    # If fetch failed or file doesn't exist on remote (404), skip self-update
+    # and proceed with the local engine. This is expected during pre-releases
+    # before the branch is merged into main.
+    if [ "$http_status" != "200" ] || [ -z "$remote_version" ]; then
+        msg_warn "Cannot reach remote UPDATER_VERSION (HTTP ${http_status:-err}). Skipping engine self-update."
+        return 0
     fi
 
     # Compare versions
