@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "~/trpc/react";
-import { Terminal } from "./Terminal";
+
 import { StatusBadge } from "./Badge";
 import { Button } from "./ui/button";
 import { ScriptInstallationCard } from "./ScriptInstallationCard";
@@ -1344,29 +1344,52 @@ export function InstalledScriptsTab() {
   // Auto-scroll useEffect for shell removed — shell now renders as FloatingShell dialog
 
   useEffect(() => {
-    if (updatingScript) {
-      // Small delay to ensure the terminal is rendered
-      setTimeout(() => {
-        const terminalElement = document.querySelector(
-          '[data-terminal="update"]',
-        );
-        if (terminalElement) {
-          // Scroll to the terminal with smooth animation
-          terminalElement.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-            inline: "nearest",
-          });
+    if (!updatingScript) return;
 
-          // Add a subtle highlight effect
-          terminalElement.classList.add("animate-pulse");
-          setTimeout(() => {
-            terminalElement.classList.remove("animate-pulse");
-          }, 2000);
-        }
-      }, 200);
-    }
-  }, [updatingScript]);
+    const scriptPath = updatingScript.isClone
+      ? `clone-${updatingScript.containerId}`
+      : updatingScript.isBackupOnly
+        ? `backup-${updatingScript.containerId}`
+        : `update-${updatingScript.containerId}`;
+
+    openShell({
+      sessionKey: `installed-task-${updatingScript.executionId ?? `${updatingScript.id}-${Date.now()}`}`,
+      title: updatingScript.isClone
+        ? `Clone CT/VM ${updatingScript.containerId}`
+        : updatingScript.isBackupOnly
+          ? `Backup CT ${updatingScript.containerId}`
+          : `Update CT ${updatingScript.containerId}`,
+      containerId: updatingScript.containerId,
+      containerType: updatingScript.containerType ?? "lxc",
+      terminal: {
+        scriptPath,
+        mode: updatingScript.server ? "ssh" : "local",
+        server: updatingScript.server,
+        isUpdate: !updatingScript.isBackupOnly && !updatingScript.isClone,
+        isBackup: updatingScript.isBackupOnly,
+        isClone: updatingScript.isClone,
+        containerId: updatingScript.containerId,
+        executionId: updatingScript.executionId,
+        cloneCount: updatingScript.cloneCount,
+        hostnames: updatingScript.hostnames,
+        containerType: updatingScript.containerType,
+        storage: updatingScript.isClone
+          ? updatingScript.storage
+          : updatingScript.isBackupOnly
+            ? updatingScript.backupStorage
+            : undefined,
+        backupStorage:
+          !updatingScript.isBackupOnly && !updatingScript.isClone
+            ? updatingScript.backupStorage
+            : undefined,
+        envVars: updatingScript.envVars,
+      },
+      onComplete: handleCloseUpdateTerminal,
+    });
+
+    // Prevent re-opening the same session on each render.
+    setUpdatingScript(null);
+  }, [updatingScript, openShell]);
 
   const handleEditScript = (script: InstalledScript) => {
     setEditingScriptId(script.id);
@@ -1548,44 +1571,6 @@ export function InstalledScriptsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Update Terminal */}
-      {updatingScript && (
-        <div className="mb-8" data-terminal="update">
-          <Terminal
-            scriptPath={
-              updatingScript.isClone
-                ? `clone-${updatingScript.containerId}`
-                : updatingScript.isBackupOnly
-                  ? `backup-${updatingScript.containerId}`
-                  : `update-${updatingScript.containerId}`
-            }
-            onClose={handleCloseUpdateTerminal}
-            mode={updatingScript.server ? "ssh" : "local"}
-            server={updatingScript.server}
-            isUpdate={!updatingScript.isBackupOnly && !updatingScript.isClone}
-            isBackup={updatingScript.isBackupOnly}
-            isClone={updatingScript.isClone}
-            containerId={updatingScript.containerId}
-            executionId={updatingScript.executionId}
-            cloneCount={updatingScript.cloneCount}
-            hostnames={updatingScript.hostnames}
-            containerType={updatingScript.containerType}
-            storage={
-              updatingScript.isClone
-                ? updatingScript.storage
-                : updatingScript.isBackupOnly
-                  ? updatingScript.backupStorage
-                  : undefined
-            }
-            backupStorage={
-              !updatingScript.isBackupOnly && !updatingScript.isClone
-                ? updatingScript.backupStorage
-                : undefined
-            }
-            envVars={updatingScript.envVars}
-          />
-        </div>
-      )}
 
       {/* Shell Terminal — now rendered as FloatingShell dialog (see ShellContext) */}
 

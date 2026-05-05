@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { Terminal } from "./Terminal";
 import { Button } from "./ui/button";
 import {
   Cpu,
@@ -30,6 +29,7 @@ import type { ScriptCard } from "~/types/script";
 import type { Script } from "~/types/script";
 import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
+import { useShell } from "./ShellContext";
 
 /* ── Step definitions ── */
 const CPU_STEPS = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -105,17 +105,7 @@ const VALIDATIONS = {
 };
 
 export function GeneratorTab() {
-  const [runningScript, setRunningScript] = useState<{
-    path: string;
-    name: string;
-    envVars?: Record<string, string | number | boolean>;
-    mode: "local" | "ssh";
-    server?: Server;
-    executeInContainer?: boolean;
-    containerId?: string;
-    containerType?: "lxc" | "vm";
-  } | null>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
+  const { open: openShell } = useShell();
   const { data: scriptCardsData } =
     api.scripts.getScriptCardsWithCategories.useQuery();
 
@@ -274,6 +264,17 @@ export function GeneratorTab() {
     () => allScripts.find((s) => s.slug === selectedSlug) ?? null,
     [allScripts, selectedSlug],
   );
+
+  const isAddonScript = selectedScript?.type === "addon";
+
+  useEffect(() => {
+    if (
+      isAddonScript &&
+      (installMode === "mydefaults" || installMode === "appdefaults")
+    ) {
+      setInstallMode("default");
+    }
+  }, [isAddonScript, installMode]);
 
   // Fetch full script detail (with install_methods) when a script is selected
   const { data: scriptDetailData } = api.scripts.getScriptBySlug.useQuery(
@@ -793,22 +794,27 @@ export function GeneratorTab() {
     // selected container rather than on the PVE host.
     const execInContainer = needsContainerPicker && !!selectedContainerId;
 
-    setRunningScript({
-      path: scriptPath,
-      name: selectedScript.name ?? "Script",
-      envVars,
-      mode: "ssh",
-      server: selectedServer,
-      executeInContainer: execInContainer,
+    openShell({
+      sessionKey: `generator-${selectedScript.slug}-${Date.now()}`,
+      title: `${selectedScript.name ?? "Script"} (${selectedServer.name})`,
       containerId: execInContainer
         ? (selectedContainerId ?? undefined)
         : undefined,
       containerType: selectedContainerIsVm ? "vm" : "lxc",
+      terminal: {
+        scriptPath,
+        mode: "ssh",
+        server: selectedServer,
+        envVars,
+        executeInContainer: execInContainer,
+        containerId: execInContainer
+          ? (selectedContainerId ?? undefined)
+          : undefined,
+        containerType: selectedContainerIsVm ? "vm" : "lxc",
+      },
     });
-    setTimeout(() => {
-      terminalRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
   }, [
+    openShell,
     selectedScript,
     selectedServer,
     selectedContainerId,
@@ -1061,8 +1067,12 @@ export function GeneratorTab() {
             <div className="bg-muted/40 mb-5 flex flex-wrap rounded-lg p-0.5">
               {[
                 { key: "default", label: "Default" },
-                { key: "mydefaults", label: "My Defaults" },
-                { key: "appdefaults", label: "App Defaults" },
+                ...(!isAddonScript
+                  ? [
+                      { key: "mydefaults", label: "My Defaults" },
+                      { key: "appdefaults", label: "App Defaults" },
+                    ]
+                  : []),
                 { key: "advanced", label: "⚙ Advanced" },
               ].map((m) => (
                 <button
@@ -1597,7 +1607,7 @@ export function GeneratorTab() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {/* Server options */}
+                    {/* Server options as bubbles */}
                     {servers.map((s) => (
                       <button
                         key={s.id}
@@ -1633,7 +1643,9 @@ export function GeneratorTab() {
                             style={{ backgroundColor: s.color }}
                           />
                         )}
-                        {s.name}
+                        <span className="truncate">
+                          {s.name} ({s.ip})
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1682,6 +1694,15 @@ export function GeneratorTab() {
                                     : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
                               }`}
                             >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  c.status === "running"
+                                    ? "bg-green-500"
+                                    : c.status === "stopped"
+                                      ? "bg-red-500"
+                                      : "bg-zinc-400"
+                                }`}
+                              />
                               <span
                                 className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
                                   c.isVm
@@ -1870,21 +1891,6 @@ export function GeneratorTab() {
           document.body,
         )}
 
-      {/* Inline Terminal */}
-      {runningScript && (
-        <div ref={terminalRef} className="animate-card-in">
-          <Terminal
-            scriptPath={runningScript.path}
-            onClose={() => setRunningScript(null)}
-            envVars={runningScript.envVars}
-            mode={runningScript.mode}
-            server={runningScript.server}
-            executeInContainer={runningScript.executeInContainer}
-            containerId={runningScript.containerId}
-            containerType={runningScript.containerType}
-          />
-        </div>
-      )}
     </div>
   );
 }

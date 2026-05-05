@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Palette,
 } from "lucide-react";
 
 import type { Server } from "~/types/server";
@@ -46,6 +47,55 @@ interface TerminalMessage {
   timestamp: number;
 }
 
+type TerminalThemeMode = "midnight" | "proxmox";
+
+const TERMINAL_THEMES: Record<TerminalThemeMode, any> = {
+  midnight: {
+    background: "#0d1117",
+    foreground: "#e6edf3",
+    cursor: "#58a6ff",
+    cursorAccent: "#0d1117",
+    black: "#484f58",
+    red: "#f85149",
+    green: "#3fb950",
+    yellow: "#d29922",
+    blue: "#58a6ff",
+    magenta: "#bc8cff",
+    cyan: "#39d353",
+    white: "#b1bac4",
+    brightBlack: "#6e7681",
+    brightRed: "#ff7b72",
+    brightGreen: "#56d364",
+    brightYellow: "#e3b341",
+    brightBlue: "#79c0ff",
+    brightMagenta: "#d2a8ff",
+    brightCyan: "#56d364",
+    brightWhite: "#f0f6fc",
+  },
+  proxmox: {
+    background: "#5b9be6",
+    foreground: "#0a223f",
+    cursor: "#ff5f56",
+    cursorAccent: "#5b9be6",
+    black: "#3a4f66",
+    red: "#d94b4b",
+    green: "#1f8a4c",
+    yellow: "#b07d12",
+    blue: "#2b5f8a",
+    magenta: "#7a4ea3",
+    cyan: "#2d8a8a",
+    white: "#f2f6fb",
+    brightBlack: "#50667f",
+    brightRed: "#ff6b6b",
+    brightGreen: "#2fbf71",
+    brightYellow: "#d6a436",
+    brightBlue: "#3a8fd6",
+    brightMagenta: "#a77bd4",
+    brightCyan: "#4cb6b6",
+    brightWhite: "#ffffff",
+  },
+};
+
 export function Terminal({
   scriptPath,
   onClose,
@@ -74,6 +124,7 @@ export function Terminal({
   const [isMobile, setIsMobile] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const [isTerminalReady, setIsTerminalReady] = useState(false);
+  const [themeMode, setThemeMode] = useState<TerminalThemeMode>("midnight");
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -182,7 +233,21 @@ export function Terminal({
     setIsClient(true);
     // Detect mobile on mount
     setIsMobile(window.innerWidth < 768);
+
+    const storedTheme = window.localStorage.getItem("terminalTheme");
+    if (storedTheme === "midnight" || storedTheme === "proxmox") {
+      setThemeMode(storedTheme);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+    window.localStorage.setItem("terminalTheme", themeMode);
+    if (xtermRef.current) {
+      xtermRef.current.options.theme = TERMINAL_THEMES[themeMode];
+      xtermRef.current.refresh(0, xtermRef.current.rows - 1);
+    }
+  }, [themeMode, isClient]);
 
   useEffect(() => {
     // Only initialize on client side
@@ -203,29 +268,7 @@ export function Terminal({
       // Use the mobile state
 
       const terminal = new XTerm({
-        theme: {
-          background: "#0d1117",
-          foreground: "#e6edf3",
-          cursor: "#58a6ff",
-          cursorAccent: "#0d1117",
-          // Let ANSI colors work naturally - only define basic colors
-          black: "#484f58",
-          red: "#f85149",
-          green: "#3fb950",
-          yellow: "#d29922",
-          blue: "#58a6ff",
-          magenta: "#bc8cff",
-          cyan: "#39d353",
-          white: "#b1bac4",
-          brightBlack: "#6e7681",
-          brightRed: "#ff7b72",
-          brightGreen: "#56d364",
-          brightYellow: "#e3b341",
-          brightBlue: "#79c0ff",
-          brightMagenta: "#d2a8ff",
-          brightCyan: "#56d364",
-          brightWhite: "#f0f6fc",
-        },
+        theme: TERMINAL_THEMES[themeMode],
         fontSize: isMobile ? 7 : 14,
         fontFamily:
           "JetBrains Mono, Fira Code, Cascadia Code, Monaco, Menlo, Ubuntu Mono, monospace",
@@ -352,7 +395,7 @@ export function Terminal({
         setIsTerminalReady(false);
       }
     };
-  }, [isClient, isMobile]);
+  }, [isClient, isMobile, themeMode]);
 
   // Handle terminal input with current executionId
   useEffect(() => {
@@ -613,6 +656,17 @@ export function Terminal({
         </div>
 
         <div className="flex flex-shrink-0 items-center space-x-1 sm:space-x-2">
+          <button
+            onClick={() =>
+              setThemeMode((prev) =>
+                prev === "midnight" ? "proxmox" : "midnight",
+              )
+            }
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-1 transition-colors"
+            title={`Theme: ${themeMode === "midnight" ? "Midnight" : "Proxmox Blue"}`}
+          >
+            <Palette className="h-3.5 w-3.5" />
+          </button>
           <div
             className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
           ></div>

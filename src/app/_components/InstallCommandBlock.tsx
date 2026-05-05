@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Cpu,
   HardDrive,
@@ -9,12 +9,10 @@ import {
   Info,
   Play,
   Loader2,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import type { Server as ServerType } from "~/types/server";
-import { Terminal } from "./Terminal";
 import { api } from "~/trpc/react";
+import { useShell } from "./ShellContext";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -161,10 +159,11 @@ export function InstallCommandBlock({
   const [armEnabled, setArmEnabled] = useState(false);
 
   // Server selection state
+  const { open: openShell } = useShell();
+
   const [servers, setServers] = useState<ServerType[]>([]);
   const [selectedServer, setSelectedServer] = useState<ServerType | null>(null);
   const [serversLoading, setServersLoading] = useState(false);
-  const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
 
   // Container picker state (for addon scripts with execute_in)
   const needsContainerPicker = !!executeIn?.some((e) =>
@@ -174,7 +173,6 @@ export function InstallCommandBlock({
     null,
   );
   const [selectedContainerIsVm, setSelectedContainerIsVm] = useState(false);
-  const [containerDropdownOpen, setContainerDropdownOpen] = useState(false);
 
   const containerQuery = api.installedScripts.listContainersOnServer.useQuery(
     { serverId: selectedServer?.id ?? 0 },
@@ -183,37 +181,56 @@ export function InstallCommandBlock({
 
   const containerOptions = (() => {
     if (!containerQuery.data) return [];
-    const opts: { id: string; name: string; isVm: boolean }[] = [];
-    for (const c of containerQuery.data.lxc) {
-      if (!executeIn || executeIn.includes("lxc"))
+    const opts: {
+      id: string;
+      name: string;
+      isVm: boolean;
+      status?: string;
+      pinned?: boolean;
+    }[] = [];
+    const wantLxc = !executeIn || executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
+    const wantVm = !executeIn || executeIn.includes("vm");
+
+    if (wantLxc) {
+      for (const c of containerQuery.data.lxc) {
+        const lower = (c.name ?? "").toLowerCase();
+        const pinned =
+          executeIn?.includes("pbs")
+            ? lower.includes("proxmox-backup-server")
+            : executeIn?.includes("pmg")
+              ? lower.includes("proxmox-mail-gateway")
+              : false;
         opts.push({
           id: String(c.id),
           name: c.name ?? String(c.id),
           isVm: false,
+          status: c.status,
+          pinned,
         });
+      }
     }
-    for (const v of containerQuery.data.vm) {
-      if (!executeIn || executeIn.includes("vm"))
+
+    if (wantVm) {
+      for (const v of containerQuery.data.vm) {
         opts.push({
           id: String(v.id),
           name: v.name ?? String(v.id),
           isVm: true,
+          status: v.status,
+          pinned: false,
         });
+      }
     }
-    return opts;
+
+    return opts.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return a.name.localeCompare(b.name);
+    });
   })();
 
-  // Inline terminal state
-  const [running, setRunning] = useState<{
-    scriptPath: string;
-    envVars: Record<string, string>;
-    server: ServerType;
-    executeInContainer?: boolean;
-    containerId?: string;
-    containerType?: "lxc" | "vm";
-  } | null>(null);
-  const [terminalCollapsed, setTerminalCollapsed] = useState(false);
-  const terminalRef = useRef<HTMLDivElement>(null);
+  // Floating terminal status (button feedback only)
+  const [running, setRunning] = useState(false);
 
   // Fetch servers when local files are available
   useEffect(() => {
@@ -242,7 +259,14 @@ export function InstallCommandBlock({
     snapToStep(defaults?.hdd ?? 2, HDD_PRESETS),
   );
 
-  const showAdvanced = scriptType === "ct" || scriptType === "lxc";
+  const isAddonScript = (scriptType ?? "").toLowerCase() === "addon";
+  const showAdvanced = scriptType === "ct" || scriptType === "lxc" || isAddonScript;
+
+  useEffect(() => {
+    if (isAddonScript && (env === "mydefaults" || env === "appdefaults")) {
+      setEnv("default");
+    }
+  }, [isAddonScript, env]);
 
   const defaultPath = getDefaultInstallPath(scriptType, slug);
   const alpinePath = getAlpineInstallPath(scriptType, slug);
@@ -287,31 +311,32 @@ export function InstallCommandBlock({
 
     const execInContainer = needsContainerPicker && !!selectedContainerId;
 
-    setRunning({
-      scriptPath,
-      envVars,
-      server: selectedServer,
-      executeInContainer: execInContainer,
+    setRunning(true);
+    onTerminalChange?.(true);
+
+    openShell({
+      sessionKey: `install-${slug}-${Date.now()}`,
+      title: `${scriptName}.sh (${selectedServer.name})`,
       containerId: execInContainer
         ? (selectedContainerId ?? undefined)
         : undefined,
       containerType: selectedContainerIsVm ? "vm" : "lxc",
+      terminal: {
+        scriptPath,
+        mode: "ssh",
+        server: selectedServer,
+        envVars,
+        executeInContainer: execInContainer,
+        containerId: execInContainer
+          ? (selectedContainerId ?? undefined)
+          : undefined,
+        containerType: selectedContainerIsVm ? "vm" : "lxc",
+      },
+      onComplete: () => {
+        setRunning(false);
+        onTerminalChange?.(false);
+      },
     });
-    setTerminalCollapsed(false);
-    onTerminalChange?.(true);
-
-    // Scroll into view after a tick
-    setTimeout(() => {
-      terminalRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }, 100);
-  };
-
-  const handleCloseTerminal = () => {
-    setRunning(null);
-    onTerminalChange?.(false);
   };
 
   return (
@@ -329,18 +354,22 @@ export function InstallCommandBlock({
             onClick={() => setEnv("default")}
             label="Default"
           />
-          <OptionToggle
-            selected={env === "mydefaults"}
-            onClick={() => setEnv("mydefaults")}
-            label="My Defaults"
-            title={MODE_DESCRIPTIONS.mydefaults}
-          />
-          <OptionToggle
-            selected={env === "appdefaults"}
-            onClick={() => setEnv("appdefaults")}
-            label="App Defaults"
-            title={MODE_DESCRIPTIONS.appdefaults}
-          />
+          {!isAddonScript && (
+            <OptionToggle
+              selected={env === "mydefaults"}
+              onClick={() => setEnv("mydefaults")}
+              label="My Defaults"
+              title={MODE_DESCRIPTIONS.mydefaults}
+            />
+          )}
+          {!isAddonScript && (
+            <OptionToggle
+              selected={env === "appdefaults"}
+              onClick={() => setEnv("appdefaults")}
+              label="App Defaults"
+              title={MODE_DESCRIPTIONS.appdefaults}
+            />
+          )}
           {hasAlpine && (
             <OptionToggle
               selected={env === "alpine"}
@@ -436,73 +465,12 @@ export function InstallCommandBlock({
         </div>
       )}
 
-      {/* Container picker (for addon/execute_in scripts) */}
-      {needsContainerPicker && hasLocalFiles && selectedServer && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground text-sm">Container:</span>
-          <div className="relative min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => setContainerDropdownOpen((o) => !o)}
-              className="border-border bg-background text-foreground hover:bg-accent flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm"
-            >
-              <span className="truncate">
-                {selectedContainerId
-                  ? (containerOptions.find((c) => c.id === selectedContainerId)
-                      ?.name ?? selectedContainerId)
-                  : containerQuery.isLoading
-                    ? "Loading…"
-                    : "Select container…"}
-              </span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${containerDropdownOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {containerDropdownOpen && (
-              <div className="border-border bg-card absolute right-0 left-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg">
-                {containerOptions.length === 0 ? (
-                  <p className="text-muted-foreground px-3 py-2 text-sm">
-                    {containerQuery.isLoading
-                      ? "Loading containers…"
-                      : "No containers found"}
-                  </p>
-                ) : (
-                  containerOptions.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedContainerId(c.id);
-                        setSelectedContainerIsVm(c.isVm);
-                        setContainerDropdownOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                        selectedContainerId === c.id
-                          ? "bg-primary/10 text-primary"
-                          : "text-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <span className="text-muted-foreground text-xs">
-                        {c.isVm ? "VM" : "LXC"}
-                      </span>
-                      <span className="truncate">
-                        {c.name} ({c.id})
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Server selector + Install button */}
+      {/* Node + Container bubbles + Install */}
       {hasLocalFiles && (
-        <div className="border-border/60 flex flex-wrap items-center gap-2 border-t pt-3">
+        <div className="border-border/60 space-y-3 border-t pt-3">
           {serversLoading ? (
             <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading servers…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading nodes…
             </div>
           ) : servers.length === 0 ? (
             <p className="text-muted-foreground text-sm">
@@ -510,118 +478,133 @@ export function InstallCommandBlock({
             </p>
           ) : (
             <>
-              <div className="relative min-w-0 flex-1">
+              <div>
+                <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                  Select Node
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {servers.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedServer(s)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        selectedServer?.id === s.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                      }`}
+                      style={
+                        s.color
+                          ? {
+                              borderColor:
+                                selectedServer?.id === s.id
+                                  ? s.color
+                                  : undefined,
+                              backgroundColor:
+                                selectedServer?.id === s.id
+                                  ? `${s.color}1a`
+                                  : undefined,
+                              color:
+                                selectedServer?.id === s.id
+                                  ? s.color
+                                  : undefined,
+                            }
+                          : undefined
+                      }
+                    >
+                      {s.color && (
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: s.color }}
+                        />
+                      )}
+                      <span className="truncate">
+                        {s.name} ({s.ip})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {needsContainerPicker && selectedServer && (
+                <div>
+                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                    Select Container
+                  </p>
+                  {containerQuery.isLoading ? (
+                    <p className="text-muted-foreground text-xs">
+                      Loading containers…
+                    </p>
+                  ) : containerOptions.length === 0 ? (
+                    <p className="text-muted-foreground text-xs">
+                      No matching containers found on this node.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {containerOptions.map((c) => (
+                        <button
+                          key={`${c.isVm ? "vm" : "lxc"}-${c.id}`}
+                          type="button"
+                          onClick={() => {
+                            setSelectedContainerId(c.id);
+                            setSelectedContainerIsVm(c.isVm);
+                          }}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            selectedContainerId === c.id
+                              ? "border-primary bg-primary/10 text-primary"
+                              : c.pinned
+                                ? "border-amber-500/50 text-amber-600 hover:border-amber-500 dark:text-amber-400"
+                                : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                          }`}
+                        >
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              c.status === "running"
+                                ? "bg-green-500"
+                                : c.status === "stopped"
+                                  ? "bg-red-500"
+                                  : "bg-zinc-400"
+                            }`}
+                          />
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                              c.isVm
+                                ? "bg-blue-500/10 text-blue-500"
+                                : "bg-green-500/10 text-green-500"
+                            }`}
+                          >
+                            {c.isVm ? "VM" : "LXC"}
+                          </span>
+                          {c.pinned && <span className="text-amber-500">★</span>}
+                          <span className="truncate">{c.name}</span>
+                          <span className="text-muted-foreground/60">#{c.id}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-1">
                 <button
                   type="button"
-                  onClick={() => setServerDropdownOpen((o) => !o)}
-                  className="border-border bg-background text-foreground hover:bg-accent flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm"
+                  onClick={handleInstall}
+                  disabled={
+                    !selectedServer ||
+                    running ||
+                    (needsContainerPicker && !selectedContainerId)
+                  }
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
                 >
-                  <span className="flex items-center gap-2 truncate">
-                    {selectedServer ? (
-                      <>
-                        {selectedServer.color && (
-                          <span
-                            className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                            style={{
-                              backgroundColor: selectedServer.color,
-                            }}
-                          />
-                        )}
-                        <span className="truncate">
-                          {selectedServer.name} ({selectedServer.ip})
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Select node…
-                      </span>
-                    )}
-                  </span>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${serverDropdownOpen ? "rotate-180" : ""}`}
-                  />
+                  {running ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  {running ? "Running…" : "Install"}
                 </button>
-                {serverDropdownOpen && (
-                  <div className="border-border bg-card absolute right-0 left-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg">
-                    {servers.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedServer(s);
-                          setServerDropdownOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                          selectedServer?.id === s.id
-                            ? "bg-primary/10 text-primary"
-                            : "text-foreground hover:bg-accent"
-                        }`}
-                      >
-                        {s.color && (
-                          <span
-                            className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                            style={{ backgroundColor: s.color }}
-                          />
-                        )}
-                        <span className="truncate">
-                          {s.name} ({s.ip}) — {s.user}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
-              <button
-                type="button"
-                onClick={handleInstall}
-                disabled={
-                  !selectedServer ||
-                  !!running ||
-                  (needsContainerPicker && !selectedContainerId)
-                }
-                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
-              >
-                {running ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {running ? "Running…" : "Install"}
-              </button>
             </>
-          )}
-        </div>
-      )}
-
-      {/* Inline Terminal — collapsible, breaks out of card padding */}
-      {running && (
-        <div
-          ref={terminalRef}
-          className="border-border/60 -mx-5 -mb-5 space-y-0 border-t"
-        >
-          <button
-            type="button"
-            onClick={() => setTerminalCollapsed((c) => !c)}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center gap-1 px-5 py-2 text-xs font-medium transition-colors"
-          >
-            {terminalCollapsed ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronUp className="h-3.5 w-3.5" />
-            )}
-            Console Output
-          </button>
-          {!terminalCollapsed && (
-            <Terminal
-              scriptPath={running.scriptPath}
-              onClose={handleCloseTerminal}
-              mode="ssh"
-              server={running.server}
-              envVars={running.envVars}
-              executeInContainer={running.executeInContainer}
-              containerId={running.containerId}
-              containerType={running.containerType}
-            />
           )}
         </div>
       )}

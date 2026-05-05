@@ -604,10 +604,34 @@ class ScriptExecutionHandler {
           (/** @type {string} */ err) => this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() })
         );
 
-        // Build the in-container command
-        const inContainerCmd = containerType === 'lxc'
-          ? `pct exec ${containerId} -- bash -c "${envPrefix}bash ${remoteScript}"`
-          : `qm guest exec ${containerId} -- bash -c "${envPrefix}bash ${remoteScript}"`;
+        let inContainerCmd;
+
+        if (containerType === 'lxc') {
+          // For LXC we must copy the script from host (/tmp/scripts/...) into the container first.
+          // Otherwise pct exec tries to run a host path that does not exist inside the CT.
+          const remoteTarget = `/tmp/${scriptName}`;
+          const pushCmd = `pct push ${containerId} ${remoteScript} ${remoteTarget}`;
+
+          await new Promise((resolve, reject) => {
+            sshService.executeCommand(server, pushCmd,
+              (/** @type {string} */ data) => {
+                this.sendMessage(ws, { type: 'output', data, timestamp: Date.now() });
+              },
+              (/** @type {string} */ err) => {
+                this.sendMessage(ws, { type: 'error', data: err, timestamp: Date.now() });
+              },
+              (/** @type {number} */ code) => {
+                if (code === 0) resolve(true);
+                else reject(new Error(`pct push failed with exit code ${code}`));
+              },
+            );
+          });
+
+          inContainerCmd = `pct exec ${containerId} -- bash -c "chmod +x ${remoteTarget}; ${envPrefix}bash ${remoteTarget}"`;
+        } else {
+          // VM execution currently relies on guest exec and assumes script path exists in guest context.
+          inContainerCmd = `qm guest exec ${containerId} -- bash -c "${envPrefix}bash ${remoteScript}"`;
+        }
 
         this.activeExecutions.set(executionId, { process: null, ws, installationId, outputBuffer: '' });
 

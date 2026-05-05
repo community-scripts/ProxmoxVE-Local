@@ -108,35 +108,58 @@ function FloatingShellWindow({
     [isMaximized],
   );
 
-  const isBackupTask = !!session.backupStorage;
+  const isGenericTerminal = !!session.terminal;
+  const isBackupTask = !isGenericTerminal && !!session.backupStorage;
 
   const title =
     session.title ??
-    (isBackupTask
-      ? `Backup CT ${session.containerId} → ${session.backupStorage}`
-      : session.containerName
-        ? `${session.containerName} (${session.containerId})`
-        : `Shell — ${session.containerId}`);
+    (isGenericTerminal
+      ? (session.terminal?.scriptPath.split("/").pop() ?? "Terminal")
+      : isBackupTask
+        ? `Backup CT ${session.containerId} → ${session.backupStorage}`
+        : session.containerName
+          ? `${session.containerName}${session.containerId ? ` (${session.containerId})` : ""}`
+          : `Shell${session.containerId ? ` — ${session.containerId}` : ""}`);
 
-  const terminalProps = isBackupTask
+  const terminalProps = isGenericTerminal
     ? {
-        scriptPath: `backup-${session.containerId}-${session.backupStorage}`,
+        scriptPath: session.terminal!.scriptPath,
         onClose,
-        mode: "ssh" as const,
-        server: session.server,
-        isBackup: true,
-        containerId: session.containerId,
-        storage: session.backupStorage,
+        mode: session.terminal!.mode ?? (session.terminal!.server ? ("ssh" as const) : ("local" as const)),
+        server: session.terminal!.server,
+        isUpdate: session.terminal!.isUpdate,
+        isShell: session.terminal!.isShell,
+        isBackup: session.terminal!.isBackup,
+        isClone: session.terminal!.isClone,
+        executeInContainer: session.terminal!.executeInContainer,
+        containerId: session.terminal!.containerId,
+        storage: session.terminal!.storage,
+        backupStorage: session.terminal!.backupStorage,
+        executionId: session.terminal!.executionId,
+        cloneCount: session.terminal!.cloneCount,
+        hostnames: session.terminal!.hostnames,
+        containerType: session.terminal!.containerType,
+        envVars: session.terminal!.envVars,
       }
-    : {
-        scriptPath: `shell-${session.containerId}`,
-        onClose,
-        mode: session.server ? ("ssh" as const) : ("local" as const),
-        server: session.server,
-        isShell: true,
-        containerId: session.containerId,
-        containerType: session.containerType,
-      };
+    : isBackupTask
+      ? {
+          scriptPath: `backup-${session.containerId}-${session.backupStorage}`,
+          onClose,
+          mode: "ssh" as const,
+          server: session.server,
+          isBackup: true,
+          containerId: session.containerId,
+          storage: session.backupStorage,
+        }
+      : {
+          scriptPath: `shell-${session.containerId}`,
+          onClose,
+          mode: session.server ? ("ssh" as const) : ("local" as const),
+          server: session.server,
+          isShell: true,
+          containerId: session.containerId,
+          containerType: session.containerType ?? "lxc",
+        };
 
   const headerIcon = isBackupTask ? (
     <HardDrive className="text-primary h-4 w-4" />
@@ -144,7 +167,8 @@ function FloatingShellWindow({
     <TerminalIcon className="text-primary h-4 w-4" />
   );
 
-  const vmHint = !isBackupTask && session.containerType === "vm" && (
+  const vmHint =
+    !isGenericTerminal && !isBackupTask && session.containerType === "vm" && (
     <p className="border-border/40 border-b bg-amber-500/5 px-4 py-2 text-xs text-amber-500">
       VM shell uses the Proxmox serial console. The VM must have a serial port
       configured (e.g.{" "}
@@ -270,8 +294,10 @@ export function FloatingShell() {
               (isBackup
                 ? `Backup CT ${entry.session.containerId}`
                 : entry.session.containerName
-                  ? `${entry.session.containerName} (${entry.session.containerId})`
-                  : `Shell — ${entry.session.containerId}`);
+                  ? `${entry.session.containerName}${entry.session.containerId ? ` (${entry.session.containerId})` : ""}`
+                  : entry.session.terminal
+                    ? (entry.session.title ?? (entry.session.terminal.scriptPath.split("/").pop() ?? "Terminal"))
+                    : `Shell${entry.session.containerId ? ` — ${entry.session.containerId}` : ""}`);
             return (
               <button
                 key={entry.id}
