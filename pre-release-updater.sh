@@ -194,7 +194,25 @@ backup_current() {
 		find "${INSTALL_DIR}/prisma" -name "*.db" -exec cp {} "$BACKUP_DIR/" \; 2>/dev/null || true
 	fi
 
+	# Backup downloaded scripts so updates never wipe user downloads
+	for dir in ct tools vm vw; do
+		if [ -d "${INSTALL_DIR}/scripts/${dir}" ]; then
+			cp -r "${INSTALL_DIR}/scripts/${dir}" "$BACKUP_DIR/scripts-${dir}"
+		fi
+	done
+
 	msg_ok "Backup created at: $BACKUP_DIR"
+}
+
+restore_downloaded_scripts() {
+	for dir in ct tools vm vw; do
+		if [ -d "$BACKUP_DIR/scripts-${dir}" ]; then
+			mkdir -p "${INSTALL_DIR}/scripts"
+			rm -rf "${INSTALL_DIR}/scripts/${dir}" 2>/dev/null || true
+			cp -r "$BACKUP_DIR/scripts-${dir}" "${INSTALL_DIR}/scripts/${dir}"
+			msg_ok "Restored downloaded scripts directory: scripts/${dir}"
+		fi
+	done
 }
 
 # --- Install Pre-Release -----------------------------------------------------
@@ -258,6 +276,10 @@ install_prerelease() {
 			--exclude='data/' \
 			--exclude='.env' \
 			--exclude='node_modules/' \
+			--exclude='scripts/ct/' \
+			--exclude='scripts/tools/' \
+			--exclude='scripts/vm/' \
+			--exclude='scripts/vw/' \
 			--exclude='prisma/*.db' \
 			--exclude='prisma/*.db-journal' \
 			"$extracted_dir/" "$INSTALL_DIR/"
@@ -272,6 +294,9 @@ install_prerelease() {
 			-delete 2>/dev/null || true
 		cp -r "$extracted_dir/"* "$INSTALL_DIR/"
 	fi
+
+	# Always restore user-downloaded scripts after copying release files
+	restore_downloaded_scripts
 
 	msg_ok "Files installed"
 

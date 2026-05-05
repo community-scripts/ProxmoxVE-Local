@@ -234,7 +234,7 @@ backup_data() {
 	fi
 
 	# Backup scripts directories
-	local scripts_dirs=("scripts/ct" "scripts/install" "scripts/tools" "scripts/vm")
+	local scripts_dirs=("scripts/ct" "scripts/install" "scripts/tools" "scripts/vm" "scripts/vw")
 	for scripts_dir in "${scripts_dirs[@]}"; do
 		if [ -d "$scripts_dir" ]; then
 			log "Backing up $scripts_dir directory..."
@@ -414,7 +414,7 @@ restore_backup_files() {
 		fi
 
 		# Restore scripts directories
-		local scripts_dirs=("ct" "install" "tools" "vm")
+		local scripts_dirs=("ct" "install" "tools" "vm" "vw")
 		for backup_name in "${scripts_dirs[@]}"; do
 			if [ -d "$BACKUP_DIR/$backup_name" ]; then
 				local target_dir="scripts/$backup_name"
@@ -595,6 +595,7 @@ update_files() {
 		"scripts/install"
 		"scripts/tools"
 		"scripts/vm"
+		"scripts/vw"
 	)
 
 	# Find the actual source directory (strip the top-level directory)
@@ -887,7 +888,7 @@ rollback() {
 		fi
 
 		# Restore scripts directories
-		local scripts_dirs=("ct" "install" "tools" "vm")
+		local scripts_dirs=("ct" "install" "tools" "vm" "vw")
 		for backup_name in "${scripts_dirs[@]}"; do
 			if [ -d "$BACKUP_DIR/$backup_name" ]; then
 				local target_dir="scripts/$backup_name"
