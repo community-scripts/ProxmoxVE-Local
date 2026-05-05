@@ -3553,7 +3553,13 @@ build_container() {
 	fi
 
 	# IP (always required, default dhcp)
-	NET_STRING+=",ip=${NET:-dhcp}"
+	# Guard against the literal word "static" being passed as the IP value –
+	# that happens when var_net=static is exported without an actual address.
+	if [[ "$NET" == "static" || -z "$NET" ]]; then
+		msg_warn "NET value '${NET:-empty}' is not a valid IP/CIDR – falling back to dhcp"
+		NET="dhcp"
+	fi
+	NET_STRING+=",ip=${NET}"
 
 	# Gateway
 	if [[ -n "$GATE" ]]; then

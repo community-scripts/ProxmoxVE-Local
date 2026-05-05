@@ -412,10 +412,16 @@ export function ConfigurationModal({
       // Advanced mode: all vars
       envVars = { ...advancedVars };
 
-      // If network mode is static and var_ip is set, replace var_net with the CIDR
-      if (envVars.var_net === "static" && envVars.var_ip) {
-        envVars.var_net = envVars.var_ip as string;
-        delete envVars.var_ip; // Remove the temporary var_ip
+      // If network mode is static and var_ip is set, replace var_net with the CIDR.
+      // If var_ip is missing (user left it blank), remove var_net so the script
+      // defaults to dhcp rather than receiving the literal string "static".
+      if (envVars.var_net === "static") {
+        if (envVars.var_ip) {
+          envVars.var_net = envVars.var_ip as string;
+        } else {
+          delete envVars.var_net;
+        }
+        delete envVars.var_ip;
       }
 
       // Format password correctly: if var_pw is set, format it as "-password <password>"

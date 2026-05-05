@@ -989,7 +989,19 @@ export const installedScriptsRouter = createTRPCRouter({
           return ids;
         };
 
-        // Helper function to check config file for community-script tag and extract hostname/name
+        // Read configurable detection tag (default: community-script)
+        let detectionTag = 'community-script';
+        try {
+          const { readFileSync } = await import('fs');
+          const { join: pathJoin } = await import('path');
+          const envContent = readFileSync(pathJoin(process.cwd(), '.env'), 'utf8');
+          const tagMatch = /^CONTAINER_DETECTION_TAG=(.*)$/m.exec(envContent);
+          if (tagMatch?.[1]?.trim()) detectionTag = tagMatch[1].trim();
+        } catch {
+          // .env not readable – use default
+        }
+
+        // Helper function to check config file for detection tag and extract hostname/name
         // Get the actual Proxmox node name via SSH (server.name is just a display name)
         let nodeName = (server as Server).name;
         try {
@@ -1028,8 +1040,8 @@ export const installedScriptsRouter = createTRPCRouter({
                 resolve(null);
               },
               (_exitCode: number) => {
-                // Check if config contains community-script tag
-                if (!configData.includes('community-script')) {
+                // Check if config contains the configured detection tag
+                if (!configData.includes(detectionTag)) {
                   resolve(null);
                   return;
                 }
@@ -1185,8 +1197,8 @@ export const installedScriptsRouter = createTRPCRouter({
         }
 
         const message = skippedScripts.length > 0 
-          ? `Auto-detection completed. Found ${detectedContainers.length} containers/VMs with community-script tag. Added ${createdScripts.length} new scripts, skipped ${skippedScripts.length} duplicates.`
-          : `Auto-detection completed. Found ${detectedContainers.length} containers/VMs with community-script tag. Added ${createdScripts.length} new scripts.`;
+          ? `Auto-detection completed. Found ${detectedContainers.length} containers/VMs with '${detectionTag}' tag. Added ${createdScripts.length} new scripts, skipped ${skippedScripts.length} duplicates.`
+          : `Auto-detection completed. Found ${detectedContainers.length} containers/VMs with '${detectionTag}' tag. Added ${createdScripts.length} new scripts.`;
 
         return {
           success: true,

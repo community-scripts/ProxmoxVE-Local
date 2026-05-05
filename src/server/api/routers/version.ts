@@ -253,10 +253,20 @@ export const versionRouter = createTRPCRouter({
         // Clear/create the log file
         await writeFile(logPath, '', 'utf-8');
         
-        // Always fetch the latest update.sh from GitHub before running
-        // This ensures we always use the newest update script, avoiding
-        // the "chicken-and-egg" problem where old scripts can't update properly
-        const updateScriptUrl = 'https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/main/update.sh';
+        // Determine which branch to fetch update.sh from.
+        // Prerelease installs live on the v1.0.0 branch; stable installs on main.
+        // Fetching from the wrong branch would downgrade a prerelease to stable.
+        let updateBranch = 'main';
+        try {
+          const versionPath = join(process.cwd(), 'VERSION');
+          const currentVersion = (await readFile(versionPath, 'utf-8')).trim();
+          if (currentVersion.includes('pre')) {
+            updateBranch = 'v1.0.0';
+          }
+        } catch {
+          // If VERSION can't be read, fall back to main
+        }
+        const updateScriptUrl = `https://raw.githubusercontent.com/community-scripts/ProxmoxVE-Local/${updateBranch}/update.sh`;
         try {
           const response = await fetch(updateScriptUrl);
           if (response.ok) {

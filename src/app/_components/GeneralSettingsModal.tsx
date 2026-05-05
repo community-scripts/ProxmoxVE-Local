@@ -94,6 +94,9 @@ export function GeneralSettingsModal({
   const [aptProxyEnabled, setAptProxyEnabled] = useState(false);
   const [aptProxyIp, setAptProxyIp] = useState("");
 
+  // Container detection tag state
+  const [detectionTag, setDetectionTag] = useState("community-script");
+
   // Prerelease channel state
   const [allowPrerelease, setAllowPrerelease] = useState(false);
 
@@ -123,6 +126,7 @@ export function GeneralSettingsModal({
       void loadAutoSyncSettings();
       void loadAptProxySettings();
       void loadPrereleaseSettings();
+      void loadDetectionTagSettings();
     }
   }, [isOpen]);
 
@@ -150,6 +154,33 @@ export function GeneralSettingsModal({
       setTimeout(() => setMessage(null), 3000);
     } catch {
       setMessage({ type: "error", text: "Failed to save update channel" });
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const loadDetectionTagSettings = async () => {
+    try {
+      const response = await fetch("/api/settings/detection-tag");
+      if (response.ok) {
+        const data = (await response.json()) as { tag: string };
+        setDetectionTag(data.tag ?? "community-script");
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const saveDetectionTagSettings = async () => {
+    try {
+      await fetch("/api/settings/detection-tag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag: detectionTag }),
+      });
+      setMessage({ type: "success", text: "Detection tag saved" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: "error", text: "Failed to save detection tag" });
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -933,6 +964,34 @@ export function GeneralSettingsModal({
                         </Button>
                       </div>
                     )}
+                  </div>
+
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-2 font-medium">
+                      Container Detection Tag
+                    </h4>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Proxmox containers with this tag are discovered by
+                      auto-detection. Default is{" "}
+                      <code className="text-xs">community-script</code>. Change
+                      this if you renamed the tag (e.g. to{" "}
+                      <code className="text-xs">cs</code>).
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        value={detectionTag}
+                        onChange={(e) => setDetectionTag(e.target.value)}
+                        placeholder="community-script"
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => void saveDetectionTagSettings()}
+                        size="sm"
+                      >
+                        Save
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="border-border rounded-lg border p-4">
