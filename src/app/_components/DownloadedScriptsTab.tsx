@@ -345,13 +345,11 @@ export function DownloadedScriptsTab() {
       scripts = scripts.filter((script) => {
         if (!script) return false;
         const scriptType = (script.type ?? "").toLowerCase();
-
-        // Map non-standard types to standard categories
-        const mappedType = scriptType === "turnkey" ? "ct" : scriptType;
-
-        return filters.selectedTypes.some(
-          (type) => type.toLowerCase() === mappedType,
-        );
+        return filters.selectedTypes.some((type) => {
+          const t = type.toLowerCase();
+          if (t === "ct") return scriptType === "ct" || scriptType === "lxc";
+          return scriptType === t;
+        });
       });
     }
 

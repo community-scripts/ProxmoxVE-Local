@@ -165,10 +165,20 @@ export function InstallCommandBlock({
   const [selectedServer, setSelectedServer] = useState<ServerType | null>(null);
   const [serversLoading, setServersLoading] = useState(false);
 
-  // Container picker state (for addon scripts with execute_in)
-  const needsContainerPicker = !!executeIn?.some((e) =>
-    CONTAINER_TYPES.includes(e as (typeof CONTAINER_TYPES)[number]),
-  );
+  const scriptTypeNorm = (scriptType ?? "").toLowerCase();
+  const isLxcType = scriptTypeNorm === "ct" || scriptTypeNorm === "lxc";
+  const executionPolicy = (() => {
+    const has = (v: string) => !!executeIn?.includes(v);
+    const allowVm = has("vm");
+    const allowLxcByMode =
+      has("pbs") || has("pmg") || (has("lxc") && !isLxcType);
+    const requiresContainer = allowVm || allowLxcByMode;
+    const pinMode = has("pbs") ? "pbs" : has("pmg") ? "pmg" : null;
+    return { requiresContainer, allowVm, allowLxcByMode, pinMode };
+  })();
+
+  // Container picker state driven by execute_in + script type policy
+  const needsContainerPicker = executionPolicy.requiresContainer;
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(
     null,
   );
@@ -188,18 +198,18 @@ export function InstallCommandBlock({
       status?: string;
       pinned?: boolean;
     }[] = [];
-    const wantLxc =
-      !executeIn || executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
-    const wantVm = !executeIn || executeIn.includes("vm");
+    const wantLxc = executionPolicy.allowLxcByMode;
+    const wantVm = executionPolicy.allowVm;
 
     if (wantLxc) {
       for (const c of containerQuery.data.lxc) {
         const lower = (c.name ?? "").toLowerCase();
-        const pinned = executeIn?.includes("pbs")
-          ? lower.includes("proxmox-backup-server")
-          : executeIn?.includes("pmg")
-            ? lower.includes("proxmox-mail-gateway")
-            : false;
+        const pinned =
+          executionPolicy.pinMode === "pbs"
+            ? lower.includes("proxmox-backup-server")
+            : executionPolicy.pinMode === "pmg"
+              ? lower.includes("proxmox-mail-gateway")
+              : false;
         opts.push({
           id: String(c.id),
           name: c.name ?? String(c.id),
@@ -259,15 +269,19 @@ export function InstallCommandBlock({
     snapToStep(defaults?.hdd ?? 2, HDD_PRESETS),
   );
 
-  const isAddonScript = (scriptType ?? "").toLowerCase() === "addon";
-  const showAdvanced =
-    scriptType === "ct" || scriptType === "lxc" || isAddonScript;
+  const isAddonScript = scriptTypeNorm === "addon";
+  const showAdvanced = isLxcType || isAddonScript;
+
+  const canUseDefaultsTabs = isLxcType;
 
   useEffect(() => {
-    if (isAddonScript && (env === "mydefaults" || env === "appdefaults")) {
+    if (
+      !canUseDefaultsTabs &&
+      (env === "mydefaults" || env === "appdefaults")
+    ) {
       setEnv("default");
     }
-  }, [isAddonScript, env]);
+  }, [canUseDefaultsTabs, env]);
 
   const defaultPath = getDefaultInstallPath(scriptType, slug);
   const alpinePath = getAlpineInstallPath(scriptType, slug);
@@ -355,7 +369,7 @@ export function InstallCommandBlock({
             onClick={() => setEnv("default")}
             label="Default"
           />
-          {!isAddonScript && (
+          {canUseDefaultsTabs && (
             <OptionToggle
               selected={env === "mydefaults"}
               onClick={() => setEnv("mydefaults")}
@@ -363,7 +377,7 @@ export function InstallCommandBlock({
               title={MODE_DESCRIPTIONS.mydefaults}
             />
           )}
-          {!isAddonScript && (
+          {canUseDefaultsTabs && (
             <OptionToggle
               selected={env === "appdefaults"}
               onClick={() => setEnv("appdefaults")}

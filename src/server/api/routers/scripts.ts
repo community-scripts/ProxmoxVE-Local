@@ -21,7 +21,7 @@ import type { Server } from "~/types/server";
 import { cacheLogos, getLocalLogoPath } from "~/server/services/logoCacheService";
 
 // Script types not yet supported in PVE-Local
-const UNSUPPORTED_TYPES = ['pve'] as const;
+const UNSUPPORTED_TYPES = [] as const;
 
 // ---------------------------------------------------------------------------
 // Mapper: PocketBase record → internal Script type (used by scriptDownloader)

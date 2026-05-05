@@ -18,6 +18,7 @@ import {
   TrendingDown,
   FlaskConical,
   Cpu,
+  Settings2,
 } from "lucide-react";
 import { api } from "~/trpc/react";
 import { getDefaultFilters } from "./filterUtils";
@@ -58,6 +59,9 @@ interface FilterBarProps {
 const SCRIPT_TYPES = [
   { value: "ct", label: "LXC Container", Icon: Package },
   { value: "vm", label: "Virtual Machine", Icon: Monitor },
+  { value: "pve", label: "PVE Tools", Icon: Settings2 },
+  { value: "addon", label: "Addons", Icon: Sparkles },
+  { value: "turnkey", label: "TurnKey", Icon: FileText },
 ];
 
 export function FilterBar({

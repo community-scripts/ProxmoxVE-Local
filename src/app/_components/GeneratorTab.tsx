@@ -253,6 +253,9 @@ export function GeneratorTab() {
     if (!scriptCardsData?.success || !scriptCardsData.cards) return [];
     const map = new Map<string, ScriptCard>();
     for (const s of scriptCardsData.cards) {
+      const t = (s?.type ?? "").toLowerCase();
+      // Generator only supports LXC scripts in pre9.
+      if (!(t === "ct" || t === "lxc")) continue;
       if (s?.slug && !map.has(s.slug)) map.set(s.slug, s);
     }
     return Array.from(map.values()).sort((a, b) =>
@@ -265,16 +268,17 @@ export function GeneratorTab() {
     [allScripts, selectedSlug],
   );
 
-  const isAddonScript = selectedScript?.type === "addon";
+  const selectedType = (selectedScript?.type ?? "").toLowerCase();
+  const isLxcType = selectedType === "ct" || selectedType === "lxc";
 
   useEffect(() => {
     if (
-      isAddonScript &&
+      !isLxcType &&
       (installMode === "mydefaults" || installMode === "appdefaults")
     ) {
       setInstallMode("default");
     }
-  }, [isAddonScript, installMode]);
+  }, [isLxcType, installMode]);
 
   // Fetch full script detail (with install_methods) when a script is selected
   const { data: scriptDetailData } = api.scripts.getScriptBySlug.useQuery(
@@ -287,10 +291,17 @@ export function GeneratorTab() {
     return scriptDetailData.script.execute_in ?? [];
   }, [scriptDetailData]);
 
-  const needsContainerPicker = useMemo(
-    () => executeIn.some((e) => ["lxc", "vm", "pbs", "pmg"].includes(e)),
-    [executeIn],
-  );
+  const executionPolicy = useMemo(() => {
+    const has = (v: string) => executeIn.includes(v);
+    const allowVm = has("vm");
+    const allowLxcByMode =
+      has("pbs") || has("pmg") || (has("lxc") && !isLxcType);
+    const requiresContainer = allowVm || allowLxcByMode;
+    const pinMode = has("pbs") ? "pbs" : has("pmg") ? "pmg" : null;
+    return { requiresContainer, allowVm, allowLxcByMode, pinMode };
+  }, [executeIn, isLxcType]);
+
+  const needsContainerPicker = executionPolicy.requiresContainer;
 
   const { data: containersData, isLoading: containersLoading } =
     api.installedScripts.listContainersOnServer.useQuery(
@@ -307,14 +318,14 @@ export function GeneratorTab() {
       status: string;
       pinned: boolean;
     }> = [];
-    const wantLxc = executeIn.some((e) => ["lxc", "pbs", "pmg"].includes(e));
-    const wantVm = executeIn.includes("vm");
+    const wantLxc = executionPolicy.allowLxcByMode;
+    const wantVm = executionPolicy.allowVm;
     if (wantLxc) {
       for (const c of containersData.lxc) {
         const pinned =
-          (executeIn.includes("pbs") &&
+          (executionPolicy.pinMode === "pbs" &&
             c.name.toLowerCase().includes("proxmox-backup-server")) ||
-          (executeIn.includes("pmg") &&
+          (executionPolicy.pinMode === "pmg" &&
             c.name.toLowerCase().includes("proxmox-mail-gateway"));
         opts.push({ ...c, isVm: false, pinned });
       }
@@ -329,7 +340,7 @@ export function GeneratorTab() {
       if (!a.pinned && b.pinned) return 1;
       return parseInt(a.id, 10) - parseInt(b.id, 10);
     });
-  }, [executeIn, containersData]);
+  }, [executionPolicy, containersData]);
 
   const scriptDetail: Script | null = useMemo(
     () =>
@@ -792,7 +803,8 @@ export function GeneratorTab() {
     // Determine whether to execute inside the container.
     // execute_in: ["lxc"] (or vm/pbs/pmg) means the script runs INSIDE the
     // selected container rather than on the PVE host.
-    const execInContainer = needsContainerPicker && !!selectedContainerId;
+    const execInContainer =
+      executionPolicy.requiresContainer && !!selectedContainerId;
 
     openShell({
       sessionKey: `generator-${selectedScript.slug}-${Date.now()}`,
@@ -818,7 +830,7 @@ export function GeneratorTab() {
     selectedScript,
     selectedServer,
     selectedContainerId,
-    needsContainerPicker,
+    executionPolicy,
     installMode,
     cpu,
     ram,
@@ -1067,7 +1079,7 @@ export function GeneratorTab() {
             <div className="bg-muted/40 mb-5 flex flex-wrap rounded-lg p-0.5">
               {[
                 { key: "default", label: "Default" },
-                ...(!isAddonScript
+                ...(isLxcType
                   ? [
                       { key: "mydefaults", label: "My Defaults" },
                       { key: "appdefaults", label: "App Defaults" },

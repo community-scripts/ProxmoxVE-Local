@@ -192,7 +192,7 @@ export function ScriptsGrid() {
       .filter((name): name is string => typeof name === "string");
   }, [scriptCardsData]);
 
-  // Get GitHub scripts with download status (deduplicated), excluding unsupported types
+  // Get GitHub scripts with download status (deduplicated)
   const combinedScripts = React.useMemo((): ScriptCardType[] => {
     if (!scriptCardsData?.success) return [];
 
@@ -201,8 +201,6 @@ export function ScriptsGrid() {
 
     scriptCardsData.cards?.forEach((script: ScriptCardType) => {
       if (script?.name && script?.slug) {
-        // Exclude addon/pve types from the Scripts grid
-        if (script.type === "addon" || script.type === "pve") return;
         // Use slug as unique identifier, only keep first occurrence
         if (!scriptMap.has(script.slug)) {
           scriptMap.set(script.slug, {
@@ -403,13 +401,11 @@ export function ScriptsGrid() {
       scripts = scripts.filter((script) => {
         if (!script) return false;
         const scriptType = (script.type ?? "").toLowerCase();
-
-        // Map non-standard types to standard categories
-        const mappedType = scriptType === "turnkey" ? "ct" : scriptType;
-
-        return filters.selectedTypes.some(
-          (type) => type.toLowerCase() === mappedType,
-        );
+        return filters.selectedTypes.some((type) => {
+          const t = type.toLowerCase();
+          if (t === "ct") return scriptType === "ct" || scriptType === "lxc";
+          return scriptType === t;
+        });
       });
     }
 

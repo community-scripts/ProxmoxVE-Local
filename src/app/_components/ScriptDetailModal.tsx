@@ -238,6 +238,8 @@ export function ScriptDetailModal({
   const hasDifferences =
     comparisonData?.success && comparisonData.hasDifferences;
   const isUpToDate = hasLocalFiles && !hasDifferences;
+  const scriptTypeNorm = (script.type ?? "").toLowerCase();
+  const isLxcType = scriptTypeNorm === "ct" || scriptTypeNorm === "lxc";
 
   return (
     <ModalPortal>
@@ -507,7 +509,7 @@ export function ScriptDetailModal({
                           className={`h-2 w-2 rounded-full ${scriptFilesData.ctExists ? "bg-success" : "bg-muted-foreground/30"}`}
                         />
                         <span className="text-muted-foreground">
-                          Script:{" "}
+                          Script File:{" "}
                           <span className="text-foreground font-medium">
                             {scriptFilesData.ctExists
                               ? "Available"
@@ -515,19 +517,32 @@ export function ScriptDetailModal({
                           </span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <div
-                          className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-success" : "bg-muted-foreground/30"}`}
-                        />
-                        <span className="text-muted-foreground">
-                          Install Script:{" "}
-                          <span className="text-foreground font-medium">
-                            {scriptFilesData.installExists
-                              ? "Available"
-                              : "Not loaded"}
+                      {isLxcType ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <div
+                            className={`h-2 w-2 rounded-full ${scriptFilesData.installExists ? "bg-success" : "bg-muted-foreground/30"}`}
+                          />
+                          <span className="text-muted-foreground">
+                            Install Script:{" "}
+                            <span className="text-foreground font-medium">
+                              {scriptFilesData.installExists
+                                ? "Available"
+                                : "Not loaded"}
+                            </span>
                           </span>
-                        </span>
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="bg-muted-foreground/30 h-2 w-2 rounded-full" />
+                          <span className="text-muted-foreground">
+                            Install Script:{" "}
+                            <span className="text-foreground font-medium">
+                              N/A for{" "}
+                              {script.type?.toUpperCase() ?? "this type"}
+                            </span>
+                          </span>
+                        </div>
+                      )}
                       {hasLocalFiles && (
                         <div className="flex items-center gap-2 text-sm">
                           <div
@@ -557,7 +572,11 @@ export function ScriptDetailModal({
                       )}
                       {scriptFilesData.files.length > 0 && (
                         <div className="text-muted-foreground mt-1 text-xs break-words">
-                          Files: {scriptFilesData.files.join(", ")}
+                          Files ({scriptFilesData.files.length}):{" "}
+                          {scriptFilesData.files
+                            .slice()
+                            .sort((a, b) => a.localeCompare(b))
+                            .join(", ")}
                         </div>
                       )}
                     </div>
