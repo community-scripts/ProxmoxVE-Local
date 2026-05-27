@@ -12,11 +12,11 @@ class SSHService {
    */
   async testConnection(server) {
     const { auth_type = 'password' } = server;
-    
+
     return new Promise((resolve) => {
       const timeout = 15000; // 15 seconds timeout for login test
       let resolved = false;
-      
+
       // Choose authentication method based on auth_type
       let authPromise;
       if (auth_type === 'key') {
@@ -25,7 +25,7 @@ class SSHService {
         // Default to password authentication
         authPromise = this.testWithSshpass(server).catch(() => this.testWithExpect(server));
       }
-      
+
       authPromise.then(result => {
         if (!resolved) {
           resolved = true;
@@ -45,7 +45,7 @@ class SSHService {
           });
         }
       });
-      
+
       // Set up overall timeout
       setTimeout(() => {
         if (!resolved) {
@@ -67,15 +67,15 @@ class SSHService {
    */
   async testWithSshpass(server) {
     const { ip, user, password, ssh_port = 22 } = server;
-    
+
     if (!password) {
       throw new Error('Password is required for password authentication');
     }
-    
+
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;
-      
+
       const sshCommand = spawn('sshpass', [
         '-p', password,
         'ssh',
@@ -102,7 +102,7 @@ class SSHService {
 
       let output = '';
       let errorOutput = '';
-      
+
       sshCommand.stdout.on('data', (data) => {
         output += data.toString();
       });
@@ -115,7 +115,7 @@ class SSHService {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           if (code === 0 && output.includes('SSH_LOGIN_SUCCESS')) {
             resolve({
               success: true,
@@ -129,7 +129,7 @@ class SSHService {
             });
           } else {
             let errorMessage = 'SSH login failed';
-            
+
             if (errorOutput.includes('Permission denied') || errorOutput.includes('Authentication failed')) {
               errorMessage = 'Authentication failed - check username and password';
             } else if (errorOutput.includes('Connection refused')) {
@@ -164,11 +164,11 @@ class SSHService {
    */
   async testWithExpect(server) {
     const { ip, user, password, ssh_port = 22 } = server;
-    
+
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;
-      
+
       // Pass password via env so it is not embedded in the script (safe for special chars like {, $, ").
       const expectScript = `#!/usr/bin/expect -f
 set timeout 10
@@ -208,7 +208,7 @@ expect {
 
       let output = '';
       let errorOutput = '';
-      
+
       expectCommand.stdout.on('data', (data) => {
         output += data.toString();
       });
@@ -221,7 +221,7 @@ expect {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           if (code === 0) {
             resolve({
               success: true,
@@ -235,7 +235,7 @@ expect {
             });
           } else {
             let errorMessage = 'SSH login failed';
-            
+
             if (errorOutput.includes('Permission denied') || errorOutput.includes('Authentication failed')) {
               errorMessage = 'Authentication failed - check username and password';
             } else if (errorOutput.includes('Connection refused')) {
@@ -271,11 +271,11 @@ expect {
    */
   async testConnectionBasic(server) {
     const { ip, user, password } = server;
-    
+
     return new Promise((resolve) => {
       const timeout = 10000; // 10 seconds timeout
       let resolved = false;
-      
+
       // First, test if the SSH port is open using netcat or telnet
       const portTestCommand = spawn('nc', ['-z', '-w', '5', ip, '22'], {
         stdio: ['pipe', 'pipe', 'pipe']
@@ -299,7 +299,7 @@ expect {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           if (code === 0) {
             // Port is open, now try a basic SSH connection test
             this.testSSHConnection(server).then(resolve).catch(() => {
@@ -331,7 +331,7 @@ expect {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           // If netcat is not available, try with telnet
           this.testWithTelnet(server).then(resolve).catch(() => {
             resolve({
@@ -355,11 +355,11 @@ expect {
    */
   async testWithTelnet(server) {
     const { ip } = server;
-    
+
     return new Promise((resolve) => {
       const timeout = 5000;
       let resolved = false;
-      
+
       const telnetCommand = spawn('timeout', ['5', 'telnet', ip, '22'], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -377,7 +377,7 @@ expect {
       }, timeout);
 
       let output = '';
-      
+
       telnetCommand.stdout.on('data', (data) => {
         output += data.toString();
       });
@@ -390,7 +390,7 @@ expect {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           if (output.includes('Connected') || output.includes('SSH')) {
             resolve({
               success: true,
@@ -438,11 +438,11 @@ expect {
    */
   async testSSHConnection(server) {
     const { ip, user, ssh_port = 22 } = server;
-    
+
     return new Promise((resolve) => {
       const timeout = 5000;
       let resolved = false;
-      
+
       const sshCommand = spawn('ssh', [
         '-p', ssh_port.toString(),
         '-o', 'ConnectTimeout=5',
@@ -471,7 +471,7 @@ expect {
       }, timeout);
 
       let errorOutput = '';
-      
+
       sshCommand.stderr.on('data', (data) => {
         errorOutput += data.toString();
       });
@@ -480,7 +480,7 @@ expect {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          
+
           // SSH connection was established but authentication failed
           // This is actually a good sign - it means SSH is working
           if (errorOutput.includes('Permission denied') || errorOutput.includes('Authentication failed')) {
@@ -540,7 +540,7 @@ expect {
    */
   async testWithSSHKey(server) {
     const { ip, user, ssh_key_path, ssh_key_passphrase, ssh_port = 22 } = server;
-    
+
     if (!ssh_key_path || !existsSync(ssh_key_path)) {
       throw new Error('SSH key file not found');
     }
@@ -548,7 +548,7 @@ expect {
     return new Promise((resolve, reject) => {
       const timeout = 10000;
       let resolved = false;
-      
+
       try {
         // Build SSH command
         const sshArgs = [
@@ -563,7 +563,7 @@ expect {
           `${user}@${ip}`,
           'echo "SSH_LOGIN_SUCCESS"'
         ];
-        
+
         // Use sshpass if passphrase is provided
         let command, args;
         if (ssh_key_passphrase) {
@@ -573,7 +573,7 @@ expect {
           command = 'ssh';
           args = sshArgs;
         }
-        
+
         const sshCommand = spawn(command, args, {
           stdio: ['pipe', 'pipe', 'pipe']
         });
@@ -588,7 +588,7 @@ expect {
 
         let output = '';
         let errorOutput = '';
-        
+
         sshCommand.stdout.on('data', (data) => {
           output += data.toString();
         });
@@ -601,7 +601,7 @@ expect {
           if (!resolved) {
             resolved = true;
             clearTimeout(timer);
-            
+
             if (code === 0 && output.includes('SSH_LOGIN_SUCCESS')) {
               resolve({
                 success: true,
@@ -615,7 +615,7 @@ expect {
               });
             } else {
               let errorMessage = 'SSH key authentication failed';
-              
+
               if (errorOutput.includes('Permission denied') || errorOutput.includes('Authentication failed')) {
                 errorMessage = 'SSH key authentication failed - check key and permissions';
               } else if (errorOutput.includes('Connection refused')) {
@@ -644,7 +644,7 @@ expect {
             reject(error);
           }
         });
-        
+
       } catch (error) {
         if (!resolved) {
           resolved = true;
@@ -681,7 +681,7 @@ expect {
       });
 
       let errorOutput = '';
-      
+
       sshKeygen.stderr.on('data', (data) => {
         errorOutput += data.toString();
       });
@@ -691,15 +691,15 @@ expect {
           try {
             // Read the generated private key
             const privateKey = readFileSync(keyPath, 'utf8');
-            
+
             // Read the generated public key
             const publicKeyPath = keyPath + '.pub';
             const publicKey = readFileSync(publicKeyPath, 'utf8');
-            
+
             // Set proper permissions
             chmodSync(keyPath, 0o600);
             chmodSync(publicKeyPath, 0o644);
-            
+
             resolve({
               privateKey,
               publicKey: publicKey.trim()
@@ -725,11 +725,11 @@ expect {
    */
   getPublicKey(keyPath) {
     const publicKeyPath = keyPath + '.pub';
-    
+
     if (!existsSync(publicKeyPath)) {
       throw new Error('Public key file not found');
     }
-    
+
     return readFileSync(publicKeyPath, 'utf8').trim();
   }
 
