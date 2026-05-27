@@ -662,7 +662,14 @@ expect {
   async generateKeyPair(serverId) {
     const sshKeysDir = join(process.cwd(), 'data', 'ssh-keys');
     const keyPath = join(sshKeysDir, `server_${serverId}_key`);
-    
+    const keyPubPath = keyPath + '.pub';
+
+    // Remove existing key files so ssh-keygen does not prompt "Overwrite (y/n)?"
+    // which would block stdin indefinitely.
+    for (const p of [keyPath, keyPubPath]) {
+      try { unlinkSync(p); } catch { /* file didn't exist – that's fine */ }
+    }
+
     return new Promise((resolve, reject) => {
       const sshKeygen = spawn('ssh-keygen', [
         '-t', 'ed25519',
