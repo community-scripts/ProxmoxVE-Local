@@ -446,9 +446,9 @@ async function isVM(scriptId: number, containerId: string, serverId: number | nu
         let exists = false;
         void sshExecutionService.executeCommand(
           server as Server,
-          `test -f "${path}" && echo "exists" || echo "not_exists"`,
+          `test -f "${path}" && echo "exists" || echo "not_found"`,
           (data: string) => {
-            if (data.includes('exists')) exists = true;
+            if (data.trim() === 'exists') exists = true;
           },
           () => resolve(exists),
           () => resolve(exists)
