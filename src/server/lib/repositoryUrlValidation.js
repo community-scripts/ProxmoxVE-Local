@@ -2,10 +2,10 @@
  * Repository URL validation (JS mirror for server.js).
  */
 const VALID_REPO_URL =
-  /^(https?:\/\/)(github\.com|gitlab\.com|bitbucket\.org|[^/]+)\/[^/]+\/[^/]+$/;
+  /^https?:\/\/[^/]+\/.+$/;
 
 export const REPO_URL_ERROR_MESSAGE =
-  'Invalid repository URL. Supported: GitHub, GitLab, Bitbucket, and custom Git servers (e.g. https://host/owner/repo).';
+  'Invalid repository URL. Supported: GitHub, GitLab, Bitbucket, and custom Git servers (e.g. https://host/owner/repo or https://host/group/sub-group/repo).';
 
 export function isValidRepositoryUrl(url) {
   if (typeof url !== 'string' || !url.trim()) return false;
