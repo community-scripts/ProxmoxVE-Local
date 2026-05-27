@@ -28,6 +28,9 @@ interface TerminalProps {
   isShell?: boolean;
   isBackup?: boolean;
   isClone?: boolean;
+  /** When true the component fills its parent container (flex-1) instead of
+   *  using its own fixed heights. Used by FloatingShell. */
+  fillParent?: boolean;
   /** When true the script is executed INSIDE the target container via pct exec,
    *  rather than on the PVE host. Requires containerId + containerType. */
   executeInContainer?: boolean;
@@ -202,6 +205,7 @@ export function Terminal({
   isShell = false,
   isBackup = false,
   isClone = false,
+  fillParent = false,
   executeInContainer = false,
   containerId,
   storage,
@@ -739,7 +743,7 @@ export function Terminal({
   // Don't render on server side
   if (!isClient) {
     return (
-      <div className="glass-card-static overflow-hidden border">
+      <div className={`glass-card-static overflow-hidden border${fillParent ? " flex h-full flex-col" : ""}`}>
         <div className="bg-secondary/50 border-border/60 flex items-center justify-between border-b px-4 py-2">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1">
@@ -752,7 +756,7 @@ export function Terminal({
             </span>
           </div>
         </div>
-        <div className="flex h-96 w-full items-center justify-center">
+        <div className={`flex items-center justify-center${fillParent ? " flex-1" : " h-96 w-full"}`}>
           <div className="text-muted-foreground">Loading terminal...</div>
         </div>
       </div>
@@ -760,7 +764,7 @@ export function Terminal({
   }
 
   return (
-    <div className="glass-card-static overflow-hidden border">
+    <div className={`glass-card-static overflow-hidden border${fillParent ? " flex h-full flex-col" : ""}`}>
       {/* Terminal Header */}
       <div className="bg-secondary/50 border-border/60 flex items-center justify-between border-b px-2 py-2 sm:px-4">
         <div className="flex min-w-0 flex-1 items-center space-x-2">
@@ -856,10 +860,10 @@ export function Terminal({
       {/* Terminal Output */}
       <div
         ref={terminalRef}
-        className={`h-[16rem] w-full sm:h-[24rem] lg:h-[32rem] ${isMobile ? "mobile-terminal" : ""}`}
-        style={{
-          minHeight: "256px",
-        }}
+        className={fillParent
+          ? `min-h-0 flex-1 w-full ${isMobile ? "mobile-terminal" : ""}`
+          : `h-[16rem] w-full sm:h-[24rem] lg:h-[32rem] ${isMobile ? "mobile-terminal" : ""}`}
+        style={fillParent ? undefined : { minHeight: "256px" }}
       />
 
       {/* Mobile Input Controls - Only show on mobile */}

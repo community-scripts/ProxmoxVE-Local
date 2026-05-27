@@ -247,7 +247,7 @@ function FloatingShellWindow({
       </div>
       {vmHint}
       <div className="min-h-0 flex-1">
-        <Terminal {...terminalProps} />
+        <Terminal {...terminalProps} fillParent />
       </div>
     </div>
   );
