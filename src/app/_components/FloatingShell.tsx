@@ -38,7 +38,7 @@ function FloatingShellWindow({
   isVisible: boolean;
 }) {
   const { session } = entry;
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(true);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState({ w: WIN_W, h: WIN_H });
   const windowRef = useRef<HTMLDivElement>(null);
