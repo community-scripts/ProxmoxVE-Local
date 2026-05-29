@@ -27,7 +27,7 @@ class SSHExecutionService {
    */
   buildSSHCommand(server, cols = 220, rows = 50) {
     const { ip, user, password, auth_type = 'password', ssh_key_passphrase, ssh_key_path, ssh_port = 22 } = server;
-    
+
     const baseArgs = [
       '-t',
       '-p', ssh_port.toString(),
@@ -51,11 +51,11 @@ class SSHExecutionService {
       if (!ssh_key_path || !existsSync(ssh_key_path)) {
         throw new Error('SSH key file not found');
       }
-      
+
       baseArgs.push('-i', ssh_key_path);
       baseArgs.push('-o', 'PasswordAuthentication=no');
       baseArgs.push('-o', 'PubkeyAuthentication=yes');
-      
+
       if (ssh_key_passphrase) {
         return {
           command: 'sshpass',
@@ -95,21 +95,21 @@ class SSHExecutionService {
       // Suppress verbose rsync file-listing output; only forward real errors
       await this.transferScriptsFolder(
         server,
-        () => {},
+        () => { },
         (/** @type {string} */ err) => {
           if (!err.includes('Warning:') && !err.includes('Permanently added')) {
             onError(err);
           }
         },
       );
-      
+
       return new Promise((resolve, reject) => {
         const relativeScriptPath = scriptPath.startsWith('scripts/') ? scriptPath.substring(8) : scriptPath;
-        
+
         try {
           // Build SSH command based on authentication type
-          const { command, args } = this.buildSSHCommand(server);
-          
+          const { command, args } = this.buildSSHCommand(server, cols, rows);
+
           // Format environment variables as var_name=value pairs
           const envVarsString = Object.entries(envVars)
             .map(([key, value]) => {
@@ -118,16 +118,16 @@ class SSHExecutionService {
               return `${key}='${escapedValue}'`;
             })
             .join(' ');
-          
+
           // Build the command with environment variables
           let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
-          
+
           if (envVarsString) {
             scriptCommand += ` && ${envVarsString} bash ${relativeScriptPath}`;
           } else {
             scriptCommand += ` && bash ${relativeScriptPath}`;
           }
-          
+
           // Log the full command that will be executed
           console.log('='.repeat(80));
           console.log(`[SSH Execution] Executing on host: ${server.ip} (${server.name || 'Unnamed'})`);
@@ -144,10 +144,10 @@ class SSHExecutionService {
           console.log(`[SSH Execution] Full command:`);
           console.log(scriptCommand);
           console.log('='.repeat(80));
-          
+
           // Add the script execution command to the args
           args.push(scriptCommand);
-          
+
           // Use ptySpawn for proper terminal emulation and color support
           const sshCommand = ptySpawn(command, args, {
             name: 'xterm-256color',
@@ -168,23 +168,23 @@ class SSHExecutionService {
             }
           });
 
-        // Use pty's onData method which handles both stdout and stderr combined
-        sshCommand.onData((data) => {
-          // pty handles encoding automatically and preserves ANSI codes
-          onData(data);
-        });
+          // Use pty's onData method which handles both stdout and stderr combined
+          sshCommand.onData((data) => {
+            // pty handles encoding automatically and preserves ANSI codes
+            onData(data);
+          });
 
-        sshCommand.onExit((e) => {
-          onExit(e.exitCode);
-        });
+          sshCommand.onExit((e) => {
+            onExit(e.exitCode);
+          });
 
-        resolve({
-          process: sshCommand,
-          kill: () => {
-            sshCommand.kill('SIGTERM');
-          }
-        });
-        
+          resolve({
+            process: sshCommand,
+            kill: () => {
+              sshCommand.kill('SIGTERM');
+            }
+          });
+
         } catch (error) {
           reject(error);
         }
@@ -300,10 +300,10 @@ class SSHExecutionService {
       try {
         // Build SSH command based on authentication type
         const { command: sshCommandName, args } = this.buildSSHCommand(server);
-        
+
         // Add the command to execute to the args
         args.push(command);
-        
+
         // Use ptySpawn for proper terminal emulation and color support
         const sshCommand = ptySpawn(sshCommandName, args, {
           name: 'xterm-color',
@@ -313,21 +313,21 @@ class SSHExecutionService {
           env: process.env
         });
 
-      sshCommand.onData((data) => {
-        onData(data);
-      });
+        sshCommand.onData((data) => {
+          onData(data);
+        });
 
-      sshCommand.onExit((e) => {
-        onExit(e.exitCode);
-      });
+        sshCommand.onExit((e) => {
+          onExit(e.exitCode);
+        });
 
-      resolve({ 
-        process: sshCommand,
-        kill: () => {
-          sshCommand.kill('SIGTERM');
-        }
-      });
-      
+        resolve({
+          process: sshCommand,
+          kill: () => {
+            sshCommand.kill('SIGTERM');
+          }
+        });
+
       } catch (error) {
         reject(error);
       }
