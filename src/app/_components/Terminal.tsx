@@ -473,18 +473,28 @@ export function Terminal({
 
       // ResizeObserver: refit xterm whenever the container changes size
       // (covers FloatingShell window resize, maximize toggle, etc.)
-      const sendResizeToServer = (cols: number, rows: number) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ action: "resize", cols, rows }));
-        }
-      };
+      // Debounced so rapid drag events don't flood the server with resize messages.
+      let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
       const ro = new ResizeObserver(() => {
         if (!fitAddonRef.current || !xtermRef.current) return;
         fitAddonRef.current.fit();
-        sendResizeToServer(xtermRef.current.cols, xtermRef.current.rows);
+        if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+        resizeDebounceTimer = setTimeout(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN && xtermRef.current) {
+            wsRef.current.send(
+              JSON.stringify({
+                action: "resize",
+                cols: xtermRef.current.cols,
+                rows: xtermRef.current.rows,
+              }),
+            );
+          }
+          resizeDebounceTimer = null;
+        }, 150);
       });
       ro.observe(terminalElement);
       (terminalElement as any).resizeObserver = ro;
+      (terminalElement as any).resizeDebounceTimer = resizeDebounceTimer;
 
       // Store the handler for cleanup
       (terminalElement as any).resizeHandler = handleResize;
@@ -510,6 +520,9 @@ export function Terminal({
       clearTimeout(timeoutId);
       if (terminalElement && (terminalElement as any).resizeObserver) {
         (terminalElement as any).resizeObserver.disconnect();
+        if ((terminalElement as any).resizeDebounceTimer) {
+          clearTimeout((terminalElement as any).resizeDebounceTimer);
+        }
       }
       if (terminalElement && (terminalElement as any).resizeHandler) {
         window.removeEventListener(
@@ -610,28 +623,34 @@ export function Terminal({
             setExecutionId(newExecutionId);
           }
 
-          const message = {
-            action: "start",
-            scriptPath,
-            executionId: newExecutionId,
-            mode,
-            server,
-            isUpdate,
-            isShell,
-            isBackup,
-            isClone,
-            executeInContainer,
-            containerId,
-            storage,
-            backupStorage,
-            cloneCount,
-            hostnames,
-            containerType,
-            envVars,
-            cols: xtermRef.current?.cols ?? 220,
-            rows: xtermRef.current?.rows ?? 50,
-          };
-          ws.send(JSON.stringify(message));
+          // Delay start by 300ms to ensure fitAddon.fit() has run and
+          // xtermRef.current.cols/rows reflect the actual rendered size.
+          // This prevents whiptail from drawing dialogs at wrong positions.
+          setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const message = {
+              action: "start",
+              scriptPath,
+              executionId: newExecutionId,
+              mode,
+              server,
+              isUpdate,
+              isShell,
+              isBackup,
+              isClone,
+              executeInContainer,
+              containerId,
+              storage,
+              backupStorage,
+              cloneCount,
+              hostnames,
+              containerType,
+              envVars,
+              cols: xtermRef.current?.cols ?? 120,
+              rows: xtermRef.current?.rows ?? 30,
+            };
+            ws.send(JSON.stringify(message));
+          }, 300);
         }
       };
 
