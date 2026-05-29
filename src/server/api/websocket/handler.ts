@@ -107,6 +107,18 @@ export class ScriptExecutionHandler {
     if (execution?.process && typeof execution.process.resize === 'function') {
       try {
         execution.process.resize(cols, rows);
+        // Clear the xterm screen so whiptail redraws cleanly after SIGWINCH.
+        // Without this, ghost artifacts from the old dialog position remain
+        // visible because ncurses only repaints the new position, not the old.
+        // Our clear arrives at the client before whiptail's SIGWINCH redraw
+        // (SSH roundtrip is ~10-50ms), so the redraw lands on a clean screen.
+        if (execution.ws.readyState === WebSocket.OPEN) {
+          this.sendMessage(execution.ws, {
+            type: 'output',
+            data: '\x1b[2J\x1b[H',
+            timestamp: Date.now()
+          });
+        }
       } catch (_) {
         // PTY may already be closed; ignore
       }
