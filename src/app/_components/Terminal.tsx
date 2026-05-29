@@ -486,6 +486,11 @@ export function Terminal({
         if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
         resizeDebounceTimer = setTimeout(() => {
           if (wsRef.current?.readyState === WebSocket.OPEN && xtermRef.current) {
+            // Clear the terminal client-side BEFORE sending resize to the server.
+            // This eliminates the race condition where whiptail's SIGWINCH redraw
+            // (arriving via PTY → SSH → WS) could race against a server-side clear.
+            // Client-side clear is synchronous and always arrives first.
+            xtermRef.current.write("\x1b[2J\x1b[H");
             wsRef.current.send(
               JSON.stringify({
                 action: "resize",
@@ -527,7 +532,7 @@ export function Terminal({
       if (terminalElement && (terminalElement as any).resizeObserver) {
         (terminalElement as any).resizeObserver.disconnect();
         if ((terminalElement as any).resizeDebounceTimer) {
-          clearTimeout((terminalElement as any).resizeDebounceTimer);
+          clearTimeout((terminalElement as any).resizeDebounceTimer as ReturnType<typeof setTimeout>);
         }
       }
       if (terminalElement && (terminalElement as any).resizeHandler) {
