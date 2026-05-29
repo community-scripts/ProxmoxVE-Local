@@ -633,6 +633,9 @@ export function Terminal({
           if (!propExecutionId) {
             setExecutionId(newExecutionId);
           }
+          // Update ref synchronously so ResizeObserver messages sent before
+          // the state update + effect cycle use the correct executionId.
+          executionIdRef.current = newExecutionId;
 
           // Delay start by 300ms to ensure fitAddon.fit() has run and
           // xtermRef.current.cols/rows reflect the actual rendered size.
