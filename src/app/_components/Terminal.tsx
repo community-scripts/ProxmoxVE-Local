@@ -628,6 +628,8 @@ export function Terminal({
             hostnames,
             containerType,
             envVars,
+            cols: xtermRef.current?.cols ?? 220,
+            rows: xtermRef.current?.rows ?? 50,
           };
           ws.send(JSON.stringify(message));
         }
@@ -711,6 +713,8 @@ export function Terminal({
           cloneCount,
           hostnames,
           containerType,
+          cols: xtermRef.current?.cols ?? 220,
+          rows: xtermRef.current?.rows ?? 50,
         }),
       );
     }
