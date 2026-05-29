@@ -15,8 +15,8 @@ import { Terminal } from "./Terminal";
 import { useShell } from "./ShellContext";
 import type { ShellEntry } from "./ShellContext";
 
-const WIN_W = 1000;
-const WIN_H = 640;
+const WIN_W = 1400;
+const WIN_H = 860;
 const MIN_W = 480;
 const MIN_H = 340;
 const STAGGER = 28; // px offset for each subsequent window
@@ -38,7 +38,7 @@ function FloatingShellWindow({
   isVisible: boolean;
 }) {
   const { session } = entry;
-  const [isMaximized, setIsMaximized] = useState(true);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState({ w: WIN_W, h: WIN_H });
   const windowRef = useRef<HTMLDivElement>(null);
