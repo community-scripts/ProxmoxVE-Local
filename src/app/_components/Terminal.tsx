@@ -262,6 +262,11 @@ export function Terminal({
   }, [propExecutionId]);
 
   const effectiveExecutionId = propExecutionId ?? executionId;
+  // Keep a ref so ResizeObserver (outside React) always sees the current executionId
+  const executionIdRef = useRef<string>(effectiveExecutionId);
+  useEffect(() => {
+    executionIdRef.current = effectiveExecutionId;
+  }, [effectiveExecutionId]);
   const isConnectingRef = useRef<boolean>(false);
   const hasConnectedRef = useRef<boolean>(false);
 
@@ -484,6 +489,7 @@ export function Terminal({
             wsRef.current.send(
               JSON.stringify({
                 action: "resize",
+                executionId: executionIdRef.current,
                 cols: xtermRef.current.cols,
                 rows: xtermRef.current.rows,
               }),
