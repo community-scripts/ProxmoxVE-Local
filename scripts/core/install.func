@@ -36,11 +36,11 @@ fi
 # When sourced as `source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"`, BASH_SOURCE[0] is
 # /dev/stdin — dirname resolves to /dev, which doesn't contain these files.
 if [[ "${BASH_SOURCE[0]}" != "/dev/stdin" && "${BASH_SOURCE[0]}" != "stdin" ]]; then
+	source "$(dirname "${BASH_SOURCE[0]}")/core.func"
+	source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
+	load_functions
+	catch_errors
 fi
-source "$(dirname "${BASH_SOURCE[0]}")/core.func"
-source "$(dirname "${BASH_SOURCE[0]}")/error-handler.func"
-load_functions
-catch_errors
 
 # Persist diagnostics setting inside container (exported from build.func)
 # so addon scripts running later can find the user's choice
