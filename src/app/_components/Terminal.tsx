@@ -471,6 +471,21 @@ export function Terminal({
 
       window.addEventListener("resize", handleResize);
 
+      // ResizeObserver: refit xterm whenever the container changes size
+      // (covers FloatingShell window resize, maximize toggle, etc.)
+      const sendResizeToServer = (cols: number, rows: number) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ action: "resize", cols, rows }));
+        }
+      };
+      const ro = new ResizeObserver(() => {
+        if (!fitAddonRef.current || !xtermRef.current) return;
+        fitAddonRef.current.fit();
+        sendResizeToServer(xtermRef.current.cols, xtermRef.current.rows);
+      });
+      ro.observe(terminalElement);
+      (terminalElement as any).resizeObserver = ro;
+
       // Store the handler for cleanup
       (terminalElement as any).resizeHandler = handleResize;
 
@@ -493,6 +508,9 @@ export function Terminal({
 
     return () => {
       clearTimeout(timeoutId);
+      if (terminalElement && (terminalElement as any).resizeObserver) {
+        (terminalElement as any).resizeObserver.disconnect();
+      }
       if (terminalElement && (terminalElement as any).resizeHandler) {
         window.removeEventListener(
           "resize",

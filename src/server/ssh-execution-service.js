@@ -25,7 +25,7 @@ class SSHExecutionService {
    * @param {Server} server - Server configuration
    * @returns {{command: string, args: string[]}} Command and arguments for SSH
    */
-  buildSSHCommand(server) {
+  buildSSHCommand(server, cols = 220, rows = 50) {
     const { ip, user, password, auth_type = 'password', ssh_key_passphrase, ssh_key_path, ssh_port = 22 } = server;
     
     const baseArgs = [
@@ -37,8 +37,8 @@ class SSHExecutionService {
       '-o', 'LogLevel=ERROR',
       '-o', 'RequestTTY=yes',
       '-o', 'SetEnv=TERM=xterm-256color',
-      '-o', 'SetEnv=COLUMNS=120',
-      '-o', 'SetEnv=LINES=30',
+      '-o', `SetEnv=COLUMNS=${cols}`,
+      '-o', `SetEnv=LINES=${rows}`,
       '-o', 'SetEnv=COLORTERM=truecolor',
       '-o', 'SetEnv=FORCE_COLOR=1',
       '-o', 'SetEnv=NO_COLOR=0',
@@ -90,7 +90,7 @@ class SSHExecutionService {
    * @param {Object} [envVars] - Optional environment variables to pass to the script
    * @returns {Promise<Object>} Process information
    */
-  async executeScript(server, scriptPath, onData, onError, onExit, envVars = {}) {
+  async executeScript(server, scriptPath, onData, onError, onExit, envVars = {}, cols = 220, rows = 50) {
     try {
       // Suppress verbose rsync file-listing output; only forward real errors
       await this.transferScriptsFolder(
@@ -120,7 +120,7 @@ class SSHExecutionService {
             .join(' ');
           
           // Build the command with environment variables
-          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=120 && export LINES=30 && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
+          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
           
           if (envVarsString) {
             scriptCommand += ` && ${envVarsString} bash ${relativeScriptPath}`;
@@ -151,14 +151,14 @@ class SSHExecutionService {
           // Use ptySpawn for proper terminal emulation and color support
           const sshCommand = ptySpawn(command, args, {
             name: 'xterm-256color',
-            cols: 120,
-            rows: 30,
+            cols: cols,
+            rows: rows,
             cwd: process.cwd(),
             env: {
               ...process.env,
               TERM: 'xterm-256color',
-              COLUMNS: '120',
-              LINES: '30',
+              COLUMNS: String(cols),
+              LINES: String(rows),
               SHELL: '/bin/bash',
               COLORTERM: 'truecolor',
               FORCE_COLOR: '1',

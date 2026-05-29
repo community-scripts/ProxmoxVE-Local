@@ -15,9 +15,13 @@ import { Terminal } from "./Terminal";
 import { useShell } from "./ShellContext";
 import type { ShellEntry } from "./ShellContext";
 
-const WIN_W = 820;
-const WIN_H = 520;
+const WIN_W = 1000;
+const WIN_H = 640;
+const MIN_W = 480;
+const MIN_H = 340;
 const STAGGER = 28; // px offset for each subsequent window
+
+type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 // ── Single floating window ────────────────────────────────────────────────────
 function FloatingShellWindow({
@@ -36,6 +40,7 @@ function FloatingShellWindow({
   const { session } = entry;
   const [isMaximized, setIsMaximized] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState({ w: WIN_W, h: WIN_H });
   const windowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     startMouseX: number;
@@ -179,16 +184,60 @@ function FloatingShellWindow({
     </p>
   );
 
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent, dir: ResizeDir) => {
+      if (isMaximized) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const startMouseX = e.clientX;
+      const startMouseY = e.clientY;
+      const startW = size.w;
+      const startH = size.h;
+      const startX = pos?.x ?? window.innerWidth / 2 - size.w / 2;
+      const startY = pos?.y ?? window.innerHeight / 2 - size.h / 2;
+
+      const onMove = (ev: MouseEvent) => {
+        const dx = ev.clientX - startMouseX;
+        const dy = ev.clientY - startMouseY;
+        let newW = startW;
+        let newH = startH;
+        let newX = startX;
+        let newY = startY;
+        if (dir.includes('e')) newW = Math.max(MIN_W, startW + dx);
+        if (dir.includes('w')) { newW = Math.max(MIN_W, startW - dx); newX = startX + startW - newW; }
+        if (dir.includes('s')) newH = Math.max(MIN_H, startH + dy);
+        if (dir.includes('n')) { newH = Math.max(MIN_H, startH - dy); newY = startY + startH - newH; }
+        setSize({ w: newW, h: newH });
+        setPos({ x: newX, y: newY });
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+      const cursors: Record<ResizeDir, string> = {
+        n: 'n-resize', s: 's-resize', e: 'e-resize', w: 'w-resize',
+        ne: 'ne-resize', nw: 'nw-resize', se: 'se-resize', sw: 'sw-resize',
+      };
+      document.body.style.cursor = cursors[dir];
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [isMaximized, size, pos],
+  );
+
   const windowStyle: React.CSSProperties = isMaximized
     ? { inset: 0, width: "100vw", height: "100vh", borderRadius: 0 }
     : pos
-      ? { left: pos.x, top: pos.y, width: WIN_W, height: WIN_H }
+      ? { left: pos.x, top: pos.y, width: size.w, height: size.h }
       : {
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          width: WIN_W,
-          height: WIN_H,
+          width: size.w,
+          height: size.h,
         };
 
   return (
@@ -249,6 +298,22 @@ function FloatingShellWindow({
       <div className="min-h-0 flex-1">
         <Terminal {...terminalProps} fillParent />
       </div>
+
+      {/* Resize handles — only shown when not maximized */}
+      {!isMaximized && (
+        <>
+          {/* Edges */}
+          <div onMouseDown={(e) => handleResizeStart(e, 'n')}  className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 's')}  className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 'e')}  className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 'w')}  className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize" />
+          {/* Corners */}
+          <div onMouseDown={(e) => handleResizeStart(e, 'nw')} className="absolute top-0 left-0 h-3 w-3 cursor-nw-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 'ne')} className="absolute top-0 right-0 h-3 w-3 cursor-ne-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 'sw')} className="absolute bottom-0 left-0 h-3 w-3 cursor-sw-resize" />
+          <div onMouseDown={(e) => handleResizeStart(e, 'se')} className="absolute bottom-0 right-0 h-3 w-3 cursor-se-resize" />
+        </>
+      )}
     </div>
   );
 }

@@ -15,7 +15,7 @@ export class ScriptExecutionHandler {
   private activeExecutions: Map<string, { process: any; ws: WebSocket }> = new Map();
 
   constructor(server: unknown) {
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server: server as any,
       path: '/ws/script-execution'
     });
@@ -24,12 +24,12 @@ export class ScriptExecutionHandler {
   }
 
   private handleConnection(ws: WebSocket, _request: IncomingMessage) {
-   
-    
+
+
     ws.on('message', (data) => {
       try {
 
-        
+
         const message = JSON.parse(data.toString()) as { action: string; scriptPath?: string; executionId?: string };
         void this.handleMessage(ws, message);
       } catch (error) {
@@ -53,15 +53,13 @@ export class ScriptExecutionHandler {
     });
   }
 
-  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; input?: string; envVars?: Record<string, string | number | boolean> }) {
-    const { action, scriptPath, executionId, mode, server, input, envVars } = message;
-    
-
+  private async handleMessage(ws: WebSocket, message: { action: string; scriptPath?: string; executionId?: string; mode?: 'local' | 'ssh'; server?: any; input?: string; envVars?: Record<string, string | number | boolean>; cols?: number; rows?: number }) {
+    const { action, scriptPath, executionId, mode, server, input, envVars, cols, rows } = message;
 
     switch (action) {
       case 'start':
         if (scriptPath && executionId) {
-          await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars);
+          await this.startScriptExecution(ws, scriptPath, executionId, mode, server, envVars, cols, rows);
         } else {
           this.sendMessage(ws, {
             type: 'error',
@@ -78,16 +76,20 @@ export class ScriptExecutionHandler {
         break;
 
       case 'input':
-       if (executionId && input !== undefined) {
-         
+        if (executionId && input !== undefined) {
           this.sendInputToExecution(executionId, input);
         } else {
-          
           this.sendMessage(ws, {
             type: 'error',
             data: 'Missing executionId or input data',
             timestamp: Date.now()
           });
+        }
+        break;
+
+      case 'resize':
+        if (executionId && cols !== undefined && rows !== undefined) {
+          this.resizeExecution(executionId, cols, rows);
         }
         break;
 
@@ -100,8 +102,19 @@ export class ScriptExecutionHandler {
     }
   }
 
-  private async startScriptExecution(ws: WebSocket, scriptPath: string, executionId: string, mode?: 'local' | 'ssh', server?: any, envVars?: Record<string, string | number | boolean>) {
-   
+  private resizeExecution(executionId: string, cols: number, rows: number) {
+    const execution = this.activeExecutions.get(executionId);
+    if (execution?.process && typeof execution.process.resize === 'function') {
+      try {
+        execution.process.resize(cols, rows);
+      } catch (_) {
+        // PTY may already be closed; ignore
+      }
+    }
+  }
+
+  private async startScriptExecution(ws: WebSocket, scriptPath: string, executionId: string, mode?: 'local' | 'ssh', server?: any, envVars?: Record<string, string | number | boolean>, cols?: number, rows?: number) {
+
     try {
       // Check if execution is already running
       if (this.activeExecutions.has(executionId)) {
@@ -116,7 +129,7 @@ export class ScriptExecutionHandler {
       let process: any;
 
       if (mode === 'ssh' && server) {
-       
+
         this.sendMessage(ws, {
           type: 'start',
           data: `Starting SSH execution of ${scriptPath} on ${server.name ?? server.ip}`,
@@ -124,11 +137,10 @@ export class ScriptExecutionHandler {
         });
 
         const sshService = getSSHExecutionService();
-       
+
         try {
-          const result = await sshService.executeScript(server as Server, scriptPath, 
+          const result = await sshService.executeScript(server as Server, scriptPath,
             (data: string) => {
-             
               this.sendMessage(ws, {
                 type: 'output',
                 data: data,
@@ -136,7 +148,6 @@ export class ScriptExecutionHandler {
               });
             },
             (error: string) => {
-           
               this.sendMessage(ws, {
                 type: 'error',
                 data: error,
@@ -144,7 +155,6 @@ export class ScriptExecutionHandler {
               });
             },
             (code: number) => {
-             
               this.sendMessage(ws, {
                 type: 'end',
                 data: `SSH script execution finished with code: ${code}`,
@@ -152,12 +162,14 @@ export class ScriptExecutionHandler {
               });
               this.activeExecutions.delete(executionId);
             },
-            envVars
+            envVars,
+            cols,
+            rows
           );
-          
+
           process = (result as any).process;
         } catch (sshError) {
-          
+
           this.sendMessage(ws, {
             type: 'error',
             data: `SSH execution failed: ${sshError instanceof Error ? sshError.message : String(sshError)}`,
@@ -166,8 +178,8 @@ export class ScriptExecutionHandler {
           return;
         }
       } else {
-       
-        
+
+
         // Validate script path
         const validation = scriptManager.validateScriptPath(scriptPath);
         if (!validation.valid) {
@@ -181,7 +193,7 @@ export class ScriptExecutionHandler {
 
         // Start script execution
         process = await scriptManager.executeScript(scriptPath);
-        
+
         // Send start message
         this.sendMessage(ws, {
           type: 'start',
@@ -214,7 +226,7 @@ export class ScriptExecutionHandler {
             data: `Script execution finished with code: ${code}, signal: ${signal}`,
             timestamp: Date.now()
           });
-          
+
           // Clean up
           this.activeExecutions.delete(executionId);
         });
@@ -226,12 +238,12 @@ export class ScriptExecutionHandler {
             data: `Process error: ${error.message}`,
             timestamp: Date.now()
           });
-          
+
           // Clean up
           this.activeExecutions.delete(executionId);
         });
       }
-      
+
       // Store the execution
       this.activeExecutions.set(executionId, { process, ws });
 
@@ -249,7 +261,7 @@ export class ScriptExecutionHandler {
     if (execution) {
       execution.process.kill('SIGTERM');
       this.activeExecutions.delete(executionId);
-      
+
       this.sendMessage(execution.ws, {
         type: 'end',
         data: 'Script execution stopped by user',
@@ -259,20 +271,20 @@ export class ScriptExecutionHandler {
   }
 
   private sendInputToExecution(executionId: string, input: string) {
-  
+
     const execution = this.activeExecutions.get(executionId);
 
-    
+
     if (execution?.process) {
-           
+
       try {
         // Check if it's a pty process (SSH) or regular process
         if (typeof execution.process.write === 'function' && !execution.process.stdin) {
-         
-         
+
+
           execution.process.write(input);
 
-          
+
           // Send confirmation back to client
           this.sendMessage(execution.ws, {
             type: 'output',
@@ -280,7 +292,7 @@ export class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         } else if (execution.process.stdin && !execution.process.stdin.destroyed) {
-         
+
           execution.process.stdin.write(input);
 
 
@@ -290,7 +302,7 @@ export class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         } else {
-          
+
           this.sendMessage(execution.ws, {
             type: 'error',
             data: 'Process input not available',
@@ -298,7 +310,7 @@ export class ScriptExecutionHandler {
           });
         }
       } catch (error) {
-        
+
         this.sendMessage(execution.ws, {
           type: 'error',
           data: `Failed to send input: ${error instanceof Error ? error.message : 'Unknown error'}`,
