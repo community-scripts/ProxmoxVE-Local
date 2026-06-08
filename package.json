@@ -54,7 +54,7 @@
     "node-pty": "^1.1.0",
     "pocketbase": "^0.27.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6",
+    "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
     "refractor": "^5.0.0",
