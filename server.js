@@ -9,7 +9,7 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
-import { getAuthConfig, verifyToken } from './src/lib/auth.ts';
+import { getAuthConfig, verifyToken } from './src/lib/auth.js';
 import dotenv from 'dotenv';
 
 // Dynamic import for auto sync init to avoid tsx caching issues
