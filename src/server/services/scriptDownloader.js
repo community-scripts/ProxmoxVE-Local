@@ -11,6 +11,17 @@ export class ScriptDownloaderService {
     this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
+  /**
+   * Normalize alpine CT slug to avoid double prefixing.
+   * Example: "alpine-it-tools" stays "alpine-it-tools" (not "alpine-alpine-it-tools").
+   * @param {string} slug
+   * @returns {string}
+   */
+  normalizeAlpineSlug(slug) {
+    const s = String(slug || '').trim();
+    return s.startsWith('alpine-') ? s : `alpine-${s}`;
+  }
+
   initializeConfig() {
     // Re-initialize if needed (for environment changes)
     this.scriptsDirectory = join(process.cwd(), 'scripts');
@@ -140,7 +151,7 @@ export class ScriptDownloaderService {
     if (method === 'alpine') {
       // Alpine variants only exist for CT/LXC scripts
       if (type === 'ct' || type === 'lxc') {
-        return `ct/alpine-${slug}.sh`;
+        return `ct/${this.normalizeAlpineSlug(slug)}.sh`;
       }
       return null;
     }
@@ -325,7 +336,7 @@ export class ScriptDownloaderService {
       });
       
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         try {
           console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName} from ${repoUrl}`);
           const alpineInstallContent = await this.downloadFileFromRepo(repoUrl, `install/${alpineInstallScriptName}`, branch);
@@ -515,7 +526,7 @@ export class ScriptDownloaderService {
       const hasAlpineCtVariant = hasCtScript &&
         script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         const alpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
         
         try {
@@ -692,7 +703,7 @@ export class ScriptDownloaderService {
       const hasAlpineCtVariant = (cmpTypeNorm === 'ct' || cmpTypeNorm === 'lxc') &&
         script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         const alpineInstallScriptPath = `install/${alpineInstallScriptName}`;
         const localAlpineInstallPath = join(this.scriptsDirectory, alpineInstallScriptPath);
         

@@ -626,6 +626,16 @@ export const scriptsRouter = createTRPCRouter({
       try {
         const autoSyncService = new AutoSyncService();
         const result = await autoSyncService.executeAutoSync();
+
+        if (!result?.success) {
+          return {
+            success: false,
+            message: result?.message ?? 'Manual auto-sync failed',
+            error: result?.error ?? result?.message ?? 'Manual auto-sync failed',
+            result
+          };
+        }
+
         return {
           success: true,
           message: 'Manual auto-sync completed successfully',
