@@ -3,17 +3,23 @@ import { NextResponse } from 'next/server';
 import { getSSHService } from '../../../../server/ssh-service';
 import { getDatabase } from '../../../../server/database-prisma';
 import { withApiLogging } from '../../../../server/logging/withApiLogging';
+import { requireApiAuth } from '~/lib/api-auth';
 
-export const POST = withApiLogging(async function POST(_request: NextRequest) {
+export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const sshService = getSSHService();
     const db = getDatabase();
-    
+
     // Get the next available server ID for key file naming
     const serverId = await db.getNextServerId();
-    
+
     const keyPair = await sshService.generateKeyPair(Number(serverId));
-    
+
     return NextResponse.json({
       success: true,
       privateKey: keyPair.privateKey,
@@ -23,7 +29,7 @@ export const POST = withApiLogging(async function POST(_request: NextRequest) {
   } catch (error) {
     // Error handled by withApiLogging
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to generate SSH key pair'
       },

@@ -2,9 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { enabled } = await request.json();
 
     if (typeof enabled !== 'boolean') {
@@ -37,8 +43,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const envPath = path.join(process.cwd(), '.env');
 
     if (!fs.existsSync(envPath)) {

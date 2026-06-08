@@ -6,6 +6,14 @@ import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
+    const authConfig = getAuthConfig();
+    if (authConfig.setupCompleted) {
+      return NextResponse.json(
+        { error: 'Authentication setup already completed' },
+        { status: 403 }
+      );
+    }
+
     const { username, password, enabled } = await request.json() as { username?: string; password?: string; enabled?: boolean };
 
     // If authentication is disabled, we don't need any credentials
@@ -40,9 +48,9 @@ export async function POST(request: NextRequest) {
 
       fs.writeFileSync(envPath, envContent);
 
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Authentication disabled successfully' 
+      return NextResponse.json({
+        success: true,
+        message: 'Authentication disabled successfully'
       });
     }
 
@@ -69,7 +77,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if credentials already exist
-    const authConfig = getAuthConfig();
     if (authConfig.hasCredentials) {
       return NextResponse.json(
         { error: 'Authentication is already configured' },
@@ -80,9 +87,9 @@ export async function POST(request: NextRequest) {
     await updateAuthCredentials(username, password, enabled ?? true);
     setSetupCompleted();
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Authentication setup completed successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Authentication setup completed successfully'
     });
   } catch (error) {
     console.error('Error during setup:', error);

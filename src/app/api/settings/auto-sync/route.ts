@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { isValidCron } from 'cron-validator';
+import { requireApiAuth } from '~/lib/api-auth';
 
 interface AutoSyncSettings {
   autoSyncEnabled: boolean;
@@ -22,6 +23,11 @@ interface AutoSyncSettings {
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const settings = await request.json() as AutoSyncSettings;
 
     if (!settings || typeof settings !== 'object') {
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (settings.testNotification) {
       return await handleTestNotification();
     }
-    
+
     // Handle manual sync trigger
     if (settings.triggerManualSync) {
       return await handleManualSync();
@@ -49,7 +55,7 @@ export async function POST(request: NextRequest) {
       'autoUpdateExisting',
       'notificationEnabled'
     ];
-    
+
     for (const field of requiredFields) {
       if (!(field in settings)) {
         return NextResponse.json(
@@ -108,14 +114,14 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        
+
         if (!Array.isArray(urls)) {
           return NextResponse.json(
             { error: 'Apprise URLs must be an array' },
             { status: 400 }
           );
         }
-        
+
         // Basic URL validation
         for (const url of urls) {
           if (typeof url !== 'string' || url.trim() === '') {
@@ -135,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -161,7 +167,7 @@ export async function POST(request: NextRequest) {
     for (const [key, value] of Object.entries(autoSyncSettings)) {
       const regex = new RegExp(`^${key}=.*$`, 'm');
       const settingLine = `${key}="${value}"`;
-      
+
       if (regex.test(envContent)) {
         // Replace existing setting
         envContent = envContent.replace(regex, settingLine);
@@ -178,26 +184,26 @@ export async function POST(request: NextRequest) {
     try {
       const { getAutoSyncService, setAutoSyncService } = await import('../../../../server/lib/autoSyncInit');
       let autoSyncService = getAutoSyncService();
-      
+
       // If no global instance exists, create one
       if (!autoSyncService) {
         const { AutoSyncService } = await import('../../../../server/services/autoSyncService');
         autoSyncService = new AutoSyncService();
         setAutoSyncService(autoSyncService);
       }
-      
+
       // Update the global service instance with new settings
       // Normalize appriseUrls to always be an array
       const normalizedSettings = {
         ...settings,
-        appriseUrls: Array.isArray(settings.appriseUrls) 
-          ? settings.appriseUrls 
-          : settings.appriseUrls 
-            ? [settings.appriseUrls] 
+        appriseUrls: Array.isArray(settings.appriseUrls)
+          ? settings.appriseUrls
+          : settings.appriseUrls
+            ? [settings.appriseUrls]
             : undefined
       };
       autoSyncService.saveSettings(normalizedSettings);
-      
+
       if (settings.autoSyncEnabled) {
         autoSyncService.scheduleAutoSync();
       } else {
@@ -213,9 +219,9 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if rescheduling fails
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Auto-sync settings saved successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Auto-sync settings saved successfully'
     });
   } catch (error) {
     console.error('Error saving auto-sync settings:', error);
@@ -226,13 +232,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         settings: {
           autoSyncEnabled: false,
           syncIntervalType: 'predefined',
@@ -251,7 +262,7 @@ export async function GET() {
 
     // Read .env file and extract auto-sync settings
     const envContent = fs.readFileSync(envPath, 'utf8');
-    
+
     const settings = {
       autoSyncEnabled: getEnvValue(envContent, 'AUTO_SYNC_ENABLED') === 'true',
       syncIntervalType: getEnvValue(envContent, 'SYNC_INTERVAL_TYPE') || 'predefined',
@@ -272,7 +283,7 @@ export async function GET() {
       lastAutoSyncError: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR') ?? null,
       lastAutoSyncErrorTime: getEnvValue(envContent, 'LAST_AUTO_SYNC_ERROR_TIME') ?? null
     };
-    
+
     return NextResponse.json({ settings });
   } catch (error) {
     console.error('Error reading auto-sync settings:', error);
@@ -288,7 +299,7 @@ async function handleTestNotification() {
   try {
     // Load current settings
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json(
         { error: 'No auto-sync settings found' },
@@ -351,7 +362,7 @@ async function handleManualSync() {
   try {
     // Load current settings
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json(
         { error: 'No auto-sync settings found' },
@@ -400,7 +411,7 @@ function getEnvValue(envContent: string, key: string): string {
   // Try to match the pattern with quotes around the value (handles nested quotes)
   const regex = new RegExp(`^${key}="(.+)"$`, 'm');
   let match = regex.exec(envContent);
-  
+
   if (match?.[1]) {
     let value = match[1];
     // Remove extra quotes that might be around JSON values
@@ -409,13 +420,13 @@ function getEnvValue(envContent: string, key: string): string {
     }
     return value;
   }
-  
+
   // Try to match without quotes (fallback)
   const regexNoQuotes = new RegExp(`^${key}=([^\\s]*)$`, 'm');
   match = regexNoQuotes.exec(envContent);
   if (match?.[1]) {
     return match[1];
   }
-  
+
   return '';
 }

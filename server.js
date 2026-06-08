@@ -9,6 +9,7 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
+import { getAuthConfig, verifyToken } from './src/lib/auth.js';
 import dotenv from 'dotenv';
 
 // Dynamic import for auto sync init to avoid tsx caching issues
@@ -38,6 +39,48 @@ const app = next({ dev, hostname, port });
 // Register global handlers once at bootstrap
 registerGlobalErrorHandlers();
 const handle = app.getRequestHandler();
+
+/**
+ * Extract a cookie value from request cookie header.
+ * @param {import('http').IncomingMessage} request
+ * @param {string} cookieName
+ * @returns {string | null}
+ */
+function getCookieValue(request, cookieName) {
+  const rawCookieHeader = request.headers.cookie;
+  if (!rawCookieHeader) return null;
+
+  const cookies = rawCookieHeader.split(';');
+  for (const cookie of cookies) {
+    const [name, ...rest] = cookie.trim().split('=');
+    if (name === cookieName) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validate auth for WebSocket upgrades when authentication is enabled.
+ * @param {import('http').IncomingMessage} request
+ * @returns {boolean}
+ */
+function isWebSocketUpgradeAuthorized(request) {
+  const authConfig = getAuthConfig();
+
+  // Preserve current behavior if auth is disabled / not set up.
+  if (!authConfig.enabled || !authConfig.setupCompleted) {
+    return true;
+  }
+
+  const token = getCookieValue(request, 'auth-token');
+  if (!token) {
+    return false;
+  }
+
+  return !!verifyToken(token);
+}
 
 // WebSocket handler for script execution
 /**
@@ -96,14 +139,14 @@ class ScriptExecutionHandler {
   constructor(server) {
     // Create WebSocketServer without attaching to server
     // We'll handle upgrades manually to avoid interfering with Next.js HMR
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       noServer: true
     });
     this.activeExecutions = new Map();
     this.db = getDatabase();
     this.setupWebSocket();
   }
-  
+
   /**
    * Handle WebSocket upgrade for our endpoint
    * @param {import('http').IncomingMessage} request
@@ -124,43 +167,43 @@ class ScriptExecutionHandler {
   parseContainerId(output) {
     // First, strip ANSI color codes to make pattern matching more reliable
     const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
-    
+
     // Look for various patterns that Proxmox scripts might use
     const patterns = [
       // Primary pattern - the exact format from the output
       /🆔\s+Container\s+ID:\s+(\d+)/i,
-      
+
       // Standard patterns with flexible spacing
       /🆔\s*Container\s*ID:\s*(\d+)/i,
       /Container\s*ID:\s*(\d+)/i,
       /CT\s*ID:\s*(\d+)/i,
       /Container\s*(\d+)/i,
-      
+
       // Alternative patterns
       /CT\s*(\d+)/i,
       /Container\s*created\s*with\s*ID\s*(\d+)/i,
       /Created\s*container\s*(\d+)/i,
       /Container\s*(\d+)\s*created/i,
       /ID:\s*(\d+)/i,
-      
+
       // Patterns with different spacing and punctuation
       /Container\s*ID\s*:\s*(\d+)/i,
       /CT\s*ID\s*:\s*(\d+)/i,
       /Container\s*#\s*(\d+)/i,
       /CT\s*#\s*(\d+)/i,
-      
+
       // Patterns that might appear in success messages
       /Successfully\s*created\s*container\s*(\d+)/i,
       /Container\s*(\d+)\s*is\s*ready/i,
       /Container\s*(\d+)\s*started/i,
-      
+
       // Generic number patterns that might be container IDs (3-4 digits)
       /(?:^|\s)(\d{3,4})(?:\s|$)/m,
     ];
 
     // Try patterns on both original and cleaned output
     const outputsToTry = [output, cleanOutput];
-    
+
     for (const testOutput of outputsToTry) {
       for (const pattern of patterns) {
         const match = testOutput.match(pattern);
@@ -173,8 +216,8 @@ class ScriptExecutionHandler {
         }
       }
     }
-    
-    
+
+
     return null;
   }
 
@@ -186,7 +229,7 @@ class ScriptExecutionHandler {
   parseWebUIUrl(output) {
     // First, strip ANSI color codes to make pattern matching more reliable
     const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
-    
+
     // Look for URL patterns with any valid IP address (private or public)
     const patterns = [
       // HTTP/HTTPS URLs with IP and port
@@ -203,7 +246,7 @@ class ScriptExecutionHandler {
 
     // Try patterns on both original and cleaned output
     const outputsToTry = [output, cleanOutput];
-    
+
     for (const testOutput of outputsToTry) {
       for (const pattern of patterns) {
         const matches = [...testOutput.matchAll(pattern)];
@@ -211,7 +254,7 @@ class ScriptExecutionHandler {
           if (match[1]) {
             const ip = match[1];
             const port = match[2] || (match[0].startsWith('https') ? '443' : '80');
-            
+
             // Validate IP address format
             if (ip.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
               return {
@@ -223,7 +266,7 @@ class ScriptExecutionHandler {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -268,16 +311,16 @@ class ScriptExecutionHandler {
 
   setupWebSocket() {
     this.wss.on('connection', (ws, request) => {
-      
+
       // Set connection metadata
       /** @type {ExtendedWebSocket} */ (ws).connectionTime = Date.now();
       /** @type {ExtendedWebSocket} */ (ws).clientIP = request.socket.remoteAddress || 'unknown';
-      
+
       ws.on('message', (data) => {
         try {
           const rawMessage = data.toString();
           const message = JSON.parse(rawMessage);
-          this.handleMessage(/** @type {ExtendedWebSocket} */ (ws), message);
+          this.handleMessage(/** @type {ExtendedWebSocket} */(ws), message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
           this.sendMessage(ws, {
@@ -289,12 +332,12 @@ class ScriptExecutionHandler {
       });
 
       ws.on('close', (code, reason) => {
-        this.cleanupActiveExecutions(/** @type {ExtendedWebSocket} */ (ws));
+        this.cleanupActiveExecutions(/** @type {ExtendedWebSocket} */(ws));
       });
 
       ws.on('error', (error) => {
         console.error('WebSocket error:', error);
-        this.cleanupActiveExecutions(/** @type {ExtendedWebSocket} */ (ws));
+        this.cleanupActiveExecutions(/** @type {ExtendedWebSocket} */(ws));
       });
     });
   }
@@ -329,7 +372,7 @@ class ScriptExecutionHandler {
           }
           const resolved = serverToUse ?? server;
           if (isClone && containerId && storage && server && cloneCount && hostnames && containerType) {
-            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */ (resolved), containerType, cloneCount, hostnames);
+            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */(resolved), containerType, cloneCount, hostnames);
           } else if (isBackup && containerId && storage) {
             await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
           } else if (isUpdate && containerId) {
@@ -382,9 +425,9 @@ class ScriptExecutionHandler {
   async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}) {
     /** @type {number|null} */
     let installationId = null;
-    
+
     try {
-      
+
       // Check if execution is already running
       if (this.activeExecutions.has(executionId)) {
         this.sendMessage(ws, {
@@ -397,11 +440,11 @@ class ScriptExecutionHandler {
 
       // Extract script name from path
       const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
-      
+
       // Create installation record
       const serverId = server ? (server.id ?? null) : null;
       installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId);
-      
+
       if (!installationId) {
         console.error('Failed to create installation record');
       }
@@ -411,7 +454,7 @@ class ScriptExecutionHandler {
         await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars);
         return;
       }
-      
+
       if (mode === 'ssh' && !server) {
         // SSH mode requested but no server provided, falling back to local execution
       }
@@ -419,14 +462,14 @@ class ScriptExecutionHandler {
       // Basic validation for local execution
       const scriptsDir = join(process.cwd(), 'scripts');
       const resolvedPath = resolve(scriptPath);
-      
+
       if (!resolvedPath.startsWith(resolve(scriptsDir))) {
         this.sendMessage(ws, {
           type: 'error',
           data: 'Script path is not within the allowed scripts directory',
           timestamp: Date.now()
         });
-        
+
         // Update installation record with failure
         if (installationId) {
           await this.updateInstallationRecord(installationId, { status: 'failed' });
@@ -463,11 +506,11 @@ class ScriptExecutionHandler {
       });
 
       // pty handles encoding automatically
-      
+
       // Store the execution with installation ID
-      this.activeExecutions.set(executionId, { 
-        process: childProcess, 
-        ws, 
+      this.activeExecutions.set(executionId, {
+        process: childProcess,
+        ws,
         installationId,
         outputBuffer: ''
       });
@@ -482,7 +525,7 @@ class ScriptExecutionHandler {
       // Handle pty data (both stdout and stderr combined)
       childProcess.onData(async (data) => {
         const output = data.toString();
-        
+
         // Store output in buffer for logging
         const execution = this.activeExecutions.get(executionId);
         if (execution) {
@@ -492,25 +535,25 @@ class ScriptExecutionHandler {
             execution.outputBuffer = execution.outputBuffer.slice(-1000);
           }
         }
-        
+
         // Parse for Container ID
         const containerId = this.parseContainerId(output);
         if (containerId && installationId) {
           await this.updateInstallationRecord(installationId, { container_id: containerId });
         }
-        
+
         // Parse for Web UI URL
         const webUIUrl = this.parseWebUIUrl(output);
         if (webUIUrl && installationId) {
           const { ip, port } = webUIUrl;
           if (ip && port) {
-            await this.updateInstallationRecord(installationId, { 
-              web_ui_ip: ip, 
-              web_ui_port: port 
+            await this.updateInstallationRecord(installationId, {
+              web_ui_ip: ip,
+              web_ui_port: port
             });
           }
         }
-        
+
         this.sendMessage(ws, {
           type: 'output',
           data: output,
@@ -522,7 +565,7 @@ class ScriptExecutionHandler {
       childProcess.onExit((e) => {
         const execution = this.activeExecutions.get(executionId);
         const isSuccess = e.exitCode === 0;
-        
+
         // Update installation record with final status and output
         if (installationId && execution) {
           this.updateInstallationRecord(installationId, {
@@ -530,13 +573,13 @@ class ScriptExecutionHandler {
             output_log: execution.outputBuffer
           });
         }
-        
+
         this.sendMessage(ws, {
           type: 'end',
           data: `Script execution finished with code: ${e.exitCode}, signal: ${e.signal}`,
           timestamp: Date.now()
         });
-        
+
         // Clean up
         this.activeExecutions.delete(executionId);
       });
@@ -547,7 +590,7 @@ class ScriptExecutionHandler {
         data: `Failed to start script: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: Date.now()
       });
-      
+
       // Update installation record with failure
       if (installationId) {
         await this.updateInstallationRecord(installationId, { status: 'failed' });
@@ -601,7 +644,7 @@ class ScriptExecutionHandler {
         // Transfer scripts folder silently — suppress verbose rsync file listing
         this.sendMessage(ws, { type: 'output', data: 'Syncing scripts…\r\n', timestamp: Date.now() });
         await sshService.transferScriptsFolder(server,
-          () => {}, // suppress rsync stdout (verbose file listing)
+          () => { }, // suppress rsync stdout (verbose file listing)
           (/** @type {string} */ err) => {
             // Ignore harmless SSH host-key / known-hosts notices from rsync stderr
             if (!err.includes('Warning:') && !err.includes('Permanently added')) {
@@ -621,8 +664,8 @@ class ScriptExecutionHandler {
           // Run pct push silently (no terminal output needed for this bookkeeping step)
           await new Promise((resolve, reject) => {
             sshService.executeCommand(server, pushCmd,
-              () => {}, // suppress push output
-              () => {}, // suppress push stderr
+              () => { }, // suppress push output
+              () => { }, // suppress push stderr
               (/** @type {number} */ code) => {
                 if (code === 0) resolve(true);
                 else reject(new Error(`pct push failed with exit code ${code}`));
@@ -753,25 +796,25 @@ class ScriptExecutionHandler {
               exec.outputBuffer = exec.outputBuffer.slice(-1000);
             }
           }
-          
+
           // Parse for Container ID
           const containerId = this.parseContainerId(data);
           if (containerId && installationId) {
             await this.updateInstallationRecord(installationId, { container_id: containerId });
           }
-          
+
           // Parse for Web UI URL
           const webUIUrl = this.parseWebUIUrl(data);
           if (webUIUrl && installationId) {
             const { ip, port } = webUIUrl;
             if (ip && port) {
-              await this.updateInstallationRecord(installationId, { 
-                web_ui_ip: ip, 
-                web_ui_port: port 
+              await this.updateInstallationRecord(installationId, {
+                web_ui_ip: ip,
+                web_ui_port: port
               });
             }
           }
-          
+
           // Handle data output
           this.sendMessage(ws, {
             type: 'output',
@@ -779,7 +822,7 @@ class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         },
-        /** @param {string} error */ (error) => {
+        /** @param {string} error */(error) => {
           // Store error in buffer for logging
           const exec = this.activeExecutions.get(executionId);
           if (exec) {
@@ -789,7 +832,7 @@ class ScriptExecutionHandler {
               exec.outputBuffer = exec.outputBuffer.slice(-1000);
             }
           }
-          
+
           // Handle errors
           this.sendMessage(ws, {
             type: 'error',
@@ -800,7 +843,7 @@ class ScriptExecutionHandler {
         /** @param {number} code */ async (code) => {
           const exec = this.activeExecutions.get(executionId);
           const isSuccess = code === 0;
-          
+
           // Update installation record with final status and output
           if (installationId && exec) {
             await this.updateInstallationRecord(installationId, {
@@ -808,14 +851,14 @@ class ScriptExecutionHandler {
               output_log: exec.outputBuffer
             });
           }
-          
+
           // Handle process exit
           this.sendMessage(ws, {
             type: 'end',
             data: `SSH script execution finished with code: ${code}`,
             timestamp: Date.now()
           });
-          
+
           // Clean up
           this.activeExecutions.delete(executionId);
         },
@@ -823,9 +866,9 @@ class ScriptExecutionHandler {
       ));
 
       // Store the execution with installation ID
-      this.activeExecutions.set(executionId, { 
-        process: execution.process, 
-        ws, 
+      this.activeExecutions.set(executionId, {
+        process: execution.process,
+        ws,
         installationId,
         outputBuffer: ''
       });
@@ -836,7 +879,7 @@ class ScriptExecutionHandler {
         data: `Failed to start SSH execution: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: Date.now()
       });
-      
+
       // Update installation record with failure
       if (installationId) {
         await this.updateInstallationRecord(installationId, { status: 'failed' });
@@ -852,7 +895,7 @@ class ScriptExecutionHandler {
     if (execution) {
       execution.process.kill('SIGTERM');
       this.activeExecutions.delete(executionId);
-      
+
       this.sendMessage(execution.ws, {
         type: 'end',
         data: 'Script execution stopped by user',
@@ -941,14 +984,14 @@ class ScriptExecutionHandler {
    */
   startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined) {
     const sshService = getSSHExecutionService();
-    
+
     return new Promise((resolve, reject) => {
       try {
         const backupCommand = `vzdump ${containerId} --storage ${storage} --mode snapshot`;
-        
+
         // Wrap the onExit callback to resolve our promise
         let promiseResolved = false;
-        
+
         sshService.executeCommand(
           server,
           backupCommand,
@@ -973,7 +1016,7 @@ class ScriptExecutionHandler {
             // Don't send 'end' message here if this is part of a backup+update flow
             // The update flow will handle completion messages
             const success = code === 0;
-            
+
             if (!success) {
               this.sendMessage(ws, {
                 type: 'error',
@@ -981,22 +1024,22 @@ class ScriptExecutionHandler {
                 timestamp: Date.now()
               });
             }
-            
+
             // Send a completion message (but not 'end' type to avoid stopping terminal)
             this.sendMessage(ws, {
               type: 'output',
               data: `\n[Backup ${success ? 'completed' : 'failed'} with exit code: ${code}]\n`,
               timestamp: Date.now()
             });
-            
+
             if (onComplete) onComplete(success);
-            
+
             // Resolve the promise when backup completes
             // Use setImmediate to ensure resolution happens in the right execution context
             if (!promiseResolved) {
               promiseResolved = true;
               const result = { success, code };
-              
+
               // Use setImmediate to ensure promise resolution happens in the next tick
               // This ensures the await in startUpdateExecution can properly resume
               setImmediate(() => {
@@ -1008,13 +1051,13 @@ class ScriptExecutionHandler {
                 }
               });
             }
-            
+
             this.activeExecutions.delete(executionId);
           }
         ).then((execution) => {
           // Store the execution
-          this.activeExecutions.set(executionId, { 
-            process: /** @type {any} */ (execution).process, 
+          this.activeExecutions.set(executionId, {
+            process: /** @type {any} */ (execution).process,
             ws
           });
           // Note: Don't resolve here - wait for onExit callback
@@ -1059,7 +1102,7 @@ class ScriptExecutionHandler {
    */
   async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames) {
     const sshService = getSSHExecutionService();
-    
+
     this.sendMessage(ws, {
       type: 'start',
       data: `Starting clone operation: Creating ${cloneCount} clone(s) of ${containerType.toUpperCase()} ${containerId}...`,
@@ -1075,7 +1118,7 @@ class ScriptExecutionHandler {
       });
 
       const stopCommand = containerType === 'lxc' ? `pct stop ${containerId}` : `qm stop ${containerId}`;
-      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */((resolve, reject) => {
         sshService.executeCommand(
           server,
           stopCommand,
@@ -1133,7 +1176,7 @@ class ScriptExecutionHandler {
         let nextId = '';
         try {
           let output = '';
-          await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+          await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */((resolve, reject) => {
             sshService.executeCommand(
               server,
               'pvesh get /cluster/nextid',
@@ -1188,7 +1231,7 @@ class ScriptExecutionHandler {
           ? `pct clone ${containerId} ${nextId} --hostname ${hostname} --storage ${storage}`
           : `qm clone ${containerId} ${nextId} --name ${hostname} --storage ${storage}`;
 
-        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve, reject) => {
+        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */((resolve, reject) => {
           sshService.executeCommand(
             server,
             cloneCommand,
@@ -1238,7 +1281,7 @@ class ScriptExecutionHandler {
       });
 
       const startSourceCommand = containerType === 'lxc' ? `pct start ${containerId}` : `qm start ${containerId}`;
-      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve) => {
+      await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */((resolve) => {
         sshService.executeCommand(
           server,
           startSourceCommand,
@@ -1290,7 +1333,7 @@ class ScriptExecutionHandler {
         const nextId = clonedIds[i];
 
         const startTargetCommand = containerType === 'lxc' ? `pct start ${nextId}` : `qm start ${nextId}`;
-        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */ ((resolve) => {
+        await new Promise(/** @type {(resolve: (value?: void) => void, reject: (error?: any) => void) => void} */((resolve) => {
           sshService.executeCommand(
             server,
             startTargetCommand,
@@ -1341,16 +1384,16 @@ class ScriptExecutionHandler {
       for (let i = 0; i < cloneCount; i++) {
         const nextId = clonedIds[i];
         const hostname = hostnames[i];
-        
+
         try {
           // Read config file to get hostname/name (node-specific path)
           const nodeName = server.name;
-          const configPath = containerType === 'lxc' 
+          const configPath = containerType === 'lxc'
             ? `/etc/pve/nodes/${nodeName}/lxc/${nextId}.conf`
             : `/etc/pve/nodes/${nodeName}/qemu-server/${nextId}.conf`;
-          
+
           let configContent = '';
-          await new Promise(/** @type {(resolve: (value?: void) => void) => void} */ ((resolve) => {
+          await new Promise(/** @type {(resolve: (value?: void) => void) => void} */((resolve) => {
             sshService.executeCommand(
               server,
               `cat "${configPath}" 2>/dev/null || echo ""`,
@@ -1403,10 +1446,10 @@ class ScriptExecutionHandler {
             for (const line of lines) {
               const trimmed = line.trim();
               if (!trimmed || trimmed.startsWith('#')) continue;
-              
+
               const [key, ...valueParts] = trimmed.split(':');
               const value = valueParts.join(':').trim();
-              
+
               if (key === 'hostname') configData.hostname = value;
               else if (key === 'arch') configData.arch = value;
               else if (key === 'cores') configData.cores = parseInt(value) || null;
@@ -1427,7 +1470,7 @@ class ScriptExecutionHandler {
                 }
               }
             }
-            
+
             await this.db.createLXCConfig(script.id, configData);
           }
 
@@ -1483,17 +1526,17 @@ class ScriptExecutionHandler {
 
         // Create a separate execution ID for backup
         const backupExecutionId = `backup_${executionId}`;
-        
+
         // Run backup and wait for it to complete
         try {
           const backupResult = await this.startSSHBackupExecution(
-            ws, 
-            containerId, 
-            backupExecutionId, 
-            backupStorage, 
+            ws,
+            containerId,
+            backupExecutionId,
+            backupStorage,
             server
           );
-          
+
           // Backup completed (successfully or not)
           if (!backupResult || !backupResult.success) {
             // Backup failed, but we'll still allow update (per requirement 1b)
@@ -1519,11 +1562,11 @@ class ScriptExecutionHandler {
             timestamp: Date.now()
           });
         }
-        
+
         // Small delay before starting update
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
+
       // Send start message for update (only if we're actually starting an update)
       this.sendMessage(ws, {
         type: 'start',
@@ -1554,7 +1597,7 @@ class ScriptExecutionHandler {
    */
   async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}) {
     const { spawn } = await import('node-pty');
-    
+
     // Create a shell process that will run pct enter and then update
     const childProcess = spawn('bash', ['-c', `pct enter ${containerId}`], {
       name: 'xterm-color',
@@ -1565,8 +1608,8 @@ class ScriptExecutionHandler {
     });
 
     // Store the execution
-    this.activeExecutions.set(executionId, { 
-      process: childProcess, 
+    this.activeExecutions.set(executionId, {
+      process: childProcess,
       ws
     });
 
@@ -1606,7 +1649,7 @@ class ScriptExecutionHandler {
         data: `Update completed with exit code: ${e.exitCode}`,
         timestamp: Date.now()
       });
-      
+
       this.activeExecutions.delete(executionId);
     });
   }
@@ -1620,7 +1663,7 @@ class ScriptExecutionHandler {
    */
   async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}) {
     const sshService = getSSHExecutionService();
-    
+
     try {
       const execution = await sshService.executeCommand(
         server,
@@ -1648,14 +1691,14 @@ class ScriptExecutionHandler {
             data: `Update completed with exit code: ${code}`,
             timestamp: Date.now()
           });
-          
+
           this.activeExecutions.delete(executionId);
         }
       );
 
       // Store the execution
-      this.activeExecutions.set(executionId, { 
-        process: /** @type {any} */ (execution).process, 
+      this.activeExecutions.set(executionId, {
+        process: /** @type {any} */ (execution).process,
         ws
       });
 
@@ -1740,8 +1783,8 @@ class ScriptExecutionHandler {
     });
 
     // Store the execution
-    this.activeExecutions.set(executionId, { 
-      process: childProcess, 
+    this.activeExecutions.set(executionId, {
+      process: childProcess,
       ws
     });
 
@@ -1763,7 +1806,7 @@ class ScriptExecutionHandler {
         data: `Shell session ended with exit code: ${e.exitCode}`,
         timestamp: Date.now()
       });
-      
+
       this.activeExecutions.delete(executionId);
     });
   }
@@ -1806,14 +1849,14 @@ class ScriptExecutionHandler {
             data: `Shell session ended with exit code: ${code}`,
             timestamp: Date.now()
           });
-          
+
           this.activeExecutions.delete(executionId);
         }
       );
 
       // Store the execution
-      this.activeExecutions.set(executionId, { 
-        process: /** @type {any} */ (execution).process, 
+      this.activeExecutions.set(executionId, {
+        process: /** @type {any} */ (execution).process,
         ws
       });
 
@@ -1842,7 +1885,7 @@ app.prepare().then(() => {
 
       // Check if this is a WebSocket upgrade request
       const isWebSocketUpgrade = req.headers.upgrade === 'websocket';
-      
+
       // Only intercept WebSocket upgrades for /ws/script-execution
       // Let Next.js handle all other WebSocket upgrades (like HMR) and all HTTP requests
       if (isWebSocketUpgrade && pathname === '/ws/script-execution') {
@@ -1866,19 +1909,25 @@ app.prepare().then(() => {
 
   // Create WebSocket handlers
   const scriptHandler = new ScriptExecutionHandler(httpServer);
-  
+
   // Handle WebSocket upgrades manually to avoid interfering with Next.js HMR
   // We need to preserve Next.js's upgrade handlers and call them for non-matching paths
   // Save any existing upgrade listeners (Next.js might have set them up)
   const existingUpgradeListeners = httpServer.listeners('upgrade').slice();
   httpServer.removeAllListeners('upgrade');
-  
+
   // Add our upgrade handler that routes based on path
   httpServer.on('upgrade', (request, socket, head) => {
     const parsedUrl = parse(request.url || '', true);
     const { pathname } = parsedUrl;
-    
+
     if (pathname === '/ws/script-execution') {
+      if (!isWebSocketUpgradeAuthorized(request)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       // Handle our custom WebSocket endpoint
       scriptHandler.handleUpgrade(request, socket, head);
     } else {
@@ -1903,7 +1952,7 @@ app.prepare().then(() => {
     .listen(port, hostname, async () => {
       console.log(`> Ready on http://${hostname}:${port}`);
       console.log(`> WebSocket server running on ws://${hostname}:${port}/ws/script-execution`);
-      
+
       // Initialize auto sync module and run initialization
       if (!autoSyncModule) {
         try {
@@ -1917,7 +1966,7 @@ app.prepare().then(() => {
           throw error;
         }
       }
-      
+
       // Initialize default repositories
       if (typeof autoSyncModule.initializeRepositories === 'function') {
         console.log('Calling initializeRepositories...');
@@ -1925,13 +1974,13 @@ app.prepare().then(() => {
       } else {
         console.warn('initializeRepositories is not a function, type:', typeof autoSyncModule.initializeRepositories);
       }
-      
+
       // Initialize auto-sync service
       if (typeof autoSyncModule.initializeAutoSync === 'function') {
         console.log('Calling initializeAutoSync...');
         autoSyncModule.initializeAutoSync();
       }
-      
+
       // Setup graceful shutdown handlers
       if (typeof autoSyncModule.setupGracefulShutdown === 'function') {
         console.log('Setting up graceful shutdown...');

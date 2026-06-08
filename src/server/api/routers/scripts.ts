@@ -1,4 +1,4 @@
- 
+
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { scriptManager } from "~/server/lib/scripts";
@@ -140,7 +140,7 @@ export const scriptsRouter = createTRPCRouter({
       };
     }),
 
- 
+
   // Get script content for viewing
   getScriptContent: publicProcedure
     .input(z.object({ path: z.string() }))
@@ -149,15 +149,15 @@ export const scriptsRouter = createTRPCRouter({
         const { readFile } = await import('fs/promises');
         const { join } = await import('path');
         const { env } = await import('~/env');
-        
+
         const scriptsDir = join(process.cwd(), env.SCRIPTS_DIRECTORY);
         const fullPath = join(scriptsDir, input.path);
-        
+
         // Security check: ensure the path is within the scripts directory
         if (!fullPath.startsWith(scriptsDir)) {
           throw new Error('Invalid script path');
         }
-        
+
         const content = await readFile(fullPath, 'utf-8');
         return { success: true, content };
       } catch (error) {
@@ -496,7 +496,7 @@ export const scriptsRouter = createTRPCRouter({
     .query(async () => {
       try {
         const { spawn } = await import('child_process');
-        
+
         return new Promise((resolve) => {
           const child = spawn('command', ['-v', 'pveversion'], {
             stdio: ['pipe', 'pipe', 'pipe'],
@@ -574,17 +574,17 @@ export const scriptsRouter = createTRPCRouter({
         // Use the global auto-sync service instance
         const { getAutoSyncService, setAutoSyncService } = await import('~/server/lib/autoSyncInit');
         let autoSyncService = getAutoSyncService();
-        
+
         // If no global instance exists, create one
         if (!autoSyncService) {
           const { AutoSyncService } = await import('~/server/services/autoSyncService');
           autoSyncService = new AutoSyncService();
           setAutoSyncService(autoSyncService);
         }
-        
+
         // Save settings to both .env file and service instance
         autoSyncService.saveSettings(input);
-        
+
         // Reschedule auto-sync if enabled
         if (input.autoSyncEnabled) {
           autoSyncService.scheduleAutoSync();
@@ -595,7 +595,7 @@ export const scriptsRouter = createTRPCRouter({
           autoSyncService.isRunning = false;
           logger.info('Auto-sync stopped');
         }
-        
+
         return { success: true, message: 'Auto-sync settings saved successfully' };
       } catch (error) {
         logger.error('Error saving auto-sync settings', undefined, error);
@@ -626,6 +626,16 @@ export const scriptsRouter = createTRPCRouter({
       try {
         const autoSyncService = new AutoSyncService();
         const result = await autoSyncService.executeAutoSync();
+
+        if (!result?.success) {
+          return {
+            success: false,
+            message: result?.message ?? 'Manual auto-sync failed',
+            error: result?.error ?? result?.message ?? 'Manual auto-sync failed',
+            result
+          };
+        }
+
         return {
           success: true,
           message: 'Manual auto-sync completed successfully',
@@ -659,7 +669,7 @@ export const scriptsRouter = createTRPCRouter({
 
   // Get rootfs storages for a server (for container creation)
   getRootfsStorages: publicProcedure
-    .input(z.object({ 
+    .input(z.object({
       serverId: z.number(),
       forceRefresh: z.boolean().optional().default(false)
     }))
@@ -667,7 +677,7 @@ export const scriptsRouter = createTRPCRouter({
       try {
         const db = getDatabase();
         const server = await db.getServerById(input.serverId);
-        
+
         if (!server) {
           return {
             success: false,
@@ -704,12 +714,12 @@ export const scriptsRouter = createTRPCRouter({
           logger.error('Error getting server hostname:', undefined, error);
           // Continue without filtering if hostname can't be retrieved
         }
-        
+
         const normalizedHostname = serverHostname.trim().toLowerCase();
 
         const storageService = getStorageService();
         const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
-        
+
         // Filter storages by node hostname matching and content type (rootdir for containers)
         const rootfsStorages = allStorages.filter(storage => {
           // Check content type - must have rootdir for containers
@@ -717,17 +727,17 @@ export const scriptsRouter = createTRPCRouter({
           if (!hasRootdir) {
             return false;
           }
-          
+
           // If storage has no nodes specified, it's available on all nodes
           if (!storage.nodes || storage.nodes.length === 0) {
             return true;
           }
-          
+
           // If we couldn't get hostname, include all storages (fallback)
           if (!normalizedHostname) {
             return true;
           }
-          
+
           // Check if server hostname is in the nodes array (case-insensitive, trimmed)
           const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
           return normalizedNodes.includes(normalizedHostname);
@@ -754,7 +764,7 @@ export const scriptsRouter = createTRPCRouter({
 
   // Get template storages for a server (for template storage selection)
   getTemplateStorages: publicProcedure
-    .input(z.object({ 
+    .input(z.object({
       serverId: z.number(),
       forceRefresh: z.boolean().optional().default(false)
     }))
@@ -762,7 +772,7 @@ export const scriptsRouter = createTRPCRouter({
       try {
         const db = getDatabase();
         const server = await db.getServerById(input.serverId);
-        
+
         if (!server) {
           return {
             success: false,
@@ -799,12 +809,12 @@ export const scriptsRouter = createTRPCRouter({
           logger.error('Error getting server hostname:', undefined, error);
           // Continue without filtering if hostname can't be retrieved
         }
-        
+
         const normalizedHostname = serverHostname.trim().toLowerCase();
 
         const storageService = getStorageService();
         const allStorages = await storageService.getStorages(server as Server, input.forceRefresh);
-        
+
         // Filter storages by node hostname matching and content type (vztmpl for templates)
         const templateStorages = allStorages.filter(storage => {
           // Check content type - must have vztmpl for templates
@@ -812,17 +822,17 @@ export const scriptsRouter = createTRPCRouter({
           if (!hasVztmpl) {
             return false;
           }
-          
+
           // If storage has no nodes specified, it's available on all nodes
           if (!storage.nodes || storage.nodes.length === 0) {
             return true;
           }
-          
+
           // If we couldn't get hostname, include all storages (fallback)
           if (!normalizedHostname) {
             return true;
           }
-          
+
           // Check if server hostname is in the nodes array (case-insensitive, trimmed)
           const normalizedNodes = storage.nodes.map(node => node.trim().toLowerCase());
           return normalizedNodes.includes(normalizedHostname);

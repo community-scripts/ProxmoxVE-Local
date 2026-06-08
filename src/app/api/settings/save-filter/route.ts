@@ -2,9 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { enabled } = await request.json();
 
     if (typeof enabled !== 'boolean') {
@@ -16,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Check if SAVE_FILTER already exists
     const saveFilterRegex = /^SAVE_FILTER=.*$/m;
     const saveFilterMatch = saveFilterRegex.exec(envContent);
-    
+
     if (saveFilterMatch) {
       // Replace existing SAVE_FILTER
       envContent = envContent.replace(saveFilterRegex, `SAVE_FILTER=${enabled}`);
@@ -48,11 +54,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ enabled: false });
     }
@@ -61,9 +72,9 @@ export async function GET() {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const saveFilterRegex = /^SAVE_FILTER=(.*)$/m;
     const saveFilterMatch = saveFilterRegex.exec(envContent);
-    
+
     const enabled = saveFilterMatch ? saveFilterMatch[1] === 'true' : false;
-    
+
     return NextResponse.json({ enabled });
   } catch (error) {
     console.error('Error reading save filter setting:', error);

@@ -3,12 +3,19 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../server/database-prisma';
 import type { CreateServerData } from '../../../types/server';
 import { withApiLogging } from '../../../server/logging/withApiLogging';
+import { requireApiAuth } from '~/lib/api-auth';
 
-export const GET = withApiLogging(async function GET() {
+export const GET = withApiLogging(async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const db = getDatabase();
     const servers = await db.getAllServers();
-    return NextResponse.json(servers);
+    const redactedServers = servers.map(({ password: _password, ssh_key: _sshKey, ssh_key_passphrase: _sshKeyPassphrase, ssh_key_path: _sshKeyPath, ...safeServer }) => safeServer);
+    return NextResponse.json(redactedServers);
   } catch {
     // Error handled by withApiLogging
     return NextResponse.json(
@@ -20,6 +27,11 @@ export const GET = withApiLogging(async function GET() {
 
 export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const body = await request.json();
     const { name, ip, user, password, auth_type, ssh_key, ssh_key_passphrase, ssh_port, color, key_generated, ssh_key_path }: CreateServerData = body;
 
@@ -42,7 +54,7 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
     // Validate authentication based on auth_type
     const authType = auth_type ?? 'password';
-    
+
     if (authType === 'password') {
       if (!password?.trim()) {
         return NextResponse.json(
@@ -51,7 +63,7 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
         );
       }
     }
-    
+
     if (authType === 'key') {
       if (!ssh_key?.trim()) {
         return NextResponse.json(
@@ -63,11 +75,11 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
 
     const db = getDatabase();
-    const result = await db.createServer({ 
-      name, 
-      ip, 
-      user, 
-      password, 
+    const result = await db.createServer({
+      name,
+      ip,
+      user,
+      password,
       auth_type: authType,
       ssh_key,
       ssh_key_passphrase,
@@ -76,11 +88,11 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
       key_generated: key_generated ?? false,
       ssh_key_path
     });
-    
+
     return NextResponse.json(
-      { 
+      {
         message: 'Server created successfully',
-        id: result.id 
+        id: result.id
       },
       { status: 201 }
     );
@@ -93,7 +105,7 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to create server' },
       { status: 500 }

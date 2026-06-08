@@ -3,12 +3,18 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../../../server/database-prisma';
 import { getSSHService } from '../../../../../server/ssh-service';
 import type { Server } from '../../../../../types/server';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {
@@ -20,7 +26,7 @@ export async function POST(
 
     const db = getDatabase();
     const server = await db.getServerById(id) as Server;
-    
+
     if (!server) {
       return NextResponse.json(
         { error: 'Server not found' },
@@ -31,7 +37,7 @@ export async function POST(
     // Test SSH connection
     const sshService = getSSHService();
     const connectionResult = await sshService.testConnection(server);
-    
+
     return NextResponse.json(connectionResult);
   } catch (error) {
     console.error('Error testing SSH connection:', error);

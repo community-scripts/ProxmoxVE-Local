@@ -3,9 +3,15 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { withApiLogging } from '../../../../server/logging/withApiLogging';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { token } = await request.json();
 
     if (!token || typeof token !== 'string') {
@@ -17,7 +23,7 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -27,7 +33,7 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
     // Check if GITHUB_TOKEN already exists
     const githubTokenRegex = /^GITHUB_TOKEN=.*$/m;
     const githubTokenMatch = githubTokenRegex.exec(envContent);
-    
+
     if (githubTokenMatch) {
       // Replace existing GITHUB_TOKEN
       envContent = envContent.replace(githubTokenRegex, `GITHUB_TOKEN=${token}`);
@@ -53,11 +59,16 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
   }
 }, { redactBody: true });
 
-export const GET = withApiLogging(async function GET() {
+export const GET = withApiLogging(async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ token: null });
     }
@@ -66,9 +77,9 @@ export const GET = withApiLogging(async function GET() {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const githubTokenRegex = /^GITHUB_TOKEN=(.*)$/m;
     const githubTokenMatch = githubTokenRegex.exec(envContent);
-    
+
     const token = githubTokenMatch ? githubTokenMatch[1] : null;
-    
+
     return NextResponse.json({ token });
   } catch {
     // Error handled by withApiLogging

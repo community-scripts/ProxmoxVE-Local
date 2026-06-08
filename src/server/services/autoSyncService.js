@@ -40,7 +40,7 @@ export class AutoSyncService {
     try {
       const envPath = join(process.cwd(), '.env');
       const envContent = readFileSync(envPath, 'utf8');
-      
+
       /** @type {{
        *   autoSyncEnabled: boolean;
        *   syncIntervalType: string;
@@ -68,7 +68,7 @@ export class AutoSyncService {
         lastAutoSyncErrorTime: ''
       };
       const lines = envContent.split('\n');
-      
+
       for (const line of lines) {
         const [key, ...valueParts] = line.split('=');
         if (key && valueParts.length > 0) {
@@ -77,7 +77,7 @@ export class AutoSyncService {
           if (value.startsWith('"') && value.endsWith('"')) {
             value = value.slice(1, -1);
           }
-          
+
           switch (key.trim()) {
             case 'AUTO_SYNC_ENABLED':
               settings.autoSyncEnabled = value === 'true';
@@ -119,7 +119,7 @@ export class AutoSyncService {
           }
         }
       }
-      
+
       return settings;
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
@@ -162,13 +162,13 @@ export class AutoSyncService {
     try {
       const envPath = join(process.cwd(), '.env');
       let envContent = '';
-      
+
       try {
         envContent = readFileSync(envPath, 'utf8');
       } catch {
         // .env file doesn't exist, create it
       }
-      
+
       const lines = envContent.split('\n');
       const newLines = [];
       const settingsMap = {
@@ -184,25 +184,25 @@ export class AutoSyncService {
         'LAST_AUTO_SYNC_ERROR': settings.lastAutoSyncError || '',
         'LAST_AUTO_SYNC_ERROR_TIME': settings.lastAutoSyncErrorTime || ''
       };
-      
+
       const existingKeys = new Set();
-      
+
       for (const line of lines) {
         const trimmedLine = line.trim();
-        
+
         // Skip empty lines and comments
         if (!trimmedLine || trimmedLine.startsWith('#')) {
           newLines.push(line);
           continue;
         }
-        
+
         const equalIndex = trimmedLine.indexOf('=');
         if (equalIndex === -1) {
           // Line doesn't contain '=', keep as is
           newLines.push(line);
           continue;
         }
-        
+
         const key = trimmedLine.substring(0, equalIndex).trim();
         if (key && key in settingsMap) {
           // Replace existing setting
@@ -214,14 +214,14 @@ export class AutoSyncService {
           newLines.push(line);
         }
       }
-      
+
       // Add any missing settings
       for (const [key, value] of Object.entries(settingsMap)) {
         if (!existingKeys.has(key)) {
           newLines.push(`${key}=${value}`);
         }
       }
-      
+
       writeFileSync(envPath, newLines.join('\n'));
       console.log('Auto-sync settings saved successfully');
     } catch (error) {
@@ -235,22 +235,22 @@ export class AutoSyncService {
    */
   scheduleAutoSync() {
     this.stopAutoSync(); // Stop any existing job
-    
+
     const settings = this.loadSettings();
     if (!settings.autoSyncEnabled) {
       console.log('Auto-sync is disabled, not scheduling cron job');
       this.isRunning = false; // Ensure we're completely stopped
       return;
     }
-    
+
     // Check if there's already a global autosync running
     if (globalAutoSyncLock) {
       console.log('Auto-sync is already running globally, not scheduling new cron job');
       return;
     }
-    
+
     let cronExpression;
-    
+
     if (settings.syncIntervalType === 'custom') {
       cronExpression = settings.syncIntervalCron;
     } else {
@@ -266,33 +266,33 @@ export class AutoSyncService {
       // @ts-ignore - Dynamic key access is safe here
       cronExpression = intervalMap[settings.syncIntervalPredefined] || '0 * * * *';
     }
-    
+
     // Validate cron expression (5-field format for node-cron)
     if (!cronValidator.isValidCron(cronExpression, { seconds: false })) {
       console.error('Invalid cron expression:', cronExpression);
       return;
     }
-    
+
     console.log(`Scheduling auto-sync with cron expression: ${cronExpression}`);
-    
+
     /** @type {any} */
     const cronOptions = {
       scheduled: true,
       timezone: 'UTC'
     };
-    
+
     this.cronJob = cron.schedule(cronExpression, async () => {
       // Check global lock first
       if (globalAutoSyncLock) {
         console.log('Auto-sync already running globally, skipping cron execution...');
         return;
       }
-      
+
       if (this.isRunning) {
         console.log('Auto-sync already running locally, skipping...');
         return;
       }
-      
+
       // Double-check that autosync is still enabled before executing
       const currentSettings = this.loadSettings();
       if (!currentSettings.autoSyncEnabled) {
@@ -300,17 +300,17 @@ export class AutoSyncService {
         this.stopAutoSync();
         return;
       }
-      
+
       // Additional check: if cronJob is null, it means it was stopped
       if (!this.cronJob) {
         console.log('Cron job was stopped, skipping execution');
         return;
       }
-      
+
       console.log('Starting scheduled auto-sync...');
       await this.executeAutoSync();
     }, cronOptions);
-    
+
     console.log('Auto-sync cron job scheduled successfully');
   }
 
@@ -340,24 +340,36 @@ export class AutoSyncService {
       console.log('Auto-sync already running globally, skipping...');
       return { success: false, message: 'Auto-sync already running globally' };
     }
-    
+
     if (this.isRunning) {
       console.log('Auto-sync already running locally, skipping...');
       return { success: false, message: 'Auto-sync already running locally' };
     }
-    
+
     // Set global lock
     globalAutoSyncLock = true;
     this.isRunning = true;
     const startTime = new Date();
-    
+
     try {
       console.log('Starting auto-sync execution...');
 
       // Step 1: Fetch all scripts from PocketBase (always up to date)
       console.log('Fetching scripts from PocketBase...');
       const { getAllScripts: pbGetAllScripts } = await import('./pbScripts');
-      const pbScripts = await pbGetAllScripts();
+      let pbScripts;
+      try {
+        pbScripts = await pbGetAllScripts();
+      } catch (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to fetch scripts from PocketBase: ${details}`);
+      }
+
+      if (!Array.isArray(pbScripts) || pbScripts.length === 0) {
+        throw new Error(
+          'No scripts received from PocketBase. This usually indicates a connectivity/censorship/CDN issue between server and PB endpoint.'
+        );
+      }
       console.log(`Retrieved ${pbScripts.length} scripts from PocketBase`);
 
       // Step 1b: Cache logos locally
@@ -408,17 +420,17 @@ export class AutoSyncService {
         updatedScripts: /** @type {any[]} */ ([]),
         errors: /** @type {string[]} */ ([])
       };
-      
+
       // Step 2: Auto-download/update scripts if enabled
       const settings = this.loadSettings();
-      
+
       if (settings.autoDownloadNew || settings.autoUpdateExisting) {
         console.log('Checking scripts for auto-download/update...');
 
         // Separate new (not yet downloaded) from already-downloaded scripts
         const newScripts = [];
         const existingScripts = [];
-        
+
         for (const script of allScripts) {
           try {
             if (!script || !script.slug) continue;
@@ -433,95 +445,95 @@ export class AutoSyncService {
             if (script && script.slug) newScripts.push(script);
           }
         }
-        
+
         console.log(`Found ${newScripts.length} new scripts and ${existingScripts.length} existing scripts`);
-          
-          // Download new scripts
+
+        // Download new scripts
         if (settings.autoDownloadNew && newScripts.length > 0) {
           console.log(`Auto-downloading ${newScripts.length} new scripts...`);
-            const downloaded = [];
-            const errors = [];
-            
-            for (const script of newScripts) {
-              try {
-                const result = await scriptDownloaderService.loadScript(script);
-                if (result.success) {
-                  downloaded.push(script);
-                  console.log(`Downloaded script: ${script.name || script.slug}`);
-                } else {
-                  errors.push(`${script.name || script.slug}: ${result.message}`);
-                }
-              } catch (error) {
-                const errorMsg = error instanceof Error ? error.message : String(error);
-                errors.push(`${script.name || script.slug}: ${errorMsg}`);
-                console.error(`Failed to download script ${script.slug}:`, error);
+          const downloaded = [];
+          const errors = [];
+
+          for (const script of newScripts) {
+            try {
+              const result = await scriptDownloaderService.loadScript(script);
+              if (result.success) {
+                downloaded.push(script);
+                console.log(`Downloaded script: ${script.name || script.slug}`);
+              } else {
+                errors.push(`${script.name || script.slug}: ${result.message}`);
               }
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              errors.push(`${script.name || script.slug}: ${errorMsg}`);
+              console.error(`Failed to download script ${script.slug}:`, error);
             }
-            
-            results.newScripts = downloaded;
-            results.errors.push(...errors);
           }
-          
-          // Update existing scripts
+
+          results.newScripts = downloaded;
+          results.errors.push(...errors);
+        }
+
+        // Update existing scripts
         if (settings.autoUpdateExisting && existingScripts.length > 0) {
           console.log(`Auto-updating ${existingScripts.length} existing scripts...`);
-            const updated = [];
-            const errors = [];
-            
-            for (const script of existingScripts) {
-              try {
-                const result = await scriptDownloaderService.loadScript(script);
-                if (result.success) {
-                  updated.push(script);
-                  console.log(`Updated script: ${script.name || script.slug}`);
-                } else {
-                  errors.push(`${script.name || script.slug}: ${result.message}`);
-                }
-              } catch (error) {
-                const errorMsg = error instanceof Error ? error.message : String(error);
-                errors.push(`${script.name || script.slug}: ${errorMsg}`);
-                console.error(`Failed to update script ${script.slug}:`, error);
+          const updated = [];
+          const errors = [];
+
+          for (const script of existingScripts) {
+            try {
+              const result = await scriptDownloaderService.loadScript(script);
+              if (result.success) {
+                updated.push(script);
+                console.log(`Updated script: ${script.name || script.slug}`);
+              } else {
+                errors.push(`${script.name || script.slug}: ${result.message}`);
               }
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              errors.push(`${script.name || script.slug}: ${errorMsg}`);
+              console.error(`Failed to update script ${script.slug}:`, error);
             }
-            
-            results.updatedScripts = updated;
-            results.errors.push(...errors);
           }
+
+          results.updatedScripts = updated;
+          results.errors.push(...errors);
+        }
       } else {
         console.log('Auto-download/update disabled, skipping script processing');
       }
-      
+
       // Step 3: Send notifications if enabled
       if (settings.notificationEnabled && settings.appriseUrls && settings.appriseUrls.length > 0) {
         console.log('Sending success notifications...');
         await this.sendSyncNotification(results);
         console.log('Success notifications sent');
       }
-      
+
       // Step 4: Update last sync time and clear any previous errors
       const lastSyncTime = this.safeToISOString(new Date());
-      const updatedSettings = { 
-        ...settings, 
+      const updatedSettings = {
+        ...settings,
         lastAutoSync: lastSyncTime,
         lastAutoSyncError: ''
       };
       this.saveSettings(updatedSettings);
-      
+
       const duration = new Date().getTime() - startTime.getTime();
       console.log(`Auto-sync completed successfully in ${duration}ms`);
-      
+
       return {
         success: true,
         message: 'Auto-sync completed successfully',
         results,
         duration
       };
-      
+
     } catch (error) {
       console.error('Auto-sync execution failed:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Send error notification if enabled
       const settings = this.loadSettings();
       if (settings.notificationEnabled && settings.appriseUrls && settings.appriseUrls.length > 0) {
@@ -535,16 +547,16 @@ export class AutoSyncService {
           console.error('Failed to send error notification:', notifError);
         }
       }
-      
+
       // Store the error in settings for UI display
       const errorSettings = this.loadSettings();
-      const updatedErrorSettings = { 
-        ...errorSettings, 
+      const updatedErrorSettings = {
+        ...errorSettings,
         lastAutoSyncError: errorMessage,
         lastAutoSyncErrorTime: this.safeToISOString(new Date())
       };
       this.saveSettings(updatedErrorSettings);
-      
+
       return {
         success: false,
         message: errorMessage,
@@ -563,13 +575,13 @@ export class AutoSyncService {
    */
   groupScriptsByCategory(scripts) {
     const grouped = new Map();
-    
+
     scripts.forEach(script => {
       if (!script || !script.name) {
         console.warn('Invalid script object in groupScriptsByCategory, skipping:', script);
         return;
       }
-      
+
       // categories is now an array of strings (category names) from PocketBase
       const categoryNames = Array.isArray(script.categories) && script.categories.length > 0
         ? script.categories.map((/** @type {any} */ c) => typeof c === 'string' ? c : (c?.name ?? 'Miscellaneous'))
@@ -582,7 +594,7 @@ export class AutoSyncService {
         grouped.get(categoryName).push(script.name);
       });
     });
-    
+
     return grouped;
   }
 
@@ -592,23 +604,23 @@ export class AutoSyncService {
    */
   async sendSyncNotification(results) {
     const settings = this.loadSettings();
-    
+
     if (!settings.notificationEnabled || !settings.appriseUrls?.length) {
       return;
     }
-    
+
     const title = 'ProxmoxVE-Local - Auto-Sync Completed';
     let body = `Auto-sync completed successfully.\n\n`;
-    
+
     // @ts-ignore - Dynamic property access
     if (results.newScripts?.length > 0) {
       // @ts-ignore - Dynamic property access
       body += `New scripts downloaded: ${results.newScripts.length}\n`;
-      
+
       // @ts-ignore - Dynamic property access
       const newScriptsGrouped = this.groupScriptsByCategory(results.newScripts);
       const sortedCategories = Array.from(newScriptsGrouped.keys()).sort();
-      
+
       sortedCategories.forEach(categoryName => {
         const scripts = newScriptsGrouped.get(categoryName);
         body += `\n**${categoryName}:**\n`;
@@ -618,16 +630,16 @@ export class AutoSyncService {
       });
       body += '\n';
     }
-    
+
     // @ts-ignore - Dynamic property access
     if (results.updatedScripts?.length > 0) {
       // @ts-ignore - Dynamic property access
       body += `Scripts updated: ${results.updatedScripts.length}\n`;
-      
+
       // @ts-ignore - Dynamic property access
       const updatedScriptsGrouped = this.groupScriptsByCategory(results.updatedScripts);
       const sortedCategories = Array.from(updatedScriptsGrouped.keys()).sort();
-      
+
       sortedCategories.forEach(categoryName => {
         const scripts = updatedScriptsGrouped.get(categoryName);
         body += `\n**${categoryName}:**\n`;
@@ -637,7 +649,7 @@ export class AutoSyncService {
       });
       body += '\n';
     }
-    
+
     // @ts-ignore - Dynamic property access
     if (results.errors?.length > 0) {
       // @ts-ignore - Dynamic property access
@@ -650,12 +662,12 @@ export class AutoSyncService {
         body += `• ... and ${results.errors.length - 5} more errors\n`;
       }
     }
-    
+
     // @ts-ignore - Dynamic property access
     if (results.newScripts?.length === 0 && results.updatedScripts?.length === 0 && results.errors?.length === 0) {
       body += 'No script changes detected.';
     }
-    
+
     try {
       await appriseService.sendNotification(title, body, settings.appriseUrls);
       console.log('Sync notification sent successfully');
@@ -669,21 +681,21 @@ export class AutoSyncService {
    */
   async testNotification() {
     const settings = this.loadSettings();
-    
+
     if (!settings.notificationEnabled || !settings.appriseUrls?.length) {
       return {
         success: false,
         message: 'Notifications not enabled or no Apprise URLs configured'
       };
     }
-    
+
     try {
       await appriseService.sendNotification(
         'ProxmoxVE-Local - Test Notification',
         'This is a test notification from PVE Scripts Local auto-sync feature.',
         settings.appriseUrls
       );
-      
+
       return {
         success: true,
         message: 'Test notification sent successfully'

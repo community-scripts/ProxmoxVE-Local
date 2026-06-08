@@ -2,9 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { viewMode } = await request.json();
 
     if (!viewMode || !['card', 'list'].includes(viewMode as string)) {
@@ -16,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Check if VIEW_MODE already exists
     const viewModeRegex = /^VIEW_MODE=.*$/m;
     const viewModeMatch = viewModeRegex.exec(envContent);
-    
+
     if (viewModeMatch) {
       // Replace existing VIEW_MODE
       envContent = envContent.replace(viewModeRegex, `VIEW_MODE=${viewMode}`);
@@ -48,11 +54,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ viewMode: 'card' }); // Default to card view
     }
@@ -61,18 +72,18 @@ export async function GET() {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const viewModeRegex = /^VIEW_MODE=(.*)$/m;
     const viewModeMatch = viewModeRegex.exec(envContent);
-    
+
     if (!viewModeMatch) {
       return NextResponse.json({ viewMode: 'card' }); // Default to card view
     }
 
     const viewMode = viewModeMatch[1]?.trim();
-    
+
     // Validate the view mode
     if (!viewMode || !['card', 'list'].includes(viewMode)) {
       return NextResponse.json({ viewMode: 'card' }); // Default to card view
     }
-    
+
     return NextResponse.json({ viewMode });
   } catch (error) {
     console.error('Error reading view mode:', error);

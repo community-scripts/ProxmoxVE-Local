@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 const envPath = path.resolve(process.cwd(), '.env');
 
@@ -32,12 +33,22 @@ function writeEnvVar(name: string, value: string) {
   fs.writeFileSync(envPath, content);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireApiAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   const tag = readEnvVar('CONTAINER_DETECTION_TAG') || 'community-script';
   return NextResponse.json({ tag });
 }
 
 export async function POST(request: NextRequest) {
+  const authError = requireApiAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   const body = await request.json() as { tag?: string };
 
   if (typeof body.tag === 'string' && body.tag.trim()) {

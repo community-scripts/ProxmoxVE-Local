@@ -4,11 +4,23 @@ import { getAuthConfig, updateAuthCredentials, updateAuthEnabled, updateSessionD
 import fs from 'fs';
 import path from 'path';
 import { withApiLogging } from '../../../../server/logging/withApiLogging';
+import { requireApiAuth } from '~/lib/api-auth';
 
-export const GET = withApiLogging(async function GET() {
+export const GET = withApiLogging(async function GET(request: NextRequest) {
   try {
     const authConfig = getAuthConfig();
-    
+
+    // Keep setup/login flow functional: expose only minimal non-sensitive status
+    // to unauthenticated users when auth is enabled.
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return NextResponse.json({
+        enabled: authConfig.enabled,
+        hasCredentials: authConfig.hasCredentials,
+        setupCompleted: authConfig.setupCompleted,
+      });
+    }
+
     return NextResponse.json({
       username: authConfig.username,
       enabled: authConfig.enabled,
@@ -27,6 +39,11 @@ export const GET = withApiLogging(async function GET() {
 
 export const POST = withApiLogging(async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { username, password, enabled } = await request.json() as { username: string; password: string; enabled?: boolean };
 
     if (!username || !password) {
@@ -52,9 +69,9 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
     await updateAuthCredentials(username, password, enabled ?? false);
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Authentication credentials updated successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Authentication credentials updated successfully'
     });
   } catch {
     // Error handled by withApiLogging
@@ -67,11 +84,16 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
 
 export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const body = await request.json() as { enabled?: boolean; sessionDurationDays?: number };
 
     if (body.enabled !== undefined) {
       const { enabled } = body;
-      
+
       if (typeof enabled !== 'boolean') {
         return NextResponse.json(
           { error: 'Enabled flag must be a boolean' },
@@ -93,7 +115,7 @@ export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
         // Remove AUTH_USERNAME and AUTH_PASSWORD_HASH
         envContent = envContent.replace(/^AUTH_USERNAME=.*$/m, '');
         envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, '');
-        
+
         // Update or add AUTH_ENABLED
         const enabledRegex = /^AUTH_ENABLED=.*$/m;
         if (enabledRegex.test(envContent)) {
@@ -104,19 +126,19 @@ export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
 
         // Clean up empty lines
         envContent = envContent.replace(/\n\n+/g, '\n');
-        
+
         fs.writeFileSync(envPath, envContent);
       }
 
-      return NextResponse.json({ 
-        success: true, 
-        message: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully` 
+      return NextResponse.json({
+        success: true,
+        message: `Authentication ${enabled ? 'enabled' : 'disabled'} successfully`
       });
     }
 
     if (body.sessionDurationDays !== undefined) {
       const { sessionDurationDays } = body;
-      
+
       if (typeof sessionDurationDays !== 'number' || sessionDurationDays < 1 || sessionDurationDays > 365) {
         return NextResponse.json(
           { error: 'Session duration must be a number between 1 and 365 days' },
@@ -126,9 +148,9 @@ export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
 
       updateSessionDuration(sessionDurationDays);
 
-      return NextResponse.json({ 
-        success: true, 
-        message: `Session duration updated to ${sessionDurationDays} days` 
+      return NextResponse.json({
+        success: true,
+        message: `Session duration updated to ${sessionDurationDays} days`
       });
     }
 

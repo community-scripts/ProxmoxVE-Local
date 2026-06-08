@@ -11,6 +11,17 @@ export class ScriptDownloaderService {
     this.repoUrl = process.env.REPO_URL || 'https://github.com/community-scripts/ProxmoxVE';
   }
 
+  /**
+   * Normalize alpine CT slug to avoid double prefixing.
+   * Example: "alpine-it-tools" stays "alpine-it-tools" (not "alpine-alpine-it-tools").
+   * @param {string} slug
+   * @returns {string}
+   */
+  normalizeAlpineSlug(slug) {
+    const s = String(slug || '').trim();
+    return s.startsWith('alpine-') ? s : `alpine-${s}`;
+  }
+
   initializeConfig() {
     // Re-initialize if needed (for environment changes)
     this.scriptsDirectory = join(process.cwd(), 'scripts');
@@ -26,14 +37,14 @@ export class ScriptDownloaderService {
   validateDirectoryPath(dirPath) {
     const normalizedPath = dirPath.replace(/\\/g, '/');
     const parts = normalizedPath.split('/');
-    
+
     // Check for consecutive duplicate directory names
     for (let i = 0; i < parts.length - 1; i++) {
       if (parts[i] === parts[i + 1] && parts[i] !== '') {
         throw new Error(`Invalid directory path: nested directory detected (${parts[i]}/${parts[i + 1]}) in path: ${dirPath}`);
       }
     }
-    
+
     return true;
   }
 
@@ -47,7 +58,7 @@ export class ScriptDownloaderService {
     // Check if finalTargetDir contains nested directory names
     const normalized = finalTargetDir.replace(/\\/g, '/');
     const parts = normalized.split('/');
-    
+
     // Check for consecutive duplicate directory names
     for (let i = 0; i < parts.length - 1; i++) {
       if (parts[i] === parts[i + 1]) {
@@ -55,7 +66,7 @@ export class ScriptDownloaderService {
         return targetDir; // Return the base directory instead
       }
     }
-    
+
     return finalTargetDir;
   }
 
@@ -67,7 +78,7 @@ export class ScriptDownloaderService {
   async ensureDirectoryExists(dirPath) {
     // Validate the directory path to prevent nested directories with the same name
     this.validateDirectoryPath(dirPath);
-    
+
     try {
       console.log(`[Directory Creation] Ensuring directory exists: ${dirPath}`);
       await mkdir(dirPath, { recursive: true });
@@ -140,7 +151,7 @@ export class ScriptDownloaderService {
     if (method === 'alpine') {
       // Alpine variants only exist for CT/LXC scripts
       if (type === 'ct' || type === 'lxc') {
-        return `ct/alpine-${slug}.sh`;
+        return `ct/${this.normalizeAlpineSlug(slug)}.sh`;
       }
       return null;
     }
@@ -187,7 +198,7 @@ export class ScriptDownloaderService {
     // Replace the build.func source line
     const oldPattern = /source <\(curl -fsSL https:\/\/raw\.githubusercontent\.com\/community-scripts\/ProxmoxVE\/main\/misc\/build\.func\)/g;
     const newPattern = 'SCRIPT_DIR="$(dirname "$0")" \nsource "$SCRIPT_DIR/../core/build.func"';
-    
+
     return content.replace(oldPattern, newPattern);
   }
 
@@ -203,9 +214,9 @@ export class ScriptDownloaderService {
       const files = [];
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';
-      
+
       console.log(`Loading script "${script.name}" (${script.slug}) from repository: ${repoUrl}`);
-      
+
       // Ensure directories exist
       await this.ensureDirectoryExists(join(this.scriptsDirectory, 'ct'));
       await this.ensureDirectoryExists(join(this.scriptsDirectory, 'install'));
@@ -217,16 +228,16 @@ export class ScriptDownloaderService {
           const scriptPath = this.resolveScriptPath(script, method);
           if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
-            
+
             if (fileName) {
               console.log(`Downloading script file: ${scriptPath} from ${repoUrl}`);
               const content = await this.downloadFileFromRepo(repoUrl, scriptPath, branch);
-              
+
               // Determine target directory based on script path
               let targetDir;
               let finalTargetDir;
               let filePath;
-              
+
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
@@ -270,7 +281,7 @@ export class ScriptDownloaderService {
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
                 await writeFile(filePath, modifiedContent, 'utf-8');
               }
-              
+
               files.push(`${finalTargetDir}/${fileName}`);
               console.log(`Successfully downloaded: ${finalTargetDir}/${fileName}`);
             }
@@ -323,9 +334,9 @@ export class ScriptDownloaderService {
         hasAlpineCtVariant,
         installMethods: script.install_methods?.map(m => ({ type: m.type }))
       });
-      
+
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         try {
           console.log(`[${script.slug}] Downloading alpine install script: install/${alpineInstallScriptName} from ${repoUrl}`);
           const alpineInstallContent = await this.downloadFileFromRepo(repoUrl, `install/${alpineInstallScriptName}`, branch);
@@ -377,13 +388,13 @@ export class ScriptDownloaderService {
       const scriptPath = this.resolveScriptPath(script, method);
       if (scriptPath) {
         const fileName = scriptPath.split('/').pop();
-        
+
         if (fileName) {
           // Determine target directory based on script path
           let targetDir;
           let finalTargetDir;
           let filePath;
-          
+
           if (scriptPath.startsWith('ct/')) {
             targetDir = 'ct';
             finalTargetDir = targetDir;
@@ -405,7 +416,7 @@ export class ScriptDownloaderService {
             finalTargetDir = targetDir;
             filePath = join(this.scriptsDirectory, targetDir, fileName);
           }
-          
+
           try {
             await import('fs/promises').then(fs => fs.readFile(filePath, 'utf8'));
             // File exists, continue checking other methods
@@ -439,12 +450,12 @@ export class ScriptDownloaderService {
           const scriptPath = this.resolveScriptPath(script, method);
           if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
-            
+
             if (fileName) {
               let targetDir;
               let finalTargetDir;
               let filePath;
-              
+
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
@@ -468,7 +479,7 @@ export class ScriptDownloaderService {
                 finalTargetDir = targetDir;
                 filePath = join(this.scriptsDirectory, targetDir, fileName);
               }
-              
+
               try {
                 await access(filePath);
                 files.push(`${finalTargetDir}/${fileName}`);
@@ -501,7 +512,7 @@ export class ScriptDownloaderService {
       if (hasCtScript) {
         const installScriptName = `${script.slug}-install.sh`;
         const installPath = join(this.scriptsDirectory, 'install', installScriptName);
-        
+
         try {
           await access(installPath);
           files.push(`install/${installScriptName}`);
@@ -515,9 +526,9 @@ export class ScriptDownloaderService {
       const hasAlpineCtVariant = hasCtScript &&
         script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         const alpineInstallPath = join(this.scriptsDirectory, 'install', alpineInstallScriptName);
-        
+
         try {
           await access(alpineInstallPath);
           files.push(`install/${alpineInstallScriptName}`);
@@ -542,11 +553,11 @@ export class ScriptDownloaderService {
   async deleteScript(script) {
     this.initializeConfig();
     const deletedFiles = [];
-    
+
     try {
       // Get the list of files that exist for this script
       const fileCheck = await this.checkScriptExists(script);
-      
+
       if (fileCheck.files.length === 0) {
         return {
           success: false,
@@ -621,11 +632,11 @@ export class ScriptDownloaderService {
           const scriptPath = this.resolveScriptPath(script, method);
           if (scriptPath) {
             const fileName = scriptPath.split('/').pop();
-            
+
             if (fileName) {
               let targetDir;
               let finalTargetDir;
-              
+
               if (scriptPath.startsWith('ct/')) {
                 targetDir = 'ct';
                 finalTargetDir = targetDir;
@@ -644,7 +655,7 @@ export class ScriptDownloaderService {
               } else {
                 continue; // Skip unknown script types
               }
-              
+
               comparisonPromises.push(
                 this.compareSingleFile(script, scriptPath, `${finalTargetDir}/${fileName}`)
                   .then(result => {
@@ -669,7 +680,7 @@ export class ScriptDownloaderService {
       if (localFilesExist.installExists) {
         const installScriptName = `${script.slug}-install.sh`;
         const installScriptPath = `install/${installScriptName}`;
-        
+
         comparisonPromises.push(
           this.compareSingleFile(script, installScriptPath, installScriptPath)
             .then(result => {
@@ -692,10 +703,10 @@ export class ScriptDownloaderService {
       const hasAlpineCtVariant = (cmpTypeNorm === 'ct' || cmpTypeNorm === 'lxc') &&
         script.install_methods?.some(method => method.type === 'alpine');
       if (hasAlpineCtVariant) {
-        const alpineInstallScriptName = `alpine-${script.slug}-install.sh`;
+        const alpineInstallScriptName = `${this.normalizeAlpineSlug(script.slug)}-install.sh`;
         const alpineInstallScriptPath = `install/${alpineInstallScriptName}`;
         const localAlpineInstallPath = join(this.scriptsDirectory, alpineInstallScriptPath);
-        
+
         // Check if alpine install script exists locally
         try {
           await access(localAlpineInstallPath);
@@ -742,17 +753,17 @@ export class ScriptDownloaderService {
       const localPath = join(this.scriptsDirectory, filePath);
       const repoUrl = this.getRepoUrlForScript(script);
       const branch = process.env.REPO_BRANCH || 'main';
-      
+
       console.log(`[Comparison] Comparing ${filePath} from ${repoUrl} (branch: ${branch})`);
-      
+
       // Read local content
       const localContent = await readFile(localPath, 'utf-8');
       console.log(`[Comparison] Local file size: ${localContent.length} bytes`);
-      
+
       // Download remote content from the script's repository
       const remoteContent = await this.downloadFileFromRepo(repoUrl, remotePath, branch);
       console.log(`[Comparison] Remote file size: ${remoteContent.length} bytes`);
-      
+
       // Apply modification only for CT scripts, not for other script types
       let modifiedRemoteContent;
       if (remotePath.startsWith('ct/')) {
@@ -761,16 +772,16 @@ export class ScriptDownloaderService {
       } else {
         modifiedRemoteContent = remoteContent; // Don't modify tools or vm scripts
       }
-      
+
       // Compare content
       const hasDifferences = localContent !== modifiedRemoteContent;
-      
+
       if (hasDifferences) {
         console.log(`[Comparison] Differences found in ${filePath}`);
       } else {
         console.log(`[Comparison] No differences in ${filePath}`);
       }
-      
+
       return { hasDifferences, filePath };
     } catch (/** @type {any} */ error) {
       console.error(`[Comparison] Error comparing file ${filePath}:`, error.message);
@@ -858,7 +869,7 @@ export class ScriptDownloaderService {
   generateDiff(localContent, remoteContent) {
     const localLines = localContent.split('\n');
     const remoteLines = remoteContent.split('\n');
-    
+
     let diff = '';
     let i = 0;
     let j = 0;
@@ -896,7 +907,7 @@ export class ScriptDownloaderService {
             break;
           }
         }
-        
+
         if (!found) {
           for (let k = i + 1; k < Math.min(i + 10, localLines.length); k++) {
             if (remoteLine === localLines[k]) {
@@ -913,7 +924,7 @@ export class ScriptDownloaderService {
             }
           }
         }
-        
+
         if (!found) {
           // No match found, lines are different
           diff += `-${i + 1}: ${localLine}\n`;
