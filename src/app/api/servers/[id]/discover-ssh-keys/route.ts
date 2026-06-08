@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../../../server/database-prisma';
 import { getSSHExecutionService } from '../../../../../server/ssh-execution-service';
 import type { Server } from '~/types/server';
+import { requireApiAuth } from '~/lib/api-auth';
 
 const DISCOVER_TIMEOUT_MS = 10_000;
 
@@ -59,6 +60,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireApiAuth(_request);
+    if (authError) {
+      return authError;
+    }
+
     const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {

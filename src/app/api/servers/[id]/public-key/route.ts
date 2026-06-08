@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getDatabase } from '../../../../../server/database-prisma';
 import { getSSHService } from '../../../../../server/ssh-service';
+import { requireApiAuth } from '~/lib/api-auth';
 
 interface ServerData {
   id: number;
@@ -16,6 +17,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { id: idParam } = await params;
     const id = parseInt(idParam);
     if (isNaN(id)) {
@@ -27,7 +33,7 @@ export async function GET(
 
     const db = getDatabase();
     const server = await db.getServerById(id) as ServerData | null;
-    
+
     if (!server) {
       return NextResponse.json(
         { error: 'Server not found' },
@@ -52,7 +58,7 @@ export async function GET(
 
     const sshService = getSSHService();
     const publicKey = sshService.getPublicKey(server.ssh_key_path);
-    
+
     return NextResponse.json({
       success: true,
       publicKey,
@@ -62,7 +68,7 @@ export async function GET(
   } catch (error) {
     console.error('Error retrieving public key:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: error instanceof Error ? error.message : String(error)
       },
