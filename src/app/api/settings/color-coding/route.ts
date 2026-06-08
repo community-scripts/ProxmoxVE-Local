@@ -2,9 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { enabled } = await request.json();
 
     if (typeof enabled !== 'boolean') {
@@ -16,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Check if SERVER_COLOR_CODING_ENABLED already exists
     const colorCodingRegex = /^SERVER_COLOR_CODING_ENABLED=.*$/m;
     const colorCodingMatch = colorCodingRegex.exec(envContent);
-    
+
     if (colorCodingMatch) {
       // Replace existing SERVER_COLOR_CODING_ENABLED
       envContent = envContent.replace(colorCodingRegex, `SERVER_COLOR_CODING_ENABLED=${enabled}`);
@@ -48,22 +54,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ enabled: false });
     }
 
     const envContent = fs.readFileSync(envPath, 'utf8');
-    
+
     // Extract SERVER_COLOR_CODING_ENABLED
     const colorCodingRegex = /^SERVER_COLOR_CODING_ENABLED=(.*)$/m;
     const colorCodingMatch = colorCodingRegex.exec(envContent);
     const enabled = colorCodingMatch ? colorCodingMatch[1]?.trim().toLowerCase() === 'true' : false;
-    
+
     return NextResponse.json({ enabled });
   } catch (error) {
     console.error('Error reading color coding setting:', error);

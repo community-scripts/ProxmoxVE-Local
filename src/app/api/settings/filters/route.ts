@@ -2,9 +2,15 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     const { filters } = await request.json();
 
     if (!filters || typeof filters !== 'object') {
@@ -27,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     // Read existing .env file
     let envContent = '';
     if (fs.existsSync(envPath)) {
@@ -36,11 +42,11 @@ export async function POST(request: NextRequest) {
 
     // Serialize filters to JSON string
     const filtersJson = JSON.stringify(filters);
-    
+
     // Check if FILTERS already exists
     const filtersRegex = /^FILTERS=.*$/m;
     const filtersMatch = filtersRegex.exec(envContent);
-    
+
     if (filtersMatch) {
       // Replace existing FILTERS
       envContent = envContent.replace(filtersRegex, `FILTERS=${filtersJson}`);
@@ -62,11 +68,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ filters: null });
     }
@@ -75,29 +86,29 @@ export async function GET() {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const filtersRegex = /^FILTERS=(.*)$/m;
     const filtersMatch = filtersRegex.exec(envContent);
-    
+
     if (!filtersMatch) {
       return NextResponse.json({ filters: null });
     }
 
     try {
       const filtersJson = filtersMatch[1]?.trim();
-      
+
       // Check if filters JSON is empty or invalid
       if (!filtersJson || filtersJson === '') {
         return NextResponse.json({ filters: null });
       }
-      
+
       const filters = JSON.parse(filtersJson);
-      
+
       // Validate the parsed filters
       const requiredFields = ['searchQuery', 'showUpdatable', 'selectedTypes', 'sortBy', 'sortOrder'];
       const isValid = requiredFields.every(field => field in filters);
-      
+
       if (!isValid) {
         return NextResponse.json({ filters: null });
       }
-      
+
       return NextResponse.json({ filters });
     } catch (parseError) {
       console.error('Error parsing saved filters:', parseError);
@@ -112,28 +123,33 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    const authError = requireApiAuth(request);
+    if (authError) {
+      return authError;
+    }
+
     // Path to the .env file
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ success: true, message: 'No filters to clear' });
     }
 
     // Read existing .env file
     let envContent = fs.readFileSync(envPath, 'utf8');
-    
+
     // Remove FILTERS line
     const filtersRegex = /^FILTERS=.*$/m;
     const filtersMatch = filtersRegex.exec(envContent);
     if (filtersMatch) {
       envContent = envContent.replace(filtersRegex, '');
     }
-    
+
     // Clean up extra newlines
     envContent = envContent.replace(/\n\n+/g, '\n');
-    
+
     // Write back to .env file
     fs.writeFileSync(envPath, envContent);
 

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireApiAuth } from '~/lib/api-auth';
 
 const envPath = path.resolve(process.cwd(), '.env');
 
@@ -32,13 +33,23 @@ function writeEnvVar(name: string, value: string) {
   fs.writeFileSync(envPath, content);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireApiAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   const enabled = readEnvVar('APT_CACHER_ENABLED') === 'yes';
   const ip = readEnvVar('APT_CACHER_IP');
   return NextResponse.json({ enabled, ip });
 }
 
 export async function POST(request: NextRequest) {
+  const authError = requireApiAuth(request);
+  if (authError) {
+    return authError;
+  }
+
   const body = await request.json() as { enabled?: boolean; ip?: string };
 
   if (typeof body.enabled === 'boolean') {
