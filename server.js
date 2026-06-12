@@ -9,7 +9,7 @@ import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
 import { getDatabase } from './src/server/database-prisma.js';
-import { getAuthConfig, verifyToken } from './src/lib/auth.js';
+import { getAuthConfig, verifyToken, decodeToken } from './src/lib/auth.js';
 import dotenv from 'dotenv';
 
 // Dynamic import for auto sync init to avoid tsx caching issues
@@ -30,6 +30,13 @@ function registerGlobalErrorHandlers() {
   });
 }
 registerGlobalErrorHandlers._registered = false;
+
+// JWT `exp` claim is a UNIX timestamp in seconds; Date.now() is milliseconds.
+const JWT_EXP_MS_FACTOR = 1000;
+// Maximum number of characters retained in the output buffer per execution.
+const OUTPUT_BUFFER_MAX_LENGTH = 1000;
+// Delay (ms) between backup completion and update start.
+const BACKUP_UPDATE_DELAY_MS = 1000;
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '::';
@@ -76,10 +83,23 @@ function isWebSocketUpgradeAuthorized(request) {
 
   const token = getCookieValue(request, 'auth-token');
   if (!token) {
+    console.warn('ws_auth_rejected: missing auth-token cookie');
     return false;
   }
 
-  return !!verifyToken(token);
+  const decoded = decodeToken(token);
+  if (decoded && typeof decoded.exp === 'number' && decoded.exp * JWT_EXP_MS_FACTOR < Date.now()) {
+    console.warn('ws_auth_rejected: token expired');
+    return false;
+  }
+
+  const verified = verifyToken(token);
+  if (!verified) {
+    console.warn('ws_auth_rejected: token verification failed');
+    return false;
+  }
+
+  return true;
 }
 
 // WebSocket handler for script execution
@@ -530,9 +550,9 @@ class ScriptExecutionHandler {
         const execution = this.activeExecutions.get(executionId);
         if (execution) {
           execution.outputBuffer += output;
-          // Keep only last 1000 characters to avoid memory issues
-          if (execution.outputBuffer.length > 1000) {
-            execution.outputBuffer = execution.outputBuffer.slice(-1000);
+          // Trim buffer to maximum allowed length to avoid memory issues
+          if (execution.outputBuffer.length > OUTPUT_BUFFER_MAX_LENGTH) {
+            execution.outputBuffer = execution.outputBuffer.slice(-OUTPUT_BUFFER_MAX_LENGTH);
           }
         }
 
@@ -791,9 +811,9 @@ class ScriptExecutionHandler {
           const exec = this.activeExecutions.get(executionId);
           if (exec) {
             exec.outputBuffer += data;
-            // Keep only last 1000 characters to avoid memory issues
-            if (exec.outputBuffer.length > 1000) {
-              exec.outputBuffer = exec.outputBuffer.slice(-1000);
+            // Trim buffer to maximum allowed length to avoid memory issues
+            if (exec.outputBuffer.length > OUTPUT_BUFFER_MAX_LENGTH) {
+              exec.outputBuffer = exec.outputBuffer.slice(-OUTPUT_BUFFER_MAX_LENGTH);
             }
           }
 
@@ -827,9 +847,9 @@ class ScriptExecutionHandler {
           const exec = this.activeExecutions.get(executionId);
           if (exec) {
             exec.outputBuffer += error;
-            // Keep only last 1000 characters to avoid memory issues
-            if (exec.outputBuffer.length > 1000) {
-              exec.outputBuffer = exec.outputBuffer.slice(-1000);
+            // Trim buffer to maximum allowed length to avoid memory issues
+            if (exec.outputBuffer.length > OUTPUT_BUFFER_MAX_LENGTH) {
+              exec.outputBuffer = exec.outputBuffer.slice(-OUTPUT_BUFFER_MAX_LENGTH);
             }
           }
 
@@ -1564,7 +1584,7 @@ class ScriptExecutionHandler {
         }
 
         // Small delay before starting update
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, BACKUP_UPDATE_DELAY_MS));
       }
 
       // Send start message for update (only if we're actually starting an update)
