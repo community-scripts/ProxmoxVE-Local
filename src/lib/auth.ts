@@ -11,41 +11,33 @@ const DEFAULT_JWT_EXPIRY_DAYS = 7; // Default 7 days
 let jwtSecretCache: string | null = null;
 
 /**
- * Get or generate JWT secret
+ * Get or generate JWT secret.
+ * Reads from process.env (loaded by dotenv). Auto-generates and persists
+ * a new secret only when none is present in the environment.
  */
 export function getJwtSecret(): string {
-  // Return cached secret if available
   if (jwtSecretCache) {
     return jwtSecretCache;
   }
 
+  const envSecret = process.env.JWT_SECRET?.trim();
+  if (envSecret) {
+    jwtSecretCache = envSecret;
+    return jwtSecretCache;
+  }
+
+  // No secret in process.env — generate and persist a new one
+  const newSecret = randomBytes(64).toString('hex');
+
   const envPath = path.join(process.cwd(), '.env');
-  
-  // Read existing .env file
   let envContent = '';
   if (fs.existsSync(envPath)) {
     envContent = fs.readFileSync(envPath, 'utf8');
   }
-
-  // Check if JWT_SECRET already exists
-  const jwtSecretRegex = /^JWT_SECRET=(.*)$/m;
-  const jwtSecretMatch = jwtSecretRegex.exec(envContent);
-  
-  if (jwtSecretMatch?.[1]?.trim()) {
-    jwtSecretCache = jwtSecretMatch[1].trim();
-    return jwtSecretCache;
-  }
-
-  // Generate new secret
-  const newSecret = randomBytes(64).toString('hex');
-  
-  // Add to .env file
   envContent += (envContent.endsWith('\n') ? '' : '\n') + `JWT_SECRET=${newSecret}\n`;
   fs.writeFileSync(envPath, envContent);
-  
-  // Cache the new secret
+
   jwtSecretCache = newSecret;
-  
   return newSecret;
 }
 
@@ -98,7 +90,9 @@ export function verifyToken(token: string): { username: string; exp?: number; ia
 }
 
 /**
- * Read auth configuration from .env
+ * Read auth configuration from process.env (loaded by dotenv).
+ * Typed schema is defined in ~/env.js; here we read the raw env values
+ * because server.js imports this module before dotenv.config() runs.
  */
 export function getAuthConfig(): {
   username: string | null;
@@ -108,53 +102,17 @@ export function getAuthConfig(): {
   setupCompleted: boolean;
   sessionDurationDays: number;
 } {
-  const envPath = path.join(process.cwd(), '.env');
-  
-  if (!fs.existsSync(envPath)) {
-    return {
-      username: null,
-      passwordHash: null,
-      enabled: false,
-      hasCredentials: false,
-      setupCompleted: false,
-      sessionDurationDays: DEFAULT_JWT_EXPIRY_DAYS,
-    };
-  }
-
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  
-  // Extract AUTH_USERNAME
-  const usernameRegex = /^AUTH_USERNAME=(.*)$/m;
-  const usernameMatch = usernameRegex.exec(envContent);
-  const username = usernameMatch ? usernameMatch[1]?.trim() : null;
-  
-  // Extract AUTH_PASSWORD_HASH
-  const passwordHashRegex = /^AUTH_PASSWORD_HASH=(.*)$/m;
-  const passwordHashMatch = passwordHashRegex.exec(envContent);
-  const passwordHash = passwordHashMatch ? passwordHashMatch[1]?.trim() : null;
-  
-  // Extract AUTH_ENABLED
-  const enabledRegex = /^AUTH_ENABLED=(.*)$/m;
-  const enabledMatch = enabledRegex.exec(envContent);
-  const enabled = enabledMatch ? enabledMatch[1]?.trim().toLowerCase() === 'true' : false;
-  
-  // Extract AUTH_SETUP_COMPLETED
-  const setupCompletedRegex = /^AUTH_SETUP_COMPLETED=(.*)$/m;
-  const setupCompletedMatch = setupCompletedRegex.exec(envContent);
-  const setupCompleted = setupCompletedMatch ? setupCompletedMatch[1]?.trim().toLowerCase() === 'true' : false;
-  
-  // Extract AUTH_SESSION_DURATION_DAYS
-  const sessionDurationRegex = /^AUTH_SESSION_DURATION_DAYS=(.*)$/m;
-  const sessionDurationMatch = sessionDurationRegex.exec(envContent);
-  const sessionDurationDays = sessionDurationMatch 
-    ? parseInt(sessionDurationMatch[1]?.trim() ?? String(DEFAULT_JWT_EXPIRY_DAYS), 10) || DEFAULT_JWT_EXPIRY_DAYS
-    : DEFAULT_JWT_EXPIRY_DAYS;
-  
+  const username = process.env.AUTH_USERNAME?.trim() || null;
+  const passwordHash = process.env.AUTH_PASSWORD_HASH?.trim() || null;
+  const enabled = (process.env.AUTH_ENABLED?.toLowerCase() ?? '') === 'true';
+  const setupCompleted = (process.env.AUTH_SETUP_COMPLETED?.toLowerCase() ?? '') === 'true';
+  const parsed = parseInt(process.env.AUTH_SESSION_DURATION_DAYS ?? '', 10);
+  const sessionDurationDays = Number.isNaN(parsed) ? DEFAULT_JWT_EXPIRY_DAYS : parsed;
   const hasCredentials = !!(username && passwordHash);
-  
+
   return {
-    username: username ?? null,
-    passwordHash: passwordHash ?? null,
+    username,
+    passwordHash,
     enabled,
     hasCredentials,
     setupCompleted,
@@ -287,4 +245,3 @@ export function updateSessionDuration(days: number): void {
   // Write back to .env file
   fs.writeFileSync(envPath, envContent);
 }
-

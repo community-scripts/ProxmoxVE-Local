@@ -32,8 +32,9 @@ export const env = createEnv({
     // Authentication Configuration
     AUTH_USERNAME: z.string().optional(),
     AUTH_PASSWORD_HASH: z.string().optional(),
-    AUTH_ENABLED: z.string().optional(),
-    AUTH_SETUP_COMPLETED: z.string().optional(),
+    AUTH_ENABLED: z.coerce.boolean().optional(),
+    AUTH_SETUP_COMPLETED: z.coerce.boolean().optional(),
+    AUTH_SESSION_DURATION_DAYS: z.coerce.number().int().positive().optional(),
     JWT_SECRET: z.string().optional(),
     // Server Color Coding Configuration
     SERVER_COLOR_CODING_ENABLED: z.string().optional(),
@@ -78,6 +79,7 @@ export const env = createEnv({
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH,
     AUTH_ENABLED: process.env.AUTH_ENABLED,
     AUTH_SETUP_COMPLETED: process.env.AUTH_SETUP_COMPLETED,
+    AUTH_SESSION_DURATION_DAYS: process.env.AUTH_SESSION_DURATION_DAYS,
     JWT_SECRET: process.env.JWT_SECRET,
     // Server Color Coding Configuration
     SERVER_COLOR_CODING_ENABLED: process.env.SERVER_COLOR_CODING_ENABLED,
