@@ -102,8 +102,8 @@ export function getAuthConfig(): {
   setupCompleted: boolean;
   sessionDurationDays: number;
 } {
-  const username = process.env.AUTH_USERNAME?.trim() || null;
-  const passwordHash = process.env.AUTH_PASSWORD_HASH?.trim() || null;
+  const username = process.env.AUTH_USERNAME?.trim() ?? null;
+  const passwordHash = process.env.AUTH_PASSWORD_HASH?.trim() ?? null;
   const enabled = (process.env.AUTH_ENABLED?.toLowerCase() ?? '') === 'true';
   const setupCompleted = (process.env.AUTH_SETUP_COMPLETED?.toLowerCase() ?? '') === 'true';
   const parsed = parseInt(process.env.AUTH_SESSION_DURATION_DAYS ?? '', 10);
@@ -129,7 +129,7 @@ export async function updateAuthCredentials(
   enabled?: boolean
 ): Promise<void> {
   const envPath = path.join(process.cwd(), '.env');
-  
+
   // Read existing .env file
   let envContent = '';
   if (fs.existsSync(envPath)) {
@@ -176,7 +176,7 @@ export async function updateAuthCredentials(
  */
 export function setSetupCompleted(): void {
   const envPath = path.join(process.cwd(), '.env');
-  
+
   // Read existing .env file
   let envContent = '';
   if (fs.existsSync(envPath)) {
@@ -200,7 +200,7 @@ export function setSetupCompleted(): void {
  */
 export function updateAuthEnabled(enabled: boolean): void {
   const envPath = path.join(process.cwd(), '.env');
-  
+
   // Read existing .env file
   let envContent = '';
   if (fs.existsSync(envPath)) {
@@ -225,9 +225,9 @@ export function updateAuthEnabled(enabled: boolean): void {
 export function updateSessionDuration(days: number): void {
   // Validate: between 1 and 365 days
   const validDays = Math.max(1, Math.min(365, Math.floor(days)));
-  
+
   const envPath = path.join(process.cwd(), '.env');
-  
+
   // Read existing .env file
   let envContent = '';
   if (fs.existsSync(envPath)) {

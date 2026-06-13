@@ -150,6 +150,8 @@ function isWebSocketUpgradeAuthorized(request) {
  * @property {string[]} [hostnames]
  * @property {'lxc'|'vm'} [containerType]
  * @property {Record<string, string|number|boolean>} [envVars]
+ * @property {number} [cols]
+ * @property {number} [rows]
  */
 
 class ScriptExecutionHandler {
@@ -381,7 +383,7 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows } = message;
 
     switch (action) {
       case 'start':
@@ -422,6 +424,12 @@ class ScriptExecutionHandler {
       case 'input':
         if (executionId && input !== undefined) {
           this.sendInputToProcess(executionId, input);
+        }
+        break;
+
+      case 'resize':
+        if (executionId && typeof cols === 'number' && typeof rows === 'number') {
+          this.resizeProcess(executionId, cols, rows);
         }
         break;
 
@@ -932,6 +940,20 @@ class ScriptExecutionHandler {
     const execution = this.activeExecutions.get(executionId);
     if (execution && execution.process.write) {
       execution.process.write(input);
+    }
+  }
+
+  /**
+   * @param {string} executionId
+   * @param {number} cols
+   * @param {number} rows
+   */
+  resizeProcess(executionId, cols, rows) {
+    const execution = this.activeExecutions.get(executionId);
+    if (!execution?.process) return;
+
+    if (typeof execution.process.resize === 'function') {
+      execution.process.resize(cols, rows);
     }
   }
 
