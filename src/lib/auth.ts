@@ -11,6 +11,51 @@ const DEFAULT_JWT_EXPIRY_DAYS = 7; // Default 7 days
 let jwtSecretCache: string | null = null;
 
 /**
+ * Sync the in-memory process.env (and jwtSecretCache) with values just
+ * written to the .env file. Keys not in the file are left untouched.
+ *
+ * This is required because Next.js routes read from process.env at request
+ * time, and dotenv is only loaded once at server startup. Without this,
+ * writes via updateAuthCredentials/enabled/etc. are visible on disk but
+ * the running server keeps returning the pre-write values until restart.
+ */
+export function syncProcessEnvFromFile(): void {
+  const envPath = path.join(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) return;
+
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const updates: Record<string, string> = {};
+
+  for (const line of envContent.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let value = trimmed.slice(eqIdx + 1).trim();
+    // Strip a single pair of surrounding double or single quotes
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (key) updates[key] = value;
+  }
+
+  for (const [key, value] of Object.entries(updates)) {
+    process.env[key] = value;
+  }
+
+  // If JWT_SECRET changed on disk, force a re-read on the next getJwtSecret()
+  // call so verify/generate pick up the new value without a restart.
+  if ('JWT_SECRET' in updates) {
+    jwtSecretCache = null;
+  }
+}
+
+/**
  * Get or generate JWT secret.
  * Reads from process.env (loaded by dotenv). Auto-generates and persists
  * a new secret only when none is present in the environment.
@@ -37,6 +82,9 @@ export function getJwtSecret(): string {
   envContent += (envContent.endsWith('\n') ? '' : '\n') + `JWT_SECRET=${newSecret}\n`;
   fs.writeFileSync(envPath, envContent);
 
+  // Keep the running process in sync with the value we just persisted so
+  // subsequent verifications/issuances use it without a restart.
+  process.env.JWT_SECRET = newSecret;
   jwtSecretCache = newSecret;
   return newSecret;
 }
@@ -169,6 +217,10 @@ export async function updateAuthCredentials(
 
   // Write back to .env file
   fs.writeFileSync(envPath, envContent);
+
+  // Refresh in-memory process.env (and jwtSecretCache) from disk so the
+  // running server reflects the new credentials without a restart.
+  syncProcessEnvFromFile();
 }
 
 /**
@@ -193,6 +245,10 @@ export function setSetupCompleted(): void {
 
   // Write back to .env file
   fs.writeFileSync(envPath, envContent);
+
+  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
+  // the updated setupCompleted flag without a restart.
+  syncProcessEnvFromFile();
 }
 
 /**
@@ -213,6 +269,10 @@ export function updateAuthEnabled(enabled: boolean): void {
     envContent = envContent.replace(enabledRegex, `AUTH_ENABLED=${enabled}`);
   } else {
     envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_ENABLED=${enabled}\n`;
+
+  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
+  // the updated AUTH_ENABLED flag without a restart.
+  syncProcessEnvFromFile();
   }
 
   // Write back to .env file
@@ -240,6 +300,10 @@ export function updateSessionDuration(days: number): void {
     envContent = envContent.replace(sessionDurationRegex, `AUTH_SESSION_DURATION_DAYS=${validDays}`);
   } else {
     envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_SESSION_DURATION_DAYS=${validDays}\n`;
+
+  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
+  // the updated session duration without a restart.
+  syncProcessEnvFromFile();
   }
 
   // Write back to .env file
