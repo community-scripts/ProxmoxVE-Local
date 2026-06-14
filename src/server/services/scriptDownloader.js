@@ -289,23 +289,47 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Fallback: if install_methods was empty but this is a CT/LXC script,
-      // still try to download the main CT script (PocketBase may have empty install_methods)
+      // Fallback: if install_methods is empty, derive the default path from script.type + slug.
+      // This is required for some records where install_methods is missing (e.g. pve/tools scripts).
       const typeNorm = (script.type || 'ct').toLowerCase();
       const isCtType = typeNorm === 'ct' || typeNorm === 'lxc';
-      if ((!script.install_methods || script.install_methods.length === 0) && isCtType) {
-        const fallbackPath = `ct/${script.slug}.sh`;
+      if (!script.install_methods || script.install_methods.length === 0) {
+        const fallbackPath = this.deriveScriptPath(script.type, 'default', script.slug);
         const fallbackFileName = `${script.slug}.sh`;
-        try {
-          console.log(`[Fallback] install_methods empty, downloading CT script: ${fallbackPath} from ${repoUrl}`);
-          const content = await this.downloadFileFromRepo(repoUrl, fallbackPath, branch);
-          const modifiedContent = this.modifyScriptContent(content);
-          const filePath = join(this.scriptsDirectory, 'ct', fallbackFileName);
-          await writeFile(filePath, modifiedContent, 'utf-8');
-          files.push(`ct/${fallbackFileName}`);
-          console.log(`[Fallback] Successfully downloaded: ct/${fallbackFileName}`);
-        } catch (error) {
-          console.log(`[Fallback] CT script not found in repository: ${fallbackPath}`);
+
+        if (fallbackPath) {
+          try {
+            console.log(`[Fallback] install_methods empty, downloading script: ${fallbackPath} from ${repoUrl}`);
+            const content = await this.downloadFileFromRepo(repoUrl, fallbackPath, branch);
+
+            if (fallbackPath.startsWith('ct/')) {
+              const modifiedContent = this.modifyScriptContent(content);
+              const filePath = join(this.scriptsDirectory, 'ct', fallbackFileName);
+              await writeFile(filePath, modifiedContent, 'utf-8');
+              files.push(`ct/${fallbackFileName}`);
+              console.log(`[Fallback] Successfully downloaded: ct/${fallbackFileName}`);
+            } else if (fallbackPath.startsWith('tools/')) {
+              const subPath = fallbackPath.replace('tools/', '');
+              const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+              const finalTargetDir = subDir ? join('tools', subDir) : 'tools';
+              await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+              const filePath = join(this.scriptsDirectory, finalTargetDir, fallbackFileName);
+              await writeFile(filePath, content, 'utf-8');
+              files.push(`${finalTargetDir}/${fallbackFileName}`);
+              console.log(`[Fallback] Successfully downloaded: ${finalTargetDir}/${fallbackFileName}`);
+            } else if (fallbackPath.startsWith('vm/')) {
+              const subPath = fallbackPath.replace('vm/', '');
+              const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+              const finalTargetDir = subDir ? join('vm', subDir) : 'vm';
+              await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+              const filePath = join(this.scriptsDirectory, finalTargetDir, fallbackFileName);
+              await writeFile(filePath, content, 'utf-8');
+              files.push(`${finalTargetDir}/${fallbackFileName}`);
+              console.log(`[Fallback] Successfully downloaded: ${finalTargetDir}/${fallbackFileName}`);
+            }
+          } catch (error) {
+            console.log(`[Fallback] Script not found in repository: ${fallbackPath}`);
+          }
         }
       }
 

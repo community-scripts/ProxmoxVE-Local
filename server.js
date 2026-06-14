@@ -150,6 +150,8 @@ function isWebSocketUpgradeAuthorized(request) {
  * @property {string[]} [hostnames]
  * @property {'lxc'|'vm'} [containerType]
  * @property {Record<string, string|number|boolean>} [envVars]
+ * @property {number} [cols]
+ * @property {number} [rows]
  */
 
 class ScriptExecutionHandler {
@@ -363,17 +365,26 @@ class ScriptExecutionHandler {
   }
 
   /**
-   * Resolve full server from DB when client sends server with id but no ssh_key_path (e.g. for Shell/Update over SSH).
+   * Resolve full server from DB when client sends a redacted server payload.
+   * Since v1.1.2 server API responses redact secrets, SSH execution must always
+   * rehydrate credentials (password/key/passphrase/path) by server id.
    * @param {ServerInfo|null} server - Server from WebSocket message
    * @returns {Promise<ServerInfo|null>} Same server or full server from DB
    */
   async resolveServerForSSH(server) {
     if (!server?.id) return server;
-    if (server.auth_type === 'key' && (!server.ssh_key_path || !existsSync(server.ssh_key_path))) {
-      const full = await this.db.getServerById(server.id);
-      return /** @type {ServerInfo|null} */ (full ?? server);
+
+    const serverId = Number(server.id);
+    if (!Number.isFinite(serverId) || serverId <= 0) {
+      return server;
     }
-    return server;
+
+    const full = await this.db.getServerById(serverId);
+    if (!full) {
+      return server;
+    }
+
+    return /** @type {ServerInfo|null} */ ({ ...server, ...full });
   }
 
   /**
@@ -381,7 +392,7 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows } = message;
 
     switch (action) {
       case 'start':
@@ -422,6 +433,12 @@ class ScriptExecutionHandler {
       case 'input':
         if (executionId && input !== undefined) {
           this.sendInputToProcess(executionId, input);
+        }
+        break;
+
+      case 'resize':
+        if (executionId && typeof cols === 'number' && typeof rows === 'number') {
+          this.resizeProcess(executionId, cols, rows);
         }
         break;
 
@@ -932,6 +949,20 @@ class ScriptExecutionHandler {
     const execution = this.activeExecutions.get(executionId);
     if (execution && execution.process.write) {
       execution.process.write(input);
+    }
+  }
+
+  /**
+   * @param {string} executionId
+   * @param {number} cols
+   * @param {number} rows
+   */
+  resizeProcess(executionId, cols, rows) {
+    const execution = this.activeExecutions.get(executionId);
+    if (!execution?.process) return;
+
+    if (typeof execution.process.resize === 'function') {
+      execution.process.resize(cols, rows);
     }
   }
 
