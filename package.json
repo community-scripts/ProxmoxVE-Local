@@ -96,7 +96,7 @@
     "typescript": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
     "@typescript-eslint/parser": "^8.61.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "ct3aMetadata": {
     "initVersion": "7.39.3"
