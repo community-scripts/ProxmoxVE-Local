@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getAuthConfig, updateAuthCredentials, updateAuthEnabled, updateSessionDuration } from '~/lib/auth';
+import { getAuthConfig, updateAuthCredentials, updateAuthEnabled, updateSessionDuration, setSetupCompleted, syncProcessEnvFromFile } from '~/lib/auth';
 import fs from 'fs';
 import path from 'path';
 import { withApiLogging } from '../../../../server/logging/withApiLogging';
@@ -68,6 +68,9 @@ export const POST = withApiLogging(async function POST(request: NextRequest) {
     }
 
     await updateAuthCredentials(username, password, enabled ?? false);
+    // Mark setup as completed so requireApiAuth actually enforces credentials
+    // after a fresh install (mirrors the behavior of /api/auth/setup).
+    setSetupCompleted();
 
     return NextResponse.json({
       success: true,
@@ -116,6 +119,10 @@ export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
         envContent = envContent.replace(/^AUTH_USERNAME=.*$/m, '');
         envContent = envContent.replace(/^AUTH_PASSWORD_HASH=.*$/m, '');
 
+        // Also clear AUTH_SETUP_COMPLETED so the next re-enable flow behaves
+        // like a fresh setup (requires /api/auth/setup to be run again).
+        envContent = envContent.replace(/^AUTH_SETUP_COMPLETED=.*$/m, '');
+
         // Update or add AUTH_ENABLED
         const enabledRegex = /^AUTH_ENABLED=.*$/m;
         if (enabledRegex.test(envContent)) {
@@ -128,6 +135,10 @@ export const PATCH = withApiLogging(async function PATCH(request: NextRequest) {
         envContent = envContent.replace(/\n\n+/g, '\n');
 
         fs.writeFileSync(envPath, envContent);
+
+        // Refresh in-memory process.env so subsequent getAuthConfig() reads
+        // see the disabled state without a restart.
+        syncProcessEnvFromFile();
       }
 
       return NextResponse.json({
