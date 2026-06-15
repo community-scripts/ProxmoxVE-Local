@@ -10,6 +10,37 @@ const DEFAULT_JWT_EXPIRY_DAYS = 7; // Default 7 days
 // Cache for JWT secret to avoid multiple file reads
 let jwtSecretCache: string | null = null;
 
+function parseEnvFile(): Record<string, string> {
+  const envPath = path.join(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) return {};
+
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const values: Record<string, string> = {};
+
+  for (const line of envContent.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+
+    const key = trimmed.slice(0, eqIdx).trim();
+    let value = trimmed.slice(eqIdx + 1).trim();
+
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (key) values[key] = value;
+  }
+
+  return values;
+}
+
 /**
  * Sync the in-memory process.env (and jwtSecretCache) with values just
  * written to the .env file. Keys not in the file are left untouched.
@@ -20,29 +51,8 @@ let jwtSecretCache: string | null = null;
  * the running server keeps returning the pre-write values until restart.
  */
 export function syncProcessEnvFromFile(): void {
-  const envPath = path.join(process.cwd(), '.env');
-  if (!fs.existsSync(envPath)) return;
-
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  const updates: Record<string, string> = {};
-
-  for (const line of envContent.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    let value = trimmed.slice(eqIdx + 1).trim();
-    // Strip a single pair of surrounding double or single quotes
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (key) updates[key] = value;
-  }
+  const updates = parseEnvFile();
+  if (Object.keys(updates).length === 0) return;
 
   for (const [key, value] of Object.entries(updates)) {
     process.env[key] = value;
@@ -68,6 +78,13 @@ export function getJwtSecret(): string {
   const envSecret = process.env.JWT_SECRET?.trim();
   if (envSecret) {
     jwtSecretCache = envSecret;
+    return jwtSecretCache;
+  }
+
+  const fileSecret = parseEnvFile().JWT_SECRET?.trim();
+  if (fileSecret) {
+    process.env.JWT_SECRET = fileSecret;
+    jwtSecretCache = fileSecret;
     return jwtSecretCache;
   }
 
@@ -150,11 +167,21 @@ export function getAuthConfig(): {
   setupCompleted: boolean;
   sessionDurationDays: number;
 } {
-  const username = process.env.AUTH_USERNAME?.trim() ?? null;
-  const passwordHash = process.env.AUTH_PASSWORD_HASH?.trim() ?? null;
-  const enabled = (process.env.AUTH_ENABLED?.toLowerCase() ?? '') === 'true';
-  const setupCompleted = (process.env.AUTH_SETUP_COMPLETED?.toLowerCase() ?? '') === 'true';
-  const parsed = parseInt(process.env.AUTH_SESSION_DURATION_DAYS ?? '', 10);
+  const fileValues = parseEnvFile();
+
+  const usernameSource = fileValues.AUTH_USERNAME ?? process.env.AUTH_USERNAME ?? '';
+  const passwordHashSource = fileValues.AUTH_PASSWORD_HASH ?? process.env.AUTH_PASSWORD_HASH ?? '';
+  const enabledSource = fileValues.AUTH_ENABLED ?? process.env.AUTH_ENABLED ?? '';
+  const setupCompletedSource =
+    fileValues.AUTH_SETUP_COMPLETED ?? process.env.AUTH_SETUP_COMPLETED ?? '';
+  const sessionDurationSource =
+    fileValues.AUTH_SESSION_DURATION_DAYS ?? process.env.AUTH_SESSION_DURATION_DAYS ?? '';
+
+  const username = usernameSource.trim() || null;
+  const passwordHash = passwordHashSource.trim() || null;
+  const enabled = enabledSource.toLowerCase() === 'true';
+  const setupCompleted = setupCompletedSource.toLowerCase() === 'true';
+  const parsed = parseInt(sessionDurationSource, 10);
   const sessionDurationDays = Number.isNaN(parsed) ? DEFAULT_JWT_EXPIRY_DAYS : parsed;
   const hasCredentials = !!(username && passwordHash);
 
@@ -269,14 +296,14 @@ export function updateAuthEnabled(enabled: boolean): void {
     envContent = envContent.replace(enabledRegex, `AUTH_ENABLED=${enabled}`);
   } else {
     envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_ENABLED=${enabled}\n`;
-
-  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
-  // the updated AUTH_ENABLED flag without a restart.
-  syncProcessEnvFromFile();
   }
 
   // Write back to .env file
   fs.writeFileSync(envPath, envContent);
+
+  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
+  // the updated AUTH_ENABLED flag without a restart.
+  syncProcessEnvFromFile();
 }
 
 /**
@@ -300,12 +327,12 @@ export function updateSessionDuration(days: number): void {
     envContent = envContent.replace(sessionDurationRegex, `AUTH_SESSION_DURATION_DAYS=${validDays}`);
   } else {
     envContent += (envContent.endsWith('\n') ? '' : '\n') + `AUTH_SESSION_DURATION_DAYS=${validDays}\n`;
-
-  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
-  // the updated session duration without a restart.
-  syncProcessEnvFromFile();
   }
 
   // Write back to .env file
   fs.writeFileSync(envPath, envContent);
+
+  // Refresh in-memory process.env so subsequent getAuthConfig() reads see
+  // the updated session duration without a restart.
+  syncProcessEnvFromFile();
 }
