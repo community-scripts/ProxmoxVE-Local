@@ -5,6 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
+        # This Repo is dormant, and we are looking for a active Maintainer!
+        Issues still might get resolved, but it can take a few days/weeks!
         ## ⚠️ **IMPORTANT - READ FIRST**  
         - 🔍 **Search first:** Before submitting, check if the issue has already been reported or resolved in [closed issues](https://github.com/community-scripts/ProxmoxVE-Local/issues?q=is%3Aissue+is%3Aclosed). If found, comment on that issue instead of creating a new one.  
         Thank you for taking the time to report an issue! Please provide as much detail as possible to help us address the problem efficiently.  
