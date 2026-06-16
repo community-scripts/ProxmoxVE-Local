@@ -5,6 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
+        # This Repo is dormant, and we are looking for a active Maintainer!
+        Issues still might get resolved, but it can take a few days/weeks!
         # ✨ **Feature Request**
         Have an idea for a new feature? Share your thoughts below!
 
