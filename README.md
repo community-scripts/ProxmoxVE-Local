@@ -1,5 +1,14 @@
 # PVE Scripts Local 🚀
 
+
+# This Repo is dormant, and we are looking for a active Maintainer!
+
+Sadly we Maintainers currently lack the time to further develop this Tool. We are looking for a new Maintainer wich will focus on further developing this tool, Hand in Hand with the core Maintainers. 
+
+## Issues might still get solved, but it also might take a few weeks! We currently focus on the Main Script Repository!
+
+
+
 A modern web-based management interface for Proxmox VE (PVE) helper scripts. This tool provides a user-friendly way to discover, download, and execute community-sourced Proxmox scripts locally with real-time terminal output streaming. No more need for curl -> bash calls, it all happens in your enviroment.
 
 
