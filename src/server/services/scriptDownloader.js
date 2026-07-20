@@ -425,8 +425,8 @@ export class ScriptDownloaderService {
       // scripts) — fall back to the type-derived path used by loadScript's own
       // fallback download, instead of always reporting "not downloaded".
       const fallbackScriptPath = this.deriveScriptPath(script.type, 'default', script.slug);
-      if (!fallbackScriptPath) return false;
-      const fallbackFileName = fallbackScriptPath.split('/').pop();
+      const fallbackFileName = fallbackScriptPath?.split('/').pop();
+      if (!fallbackScriptPath || !fallbackFileName) return false;
       const fallbackSubDir = fallbackScriptPath.includes('/')
         ? fallbackScriptPath.substring(0, fallbackScriptPath.lastIndexOf('/'))
         : '';
@@ -555,8 +555,8 @@ export class ScriptDownloaderService {
       const hasCtScript = chkTypeNorm === 'ct' || chkTypeNorm === 'lxc';
       if (!script.install_methods || script.install_methods.length === 0) {
         const fallbackScriptPath = this.deriveScriptPath(script.type, 'default', script.slug);
-        if (fallbackScriptPath) {
-          const fallbackFileName = fallbackScriptPath.split('/').pop();
+        const fallbackFileName = fallbackScriptPath?.split('/').pop();
+        if (fallbackScriptPath && fallbackFileName) {
           const fallbackSubDir = fallbackScriptPath.includes('/')
             ? fallbackScriptPath.substring(0, fallbackScriptPath.lastIndexOf('/'))
             : '';
