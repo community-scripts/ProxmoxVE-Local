@@ -4,9 +4,14 @@ import { getDatabase } from "~/server/database-prisma";
 import type { Server } from "~/types/server";
 
 /** Strip SSH/password secrets before a server record leaves the backend. */
-function redactServer<T extends Partial<Server>>(
-  server: T,
-): Omit<T, "password" | "ssh_key" | "ssh_key_passphrase" | "ssh_key_path"> {
+function redactServer<
+  T extends {
+    password?: string | null;
+    ssh_key?: string | null;
+    ssh_key_passphrase?: string | null;
+    ssh_key_path?: string | null;
+  },
+>(server: T) {
   const { password: _password, ssh_key: _sshKey, ssh_key_passphrase: _sshKeyPassphrase, ssh_key_path: _sshKeyPath, ...safeServer } = server;
   return safeServer;
 }

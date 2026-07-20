@@ -159,6 +159,10 @@ export function InstalledScriptsTab() {
   );
   const [batchUpdateIndex, setBatchUpdateIndex] = useState(0);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+  const [batchUpdateSummary, setBatchUpdateSummary] = useState<{
+    succeeded: { name: string; containerId: string }[];
+    failed: { name: string; containerId: string }[];
+  } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{
     script_name: string;
@@ -1049,11 +1053,31 @@ export function InstalledScriptsTab() {
         setBatchUpdateIndex(nextIndex);
         startBatchUpdateFor(batchUpdateQueue[nextIndex]!);
       } else {
-        // Batch complete
+        // Batch complete — refetch, then report which containers actually
+        // succeeded/failed instead of silently moving on either way.
         setIsBatchUpdating(false);
         setBatchUpdateQueue([]);
         setBatchUpdateIndex(0);
-        void refetchScripts();
+        void refetchScripts().then((result) => {
+          const freshScripts =
+            (result.data?.scripts as InstalledScript[] | undefined) ?? [];
+          const freshById = new Map(freshScripts.map((s) => [s.id, s]));
+          const succeeded: { name: string; containerId: string }[] = [];
+          const failed: { name: string; containerId: string }[] = [];
+          for (const queued of batchUpdateQueue) {
+            const fresh = freshById.get(queued.id);
+            const entry = {
+              name: queued.script_name,
+              containerId: queued.container_id ?? "?",
+            };
+            if (fresh?.status === "failed") {
+              failed.push(entry);
+            } else {
+              succeeded.push(entry);
+            }
+          }
+          setBatchUpdateSummary({ succeeded, failed });
+        });
       }
     }
   };
@@ -1397,6 +1421,12 @@ export function InstalledScriptsTab() {
             ? updatingScript.backupStorage
             : undefined,
         envVars: updatingScript.envVars,
+        // Only a plain update maps 1:1 onto this InstalledScript row — clone
+        // creates new rows, and backup-only doesn't touch this one's status.
+        installedScriptId:
+          !updatingScript.isBackupOnly && !updatingScript.isClone
+            ? updatingScript.id
+            : undefined,
       },
       onComplete: handleCloseUpdateTerminal,
     });
@@ -1586,6 +1616,40 @@ export function InstalledScriptsTab() {
   return (
     <div className="space-y-6">
       {/* Shell Terminal — now rendered as FloatingShell dialog (see ShellContext) */}
+
+      {batchUpdateSummary && (
+        <div
+          className={`rounded-lg border p-4 ${
+            batchUpdateSummary.failed.length > 0
+              ? "border-destructive/40 bg-destructive/10"
+              : "border-success/40 bg-success/10"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-foreground font-medium">
+                Batch update complete: {batchUpdateSummary.succeeded.length}{" "}
+                succeeded, {batchUpdateSummary.failed.length} failed
+              </p>
+              {batchUpdateSummary.failed.length > 0 && (
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Failed:{" "}
+                  {batchUpdateSummary.failed
+                    .map((f) => `${f.name} (CT ${f.containerId})`)
+                    .join(", ")}
+                </p>
+              )}
+            </div>
+            <Button
+              onClick={() => setBatchUpdateSummary(null)}
+              variant="outline"
+              size="sm"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Header with Stats */}
       <div className="bg-card border-border rounded-lg border p-6 shadow-sm">

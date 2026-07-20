@@ -44,6 +44,9 @@ interface TerminalProps {
   envVars?: Record<string, string | number | boolean>;
   /** Called when the script/process reports it has finished (WS "end" message). */
   onScriptEnd?: () => void;
+  /** InstalledScript row this update applies to — lets the backend persist
+   *  the update's final status/output instead of only showing it live. */
+  installedScriptId?: number;
 }
 
 interface TerminalMessage {
@@ -218,6 +221,7 @@ export function Terminal({
   containerType,
   envVars,
   onScriptEnd,
+  installedScriptId,
 }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -664,6 +668,7 @@ export function Terminal({
               hostnames,
               containerType,
               envVars,
+              installedScriptId,
               cols: xtermRef.current?.cols ?? 120,
               rows: xtermRef.current?.rows ?? 30,
             };
@@ -750,6 +755,7 @@ export function Terminal({
           cloneCount,
           hostnames,
           containerType,
+          installedScriptId,
           cols: xtermRef.current?.cols ?? 220,
           rows: xtermRef.current?.rows ?? 50,
         }),

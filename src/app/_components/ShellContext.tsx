@@ -40,6 +40,7 @@ export interface ShellSession {
     hostnames?: string[];
     containerType?: "lxc" | "vm";
     envVars?: Record<string, string | number | boolean>;
+    installedScriptId?: number;
   };
   /** Callback fired when the terminal closes (e.g. to trigger re-discovery). */
   onComplete?: () => void;

@@ -199,6 +199,7 @@ function isWebSocketUpgradeAuthorized(request) {
  * @property {Record<string, string|number|boolean>} [envVars]
  * @property {number} [cols]
  * @property {number} [rows]
+ * @property {number} [installedScriptId]
  */
 
 class ScriptExecutionHandler {
@@ -440,7 +441,7 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows, installedScriptId } = message;
 
     switch (action) {
       case 'start': {
@@ -464,7 +465,7 @@ class ScriptExecutionHandler {
           } else if (isBackup && containerId && storage) {
             await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
           } else if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars);
+            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars, installedScriptId);
           } else if (isShell && containerId) {
             await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
           } else if (executeInContainer && containerId) {
@@ -720,9 +721,9 @@ class ScriptExecutionHandler {
 
       // Guard against path traversal — every script must resolve inside the
       // scripts directory, regardless of execution mode (local or SSH).
-      const scriptsDir = join(process.cwd(), 'scripts');
+      const guardScriptsDir = join(process.cwd(), 'scripts');
       const resolvedScriptPath = resolve(scriptPath);
-      if (!resolvedScriptPath.startsWith(resolve(scriptsDir))) {
+      if (!resolvedScriptPath.startsWith(resolve(guardScriptsDir))) {
         this.sendMessage(ws, { type: 'error', data: 'Script path outside scripts directory', timestamp: Date.now() });
         return;
       }
@@ -1652,8 +1653,9 @@ class ScriptExecutionHandler {
    * @param {string} mode
    * @param {ServerInfo|undefined} server
    * @param {string} [backupStorage] - Optional storage to backup to before update
+   * @param {number} [installedScriptId] - InstalledScript row to persist the final status/output to
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}, installedScriptId = undefined) {
     try {
       // If backup storage is provided, run backup first
       if (backupStorage && mode === 'ssh' && server) {
@@ -1714,9 +1716,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars);
+        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars, installedScriptId);
       } else {
-        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars);
+        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars, installedScriptId);
       }
 
     } catch (error) {
@@ -1733,8 +1735,10 @@ class ScriptExecutionHandler {
    * @param {ExtendedWebSocket} ws
    * @param {string} containerId
    * @param {string} executionId
+   * @param {Object} [envVars]
+   * @param {number} [installedScriptId]
    */
-  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}) {
+  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}, installedScriptId = undefined) {
     const { spawn } = await import('node-pty');
 
     // Create a shell process that will run pct enter and then update
@@ -1749,11 +1753,15 @@ class ScriptExecutionHandler {
     // Store the execution
     this.activeExecutions.set(executionId, {
       process: childProcess,
-      ws
+      ws,
+      installationId: installedScriptId ?? null,
+      outputBuffer: ''
     });
 
     // Handle pty data
     childProcess.onData((data) => {
+      const execution = this.activeExecutions.get(executionId);
+      if (execution) execution.outputBuffer += data.toString();
       this.sendMessage(ws, {
         type: 'output',
         data: data.toString(),
@@ -1782,7 +1790,15 @@ class ScriptExecutionHandler {
     }, 4000);
 
     // Handle process exit
-    childProcess.onExit((e) => {
+    childProcess.onExit(async (e) => {
+      const execution = this.activeExecutions.get(executionId);
+      if (installedScriptId && execution) {
+        await this.updateInstallationRecord(installedScriptId, {
+          status: e.exitCode === 0 ? 'success' : 'failed',
+          output_log: execution.outputBuffer
+        });
+      }
+
       this.sendMessage(ws, {
         type: 'end',
         data: `Update completed with exit code: ${e.exitCode}`,
@@ -1799,8 +1815,10 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    * @param {ServerInfo} server
+   * @param {Object} [envVars]
+   * @param {number} [installedScriptId]
    */
-  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}) {
+  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}, installedScriptId = undefined) {
     const sshService = getSSHExecutionService();
 
     try {
@@ -1809,6 +1827,8 @@ class ScriptExecutionHandler {
         `pct enter ${containerId}`,
         /** @param {string} data */
         (data) => {
+          const activeExec = this.activeExecutions.get(executionId);
+          if (activeExec) activeExec.outputBuffer += data;
           this.sendMessage(ws, {
             type: 'output',
             data: data,
@@ -1824,7 +1844,15 @@ class ScriptExecutionHandler {
           });
         },
         /** @param {number} code */
-        (code) => {
+        async (code) => {
+          const activeExec = this.activeExecutions.get(executionId);
+          if (installedScriptId && activeExec) {
+            await this.updateInstallationRecord(installedScriptId, {
+              status: code === 0 ? 'success' : 'failed',
+              output_log: activeExec.outputBuffer
+            });
+          }
+
           this.sendMessage(ws, {
             type: 'end',
             data: `Update completed with exit code: ${code}`,
@@ -1838,7 +1866,9 @@ class ScriptExecutionHandler {
       // Store the execution
       this.activeExecutions.set(executionId, {
         process: /** @type {any} */ (execution).process,
-        ws
+        ws,
+        installationId: installedScriptId ?? null,
+        outputBuffer: ''
       });
 
       // Build env export commands (e.g. for PHS_SILENT=1)

@@ -146,6 +146,7 @@ function FloatingShellWindow({
         containerType: session.terminal!.containerType,
         envVars: session.terminal!.envVars,
         onScriptEnd: session.autoCloseOnEnd ? onClose : undefined,
+        installedScriptId: session.terminal!.installedScriptId,
       }
     : isBackupTask
       ? {
