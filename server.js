@@ -718,7 +718,7 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {'lxc'|'vm'} containerType
    */
-  async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc') {
+  async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc', cols = 220, rows = 50) {
     /** @type {number|null} */
     let installationId = null;
     try {
@@ -816,7 +816,9 @@ class ScriptExecutionHandler {
             }
             this.sendMessage(ws, { type: 'end', data: `Finished with code: ${exitCode}`, timestamp: Date.now() });
             this.activeExecutions.delete(executionId);
-          }
+          },
+          cols,
+          rows
         );
 
         // Attach the real PTY process so keyboard input can reach interactive prompts
@@ -845,8 +847,8 @@ class ScriptExecutionHandler {
       const childProcess = ptySpawn(cmd, args, {
         cwd: scriptsDir,
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols,
+        rows,
         env: { ...process.env, TERM: 'xterm-256color' }
       });
 
@@ -976,7 +978,9 @@ class ScriptExecutionHandler {
           // Clean up
           this.activeExecutions.delete(executionId);
         },
-        envVars
+        envVars,
+        cols,
+        rows
       ));
 
       // Store the execution with installation ID
@@ -1094,7 +1098,7 @@ class ScriptExecutionHandler {
    * @param {string} mode
    * @param {ServerInfo|null} server
    */
-  async startBackupExecution(ws, containerId, executionId, storage, mode = 'local', server = null) {
+  async startBackupExecution(ws, containerId, executionId, storage, mode = 'local', server = null, cols = 220, rows = 50) {
     try {
       // Send start message
       this.sendMessage(ws, {
@@ -1104,7 +1108,7 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHBackupExecution(ws, containerId, executionId, storage, server);
+        await this.startSSHBackupExecution(ws, containerId, executionId, storage, server, undefined, cols, rows);
       } else {
         this.sendMessage(ws, {
           type: 'error',
@@ -1130,7 +1134,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo} server
    * @param {Function} [onComplete] - Optional callback when backup completes
    */
-  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined) {
+  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     return new Promise((resolve, reject) => {
@@ -1201,7 +1205,9 @@ class ScriptExecutionHandler {
             }
 
             this.activeExecutions.delete(executionId);
-          }
+          },
+          cols,
+          rows
         ).then((execution) => {
           // Store the execution
           this.activeExecutions.set(executionId, {
@@ -1248,7 +1254,7 @@ class ScriptExecutionHandler {
    * @param {number} cloneCount
    * @param {string[]} hostnames
    */
-  async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames) {
+  async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     this.sendMessage(ws, {
@@ -1663,7 +1669,7 @@ class ScriptExecutionHandler {
    * @param {string} [backupStorage] - Optional storage to backup to before update
    * @param {number} [installedScriptId] - InstalledScript row to persist the final status/output to
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}, installedScriptId = undefined) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     try {
       // If backup storage is provided, run backup first
       if (backupStorage && mode === 'ssh' && server) {
@@ -1683,7 +1689,10 @@ class ScriptExecutionHandler {
             containerId,
             backupExecutionId,
             backupStorage,
-            server
+            server,
+            undefined,
+            cols,
+            rows
           );
 
           // Backup completed (successfully or not)
@@ -1724,9 +1733,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars, installedScriptId);
+        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars, installedScriptId, cols, rows);
       } else {
-        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars, installedScriptId);
+        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars, installedScriptId, cols, rows);
       }
 
     } catch (error) {
@@ -1746,14 +1755,14 @@ class ScriptExecutionHandler {
    * @param {Object} [envVars]
    * @param {number} [installedScriptId]
    */
-  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}, installedScriptId = undefined) {
+  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     const { spawn } = await import('node-pty');
 
     // Create a shell process that will run pct enter and then update
     const childProcess = spawn('bash', ['-c', `pct enter ${containerId}`], {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols,
+      rows,
       cwd: process.cwd(),
       env: process.env
     });
@@ -1826,7 +1835,7 @@ class ScriptExecutionHandler {
    * @param {Object} [envVars]
    * @param {number} [installedScriptId]
    */
-  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}, installedScriptId = undefined) {
+  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     try {
@@ -1868,7 +1877,9 @@ class ScriptExecutionHandler {
           });
 
           this.activeExecutions.delete(executionId);
-        }
+        },
+        cols,
+        rows
       );
 
       // Store the execution
@@ -1917,7 +1928,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo|null} server
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null, containerType = 'lxc') {
+  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null, containerType = 'lxc', cols = 220, rows = 50) {
     try {
       const typeLabel = containerType === 'vm' ? 'VM' : 'container';
       this.sendMessage(ws, {
@@ -1927,9 +1938,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHShellExecution(ws, containerId, executionId, server, containerType);
+        await this.startSSHShellExecution(ws, containerId, executionId, server, containerType, cols, rows);
       } else {
-        await this.startLocalShellExecution(ws, containerId, executionId, containerType);
+        await this.startLocalShellExecution(ws, containerId, executionId, containerType, cols, rows);
       }
 
     } catch (error) {
@@ -1948,13 +1959,13 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startLocalShellExecution(ws, containerId, executionId, containerType = 'lxc') {
+  async startLocalShellExecution(ws, containerId, executionId, containerType = 'lxc', cols = 220, rows = 50) {
     const { spawn } = await import('node-pty');
     const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
     const childProcess = spawn('bash', ['-c', shellCommand], {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols,
+      rows,
       cwd: process.cwd(),
       env: process.env
     });
@@ -1996,7 +2007,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo} server
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startSSHShellExecution(ws, containerId, executionId, server, containerType = 'lxc') {
+  async startSSHShellExecution(ws, containerId, executionId, server, containerType = 'lxc', cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
     const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
     try {
@@ -2028,7 +2039,9 @@ class ScriptExecutionHandler {
           });
 
           this.activeExecutions.delete(executionId);
-        }
+        },
+        cols,
+        rows
       );
 
       // Store the execution
