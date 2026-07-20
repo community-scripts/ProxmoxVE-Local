@@ -151,13 +151,16 @@ export function ServerForm({
     // Validate authentication based on auth_type
     const authType = formData.auth_type ?? "password";
 
-    if (authType === "password") {
+    // When editing, a blank credential field means "keep the existing secret"
+    // (the API never sends stored secrets back to the client), so only
+    // require credentials when creating a new server.
+    if (authType === "password" && !isEditing) {
       if (!formData.password?.trim()) {
         newErrors.password = "Password is required for password authentication";
       }
     }
 
-    if (authType === "key") {
+    if (authType === "key" && !isEditing) {
       if (!formData.ssh_key?.trim()) {
         newErrors.ssh_key = "SSH key is required for key authentication";
       }

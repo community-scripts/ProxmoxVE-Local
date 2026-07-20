@@ -83,28 +83,6 @@ export const PUT = withApiLogging(async function PUT(
       );
     }
 
-    // Validate authentication based on auth_type
-    const authType = auth_type ?? 'password';
-
-    if (authType === 'password') {
-      if (!password?.trim()) {
-        return NextResponse.json(
-          { error: 'Password is required for password authentication' },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (authType === 'key') {
-      if (!ssh_key?.trim()) {
-        return NextResponse.json(
-          { error: 'SSH key is required for key authentication' },
-          { status: 400 }
-        );
-      }
-    }
-
-
     const db = getDatabase();
 
     // Check if server exists
@@ -114,6 +92,29 @@ export const PUT = withApiLogging(async function PUT(
         { error: 'Server not found' },
         { status: 404 }
       );
+    }
+
+    // Validate authentication based on auth_type. A blank credential field is
+    // allowed on edit as long as the server already has a stored secret to
+    // fall back on (the API never sends stored secrets back to the client).
+    const authType = auth_type ?? 'password';
+
+    if (authType === 'password') {
+      if (!password?.trim() && !existingServer.password) {
+        return NextResponse.json(
+          { error: 'Password is required for password authentication' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (authType === 'key') {
+      if (!ssh_key?.trim() && !existingServer.ssh_key) {
+        return NextResponse.json(
+          { error: 'SSH key is required for key authentication' },
+          { status: 400 }
+        );
+      }
     }
 
     const resolvedAuthType = authType;

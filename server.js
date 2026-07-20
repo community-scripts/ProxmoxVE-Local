@@ -298,14 +298,15 @@ class ScriptExecutionHandler {
    * @param {string} scriptPath - Path to the script
    * @param {string} executionMode - 'local' or 'ssh'
    * @param {number|null} serverId - Server ID for SSH executions
+   * @param {string|number|null} [containerId] - Container ID, when already known at start time
    * @returns {Promise<number|null>} - Installation record ID
    */
-  async createInstallationRecord(scriptName, scriptPath, executionMode, serverId = null) {
+  async createInstallationRecord(scriptName, scriptPath, executionMode, serverId = null, containerId = null) {
     try {
       const result = await this.db.createInstalledScript({
         script_name: scriptName,
         script_path: scriptPath,
-        container_id: undefined,
+        container_id: containerId != null ? String(containerId) : undefined,
         server_id: serverId ?? undefined,
         execution_mode: executionMode,
         status: 'in_progress',
@@ -662,7 +663,7 @@ class ScriptExecutionHandler {
 
       const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
       const serverId = server ? (server.id ?? null) : null;
-      installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId);
+      installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId, containerId ?? null);
 
       // Build env-var export prefix
       const envExports = Object.entries(envVars ?? {})

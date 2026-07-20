@@ -1081,6 +1081,7 @@ export function InstalledScriptsTab() {
       title: "Batch Update All",
       message: `This will silently update ${updatable.length} container(s) sequentially. Each update will run with PHS_SILENT=1 (no user prompts).\n\nDo you want to proceed?`,
       variant: "danger",
+      confirmText: "UPDATE ALL",
       confirmButtonText: "Update All",
       onConfirm: () => {
         setConfirmationModal(null);
