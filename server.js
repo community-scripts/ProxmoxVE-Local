@@ -38,6 +38,53 @@ const OUTPUT_BUFFER_MAX_LENGTH = 1000;
 // Delay (ms) between backup completion and update start.
 const BACKUP_UPDATE_DELAY_MS = 1000;
 
+// Proxmox VMIDs are always purely numeric (typically 100-999999999).
+const CONTAINER_ID_PATTERN = /^\d+$/;
+// Proxmox storage identifiers only contain alphanumerics, underscore, hyphen, dot.
+const STORAGE_ID_PATTERN = /^[a-zA-Z0-9_.-]+$/;
+// Conservative hostname pattern (labels of alphanumerics/hyphens, dot-separated).
+const HOSTNAME_PATTERN =
+  /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const MAX_CLONE_COUNT = 50;
+
+/**
+ * Validate the subset of a WebSocket "start" message that ends up interpolated
+ * directly into shell commands executed on the Proxmox host (pct/qm/vzdump).
+ * These values normally come from trusted UI dropdowns/DB records, but the
+ * WebSocket endpoint itself has no other request-shape enforcement, so a
+ * malformed or malicious client could otherwise inject arbitrary shell syntax.
+ * @param {WebSocketMessage} message
+ * @returns {string | null} an error message if invalid, otherwise null
+ */
+function validateExecutionParams(message) {
+  const { containerId, storage, backupStorage, hostnames, containerType, cloneCount } = message;
+
+  if (containerId !== undefined && !CONTAINER_ID_PATTERN.test(String(containerId))) {
+    return `Invalid containerId: ${containerId}`;
+  }
+  if (storage !== undefined && !STORAGE_ID_PATTERN.test(String(storage))) {
+    return `Invalid storage identifier: ${storage}`;
+  }
+  if (backupStorage !== undefined && !STORAGE_ID_PATTERN.test(String(backupStorage))) {
+    return `Invalid backup storage identifier: ${backupStorage}`;
+  }
+  if (containerType !== undefined && containerType !== 'lxc' && containerType !== 'vm') {
+    return `Invalid containerType: ${containerType}`;
+  }
+  if (cloneCount !== undefined) {
+    const n = Number(cloneCount);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_CLONE_COUNT) {
+      return `Invalid cloneCount: ${cloneCount}`;
+    }
+  }
+  if (hostnames !== undefined) {
+    if (!Array.isArray(hostnames) || !hostnames.every((h) => typeof h === 'string' && HOSTNAME_PATTERN.test(h))) {
+      return 'Invalid hostnames';
+    }
+  }
+  return null;
+}
+
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '::';
 const port = parseInt(process.env.PORT || '3000', 10);
@@ -396,7 +443,16 @@ class ScriptExecutionHandler {
     const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows } = message;
 
     switch (action) {
-      case 'start':
+      case 'start': {
+        const validationError = validateExecutionParams(message);
+        if (validationError) {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: validationError,
+            timestamp: Date.now()
+          });
+          break;
+        }
         if (scriptPath && executionId) {
           let serverToUse = server;
           if (serverToUse?.id) {
@@ -424,6 +480,7 @@ class ScriptExecutionHandler {
           });
         }
         break;
+      }
 
       case 'stop':
         if (executionId) {
@@ -661,12 +718,22 @@ class ScriptExecutionHandler {
         return;
       }
 
+      // Guard against path traversal — every script must resolve inside the
+      // scripts directory, regardless of execution mode (local or SSH).
+      const scriptsDir = join(process.cwd(), 'scripts');
+      const resolvedScriptPath = resolve(scriptPath);
+      if (!resolvedScriptPath.startsWith(resolve(scriptsDir))) {
+        this.sendMessage(ws, { type: 'error', data: 'Script path outside scripts directory', timestamp: Date.now() });
+        return;
+      }
+
       const scriptName = scriptPath.split('/').pop() ?? scriptPath.split('\\').pop() ?? 'Unknown Script';
       const serverId = server ? (server.id ?? null) : null;
       installationId = await this.createInstallationRecord(scriptName, scriptPath, mode, serverId, containerId ?? null);
 
       // Build env-var export prefix
       const envExports = Object.entries(envVars ?? {})
+        .filter(([k]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))
         .map(([k, v]) => `export ${k}=${JSON.stringify(String(v))}`)
         .join('; ');
       const envPrefix = envExports ? `${envExports}; ` : '';
@@ -931,8 +998,17 @@ class ScriptExecutionHandler {
   stopScriptExecution(executionId) {
     const execution = this.activeExecutions.get(executionId);
     if (execution) {
-      execution.process.kill('SIGTERM');
+      execution.process?.kill('SIGTERM');
       this.activeExecutions.delete(executionId);
+
+      if (execution.installationId) {
+        this.updateInstallationRecord(execution.installationId, {
+          status: 'failed',
+          output_log: execution.outputBuffer
+        }).catch((error) => {
+          console.error('Error updating installation record after manual stop:', error);
+        });
+      }
 
       this.sendMessage(execution.ws, {
         type: 'end',
@@ -948,7 +1024,7 @@ class ScriptExecutionHandler {
    */
   sendInputToProcess(executionId, input) {
     const execution = this.activeExecutions.get(executionId);
-    if (execution && execution.process.write) {
+    if (execution?.process?.write) {
       execution.process.write(input);
     }
   }
@@ -1687,7 +1763,7 @@ class ScriptExecutionHandler {
 
     // Build env export commands (e.g. for PHS_SILENT=1)
     const envExports = Object.entries(envVars)
-      .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+      .filter(([key]) => (key.startsWith('PHS_') || key.startsWith('var_')) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
       .map(([key, value]) => {
         const safeValue = String(value)
           .replace(/\\/g, '\\\\')
@@ -1767,7 +1843,7 @@ class ScriptExecutionHandler {
 
       // Build env export commands (e.g. for PHS_SILENT=1)
       const envExports = Object.entries(envVars)
-        .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+        .filter(([key]) => (key.startsWith('PHS_') || key.startsWith('var_')) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
         .map(([key, value]) => {
           const safeValue = String(value)
             .replace(/\\/g, '\\\\')

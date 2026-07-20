@@ -110,8 +110,12 @@ class SSHExecutionService {
           // Build SSH command based on authentication type
           const { command, args } = this.buildSSHCommand(server, cols, rows);
 
-          // Format environment variables as var_name=value pairs
+          // Format environment variables as var_name=value pairs. Keys are
+          // interpolated unescaped, so only allow safe shell identifier
+          // characters through — anything else is dropped rather than risking
+          // shell-syntax injection via a malformed variable name.
           const envVarsString = Object.entries(envVars)
+            .filter(([key]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
             .map(([key, value]) => {
               // Escape special characters in values
               const escapedValue = String(value).replace(/'/g, "'\\''");
@@ -128,21 +132,19 @@ class SSHExecutionService {
             scriptCommand += ` && bash ${relativeScriptPath}`;
           }
 
-          // Log the full command that will be executed
+          // Log execution metadata WITHOUT variable values or the full
+          // interpolated command — envVars can carry secrets (API tokens,
+          // passwords) supplied by the script/generator, and scriptCommand
+          // embeds those values verbatim.
           console.log('='.repeat(80));
           console.log(`[SSH Execution] Executing on host: ${server.ip} (${server.name || 'Unnamed'})`);
           console.log(`[SSH Execution] Script path: ${scriptPath}`);
           console.log(`[SSH Execution] Relative script path: ${relativeScriptPath}`);
           if (Object.keys(envVars).length > 0) {
-            console.log(`[SSH Execution] Environment variables (${Object.keys(envVars).length} vars):`);
-            Object.entries(envVars).forEach(([key, value]) => {
-              console.log(`  ${key}=${String(value)}`);
-            });
+            console.log(`[SSH Execution] Environment variables (${Object.keys(envVars).length}): ${Object.keys(envVars).join(', ')} (values redacted)`);
           } else {
             console.log(`[SSH Execution] No environment variables provided`);
           }
-          console.log(`[SSH Execution] Full command:`);
-          console.log(scriptCommand);
           console.log('='.repeat(80));
 
           // Add the script execution command to the args
