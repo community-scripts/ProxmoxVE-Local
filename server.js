@@ -983,7 +983,18 @@ class ScriptExecutionHandler {
   cleanupActiveExecutions(ws) {
     for (const [executionId, execution] of this.activeExecutions.entries()) {
       if (execution.ws === ws) {
-        execution.process.kill('SIGTERM');
+        execution.process?.kill('SIGTERM');
+        // Mark the installation record as failed now, since the exit handler
+        // won't find this entry anymore once it's removed below and would
+        // otherwise leave the record stuck at 'in_progress' forever.
+        if (execution.installationId) {
+          this.updateInstallationRecord(execution.installationId, {
+            status: 'failed',
+            output_log: execution.outputBuffer
+          }).catch((error) => {
+            console.error('Error updating installation record during cleanup:', error);
+          });
+        }
         this.activeExecutions.delete(executionId);
       }
     }
