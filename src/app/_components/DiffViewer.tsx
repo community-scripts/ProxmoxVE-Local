@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 
 interface DiffViewerProps {
   scriptSlug: string;
@@ -16,6 +17,11 @@ export function DiffViewer({
   isOpen,
   onClose,
 }: DiffViewerProps) {
+  const zIndex = useRegisterModal(isOpen, {
+    id: "diff-viewer",
+    allowEscape: true,
+    onClose,
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   // Get diff content
@@ -74,10 +80,12 @@ export function DiffViewer({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-    >
+    <ModalPortal>
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        style={{ zIndex }}
+        onClick={handleBackdropClick}
+      >
       <div className="bg-card border-border mx-4 max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-lg border shadow-xl sm:mx-0">
         {/* Header */}
         <div className="border-border flex items-center justify-between border-b p-4">
@@ -191,6 +199,7 @@ export function DiffViewer({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   );
 }

@@ -652,10 +652,12 @@ export const installedScriptsRouter = createTRPCRouter({
             server_name: script.server?.name ?? null,
             server_ip: script.server?.ip ?? null,
             server_user: script.server?.user ?? null,
-            server_password: script.server?.password ?? null,
+            // Credentials are intentionally never sent to the client — SSH
+            // execution always re-resolves them server-side by server_id.
+            server_password: null,
             server_auth_type: script.server?.auth_type ?? null,
-            server_ssh_key: script.server?.ssh_key ?? null,
-            server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+            server_ssh_key: null,
+            server_ssh_key_passphrase: null,
             server_ssh_port: script.server?.ssh_port ?? null,
             server_color: script.server?.color ?? null,
             is_vm,
@@ -713,10 +715,12 @@ export const installedScriptsRouter = createTRPCRouter({
             server_name: script.server?.name ?? null,
             server_ip: script.server?.ip ?? null,
             server_user: script.server?.user ?? null,
-            server_password: script.server?.password ?? null,
+            // Credentials are intentionally never sent to the client — SSH
+            // execution always re-resolves them server-side by server_id.
+            server_password: null,
             server_auth_type: script.server?.auth_type ?? null,
-            server_ssh_key: script.server?.ssh_key ?? null,
-            server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+            server_ssh_key: null,
+            server_ssh_key_passphrase: null,
             server_ssh_port: script.server?.ssh_port ?? null,
             server_color: script.server?.color ?? null,
             is_vm,
@@ -764,10 +768,12 @@ export const installedScriptsRouter = createTRPCRouter({
           server_name: script.server?.name ?? null,
           server_ip: script.server?.ip ?? null,
           server_user: script.server?.user ?? null,
-          server_password: script.server?.password ?? null,
+          // Credentials are intentionally never sent to the client — SSH
+          // execution always re-resolves them server-side by server_id.
+          server_password: null,
           server_auth_type: script.server?.auth_type ?? null,
-          server_ssh_key: script.server?.ssh_key ?? null,
-          server_ssh_key_passphrase: script.server?.ssh_key_passphrase ?? null,
+          server_ssh_key: null,
+          server_ssh_key_passphrase: null,
           server_ssh_port: script.server?.ssh_port ?? null,
           server_color: script.server?.color ?? null,
           is_vm,

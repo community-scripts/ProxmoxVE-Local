@@ -13,7 +13,7 @@ import { LXCSettingsModal } from "./LXCSettingsModal";
 import { StorageSelectionModal } from "./StorageSelectionModal";
 import { BackupWarningModal } from "./BackupWarningModal";
 import { CloneCountInputModal } from "./CloneCountInputModal";
-import { ModalPortal } from "./modal/ModalStackProvider";
+import { ModalPortal, useRegisterModal } from "./modal/ModalStackProvider";
 import type { Storage } from "~/server/services/storageService";
 import type { Server } from "~/types/server";
 import { useShell } from "./ShellContext";
@@ -112,6 +112,7 @@ export function InstalledScriptsTab() {
     containerType?: "lxc" | "vm";
     storage?: string;
     envVars?: Record<string, string>;
+    isBatchUpdate?: boolean;
   } | null>(null);
   const [openingShell, _setOpeningShellUnused] = useState<null>(null); // replaced by ShellContext — kept to avoid refactoring refs below
   const setOpeningShell = (
@@ -134,6 +135,14 @@ export function InstalledScriptsTab() {
   const [showStorageSelection, setShowStorageSelection] = useState(false);
   const [pendingUpdateScript, setPendingUpdateScript] =
     useState<InstalledScript | null>(null);
+  const backupPromptZIndex = useRegisterModal(showBackupPrompt, {
+    id: "backup-prompt-modal",
+    allowEscape: true,
+    onClose: () => {
+      setShowBackupPrompt(false);
+      setPendingUpdateScript(null);
+    },
+  });
   const [backupStorages, setBackupStorages] = useState<Storage[]>([]);
   const [isLoadingStorages, setIsLoadingStorages] = useState(false);
   const [showBackupWarning, setShowBackupWarning] = useState(false);
@@ -158,6 +167,10 @@ export function InstalledScriptsTab() {
   );
   const [batchUpdateIndex, setBatchUpdateIndex] = useState(0);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+  const [batchUpdateSummary, setBatchUpdateSummary] = useState<{
+    succeeded: { name: string; containerId: string }[];
+    failed: { name: string; containerId: string }[];
+  } | null>(null);
   const [editingScriptId, setEditingScriptId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<{
     script_name: string;
@@ -1048,11 +1061,31 @@ export function InstalledScriptsTab() {
         setBatchUpdateIndex(nextIndex);
         startBatchUpdateFor(batchUpdateQueue[nextIndex]!);
       } else {
-        // Batch complete
+        // Batch complete — refetch, then report which containers actually
+        // succeeded/failed instead of silently moving on either way.
         setIsBatchUpdating(false);
         setBatchUpdateQueue([]);
         setBatchUpdateIndex(0);
-        void refetchScripts();
+        void refetchScripts().then((result) => {
+          const freshScripts =
+            (result.data?.scripts as InstalledScript[] | undefined) ?? [];
+          const freshById = new Map(freshScripts.map((s) => [s.id, s]));
+          const succeeded: { name: string; containerId: string }[] = [];
+          const failed: { name: string; containerId: string }[] = [];
+          for (const queued of batchUpdateQueue) {
+            const fresh = freshById.get(queued.id);
+            const entry = {
+              name: queued.script_name,
+              containerId: queued.container_id ?? "?",
+            };
+            if (fresh?.status === "failed") {
+              failed.push(entry);
+            } else {
+              succeeded.push(entry);
+            }
+          }
+          setBatchUpdateSummary({ succeeded, failed });
+        });
       }
     }
   };
@@ -1068,6 +1101,7 @@ export function InstalledScriptsTab() {
       server,
       isBackupOnly: false,
       envVars: { PHS_SILENT: "1" },
+      isBatchUpdate: true,
     });
   };
 
@@ -1371,6 +1405,8 @@ export function InstalledScriptsTab() {
           : `Update CT ${updatingScript.containerId}`,
       containerId: updatingScript.containerId,
       containerType: updatingScript.containerType ?? "lxc",
+      startMinimized: updatingScript.isBatchUpdate,
+      autoCloseOnEnd: updatingScript.isBatchUpdate,
       terminal: {
         scriptPath,
         mode: updatingScript.server ? "ssh" : "local",
@@ -1393,6 +1429,12 @@ export function InstalledScriptsTab() {
             ? updatingScript.backupStorage
             : undefined,
         envVars: updatingScript.envVars,
+        // Only a plain update maps 1:1 onto this InstalledScript row — clone
+        // creates new rows, and backup-only doesn't touch this one's status.
+        installedScriptId:
+          !updatingScript.isBackupOnly && !updatingScript.isClone
+            ? updatingScript.id
+            : undefined,
       },
       onComplete: handleCloseUpdateTerminal,
     });
@@ -1582,6 +1624,40 @@ export function InstalledScriptsTab() {
   return (
     <div className="space-y-6">
       {/* Shell Terminal — now rendered as FloatingShell dialog (see ShellContext) */}
+
+      {batchUpdateSummary && (
+        <div
+          className={`rounded-lg border p-4 ${
+            batchUpdateSummary.failed.length > 0
+              ? "border-destructive/40 bg-destructive/10"
+              : "border-success/40 bg-success/10"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-foreground font-medium">
+                Batch update complete: {batchUpdateSummary.succeeded.length}{" "}
+                succeeded, {batchUpdateSummary.failed.length} failed
+              </p>
+              {batchUpdateSummary.failed.length > 0 && (
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Failed:{" "}
+                  {batchUpdateSummary.failed
+                    .map((f) => `${f.name} (CT ${f.containerId})`)
+                    .join(", ")}
+                </p>
+              )}
+            </div>
+            <Button
+              onClick={() => setBatchUpdateSummary(null)}
+              variant="outline"
+              size="sm"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Header with Stats */}
       <div className="bg-card border-border rounded-lg border p-6 shadow-sm">
@@ -2472,7 +2548,10 @@ export function InstalledScriptsTab() {
       {/* Backup Prompt Modal */}
       {showBackupPrompt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            style={{ zIndex: backupPromptZIndex }}
+          >
             <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
               <div className="border-border flex items-center justify-center border-b p-6">
                 <div className="flex items-center gap-3">

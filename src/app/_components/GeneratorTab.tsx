@@ -30,6 +30,7 @@ import type { Script } from "~/types/script";
 import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
 import { useShell } from "./ShellContext";
+import { useRegisterModal } from "./modal/ModalStackProvider";
 
 /* ── Step definitions ── */
 const CPU_STEPS = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -181,6 +182,11 @@ export function GeneratorTab() {
         : null,
     [downloadDialogSlug, scriptCardsData],
   );
+  const downloadDialogZIndex = useRegisterModal(!!downloadDialogSlug, {
+    id: "generator-download-dialog",
+    allowEscape: true,
+    onClose: () => setDownloadDialogSlug(null),
+  });
 
   // Script selection
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -1791,7 +1797,8 @@ export function GeneratorTab() {
         downloadDialogScript &&
         createPortal(
           <div
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            style={{ zIndex: downloadDialogZIndex }}
             onClick={() => setDownloadDialogSlug(null)}
           >
             <div

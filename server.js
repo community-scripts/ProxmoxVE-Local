@@ -38,6 +38,61 @@ const OUTPUT_BUFFER_MAX_LENGTH = 1000;
 // Delay (ms) between backup completion and update start.
 const BACKUP_UPDATE_DELAY_MS = 1000;
 
+// Higher-contrast whiptail/dialog color scheme (default NEWT_COLORS is a
+// dark-blue-on-blue scheme that's hard to read once dialogs are properly
+// centered/sized). Exported into the remote shell before running
+// scripts/updates so whiptail/dialog UIs are actually legible. NEWT_COLORS
+// entries must be separated by real newlines (bash $'...' interprets \n),
+// not literal backslash-n.
+const NEWT_COLORS_EXPORT = `export NEWT_COLORS=$'root=,blue\\nborder=black,lightgray\\nwindow=black,lightgray\\nshadow=black,black\\ntitle=blue,lightgray\\nbutton=black,cyan\\nactbutton=white,blue\\ncheckbox=black,lightgray\\nactcheckbox=lightgray,blue\\nentry=black,lightgray\\nlabel=black,lightgray\\nlistbox=black,lightgray\\nactlistbox=black,cyan\\ntextbox=black,lightgray\\nacttextbox=black,cyan\\nhelpline=white,blue\\nroottext=black,lightgray';`;
+
+// Proxmox VMIDs are always purely numeric (typically 100-999999999).
+const CONTAINER_ID_PATTERN = /^\d+$/;
+// Proxmox storage identifiers only contain alphanumerics, underscore, hyphen, dot.
+const STORAGE_ID_PATTERN = /^[a-zA-Z0-9_.-]+$/;
+// Conservative hostname pattern (labels of alphanumerics/hyphens, dot-separated).
+const HOSTNAME_PATTERN =
+  /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const MAX_CLONE_COUNT = 50;
+
+/**
+ * Validate the subset of a WebSocket "start" message that ends up interpolated
+ * directly into shell commands executed on the Proxmox host (pct/qm/vzdump).
+ * These values normally come from trusted UI dropdowns/DB records, but the
+ * WebSocket endpoint itself has no other request-shape enforcement, so a
+ * malformed or malicious client could otherwise inject arbitrary shell syntax.
+ * @param {WebSocketMessage} message
+ * @returns {string | null} an error message if invalid, otherwise null
+ */
+function validateExecutionParams(message) {
+  const { containerId, storage, backupStorage, hostnames, containerType, cloneCount } = message;
+
+  if (containerId !== undefined && !CONTAINER_ID_PATTERN.test(String(containerId))) {
+    return `Invalid containerId: ${containerId}`;
+  }
+  if (storage !== undefined && !STORAGE_ID_PATTERN.test(String(storage))) {
+    return `Invalid storage identifier: ${storage}`;
+  }
+  if (backupStorage !== undefined && !STORAGE_ID_PATTERN.test(String(backupStorage))) {
+    return `Invalid backup storage identifier: ${backupStorage}`;
+  }
+  if (containerType !== undefined && containerType !== 'lxc' && containerType !== 'vm') {
+    return `Invalid containerType: ${containerType}`;
+  }
+  if (cloneCount !== undefined) {
+    const n = Number(cloneCount);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_CLONE_COUNT) {
+      return `Invalid cloneCount: ${cloneCount}`;
+    }
+  }
+  if (hostnames !== undefined) {
+    if (!Array.isArray(hostnames) || !hostnames.every((h) => typeof h === 'string' && HOSTNAME_PATTERN.test(h))) {
+      return 'Invalid hostnames';
+    }
+  }
+  return null;
+}
+
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '::';
 const port = parseInt(process.env.PORT || '3000', 10);
@@ -152,6 +207,7 @@ function isWebSocketUpgradeAuthorized(request) {
  * @property {Record<string, string|number|boolean>} [envVars]
  * @property {number} [cols]
  * @property {number} [rows]
+ * @property {number} [installedScriptId]
  */
 
 class ScriptExecutionHandler {
@@ -219,8 +275,9 @@ class ScriptExecutionHandler {
       /Container\s*(\d+)\s*is\s*ready/i,
       /Container\s*(\d+)\s*started/i,
 
-      // Generic number patterns that might be container IDs (3-4 digits)
-      /(?:^|\s)(\d{3,4})(?:\s|$)/m,
+      // Deliberately no generic bare-number fallback here: a stray 3-4 digit
+      // number in unrelated output (port, percentage, byte count) would be
+      // misdetected as the container ID and could overwrite a correct one.
     ];
 
     // Try patterns on both original and cleaned output
@@ -262,8 +319,10 @@ class ScriptExecutionHandler {
       /https?:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)\//gi,
       // URLs with just IP and port (no protocol)
       /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)(?:\s|$)/gi,
-      // URLs with just IP (no protocol, no port)
-      /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\s|$)/gi,
+
+      // Deliberately no bare-IP-only fallback (no protocol, no port): a
+      // netmask, DNS resolver IP, or unrelated dotted-quad printed by the
+      // script would be misdetected as the web UI address.
     ];
 
     // Try patterns on both original and cleaned output
@@ -393,28 +452,42 @@ class ScriptExecutionHandler {
    * @param {WebSocketMessage} message
    */
   async handleMessage(ws, message) {
-    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows } = message;
+    const { action, scriptPath, executionId, input, mode, server, isUpdate, isShell, isBackup, isClone, executeInContainer, containerId, storage, backupStorage, cloneCount, hostnames, containerType, envVars, cols, rows, installedScriptId } = message;
 
     switch (action) {
-      case 'start':
+      case 'start': {
+        const validationError = validateExecutionParams(message);
+        if (validationError) {
+          this.sendMessage(ws, {
+            type: 'error',
+            data: validationError,
+            timestamp: Date.now()
+          });
+          break;
+        }
         if (scriptPath && executionId) {
           let serverToUse = server;
           if (serverToUse?.id) {
             serverToUse = await this.resolveServerForSSH(serverToUse) ?? serverToUse;
           }
           const resolved = serverToUse ?? server;
+          // Fall back to reasonably large defaults if the client didn't report
+          // its actual terminal size — better than the old hardcoded 80x24/120x30
+          // which made whiptail/ncurses dialogs draw off-center in real usage.
+          const effectiveCols = typeof cols === 'number' && cols > 0 ? cols : 220;
+          const effectiveRows = typeof rows === 'number' && rows > 0 ? rows : 50;
           if (isClone && containerId && storage && server && cloneCount && hostnames && containerType) {
-            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */(resolved), containerType, cloneCount, hostnames);
+            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */(resolved), containerType, cloneCount, hostnames, effectiveCols, effectiveRows);
           } else if (isBackup && containerId && storage) {
-            await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
+            await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved, effectiveCols, effectiveRows);
           } else if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars);
+            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars, installedScriptId, effectiveCols, effectiveRows);
           } else if (isShell && containerId) {
-            await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
+            await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType, effectiveCols, effectiveRows);
           } else if (executeInContainer && containerId) {
-            await this.startInContainerScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, containerId, containerType ?? 'lxc');
+            await this.startInContainerScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, containerId, containerType ?? 'lxc', effectiveCols, effectiveRows);
           } else {
-            await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars);
+            await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, effectiveCols, effectiveRows);
           }
         } else {
           this.sendMessage(ws, {
@@ -424,6 +497,7 @@ class ScriptExecutionHandler {
           });
         }
         break;
+      }
 
       case 'stop':
         if (executionId) {
@@ -460,7 +534,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo|null} server
    * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}) {
+  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, cols = 220, rows = 50) {
     /** @type {number|null} */
     let installationId = null;
 
@@ -489,7 +563,7 @@ class ScriptExecutionHandler {
 
       // Handle SSH execution
       if (mode === 'ssh' && server) {
-        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars);
+        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars, cols, rows);
         return;
       }
 
@@ -538,8 +612,8 @@ class ScriptExecutionHandler {
       const childProcess = ptySpawn('bash', [resolvedPath], {
         cwd: scriptsDir,
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols,
+        rows,
         env: envWithVars
       });
 
@@ -652,12 +726,21 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {'lxc'|'vm'} containerType
    */
-  async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc') {
+  async startInContainerScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, containerId, containerType = 'lxc', cols = 220, rows = 50) {
     /** @type {number|null} */
     let installationId = null;
     try {
       if (this.activeExecutions.has(executionId)) {
         this.sendMessage(ws, { type: 'error', data: 'Script execution already running', timestamp: Date.now() });
+        return;
+      }
+
+      // Guard against path traversal — every script must resolve inside the
+      // scripts directory, regardless of execution mode (local or SSH).
+      const guardScriptsDir = join(process.cwd(), 'scripts');
+      const resolvedScriptPath = resolve(scriptPath);
+      if (!resolvedScriptPath.startsWith(resolve(guardScriptsDir))) {
+        this.sendMessage(ws, { type: 'error', data: 'Script path outside scripts directory', timestamp: Date.now() });
         return;
       }
 
@@ -667,9 +750,10 @@ class ScriptExecutionHandler {
 
       // Build env-var export prefix
       const envExports = Object.entries(envVars ?? {})
+        .filter(([k]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))
         .map(([k, v]) => `export ${k}=${JSON.stringify(String(v))}`)
         .join('; ');
-      const envPrefix = envExports ? `${envExports}; ` : '';
+      const envPrefix = `${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}`;
 
       if (mode === 'ssh' && server) {
         // Transfer scripts folder to PVE host, then exec inside container
@@ -740,7 +824,9 @@ class ScriptExecutionHandler {
             }
             this.sendMessage(ws, { type: 'end', data: `Finished with code: ${exitCode}`, timestamp: Date.now() });
             this.activeExecutions.delete(executionId);
-          }
+          },
+          cols,
+          rows
         );
 
         // Attach the real PTY process so keyboard input can reach interactive prompts
@@ -769,8 +855,8 @@ class ScriptExecutionHandler {
       const childProcess = ptySpawn(cmd, args, {
         cwd: scriptsDir,
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols,
+        rows,
         env: { ...process.env, TERM: 'xterm-256color' }
       });
 
@@ -810,7 +896,7 @@ class ScriptExecutionHandler {
    * @param {number|null} installationId
    * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null, envVars = {}) {
+  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null, envVars = {}, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     // Send start message
@@ -900,7 +986,9 @@ class ScriptExecutionHandler {
           // Clean up
           this.activeExecutions.delete(executionId);
         },
-        envVars
+        envVars,
+        cols,
+        rows
       ));
 
       // Store the execution with installation ID
@@ -931,8 +1019,17 @@ class ScriptExecutionHandler {
   stopScriptExecution(executionId) {
     const execution = this.activeExecutions.get(executionId);
     if (execution) {
-      execution.process.kill('SIGTERM');
+      execution.process?.kill('SIGTERM');
       this.activeExecutions.delete(executionId);
+
+      if (execution.installationId) {
+        this.updateInstallationRecord(execution.installationId, {
+          status: 'failed',
+          output_log: execution.outputBuffer
+        }).catch((error) => {
+          console.error('Error updating installation record after manual stop:', error);
+        });
+      }
 
       this.sendMessage(execution.ws, {
         type: 'end',
@@ -948,7 +1045,7 @@ class ScriptExecutionHandler {
    */
   sendInputToProcess(executionId, input) {
     const execution = this.activeExecutions.get(executionId);
-    if (execution && execution.process.write) {
+    if (execution?.process?.write) {
       execution.process.write(input);
     }
   }
@@ -1009,7 +1106,7 @@ class ScriptExecutionHandler {
    * @param {string} mode
    * @param {ServerInfo|null} server
    */
-  async startBackupExecution(ws, containerId, executionId, storage, mode = 'local', server = null) {
+  async startBackupExecution(ws, containerId, executionId, storage, mode = 'local', server = null, cols = 220, rows = 50) {
     try {
       // Send start message
       this.sendMessage(ws, {
@@ -1019,7 +1116,7 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHBackupExecution(ws, containerId, executionId, storage, server);
+        await this.startSSHBackupExecution(ws, containerId, executionId, storage, server, undefined, cols, rows);
       } else {
         this.sendMessage(ws, {
           type: 'error',
@@ -1045,7 +1142,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo} server
    * @param {Function} [onComplete] - Optional callback when backup completes
    */
-  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined) {
+  startSSHBackupExecution(ws, containerId, executionId, storage, server, onComplete = undefined, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     return new Promise((resolve, reject) => {
@@ -1116,7 +1213,9 @@ class ScriptExecutionHandler {
             }
 
             this.activeExecutions.delete(executionId);
-          }
+          },
+          cols,
+          rows
         ).then((execution) => {
           // Store the execution
           this.activeExecutions.set(executionId, {
@@ -1163,7 +1262,7 @@ class ScriptExecutionHandler {
    * @param {number} cloneCount
    * @param {string[]} hostnames
    */
-  async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames) {
+  async startSSHCloneExecution(ws, containerId, executionId, storage, server, containerType, cloneCount, hostnames, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     this.sendMessage(ws, {
@@ -1576,8 +1675,9 @@ class ScriptExecutionHandler {
    * @param {string} mode
    * @param {ServerInfo|undefined} server
    * @param {string} [backupStorage] - Optional storage to backup to before update
+   * @param {number} [installedScriptId] - InstalledScript row to persist the final status/output to
    */
-  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}) {
+  async startUpdateExecution(ws, containerId, executionId, mode = 'local', server = undefined, backupStorage = undefined, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     try {
       // If backup storage is provided, run backup first
       if (backupStorage && mode === 'ssh' && server) {
@@ -1597,7 +1697,10 @@ class ScriptExecutionHandler {
             containerId,
             backupExecutionId,
             backupStorage,
-            server
+            server,
+            undefined,
+            cols,
+            rows
           );
 
           // Backup completed (successfully or not)
@@ -1638,9 +1741,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars);
+        await this.startSSHUpdateExecution(ws, containerId, executionId, server, envVars, installedScriptId, cols, rows);
       } else {
-        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars);
+        await this.startLocalUpdateExecution(ws, containerId, executionId, envVars, installedScriptId, cols, rows);
       }
 
     } catch (error) {
@@ -1657,15 +1760,17 @@ class ScriptExecutionHandler {
    * @param {ExtendedWebSocket} ws
    * @param {string} containerId
    * @param {string} executionId
+   * @param {Object} [envVars]
+   * @param {number} [installedScriptId]
    */
-  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}) {
+  async startLocalUpdateExecution(ws, containerId, executionId, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     const { spawn } = await import('node-pty');
 
     // Create a shell process that will run pct enter and then update
     const childProcess = spawn('bash', ['-c', `pct enter ${containerId}`], {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols,
+      rows,
       cwd: process.cwd(),
       env: process.env
     });
@@ -1673,11 +1778,15 @@ class ScriptExecutionHandler {
     // Store the execution
     this.activeExecutions.set(executionId, {
       process: childProcess,
-      ws
+      ws,
+      installationId: installedScriptId ?? null,
+      outputBuffer: ''
     });
 
     // Handle pty data
     childProcess.onData((data) => {
+      const execution = this.activeExecutions.get(executionId);
+      if (execution) execution.outputBuffer += data.toString();
       this.sendMessage(ws, {
         type: 'output',
         data: data.toString(),
@@ -1687,7 +1796,7 @@ class ScriptExecutionHandler {
 
     // Build env export commands (e.g. for PHS_SILENT=1)
     const envExports = Object.entries(envVars)
-      .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+      .filter(([key]) => (key.startsWith('PHS_') || key.startsWith('var_')) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
       .map(([key, value]) => {
         const safeValue = String(value)
           .replace(/\\/g, '\\\\')
@@ -1698,15 +1807,19 @@ class ScriptExecutionHandler {
 
     // Send the update command after a delay to ensure we're in the container
     setTimeout(() => {
-      if (envExports) {
-        childProcess.write(`${envExports}; update\n`);
-      } else {
-        childProcess.write('update\n');
-      }
+      childProcess.write(`${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}update\n`);
     }, 4000);
 
     // Handle process exit
-    childProcess.onExit((e) => {
+    childProcess.onExit(async (e) => {
+      const execution = this.activeExecutions.get(executionId);
+      if (installedScriptId && execution) {
+        await this.updateInstallationRecord(installedScriptId, {
+          status: e.exitCode === 0 ? 'success' : 'failed',
+          output_log: execution.outputBuffer
+        });
+      }
+
       this.sendMessage(ws, {
         type: 'end',
         data: `Update completed with exit code: ${e.exitCode}`,
@@ -1723,8 +1836,10 @@ class ScriptExecutionHandler {
    * @param {string} containerId
    * @param {string} executionId
    * @param {ServerInfo} server
+   * @param {Object} [envVars]
+   * @param {number} [installedScriptId]
    */
-  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}) {
+  async startSSHUpdateExecution(ws, containerId, executionId, server, envVars = {}, installedScriptId = undefined, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     try {
@@ -1733,6 +1848,8 @@ class ScriptExecutionHandler {
         `pct enter ${containerId}`,
         /** @param {string} data */
         (data) => {
+          const activeExec = this.activeExecutions.get(executionId);
+          if (activeExec) activeExec.outputBuffer += data;
           this.sendMessage(ws, {
             type: 'output',
             data: data,
@@ -1748,7 +1865,15 @@ class ScriptExecutionHandler {
           });
         },
         /** @param {number} code */
-        (code) => {
+        async (code) => {
+          const activeExec = this.activeExecutions.get(executionId);
+          if (installedScriptId && activeExec) {
+            await this.updateInstallationRecord(installedScriptId, {
+              status: code === 0 ? 'success' : 'failed',
+              output_log: activeExec.outputBuffer
+            });
+          }
+
           this.sendMessage(ws, {
             type: 'end',
             data: `Update completed with exit code: ${code}`,
@@ -1756,18 +1881,22 @@ class ScriptExecutionHandler {
           });
 
           this.activeExecutions.delete(executionId);
-        }
+        },
+        cols,
+        rows
       );
 
       // Store the execution
       this.activeExecutions.set(executionId, {
         process: /** @type {any} */ (execution).process,
-        ws
+        ws,
+        installationId: installedScriptId ?? null,
+        outputBuffer: ''
       });
 
       // Build env export commands (e.g. for PHS_SILENT=1)
       const envExports = Object.entries(envVars)
-        .filter(([key]) => key.startsWith('PHS_') || key.startsWith('var_'))
+        .filter(([key]) => (key.startsWith('PHS_') || key.startsWith('var_')) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
         .map(([key, value]) => {
           const safeValue = String(value)
             .replace(/\\/g, '\\\\')
@@ -1778,11 +1907,7 @@ class ScriptExecutionHandler {
 
       // Send the update command after a delay to ensure we're in the container
       setTimeout(() => {
-        if (envExports) {
-          /** @type {any} */ (execution).process.write(`${envExports}; update\n`);
-        } else {
-          /** @type {any} */ (execution).process.write('update\n');
-        }
+        /** @type {any} */ (execution).process.write(`${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}update\n`);
       }, 4000);
 
     } catch (error) {
@@ -1803,7 +1928,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo|null} server
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null, containerType = 'lxc') {
+  async startShellExecution(ws, containerId, executionId, mode = 'local', server = null, containerType = 'lxc', cols = 220, rows = 50) {
     try {
       const typeLabel = containerType === 'vm' ? 'VM' : 'container';
       this.sendMessage(ws, {
@@ -1813,9 +1938,9 @@ class ScriptExecutionHandler {
       });
 
       if (mode === 'ssh' && server) {
-        await this.startSSHShellExecution(ws, containerId, executionId, server, containerType);
+        await this.startSSHShellExecution(ws, containerId, executionId, server, containerType, cols, rows);
       } else {
-        await this.startLocalShellExecution(ws, containerId, executionId, containerType);
+        await this.startLocalShellExecution(ws, containerId, executionId, containerType, cols, rows);
       }
 
     } catch (error) {
@@ -1834,13 +1959,13 @@ class ScriptExecutionHandler {
    * @param {string} executionId
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startLocalShellExecution(ws, containerId, executionId, containerType = 'lxc') {
+  async startLocalShellExecution(ws, containerId, executionId, containerType = 'lxc', cols = 220, rows = 50) {
     const { spawn } = await import('node-pty');
     const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
     const childProcess = spawn('bash', ['-c', shellCommand], {
       name: 'xterm-color',
-      cols: 80,
-      rows: 24,
+      cols,
+      rows,
       cwd: process.cwd(),
       env: process.env
     });
@@ -1860,7 +1985,13 @@ class ScriptExecutionHandler {
       });
     });
 
-    // Note: No automatic command is sent - user can type commands interactively
+    // Improve readability of any whiptail/dialog UI the user runs manually
+    // (LXC only — a VM's serial console may not have a shell ready yet).
+    if (containerType === 'lxc') {
+      setTimeout(() => {
+        childProcess.write(`${NEWT_COLORS_EXPORT}\n`);
+      }, 2000);
+    }
 
     // Handle process exit
     childProcess.onExit((e) => {
@@ -1882,7 +2013,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo} server
    * @param {'lxc'|'vm'} [containerType='lxc']
    */
-  async startSSHShellExecution(ws, containerId, executionId, server, containerType = 'lxc') {
+  async startSSHShellExecution(ws, containerId, executionId, server, containerType = 'lxc', cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
     const shellCommand = containerType === 'vm' ? `qm terminal ${containerId}` : `pct enter ${containerId}`;
     try {
@@ -1914,7 +2045,9 @@ class ScriptExecutionHandler {
           });
 
           this.activeExecutions.delete(executionId);
-        }
+        },
+        cols,
+        rows
       );
 
       // Store the execution
@@ -1923,7 +2056,13 @@ class ScriptExecutionHandler {
         ws
       });
 
-      // Note: No automatic command is sent - user can type commands interactively
+      // Improve readability of any whiptail/dialog UI the user runs manually
+      // (LXC only — a VM's serial console may not have a shell ready yet).
+      if (containerType === 'lxc') {
+        setTimeout(() => {
+          /** @type {any} */ (execution).process.write(`${NEWT_COLORS_EXPORT}\n`);
+        }, 2000);
+      }
 
     } catch (error) {
       this.sendMessage(ws, {

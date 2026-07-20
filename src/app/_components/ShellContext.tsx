@@ -40,9 +40,16 @@ export interface ShellSession {
     hostnames?: string[];
     containerType?: "lxc" | "vm";
     envVars?: Record<string, string | number | boolean>;
+    installedScriptId?: number;
   };
   /** Callback fired when the terminal closes (e.g. to trigger re-discovery). */
   onComplete?: () => void;
+  /** Open this session minimized instead of as a focused floating window
+   *  (e.g. for unattended batch tasks that shouldn't demand attention). */
+  startMinimized?: boolean;
+  /** Automatically close the window once the script reports completion,
+   *  instead of requiring the user to close it manually. */
+  autoCloseOnEnd?: boolean;
 }
 
 export interface ShellEntry {
@@ -82,7 +89,10 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         );
       }
       const id = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      return [...prev, { id, session: s, state: "open" }];
+      return [
+        ...prev,
+        { id, session: s, state: s.startMinimized ? "minimized" : "open" },
+      ];
     });
   }, []);
 

@@ -30,6 +30,7 @@ import { api } from "~/trpc/react";
 import { useAuth } from "./_components/AuthProvider";
 import { ShellProvider } from "./_components/ShellContext";
 import { FloatingShell } from "./_components/FloatingShell";
+import { ToastProvider } from "./_components/ToastContext";
 import type { ScriptCard } from "~/types/script";
 
 // Lazy load heavy tab components — only the active tab is loaded
@@ -443,9 +444,11 @@ function Home() {
 
 export default function HomeWithShell() {
   return (
-    <ShellProvider>
-      <Home />
-      <FloatingShell />
-    </ShellProvider>
+    <ToastProvider>
+      <ShellProvider>
+        <Home />
+        <FloatingShell />
+      </ShellProvider>
+    </ToastProvider>
   );
 }

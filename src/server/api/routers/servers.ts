@@ -3,13 +3,26 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getDatabase } from "~/server/database-prisma";
 import type { Server } from "~/types/server";
 
+/** Strip SSH/password secrets before a server record leaves the backend. */
+function redactServer<
+  T extends {
+    password?: string | null;
+    ssh_key?: string | null;
+    ssh_key_passphrase?: string | null;
+    ssh_key_path?: string | null;
+  },
+>(server: T) {
+  const { password: _password, ssh_key: _sshKey, ssh_key_passphrase: _sshKeyPassphrase, ssh_key_path: _sshKeyPath, ...safeServer } = server;
+  return safeServer;
+}
+
 export const serversRouter = createTRPCRouter({
   getAllServers: publicProcedure
     .query(async () => {
       try {
         const db = getDatabase();
         const servers = await db.getAllServers();
-        return { success: true, servers };
+        return { success: true, servers: servers.map(redactServer) };
       } catch (error) {
         console.error('Error fetching servers:', error);
         return {
@@ -29,7 +42,7 @@ export const serversRouter = createTRPCRouter({
         if (!server) {
           return { success: false, error: 'Server not found', server: null };
         }
-        return { success: true, server };
+        return { success: true, server: redactServer(server) };
       } catch (error) {
         console.error('Error fetching server:', error);
         return {

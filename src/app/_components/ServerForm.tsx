@@ -417,6 +417,18 @@ export function ServerForm({
               </div>
             </div>
           )}
+
+          {!colorCodingEnabled && (
+            <div>
+              <label className="text-muted-foreground mb-1 block text-sm font-medium">
+                Server Color
+              </label>
+              <p className="text-muted-foreground text-xs">
+                Disabled — enable it under Settings → General → &quot;Server
+                Color Coding&quot; to assign a color to this server.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Password Authentication */}
