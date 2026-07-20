@@ -267,8 +267,9 @@ class ScriptExecutionHandler {
       /Container\s*(\d+)\s*is\s*ready/i,
       /Container\s*(\d+)\s*started/i,
 
-      // Generic number patterns that might be container IDs (3-4 digits)
-      /(?:^|\s)(\d{3,4})(?:\s|$)/m,
+      // Deliberately no generic bare-number fallback here: a stray 3-4 digit
+      // number in unrelated output (port, percentage, byte count) would be
+      // misdetected as the container ID and could overwrite a correct one.
     ];
 
     // Try patterns on both original and cleaned output
@@ -310,8 +311,10 @@ class ScriptExecutionHandler {
       /https?:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)\//gi,
       // URLs with just IP and port (no protocol)
       /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)(?:\s|$)/gi,
-      // URLs with just IP (no protocol, no port)
-      /(?:^|\s)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\s|$)/gi,
+
+      // Deliberately no bare-IP-only fallback (no protocol, no port): a
+      // netmask, DNS resolver IP, or unrelated dotted-quad printed by the
+      // script would be misdetected as the web UI address.
     ];
 
     // Try patterns on both original and cleaned output
