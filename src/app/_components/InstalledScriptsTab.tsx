@@ -13,7 +13,7 @@ import { LXCSettingsModal } from "./LXCSettingsModal";
 import { StorageSelectionModal } from "./StorageSelectionModal";
 import { BackupWarningModal } from "./BackupWarningModal";
 import { CloneCountInputModal } from "./CloneCountInputModal";
-import { ModalPortal } from "./modal/ModalStackProvider";
+import { ModalPortal, useRegisterModal } from "./modal/ModalStackProvider";
 import type { Storage } from "~/server/services/storageService";
 import type { Server } from "~/types/server";
 import { useShell } from "./ShellContext";
@@ -135,6 +135,14 @@ export function InstalledScriptsTab() {
   const [showStorageSelection, setShowStorageSelection] = useState(false);
   const [pendingUpdateScript, setPendingUpdateScript] =
     useState<InstalledScript | null>(null);
+  const backupPromptZIndex = useRegisterModal(showBackupPrompt, {
+    id: "backup-prompt-modal",
+    allowEscape: true,
+    onClose: () => {
+      setShowBackupPrompt(false);
+      setPendingUpdateScript(null);
+    },
+  });
   const [backupStorages, setBackupStorages] = useState<Storage[]>([]);
   const [isLoadingStorages, setIsLoadingStorages] = useState(false);
   const [showBackupWarning, setShowBackupWarning] = useState(false);
@@ -2540,7 +2548,10 @@ export function InstalledScriptsTab() {
       {/* Backup Prompt Modal */}
       {showBackupPrompt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            style={{ zIndex: backupPromptZIndex }}
+          >
             <div className="bg-card border-border w-full max-w-md rounded-lg border shadow-xl">
               <div className="border-border flex items-center justify-center border-b p-6">
                 <div className="flex items-center gap-3">

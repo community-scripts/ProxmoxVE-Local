@@ -26,6 +26,7 @@ import {
 import { ConfirmationModal } from "./ConfirmationModal";
 import { LoadingModal } from "./LoadingModal";
 import { useShell } from "./ShellContext";
+import { useRegisterModal } from "./modal/ModalStackProvider";
 import type { Server as ServerType } from "~/types/server";
 
 interface Backup {
@@ -75,6 +76,11 @@ export function BackupsTab() {
     containerIds: string[]; // multi-select
   } | null>(null);
   const [selectedStorage, setSelectedStorage] = useState("");
+  const createDialogZIndex = useRegisterModal(!!createDialog, {
+    id: "backups-create-dialog",
+    allowEscape: true,
+    onClose: () => setCreateDialog(null),
+  });
 
   const {
     data: backupsData,
@@ -730,7 +736,10 @@ export function BackupsTab() {
                   : "Select Containers";
 
           return createPortal(
-            <div className="fixed inset-0 z-[10000] overflow-y-auto bg-black/45 backdrop-blur-sm">
+            <div
+              className="fixed inset-0 overflow-y-auto bg-black/45 backdrop-blur-sm"
+              style={{ zIndex: createDialogZIndex }}
+            >
               <div className="flex min-h-full items-start justify-center p-4 pt-12 pb-8">
                 <div className="bg-card border-border w-full max-w-3xl rounded-2xl border shadow-2xl">
                   {/* Header */}
