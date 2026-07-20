@@ -463,18 +463,23 @@ class ScriptExecutionHandler {
             serverToUse = await this.resolveServerForSSH(serverToUse) ?? serverToUse;
           }
           const resolved = serverToUse ?? server;
+          // Fall back to reasonably large defaults if the client didn't report
+          // its actual terminal size — better than the old hardcoded 80x24/120x30
+          // which made whiptail/ncurses dialogs draw off-center in real usage.
+          const effectiveCols = typeof cols === 'number' && cols > 0 ? cols : 220;
+          const effectiveRows = typeof rows === 'number' && rows > 0 ? rows : 50;
           if (isClone && containerId && storage && server && cloneCount && hostnames && containerType) {
-            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */(resolved), containerType, cloneCount, hostnames);
+            await this.startSSHCloneExecution(ws, containerId, executionId, storage, /** @type {ServerInfo} */(resolved), containerType, cloneCount, hostnames, effectiveCols, effectiveRows);
           } else if (isBackup && containerId && storage) {
-            await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved);
+            await this.startBackupExecution(ws, containerId, executionId, storage, mode, resolved, effectiveCols, effectiveRows);
           } else if (isUpdate && containerId) {
-            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars, installedScriptId);
+            await this.startUpdateExecution(ws, containerId, executionId, mode, resolved, backupStorage, envVars, installedScriptId, effectiveCols, effectiveRows);
           } else if (isShell && containerId) {
-            await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType);
+            await this.startShellExecution(ws, containerId, executionId, mode, resolved, containerType, effectiveCols, effectiveRows);
           } else if (executeInContainer && containerId) {
-            await this.startInContainerScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, containerId, containerType ?? 'lxc');
+            await this.startInContainerScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, containerId, containerType ?? 'lxc', effectiveCols, effectiveRows);
           } else {
-            await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars);
+            await this.startScriptExecution(ws, scriptPath, executionId, mode, resolved, envVars, effectiveCols, effectiveRows);
           }
         } else {
           this.sendMessage(ws, {
@@ -521,7 +526,7 @@ class ScriptExecutionHandler {
    * @param {ServerInfo|null} server
    * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}) {
+  async startScriptExecution(ws, scriptPath, executionId, mode = 'local', server = null, envVars = {}, cols = 220, rows = 50) {
     /** @type {number|null} */
     let installationId = null;
 
@@ -550,7 +555,7 @@ class ScriptExecutionHandler {
 
       // Handle SSH execution
       if (mode === 'ssh' && server) {
-        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars);
+        await this.startSSHScriptExecution(ws, scriptPath, executionId, server, installationId, envVars, cols, rows);
         return;
       }
 
@@ -599,8 +604,8 @@ class ScriptExecutionHandler {
       const childProcess = ptySpawn('bash', [resolvedPath], {
         cwd: scriptsDir,
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols,
+        rows,
         env: envWithVars
       });
 
@@ -881,7 +886,7 @@ class ScriptExecutionHandler {
    * @param {number|null} installationId
    * @param {Object} [envVars] - Optional environment variables to pass to the script
    */
-  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null, envVars = {}) {
+  async startSSHScriptExecution(ws, scriptPath, executionId, server, installationId = null, envVars = {}, cols = 220, rows = 50) {
     const sshService = getSSHExecutionService();
 
     // Send start message

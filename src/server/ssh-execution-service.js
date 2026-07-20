@@ -295,9 +295,11 @@ class SSHExecutionService {
    * @param {Function} onData - Callback for data output
    * @param {Function} onError - Callback for errors
    * @param {Function} onExit - Callback for process exit
+   * @param {number} [cols] - Terminal columns (should match the browser's actual xterm size)
+   * @param {number} [rows] - Terminal rows (should match the browser's actual xterm size)
    * @returns {Promise<Object>} Process information
    */
-  async executeCommand(server, command, onData, onError, onExit) {
+  async executeCommand(server, command, onData, onError, onExit, cols = 120, rows = 30) {
     return new Promise((resolve, reject) => {
       try {
         // Build SSH command based on authentication type
@@ -309,8 +311,8 @@ class SSHExecutionService {
         // Use ptySpawn for proper terminal emulation and color support
         const sshCommand = ptySpawn(sshCommandName, args, {
           name: 'xterm-color',
-          cols: 120,
-          rows: 30,
+          cols,
+          rows,
           cwd: process.cwd(),
           env: process.env
         });

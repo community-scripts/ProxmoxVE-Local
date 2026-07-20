@@ -7,6 +7,7 @@ import { ServerList } from "./ServerList";
 import { Button } from "./ui/button";
 import { ContextualHelpIcon } from "./ContextualHelpIcon";
 import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
+import { useToast } from "./ToastContext";
 import { X } from "lucide-react";
 
 interface SettingsModalProps {
@@ -23,6 +24,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -62,12 +64,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create server");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create server");
       }
 
       await fetchServers();
+      toast(`Server "${serverData.name}" added successfully`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create server");
+      const message =
+        err instanceof Error ? err.message : "Failed to create server";
+      setError(message);
+      toast(message, "error");
     }
   };
 
@@ -85,28 +92,39 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update server");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to update server");
       }
 
       await fetchServers();
+      toast(`Server "${serverData.name}" updated successfully`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update server");
+      const message =
+        err instanceof Error ? err.message : "Failed to update server";
+      setError(message);
+      toast(message, "error");
     }
   };
 
   const handleDeleteServer = async (id: number) => {
+    const serverName = servers.find((s) => s.id === id)?.name ?? "Server";
     try {
       const response = await fetch(`/api/servers/${id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete server");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to delete server");
       }
 
       await fetchServers();
+      toast(`"${serverName}" deleted`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete server");
+      const message =
+        err instanceof Error ? err.message : "Failed to delete server";
+      setError(message);
+      toast(message, "error");
     }
   };
 
