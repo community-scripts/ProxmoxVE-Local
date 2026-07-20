@@ -4069,7 +4069,7 @@ build_container() {
 		# install.func has `source $(dirname BASH_SOURCE)/core.func` which
 		# resolves to /dev/core.func when sourced from stdin — this avoids that.
 		local _core_file="${SCRIPT_DIR}/core.func"
-		local _err_file="${SCRIPT_DIR}/error-handler.func"
+		local _err_file="${SCRIPT_DIR}/error_handler.func"
 		local _combined=""
 		[[ -f "$_core_file" ]] && _combined+="$(cat "$_core_file")"$'\n'
 		[[ -f "$_err_file" ]] && _combined+="$(cat "$_err_file")"$'\n'
