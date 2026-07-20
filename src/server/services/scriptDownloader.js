@@ -223,6 +223,9 @@ export class ScriptDownloaderService {
       await this.ensureDirectoryExists(join(this.scriptsDirectory, 'tools'));
       await this.ensureDirectoryExists(join(this.scriptsDirectory, 'vm'));
 
+      /** @type {string[]} */
+      const methodErrors = [];
+
       if (script.install_methods?.length) {
         for (const method of script.install_methods) {
           const scriptPath = this.resolveScriptPath(script, method);
@@ -230,60 +233,69 @@ export class ScriptDownloaderService {
             const fileName = scriptPath.split('/').pop();
 
             if (fileName) {
-              console.log(`Downloading script file: ${scriptPath} from ${repoUrl}`);
-              const content = await this.downloadFileFromRepo(repoUrl, scriptPath, branch);
+              try {
+                console.log(`Downloading script file: ${scriptPath} from ${repoUrl}`);
+                const content = await this.downloadFileFromRepo(repoUrl, scriptPath, branch);
 
-              // Determine target directory based on script path
-              let targetDir;
-              let finalTargetDir;
-              let filePath;
+                // Determine target directory based on script path
+                let targetDir;
+                let finalTargetDir;
+                let filePath;
 
-              if (scriptPath.startsWith('ct/')) {
-                targetDir = 'ct';
-                finalTargetDir = targetDir;
-                // Validate and sanitize finalTargetDir
-                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
-                // Modify the content for CT scripts
-                const modifiedContent = this.modifyScriptContent(content);
-                filePath = join(this.scriptsDirectory, targetDir, fileName);
-                await writeFile(filePath, modifiedContent, 'utf-8');
-              } else if (scriptPath.startsWith('tools/')) {
-                targetDir = 'tools';
-                // Preserve subdirectory structure for tools scripts
-                const subPath = scriptPath.replace('tools/', '');
-                const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
-                finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-                // Validate and sanitize finalTargetDir
-                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
-                // Ensure the subdirectory exists
-                await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
-                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
-                await writeFile(filePath, content, 'utf-8');
-              } else if (scriptPath.startsWith('vm/')) {
-                targetDir = 'vm';
-                // Preserve subdirectory structure for VM scripts
-                const subPath = scriptPath.replace('vm/', '');
-                const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
-                finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
-                // Validate and sanitize finalTargetDir
-                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
-                // Ensure the subdirectory exists
-                await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
-                filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
-                await writeFile(filePath, content, 'utf-8');
-              } else {
-                // Handle other script types (fallback to ct directory)
-                targetDir = 'ct';
-                finalTargetDir = targetDir;
-                // Validate and sanitize finalTargetDir
-                finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
-                const modifiedContent = this.modifyScriptContent(content);
-                filePath = join(this.scriptsDirectory, targetDir, fileName);
-                await writeFile(filePath, modifiedContent, 'utf-8');
+                if (scriptPath.startsWith('ct/')) {
+                  targetDir = 'ct';
+                  finalTargetDir = targetDir;
+                  // Validate and sanitize finalTargetDir
+                  finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
+                  // Modify the content for CT scripts
+                  const modifiedContent = this.modifyScriptContent(content);
+                  filePath = join(this.scriptsDirectory, targetDir, fileName);
+                  await writeFile(filePath, modifiedContent, 'utf-8');
+                } else if (scriptPath.startsWith('tools/')) {
+                  targetDir = 'tools';
+                  // Preserve subdirectory structure for tools scripts
+                  const subPath = scriptPath.replace('tools/', '');
+                  const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+                  finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                  // Validate and sanitize finalTargetDir
+                  finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
+                  // Ensure the subdirectory exists
+                  await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+                  filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
+                  await writeFile(filePath, content, 'utf-8');
+                } else if (scriptPath.startsWith('vm/')) {
+                  targetDir = 'vm';
+                  // Preserve subdirectory structure for VM scripts
+                  const subPath = scriptPath.replace('vm/', '');
+                  const subDir = subPath.includes('/') ? subPath.substring(0, subPath.lastIndexOf('/')) : '';
+                  finalTargetDir = subDir ? join(targetDir, subDir) : targetDir;
+                  // Validate and sanitize finalTargetDir
+                  finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
+                  // Ensure the subdirectory exists
+                  await this.ensureDirectoryExists(join(this.scriptsDirectory, finalTargetDir));
+                  filePath = join(this.scriptsDirectory, finalTargetDir, fileName);
+                  await writeFile(filePath, content, 'utf-8');
+                } else {
+                  // Handle other script types (fallback to ct directory)
+                  targetDir = 'ct';
+                  finalTargetDir = targetDir;
+                  // Validate and sanitize finalTargetDir
+                  finalTargetDir = this.validateTargetDir(targetDir, finalTargetDir);
+                  const modifiedContent = this.modifyScriptContent(content);
+                  filePath = join(this.scriptsDirectory, targetDir, fileName);
+                  await writeFile(filePath, modifiedContent, 'utf-8');
+                }
+
+                files.push(`${finalTargetDir}/${fileName}`);
+                console.log(`Successfully downloaded: ${finalTargetDir}/${fileName}`);
+              } catch (methodError) {
+                // Don't let one missing install-method file (e.g. a 404 for an
+                // alpine/default variant) abort the whole script download —
+                // record it and keep trying the remaining install methods.
+                const msg = methodError instanceof Error ? methodError.message : String(methodError);
+                console.error(`Failed to download script file ${scriptPath}: ${msg}`);
+                methodErrors.push(`${scriptPath}: ${msg}`);
               }
-
-              files.push(`${finalTargetDir}/${fileName}`);
-              console.log(`Successfully downloaded: ${finalTargetDir}/${fileName}`);
             }
           }
         }
@@ -384,7 +396,10 @@ export class ScriptDownloaderService {
         message: files.length > 0
           ? `Successfully loaded ${files.length} script(s) for ${script.name}`
           : `No script files found in repository for ${script.name}. The script may not be available yet.`,
-        files
+        files,
+        ...(files.length === 0 && methodErrors.length > 0
+          ? { error: `No script files could be downloaded for ${script.name}: ${methodErrors.join('; ')}` }
+          : {}),
       };
     } catch (error) {
       console.error('Error loading script:', error);
