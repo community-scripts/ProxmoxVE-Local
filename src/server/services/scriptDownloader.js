@@ -420,7 +420,24 @@ export class ScriptDownloaderService {
    * @returns {Promise<boolean>}
    */
   async isScriptDownloaded(script) {
-    if (!script.install_methods?.length) return false;
+    if (!script.install_methods?.length) {
+      // No install methods on record (common for PocketBase "pve"/"addon" tool
+      // scripts) — fall back to the type-derived path used by loadScript's own
+      // fallback download, instead of always reporting "not downloaded".
+      const fallbackScriptPath = this.deriveScriptPath(script.type, 'default', script.slug);
+      if (!fallbackScriptPath) return false;
+      const fallbackFileName = fallbackScriptPath.split('/').pop();
+      const fallbackSubDir = fallbackScriptPath.includes('/')
+        ? fallbackScriptPath.substring(0, fallbackScriptPath.lastIndexOf('/'))
+        : '';
+      const fallbackPath = join(this.scriptsDirectory, fallbackSubDir, fallbackFileName);
+      try {
+        await import('fs/promises').then(fs => fs.readFile(fallbackPath, 'utf8'));
+        return true;
+      } catch {
+        return false;
+      }
+    }
 
     // Check if ALL script files are downloaded
     for (const method of script.install_methods) {
@@ -531,19 +548,26 @@ export class ScriptDownloaderService {
         }
       }
 
-      // Fallback: if install_methods is empty but this is a CT/LXC script,
-      // still check for the main CT script file (may have been downloaded via fallback)
+      // Fallback: if install_methods is empty, still check for the main script
+      // file at its type-derived path (may have been downloaded via loadScript's
+      // own fallback path, which applies to every type, not just CT/LXC).
       const chkTypeNorm = (script.type || 'ct').toLowerCase();
       const hasCtScript = chkTypeNorm === 'ct' || chkTypeNorm === 'lxc';
-      if ((!script.install_methods || script.install_methods.length === 0) && hasCtScript) {
-        const fallbackFileName = `${script.slug}.sh`;
-        const fallbackPath = join(this.scriptsDirectory, 'ct', fallbackFileName);
-        try {
-          await access(fallbackPath);
-          files.push(`ct/${fallbackFileName}`);
-          ctExists = true;
-        } catch {
-          // File doesn't exist
+      if (!script.install_methods || script.install_methods.length === 0) {
+        const fallbackScriptPath = this.deriveScriptPath(script.type, 'default', script.slug);
+        if (fallbackScriptPath) {
+          const fallbackFileName = fallbackScriptPath.split('/').pop();
+          const fallbackSubDir = fallbackScriptPath.includes('/')
+            ? fallbackScriptPath.substring(0, fallbackScriptPath.lastIndexOf('/'))
+            : '';
+          const fallbackPath = join(this.scriptsDirectory, fallbackSubDir, fallbackFileName);
+          try {
+            await access(fallbackPath);
+            files.push(fallbackScriptPath);
+            ctExists = true;
+          } catch {
+            // File doesn't exist
+          }
         }
       }
 
