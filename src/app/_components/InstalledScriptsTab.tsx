@@ -112,6 +112,7 @@ export function InstalledScriptsTab() {
     containerType?: "lxc" | "vm";
     storage?: string;
     envVars?: Record<string, string>;
+    isBatchUpdate?: boolean;
   } | null>(null);
   const [openingShell, _setOpeningShellUnused] = useState<null>(null); // replaced by ShellContext — kept to avoid refactoring refs below
   const setOpeningShell = (
@@ -1068,6 +1069,7 @@ export function InstalledScriptsTab() {
       server,
       isBackupOnly: false,
       envVars: { PHS_SILENT: "1" },
+      isBatchUpdate: true,
     });
   };
 
@@ -1371,6 +1373,8 @@ export function InstalledScriptsTab() {
           : `Update CT ${updatingScript.containerId}`,
       containerId: updatingScript.containerId,
       containerType: updatingScript.containerType ?? "lxc",
+      startMinimized: updatingScript.isBatchUpdate,
+      autoCloseOnEnd: updatingScript.isBatchUpdate,
       terminal: {
         scriptPath,
         mode: updatingScript.server ? "ssh" : "local",

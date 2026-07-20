@@ -42,6 +42,8 @@ interface TerminalProps {
   hostnames?: string[];
   containerType?: "lxc" | "vm";
   envVars?: Record<string, string | number | boolean>;
+  /** Called when the script/process reports it has finished (WS "end" message). */
+  onScriptEnd?: () => void;
 }
 
 interface TerminalMessage {
@@ -215,6 +217,7 @@ export function Terminal({
   hostnames,
   containerType,
   envVars,
+  onScriptEnd,
 }: TerminalProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -345,10 +348,11 @@ export function Terminal({
           } else {
             xtermRef.current.writeln(`${prefix}✅ ${message.data}`);
           }
+          onScriptEnd?.();
           break;
       }
     },
-    [scriptPath, containerId, scriptName],
+    [scriptPath, containerId, scriptName, onScriptEnd],
   );
 
   // Ensure we're on the client side
