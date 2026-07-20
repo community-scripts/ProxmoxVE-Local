@@ -4084,7 +4084,6 @@ build_container() {
 		fi
 		export FUNCTIONS_FILE_PATH="$(curl -fsSL "$_func_url")"
 	fi
-	export FUNCTIONS_FILE_PATH="$(curl -fsSL "$_func_url")"
 	if [[ -z "$FUNCTIONS_FILE_PATH" || ${#FUNCTIONS_FILE_PATH} -lt 100 ]]; then
 		msg_error "Failed to download install functions from: $_func_url"
 		exit 115
