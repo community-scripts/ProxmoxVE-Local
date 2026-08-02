@@ -3,6 +3,7 @@ import { spawn as ptySpawn } from 'node-pty';
 import { existsSync, writeFileSync, chmodSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { NEWT_COLORS_EXPORT } from './newt-colors.js';
 
 
 /**
@@ -124,7 +125,7 @@ class SSHExecutionService {
             .join(' ');
 
           // Build the command with environment variables
-          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
+          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && ${NEWT_COLORS_EXPORT} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
 
           if (envVarsString) {
             scriptCommand += ` && ${envVarsString} bash ${relativeScriptPath}`;

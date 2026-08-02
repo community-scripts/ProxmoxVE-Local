@@ -2,6 +2,7 @@ import { readdir, stat, readFile, access } from 'fs/promises';
 import { join, resolve, extname } from 'path';
 import { env } from '~/env.js';
 import { spawn, type ChildProcess } from 'child_process';
+import { NEWT_COLORS_VALUE } from '../newt-colors.js';
 
 export interface ScriptInfo {
   name: string;
@@ -356,7 +357,8 @@ export class ScriptManager {
     const childProcess = spawn(command, args, {
       cwd: this.scriptsDir!,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true
+      shell: true,
+      env: { ...process.env, NEWT_COLORS: NEWT_COLORS_VALUE }
     });
 
     // Set up timeout

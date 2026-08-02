@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import stripAnsi from 'strip-ansi';
 import { spawn as ptySpawn } from 'node-pty';
 import { getSSHExecutionService } from './src/server/ssh-execution-service.js';
+import { NEWT_COLORS_EXPORT } from './src/server/newt-colors.js';
 import { getDatabase } from './src/server/database-prisma.js';
 import { getAuthConfig, verifyToken, decodeToken } from './src/lib/auth.js';
 import dotenv from 'dotenv';
@@ -37,14 +38,6 @@ const JWT_EXP_MS_FACTOR = 1000;
 const OUTPUT_BUFFER_MAX_LENGTH = 1000;
 // Delay (ms) between backup completion and update start.
 const BACKUP_UPDATE_DELAY_MS = 1000;
-
-// Higher-contrast whiptail/dialog color scheme (default NEWT_COLORS is a
-// dark-blue-on-blue scheme that's hard to read once dialogs are properly
-// centered/sized). Exported into the remote shell before running
-// scripts/updates so whiptail/dialog UIs are actually legible. NEWT_COLORS
-// entries must be separated by real newlines (bash $'...' interprets \n),
-// not literal backslash-n.
-const NEWT_COLORS_EXPORT = `export NEWT_COLORS=$'root=,blue\\nborder=black,lightgray\\nwindow=black,lightgray\\nshadow=black,black\\ntitle=blue,lightgray\\nbutton=black,cyan\\nactbutton=white,blue\\ncheckbox=black,lightgray\\nactcheckbox=lightgray,blue\\nentry=black,lightgray\\nlabel=black,lightgray\\nlistbox=black,lightgray\\nactlistbox=black,cyan\\ntextbox=black,lightgray\\nacttextbox=black,cyan\\nhelpline=white,blue\\nroottext=black,lightgray';`;
 
 // Proxmox VMIDs are always purely numeric (typically 100-999999999).
 const CONTAINER_ID_PATTERN = /^\d+$/;
@@ -753,7 +746,7 @@ class ScriptExecutionHandler {
         .filter(([k]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))
         .map(([k, v]) => `export ${k}=${JSON.stringify(String(v))}`)
         .join('; ');
-      const envPrefix = `${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}`;
+      const envPrefix = `${NEWT_COLORS_EXPORT}; ${envExports ? `${envExports}; ` : ''}`;
 
       if (mode === 'ssh' && server) {
         // Transfer scripts folder to PVE host, then exec inside container
@@ -1807,7 +1800,7 @@ class ScriptExecutionHandler {
 
     // Send the update command after a delay to ensure we're in the container
     setTimeout(() => {
-      childProcess.write(`${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}update\n`);
+      childProcess.write(`${NEWT_COLORS_EXPORT}; ${envExports ? `${envExports}; ` : ''}update\n`);
     }, 4000);
 
     // Handle process exit
@@ -1907,7 +1900,7 @@ class ScriptExecutionHandler {
 
       // Send the update command after a delay to ensure we're in the container
       setTimeout(() => {
-        /** @type {any} */ (execution).process.write(`${NEWT_COLORS_EXPORT} ${envExports ? `${envExports}; ` : ''}update\n`);
+        /** @type {any} */ (execution).process.write(`${NEWT_COLORS_EXPORT}; ${envExports ? `${envExports}; ` : ''}update\n`);
       }, 4000);
 
     } catch (error) {
