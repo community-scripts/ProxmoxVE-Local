@@ -16,7 +16,109 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: release-drafter/release-drafter@v6
+        id: release_drafter
         with:
           config-name: release-drafter.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add direct commits to release notes
+        uses: actions/github-script@v9
+        env:
+          RELEASE_ID: ${{ steps.release_drafter.outputs.id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const releaseId = Number(process.env.RELEASE_ID)
+            if (!releaseId) {
+              core.setFailed("Release Drafter did not return a release ID")
+              return
+            }
+
+            const { owner, repo } = context.repo
+            const { data: draft } = await github.rest.repos.getRelease({
+              owner,
+              repo,
+              release_id: releaseId,
+            })
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner,
+              repo,
+              per_page: 100,
+            })
+            const latestPublished = releases.find(
+              (release) => !release.draft && !release.prerelease,
+            )
+
+            if (!latestPublished) {
+              core.info("No published release found; skipping direct commits")
+              return
+            }
+
+            const { data: comparison } =
+              await github.rest.repos.compareCommitsWithBasehead({
+                owner,
+                repo,
+                basehead: `${latestPublished.tag_name}...${context.sha}`,
+                per_page: 100,
+              })
+
+            if (comparison.commits.length < comparison.ahead_by) {
+              core.setFailed(
+                `The comparison contains ${comparison.ahead_by} commits, but only ${comparison.commits.length} were returned`,
+              )
+              return
+            }
+
+            const directCommits = (
+              await Promise.all(
+                comparison.commits.map(async (commit) => {
+                  const { data: pullRequests } =
+                    await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                      owner,
+                      repo,
+                      commit_sha: commit.sha,
+                    })
+
+                  if (pullRequests.some((pullRequest) => pullRequest.merged_at)) {
+                    return null
+                  }
+
+                  return commit
+                }),
+              )
+            ).filter(Boolean)
+
+            const baseBody = (draft.body || "")
+              .replace(
+                /\n*<!-- direct-commits:start -->[\s\S]*?<!-- direct-commits:end -->\n*/g,
+                "\n",
+              )
+              .trimEnd()
+
+            let nextBody = `${baseBody}\n`
+            if (directCommits.length > 0) {
+              const entries = directCommits.map((commit) => {
+                const title = commit.commit.message.split("\n", 1)[0]
+                const shortSha = commit.sha.slice(0, 7)
+                const author = commit.author?.login
+                const attribution = author
+                  ? ` by [@${author}](https://github.com/${author})`
+                  : ""
+
+                return `- ${title} ([${shortSha}](${commit.html_url}))${attribution}`
+              })
+
+              nextBody = `${baseBody}\n\n<!-- direct-commits:start -->\n## Direct changes\n\n${entries.join("\n")}\n<!-- direct-commits:end -->\n`
+            }
+
+            if (nextBody !== draft.body) {
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: releaseId,
+                body: nextBody,
+              })
+            }
+
+            core.info(`Added ${directCommits.length} direct commit(s)`)
