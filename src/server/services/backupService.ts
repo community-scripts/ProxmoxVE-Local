@@ -3,6 +3,7 @@ import { getStorageService } from './storageService';
 import { getDatabase } from '../database-prisma';
 import type { Server } from '~/types/server';
 import type { Storage } from './storageService';
+import { getStorageDumpPath, quoteShellArgument } from './backupPath';
 
 export interface BackupData {
   container_id: string;
@@ -170,14 +171,14 @@ class BackupService {
   }
 
   /**
-   * Discover backups in mounted storage (/mnt/pve/<storage>/dump/)
+   * Discover backups in a mounted storage's configured dump directory.
    */
   async discoverStorageBackups(server: Server, storage: Storage, ctId: string, hostname: string): Promise<BackupData[]> {
     const sshService = getSSHExecutionService();
     const backups: BackupData[] = [];
     
-    const dumpPath = `/mnt/pve/${storage.name}/dump/`;
-    const findCommand = `timeout 10 find "${dumpPath}" -type f -name "vzdump-lxc-${ctId}-*.tar*" 2>/dev/null`;
+    const dumpPath = getStorageDumpPath(storage);
+    const findCommand = `timeout 10 find ${quoteShellArgument(dumpPath)} -type f -name "vzdump-lxc-${ctId}-*.tar*" 2>/dev/null`;
     let findOutput = '';
     
     console.log(`[BackupService] Discovering storage backups for CT ${ctId} on ${storage.name}`);
