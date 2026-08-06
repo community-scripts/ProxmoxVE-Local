@@ -2354,10 +2354,15 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        // Read config file (node-specific path)
-        const nodeName = (server as Server).name;
-        const configPath = `/etc/pve/nodes/${nodeName}/lxc/${script.container_id}.conf`;
-        const readCommand = `cat "${configPath}" 2>/dev/null`;
+        const containerId = String(script.container_id);
+        if (!/^\d+$/.test(containerId)) {
+          return {
+            success: false,
+            error: 'Invalid LXC container ID'
+          };
+        }
+
+        const readCommand = `pct config ${containerId}`;
         let rawConfig = '';
 
         await new Promise<void>((resolve, reject) => {
@@ -2486,9 +2491,45 @@ export const installedScriptsRouter = createTRPCRouter({
           };
         }
 
-        // Write config file using heredoc for safe escaping (node-specific path)
-        const nodeName = (server as Server).name;
-        const configPath = `/etc/pve/nodes/${nodeName}/lxc/${script.container_id}.conf`;
+        const containerId = String(script.container_id);
+        if (!/^\d+$/.test(containerId)) {
+          return {
+            success: false,
+            error: 'Invalid LXC container ID'
+          };
+        }
+
+        let configPathOutput = '';
+        const findConfigCommand = `find /etc/pve/nodes -type f -path '*/lxc/${containerId}.conf' -print -quit`;
+        await new Promise<void>((resolve, reject) => {
+          void sshExecutionService.executeCommand(
+            server as Server,
+            findConfigCommand,
+            (data: string) => {
+              configPathOutput += data;
+            },
+            (error: string) => {
+              reject(new Error(error));
+            },
+            (exitCode: number) => {
+              if (exitCode === 0) {
+                resolve();
+              } else {
+                reject(new Error(`Unable to locate LXC configuration (exit code ${exitCode})`));
+              }
+            }
+          );
+        });
+
+        const configPath = configPathOutput.trim().split(/\r?\n/)[0]?.trim();
+        const expectedPath = new RegExp(`^/etc/pve/nodes/[A-Za-z0-9_.-]+/lxc/${containerId}\\.conf$`);
+        if (!configPath || !expectedPath.test(configPath)) {
+          return {
+            success: false,
+            error: `Unable to locate the configuration for LXC ${containerId}`
+          };
+        }
+
         const writeCommand = `cat > "${configPath}" << 'EOFCONFIG'
 ${rawConfig}
 EOFCONFIG`;

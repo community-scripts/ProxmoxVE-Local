@@ -48,10 +48,10 @@ export function InstalledScriptsFilters({
           }
           className="border-border bg-background text-foreground focus:ring-ring rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-40"
         >
-          <option value="all">All Status</option>
-          <option value="success">Success</option>
-          <option value="failed">Failed</option>
-          <option value="in_progress">In Progress</option>
+          <option value="all">All Task Results</option>
+          <option value="success">Task Succeeded</option>
+          <option value="failed">Task Failed</option>
+          <option value="in_progress">Task In Progress</option>
         </select>
 
         <select

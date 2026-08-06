@@ -16,6 +16,7 @@ interface BadgeProps {
   executionMode?: "local" | "ssh";
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }
 
 export function Badge({
@@ -26,6 +27,7 @@ export function Badge({
   executionMode,
   children,
   className = "",
+  title,
 }: BadgeProps) {
   const getTypeStyles = (scriptType: string) => {
     switch (scriptType.toLowerCase()) {
@@ -110,7 +112,7 @@ export function Badge({
   };
 
   return (
-    <span className={`${getVariantStyles()} ${className}`}>{formatText()}</span>
+    <span className={`${getVariantStyles()} ${className}`} title={title}>{formatText()}</span>
   );
 }
 
@@ -143,12 +145,14 @@ export const StatusBadge = ({
   status,
   children,
   className,
+  title,
 }: {
   status: "success" | "failed" | "in_progress";
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }) => (
-  <Badge variant="status" status={status} className={className}>
+  <Badge variant="status" status={status} className={className} title={title}>
     {children}
   </Badge>
 );

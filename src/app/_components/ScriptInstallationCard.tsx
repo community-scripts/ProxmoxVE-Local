@@ -124,8 +124,13 @@ export function ScriptInstallationCard({
           )}
         </div>
         <div className="ml-2 flex-shrink-0">
-          <StatusBadge status={script.status}>
-            {script.status.replace('_', ' ').toUpperCase()}
+          <StatusBadge
+            status={script.status}
+            title="Result of the last install or update task."
+          >
+            {script.status === 'success'
+              ? 'SUCCEEDED'
+              : script.status.replace('_', ' ').toUpperCase()}
           </StatusBadge>
         </div>
       </div>

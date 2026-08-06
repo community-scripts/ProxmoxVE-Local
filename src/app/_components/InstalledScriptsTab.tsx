@@ -1671,7 +1671,8 @@ export function InstalledScriptsTab() {
               Installed Scripts
             </h2>
             <p className="text-muted-foreground text-sm">
-              Manage containers, run updates, and control services
+              Manage containers, run updates, and control services. Last Task
+              shows the latest install or update result.
             </p>
           </div>
         </div>
@@ -2029,7 +2030,7 @@ export function InstalledScriptsTab() {
                       onClick={() => handleSort("status")}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Status</span>
+                        <span>Last Task</span>
                         {sortField === "status" ? (
                           sortDirection === "asc" ? (
                             <ChevronUp className="text-primary h-3.5 w-3.5" />
@@ -2235,8 +2236,13 @@ export function InstalledScriptsTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={script.status}>
-                          {script.status.replace("_", " ").toUpperCase()}
+                        <StatusBadge
+                          status={script.status}
+                          title="Result of the last install or update task."
+                        >
+                          {script.status === "success"
+                            ? "SUCCEEDED"
+                            : script.status.replace("_", " ").toUpperCase()}
                         </StatusBadge>
                       </td>
                       <td className="text-muted-foreground px-6 py-4 text-sm whitespace-nowrap">
