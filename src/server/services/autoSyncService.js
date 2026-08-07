@@ -396,7 +396,6 @@ export class AutoSyncService {
         documentation: pb.documentation,
         website: pb.website,
         logo: pb.logo,
-        config_path: pb.config_path,
         description: pb.description,
         date_created: pb.script_created,
         categories: pb.categories.map(c => c.name),
@@ -411,7 +410,10 @@ export class AutoSyncService {
         is_dev: pb.is_dev,
         is_disabled: pb.is_disabled,
         is_deleted: pb.is_deleted,
-        has_arm: pb.has_arm,
+        architectures: pb.architectures,
+        platforms: pb.platforms,
+        repository: pb.repository,
+        app_vars: pb.app_vars,
         version: pb.version,
       }));
 

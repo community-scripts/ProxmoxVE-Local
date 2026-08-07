@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Cpu,
   HardDrive,
@@ -13,17 +13,16 @@ import {
 import type { Server as ServerType } from "~/types/server";
 import { api } from "~/trpc/react";
 import { useShell } from "./ShellContext";
+import type { ScriptAppVar } from "~/types/script";
+import { appVarValues, scriptAppVars } from "~/lib/scriptCapabilities";
+import { AppVarFields } from "./AppVarFields";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 type InstallEnv =
-  | "default"
-  | "mydefaults"
-  | "appdefaults"
-  | "alpine"
-  | "advanced";
+  "default" | "mydefaults" | "appdefaults" | "alpine" | "advanced";
 
 const CONTAINER_TYPES = ["lxc", "vm", "pbs", "pmg"] as const;
 
@@ -137,6 +136,8 @@ export interface InstallCommandBlockProps {
   onTerminalChange?: (active: boolean) => void;
   /** Environments the script must execute in (from script.execute_in) */
   executeIn?: string[] | null;
+  /** Values the install script accepts before falling back to prompts. */
+  appVars?: ScriptAppVar[];
 }
 
 // ---------------------------------------------------------------------------
@@ -154,9 +155,21 @@ export function InstallCommandBlock({
   hasLocalFiles = false,
   onTerminalChange,
   executeIn,
+  appVars = [],
 }: InstallCommandBlockProps) {
   const [env, setEnv] = useState<InstallEnv>("default");
   const [armEnabled, setArmEnabled] = useState(false);
+  const [appVarFormValues, setAppVarFormValues] = useState<
+    Record<string, string>
+  >({});
+  const declaredAppVars = useMemo(
+    () => scriptAppVars({ app_vars: appVars }),
+    [appVars],
+  );
+
+  useEffect(() => {
+    setAppVarFormValues({});
+  }, [slug]);
 
   // Server selection state
   const { open: openShell } = useShell();
@@ -322,7 +335,8 @@ export function InstallCommandBlock({
       envVars.mode = "default";
     }
 
-    if (hasArm && armEnabled) envVars.var_arm = "true";
+    if (hasArm && armEnabled) envVars.var_arm64 = "yes";
+    Object.assign(envVars, appVarValues(declaredAppVars, appVarFormValues));
 
     const execInContainer = needsContainerPicker && !!selectedContainerId;
 
@@ -409,6 +423,14 @@ export function InstallCommandBlock({
           )}
         </div>
       </fieldset>
+
+      <AppVarFields
+        appVars={declaredAppVars}
+        values={appVarFormValues}
+        onChange={(name, value) =>
+          setAppVarFormValues((current) => ({ ...current, [name]: value }))
+        }
+      />
 
       {/* Advanced configurator */}
       {env === "advanced" && defaults && (

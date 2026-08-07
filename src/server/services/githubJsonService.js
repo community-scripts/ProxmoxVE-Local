@@ -83,6 +83,8 @@ class GitHubJsonService {
         type: script.type,
         updateable: script.updateable,
         website: script.website,
+        architectures: script.architectures,
+        platforms: script.platforms,
         repository_url: script.repository_url,
       }));
     } catch (error) {

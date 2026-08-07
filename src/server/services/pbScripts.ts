@@ -4,6 +4,11 @@
  * All queries are unauthenticated (public API).
  */
 import { getPb, withPbRetry } from "./pbService";
+import type {
+  ScriptAppVar,
+  ScriptArchitecture,
+  ScriptPlatform,
+} from "~/types/script";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,7 +60,8 @@ export interface PBScriptCard {
   website: string | null;
   documentation: string | null;
   is_dev: boolean;
-  has_arm: boolean;
+  architectures: ScriptArchitecture[];
+  platforms: ScriptPlatform[];
   is_disabled: boolean;
   is_deleted: boolean;
   script_created: string;
@@ -65,13 +71,13 @@ export interface PBScriptCard {
 
 /** Full script record including install methods and notes. */
 export interface PBScript extends PBScriptCard {
-  config_path: string | null;
   default_user: string | null;
   default_passwd: string | null;
   install_methods: PBInstallMethod[];
   notes: PBNote[];
   version: string | null;
-  github: string | null;
+  repository: string | null;
+  app_vars: ScriptAppVar[];
   execute_in: string[];
   github_data: Record<string, unknown> | null;
   deleted_message: string | null;
@@ -117,6 +123,15 @@ function parseJsonField<T>(value: unknown): T[] {
 }
 
 function toCard(record: Record<string, unknown>): PBScriptCard {
+  const architectures = parseJsonField<ScriptArchitecture>(
+    record.architectures,
+  ).filter(
+    (architecture) => architecture === "amd64" || architecture === "arm64",
+  );
+  const platforms = parseJsonField<ScriptPlatform>(record.platforms).filter(
+    (platform) => platform === "pve" || platform === "incus",
+  );
+
   return {
     id: record.id as string,
     name: (record.name as string) ?? "",
@@ -130,7 +145,8 @@ function toCard(record: Record<string, unknown>): PBScriptCard {
     website: (record.website as string | null) ?? null,
     documentation: (record.documentation as string | null) ?? null,
     is_dev: Boolean(record.is_dev),
-    has_arm: Boolean(record.has_arm),
+    architectures,
+    platforms,
     is_disabled: Boolean(record.is_disabled),
     is_deleted: Boolean(record.is_deleted),
     script_created: (record.script_created as string) ?? "",
@@ -140,21 +156,28 @@ function toCard(record: Record<string, unknown>): PBScriptCard {
 }
 
 function toScript(record: Record<string, unknown>): PBScript {
+  const installMethods = parseJsonField<PBInstallMethod>(
+    record.install_methods,
+  );
+  const repositoryValue = record.repository;
+  const repository =
+    typeof repositoryValue === "string" && repositoryValue.trim()
+      ? repositoryValue
+      : null;
+
   return {
     ...toCard(record),
-    config_path: (record.config_path as string | null) ?? null,
     default_user: (record.default_user as string | null) ?? null,
     default_passwd: (record.default_passwd as string | null) ?? null,
-    install_methods: parseJsonField<PBInstallMethod>(
-      record.install_methods,
-    ),
+    install_methods: installMethods,
     notes: parseJsonField<PBNote>(record.notes),
+    app_vars: parseJsonField<ScriptAppVar>(record.app_vars),
     github_data: (record.github_data as Record<string, unknown> | null) ?? null,
     deleted_message: (record.deleted_message as string | null) ?? null,
     disable_message: (record.disable_message as string | null) ?? null,
     last_update_commit: (record.last_update_commit as string | null) ?? null,
     version: (record.version as string | null) ?? null,
-    github: (record.github as string | null) ?? null,
+    repository,
     execute_in: parseJsonField<string>(record.execute_in),
   };
 }
@@ -164,7 +187,7 @@ function toScript(record: Record<string, unknown>): PBScript {
 // ---------------------------------------------------------------------------
 
 const CARD_FIELDS =
-  "id,slug,name,description,logo,type,categories,is_dev,has_arm,is_disabled,is_deleted,privileged,port,updateable,website,documentation,script_created,script_updated,expand.categories.*,expand.type.*";
+  "id,slug,name,description,logo,type,categories,is_dev,architectures,platforms,is_disabled,is_deleted,privileged,port,updateable,website,documentation,script_created,script_updated,expand.categories.*,expand.type.*";
 
 // ---------------------------------------------------------------------------
 // Server-side in-memory cache (PB data rarely changes, only on resync)
@@ -193,8 +216,6 @@ export function invalidatePbCache(): void {
   for (const key of Object.keys(_cache)) delete _cache[key];
 }
 
- 
-
 /**
  * Fetch all script cards (lightweight, no install methods / notes).
  * Suitable for the script listing UI.
@@ -212,7 +233,9 @@ export async function getScriptCards(): Promise<PBScriptCard[]> {
       fields: CARD_FIELDS,
     }),
   );
-  const cards = records.map((r) => toCard(r as unknown as Record<string, unknown>));
+  const cards = records
+    .map((r) => toCard(r as unknown as Record<string, unknown>))
+    .filter((card) => card.platforms.includes("pve"));
   setCache("scriptCards", cards);
   return cards;
 }
@@ -269,7 +292,8 @@ export async function getScriptBySlug(slug: string): Promise<PBScript | null> {
           expand: "categories,type",
         }),
     );
-    return toScript(record as unknown as Record<string, unknown>);
+    const script = toScript(record);
+    return script.platforms.includes("pve") ? script : null;
   } catch {
     return null;
   }
@@ -288,7 +312,9 @@ export async function getAllScripts(): Promise<PBScript[]> {
       batch: 500,
     }),
   );
-  return records.map((r) => toScript(r as unknown as Record<string, unknown>));
+  return records
+    .map((r) => toScript(r as unknown as Record<string, unknown>))
+    .filter((script) => script.platforms.includes("pve"));
 }
 
 /**

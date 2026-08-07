@@ -28,6 +28,23 @@ export interface ScriptNote {
   type: string;
 }
 
+export type ScriptArchitecture = "amd64" | "arm64";
+
+export type ScriptPlatform = "pve" | "incus";
+
+export interface ScriptAppVar {
+  /** Environment variable read by the install script. */
+  name: string;
+  /** Human-readable form label. */
+  label: string;
+  type: "text" | "password" | "number" | "boolean" | "select";
+  default?: string;
+  options?: string[];
+  required?: boolean;
+  secret?: boolean;
+  help?: string;
+}
+
 export interface Script {
   name: string;
   slug: string;
@@ -47,7 +64,6 @@ export interface Script {
   documentation: string | null;
   website: string | null;
   logo: string | null;
-  config_path: string | null;
   description: string;
   install_methods: ScriptInstallMethod[];
   default_credentials: ScriptCredentials;
@@ -55,7 +71,11 @@ export interface Script {
   is_dev?: boolean;
   is_disabled?: boolean;
   is_deleted?: boolean;
-  has_arm?: boolean;
+  architectures: ScriptArchitecture[];
+  platforms: ScriptPlatform[];
+  app_vars?: ScriptAppVar[];
+  /** Upstream application source repository. */
+  repository?: string | null;
   version?: string | null;
   /** Environments the script must execute in: "pve", "lxc", "vm", "pbs", "pmg". */
   execute_in?: string[] | null;
@@ -93,7 +113,8 @@ export interface ScriptCard {
   is_dev?: boolean;
   is_disabled?: boolean;
   is_deleted?: boolean;
-  has_arm?: boolean;
+  architectures: ScriptArchitecture[];
+  platforms: ScriptPlatform[];
 }
 
 export interface GitHubFile {
