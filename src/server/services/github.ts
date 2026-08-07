@@ -128,6 +128,8 @@ export class GitHubService {
         type: script.type,
         updateable: script.updateable,
         website: script.website,
+        architectures: script.architectures,
+        platforms: script.platforms,
       }));
     } catch (error) {
       logger.error('Error creating script cards:', undefined, error);

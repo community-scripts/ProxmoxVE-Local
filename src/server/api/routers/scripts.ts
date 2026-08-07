@@ -39,7 +39,6 @@ function pbToScript(pb: PBScript): Script {
     documentation: pb.documentation,
     website: pb.website,
     logo: pb.logo,
-    config_path: pb.config_path,
     description: pb.description,
     install_methods: pb.install_methods.map((m) => ({
       type: m.type,
@@ -55,7 +54,10 @@ function pbToScript(pb: PBScript): Script {
     is_dev: pb.is_dev,
     is_disabled: pb.is_disabled,
     is_deleted: pb.is_deleted,
-    has_arm: pb.has_arm,
+    architectures: pb.architectures,
+    platforms: pb.platforms,
+    repository: pb.repository,
+    app_vars: pb.app_vars,
     version: pb.version,
     execute_in: pb.execute_in,
   };
@@ -77,7 +79,8 @@ function pbCardToScriptCard(pb: PBScriptCard): ScriptCard {
     is_dev: pb.is_dev,
     is_disabled: pb.is_disabled,
     is_deleted: pb.is_deleted,
-    has_arm: pb.has_arm,
+    architectures: pb.architectures,
+    platforms: pb.platforms,
     // Derive install basenames from type + slug (same convention as the website)
     install_basenames: deriveInstallBasenames(pb.type, pb.slug),
   };

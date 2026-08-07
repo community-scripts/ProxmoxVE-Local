@@ -19,6 +19,7 @@ import { useRegisterModal, ModalPortal } from "./modal/ModalStackProvider";
 import { InstallCommandBlock } from "./InstallCommandBlock";
 import type { InstallDefaults } from "./InstallCommandBlock";
 import { useShell } from "./ShellContext";
+import { supportsArm } from "~/lib/scriptCapabilities";
 import {
   Check,
   X,
@@ -145,6 +146,17 @@ export function ScriptDetailModal({
     const { cpu, ram, hdd } = defaultMethod.resources;
     if (cpu === 0 && ram === 0 && hdd === 0) return undefined;
     return { cpu: cpu || 1, ram: ram || 512, hdd: hdd || 2 };
+  }, [script]);
+
+  const configPath = useMemo(() => {
+    if (!script) return null;
+    return (
+      script.install_methods?.find((method) => method.type === "default")
+        ?.config_path ??
+      script.install_methods?.find((method) => method.config_path)
+        ?.config_path ??
+      null
+    );
   }, [script]);
 
   const {
@@ -286,7 +298,7 @@ export function ScriptDetailModal({
                     {script.is_dev && <DevBadge />}
                     {script.updateable && <UpdateableBadge />}
                     {script.privileged && <PrivilegedBadge />}
-                    {script.has_arm && (
+                    {supportsArm(script) && (
                       <span className="rounded-full border border-emerald-500/50 bg-emerald-500/10 px-2 py-0.5 text-[0.6875rem] font-medium text-emerald-600 dark:text-emerald-400">
                         ARM
                       </span>
@@ -491,10 +503,11 @@ export function ScriptDetailModal({
                     isDev={script.is_dev}
                     hasAlpine={hasAlpine}
                     defaults={installDefaults}
-                    hasArm={script.has_arm}
+                    hasArm={supportsArm(script)}
                     hasLocalFiles={!!hasLocalFiles}
                     onTerminalChange={setTerminalActive}
                     executeIn={script.execute_in}
+                    appVars={script.app_vars}
                   />
                 )}
 
@@ -761,17 +774,34 @@ export function ScriptDetailModal({
                           </dd>
                         </div>
                       )}
-                      {script.config_path && (
+                      {configPath && (
                         <div className="flex items-start justify-between gap-3">
                           <dt className="text-muted-foreground">Config</dt>
                           <dd className="text-right font-mono text-xs">
-                            {script.config_path}
+                            {configPath}
+                          </dd>
+                        </div>
+                      )}
+                      {script.repository && (
+                        <div className="flex items-start justify-between gap-3">
+                          <dt className="text-muted-foreground">Repository</dt>
+                          <dd>
+                            <a
+                              href={script.repository}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
+                            >
+                              View <ExternalLink className="h-3 w-3" />
+                            </a>
                           </dd>
                         </div>
                       )}
                       {script.repository_url && (
                         <div className="flex items-start justify-between gap-3">
-                          <dt className="text-muted-foreground">Source</dt>
+                          <dt className="text-muted-foreground">
+                            Metadata source
+                          </dt>
                           <dd>
                             <a
                               href={script.repository_url}

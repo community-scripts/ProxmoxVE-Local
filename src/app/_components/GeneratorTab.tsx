@@ -31,6 +31,13 @@ import type { Server } from "~/types/server";
 import { api } from "~/trpc/react";
 import { useShell } from "./ShellContext";
 import { useRegisterModal } from "./modal/ModalStackProvider";
+import { AppVarFields } from "./AppVarFields";
+import {
+  appVarAssignments,
+  appVarValues,
+  scriptAppVars,
+  supportsArm,
+} from "~/lib/scriptCapabilities";
 
 /* ── Step definitions ── */
 const CPU_STEPS = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -205,6 +212,7 @@ export function GeneratorTab() {
   const [ramIdx, setRamIdx] = useState(closestIdx(RAM_STEPS, 2048));
   const [diskIdx, setDiskIdx] = useState(closestIdx(DISK_STEPS, 8));
   const [privileged, setPrivileged] = useState(false);
+  const [armEnabled, setArmEnabled] = useState(false);
   const [installMode, setInstallMode] = useState<
     "default" | "mydefaults" | "appdefaults" | "advanced"
   >("default");
@@ -253,6 +261,9 @@ export function GeneratorTab() {
   const [sshAuthorizedKey, setSshAuthorizedKey] = useState("");
 
   const [copied, setCopied] = useState(false);
+  const [applicationValues, setApplicationValues] = useState<
+    Record<string, string>
+  >({});
 
   // Scripts list
   const allScripts = useMemo(() => {
@@ -354,6 +365,19 @@ export function GeneratorTab() {
     [scriptDetailData],
   );
 
+  const declaredAppVars = useMemo(
+    () => (scriptDetail ? scriptAppVars(scriptDetail) : []),
+    [scriptDetail],
+  );
+  const hasArm =
+    (selectedScript ? supportsArm(selectedScript) : false) ||
+    (scriptDetail ? supportsArm(scriptDetail) : false);
+
+  useEffect(() => {
+    setApplicationValues({});
+    setArmEnabled(false);
+  }, [selectedSlug]);
+
   const filteredScripts = useMemo(() => {
     if (!searchQuery.trim()) return allScripts;
     const q = searchQuery.toLowerCase();
@@ -433,7 +457,8 @@ export function GeneratorTab() {
 
     const localPath = `scripts/${pathPrefix}/${slug}.sh`;
     const baseCmd = `bash ${localPath}`;
-    const overrides: string[] = [];
+    const overrides = appVarAssignments(declaredAppVars, applicationValues);
+    if (hasArm && armEnabled) overrides.push('var_arm64="yes"');
     if (cpu !== templateDefaults.cpu) overrides.push(`var_cpu="${cpu}"`);
     if (ram !== templateDefaults.ram) overrides.push(`var_ram="${ram}"`);
     if (disk !== templateDefaults.hdd) overrides.push(`var_disk="${disk}"`);
@@ -485,9 +510,13 @@ export function GeneratorTab() {
       return `mode=generated ${overrides.join(" ")} ${baseCmd}`;
     }
 
-    return `mode=${installMode} ${baseCmd}`;
+    return `mode=${installMode}${overrides.length ? ` ${overrides.join(" ")}` : ""} ${baseCmd}`;
   }, [
     selectedScript,
+    declaredAppVars,
+    applicationValues,
+    hasArm,
+    armEnabled,
     installMode,
     cpu,
     ram,
@@ -540,6 +569,8 @@ export function GeneratorTab() {
     setRamIdx(closestIdx(RAM_STEPS, templateDefaults.ram));
     setDiskIdx(closestIdx(DISK_STEPS, templateDefaults.hdd));
     setPrivileged(templateDefaults.privileged);
+    setArmEnabled(false);
+    setApplicationValues({});
     setCtid("");
     setHostname("");
     setPassword("");
@@ -575,6 +606,14 @@ export function GeneratorTab() {
   }, [templateDefaults]);
 
   const handleExport = useCallback(() => {
+    const exportApplicationValues = Object.fromEntries(
+      Object.entries(applicationValues).filter(
+        ([name]) =>
+          !declaredAppVars.some(
+            (appVar) => appVar.name === name && appVar.secret,
+          ),
+      ),
+    );
     const config = {
       version: 1,
       timestamp: new Date().toISOString(),
@@ -584,6 +623,8 @@ export function GeneratorTab() {
         ram,
         disk,
         privileged,
+        armEnabled,
+        applicationValues: exportApplicationValues,
         ctid,
         hostname,
         password,
@@ -633,6 +674,9 @@ export function GeneratorTab() {
     ram,
     disk,
     privileged,
+    armEnabled,
+    applicationValues,
+    declaredAppVars,
     ctid,
     hostname,
     bridge,
@@ -660,6 +704,8 @@ export function GeneratorTab() {
             ram?: number;
             disk?: number;
             privileged?: boolean;
+            armEnabled?: boolean;
+            applicationValues?: Record<string, string>;
             ctid?: string;
             hostname?: string;
             password?: string;
@@ -700,6 +746,9 @@ export function GeneratorTab() {
         if (c.ram != null) setRamIdx(closestIdx(RAM_STEPS, c.ram));
         if (c.disk != null) setDiskIdx(closestIdx(DISK_STEPS, c.disk));
         if (c.privileged != null) setPrivileged(c.privileged);
+        if (c.armEnabled != null) setArmEnabled(c.armEnabled);
+        if (c.applicationValues != null)
+          setApplicationValues(c.applicationValues);
         if (c.ctid != null) setCtid(c.ctid);
         if (c.hostname != null) setHostname(c.hostname);
         if (c.password != null) setPassword(c.password);
@@ -757,6 +806,8 @@ export function GeneratorTab() {
     const scriptPath = `scripts/${pathPrefix}/${selectedScript.slug}.sh`;
 
     const envVars: Record<string, string | number | boolean> = {};
+    Object.assign(envVars, appVarValues(declaredAppVars, applicationValues));
+    if (hasArm && armEnabled) envVars.var_arm64 = "yes";
     if (installMode === "advanced") {
       if (cpu !== templateDefaults.cpu) envVars.var_cpu = cpu;
       if (ram !== templateDefaults.ram) envVars.var_ram = ram;
@@ -838,6 +889,10 @@ export function GeneratorTab() {
     selectedContainerId,
     executionPolicy,
     installMode,
+    declaredAppVars,
+    applicationValues,
+    hasArm,
+    armEnabled,
     cpu,
     ram,
     disk,
@@ -1099,10 +1154,7 @@ export function GeneratorTab() {
                   onClick={() =>
                     setInstallMode(
                       m.key as
-                        | "default"
-                        | "mydefaults"
-                        | "appdefaults"
-                        | "advanced",
+                        "default" | "mydefaults" | "appdefaults" | "advanced",
                     )
                   }
                   className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
@@ -1252,7 +1304,37 @@ export function GeneratorTab() {
                 </span>
               </div>
             </div>
+
+            {hasArm && (
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setArmEnabled((enabled) => !enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${armEnabled ? "bg-primary" : "bg-muted"}`}
+                  aria-pressed={armEnabled}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${armEnabled ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+                <span className="text-foreground text-sm font-medium">
+                  ARM64 installation
+                </span>
+              </div>
+            )}
           </div>
+
+          <AppVarFields
+            appVars={declaredAppVars}
+            values={applicationValues}
+            onChange={(name, value) =>
+              setApplicationValues((current) => ({
+                ...current,
+                [name]: value,
+              }))
+            }
+            className="glass-card-static animate-card-in"
+          />
 
           {/* Advanced Settings */}
           {installMode === "advanced" && (

@@ -13,6 +13,7 @@ import { Clock } from "lucide-react";
 import type { ScriptCard as ScriptCardType } from "~/types/script";
 import { getDefaultFilters, mergeFiltersWithDefaults } from "./filterUtils";
 import { useShell } from "./ShellContext";
+import { supportsArm } from "~/lib/scriptCapabilities";
 
 export function ScriptsGrid() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -431,7 +432,7 @@ export function ScriptsGrid() {
           scripts = scripts.filter((s) => s?.is_dev === true);
           break;
         case "arm":
-          scripts = scripts.filter((s) => s?.has_arm === true);
+          scripts = scripts.filter((s) => !!s && supportsArm(s));
           break;
       }
     }
@@ -994,7 +995,7 @@ export function ScriptsGrid() {
               </div>
 
               {!isNewestMinimized && (
-                <div className="scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent overflow-x-auto">
+                <div className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent overflow-x-auto dark:scrollbar-thumb-gray-600">
                   <div
                     className="flex gap-4 pb-2"
                     style={{ minWidth: "max-content" }}
