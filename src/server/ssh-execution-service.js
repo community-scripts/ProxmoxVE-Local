@@ -42,7 +42,6 @@ class SSHExecutionService {
       '-o', `SetEnv=LINES=${rows}`,
       '-o', 'SetEnv=COLORTERM=truecolor',
       '-o', 'SetEnv=FORCE_COLOR=1',
-      '-o', 'SetEnv=NO_COLOR=0',
       '-o', 'SetEnv=CLICOLOR=1',
       '-o', 'SetEnv=CLICOLOR_FORCE=1'
     ];
@@ -125,7 +124,7 @@ class SSHExecutionService {
             .join(' ');
 
           // Build the command with environment variables
-          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && ${NEWT_COLORS_EXPORT} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export NO_COLOR=0 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
+          let scriptCommand = `cd /tmp/scripts && chmod +x ${relativeScriptPath} && ${NEWT_COLORS_EXPORT} && export TERM=xterm-256color && export COLUMNS=${cols} && export LINES=${rows} && export COLORTERM=truecolor && export FORCE_COLOR=1 && export CLICOLOR=1 && export CLICOLOR_FORCE=1`;
 
           if (envVarsString) {
             scriptCommand += ` && ${envVarsString} bash ${relativeScriptPath}`;
@@ -165,7 +164,6 @@ class SSHExecutionService {
               SHELL: '/bin/bash',
               COLORTERM: 'truecolor',
               FORCE_COLOR: '1',
-              NO_COLOR: '0',
               CLICOLOR: '1',
               CLICOLOR_FORCE: '1'
             }
