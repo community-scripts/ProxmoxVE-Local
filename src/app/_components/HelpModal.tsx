@@ -810,10 +810,10 @@ export function HelpModal({
                     production-ready scripts. This repository cannot be deleted.
                   </li>
                   <li>
-                    <strong>Dev Repository (ProxmoxVED):</strong> The
+                    <strong>Dev Repository (DevScripts):</strong> The
                     development/testing repository at{" "}
                     <code className="bg-muted rounded px-1">
-                      github.com/community-scripts/ProxmoxVED
+                      github.com/community-scripts/DevScripts
                     </code>
                     . This is disabled by default and contains experimental or
                     in-development scripts. This repository cannot be deleted.

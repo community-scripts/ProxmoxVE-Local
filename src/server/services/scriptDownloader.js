@@ -110,7 +110,7 @@ export class ScriptDownloaderService {
 
   /**
    * Get repository URL for a script.
-   * Dev scripts (is_dev=true) use the ProxmoxVED repo.
+   * Dev scripts (is_dev=true) use the DevScripts repo.
    * User-defined local scripts may carry an explicit repository_url.
    * PocketBase-sourced community scripts use the default community repo.
    * @param {import('~/types/script').Script} script - The script object
@@ -122,8 +122,8 @@ export class ScriptDownloaderService {
     }
     this.initializeConfig();
     if (script.is_dev) {
-      // Dev scripts live in the ProxmoxVED repository
-      return this.repoUrl.replace(/\/ProxmoxVE\b/, '/ProxmoxVED');
+      // Dev scripts live in the DevScripts repository
+      return this.repoUrl.replace(/\/ProxmoxVE\b/, '/DevScripts');
     }
     return this.repoUrl;
   }

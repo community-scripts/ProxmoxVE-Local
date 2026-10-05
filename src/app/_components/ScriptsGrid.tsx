@@ -31,7 +31,7 @@ export function ScriptsGrid() {
   const [saveFiltersEnabled, setSaveFiltersEnabled] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
 
-  // ProxmoxVED / dev scripts visibility setting
+  // DevScripts / dev scripts visibility setting
   const [showDevScripts, setShowDevScripts] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("showDevScripts") === "true";
@@ -339,7 +339,7 @@ export function ScriptsGrid() {
     return scriptsWithStatus
       .filter(
         (script) => script?.date_created && (showDevScripts || !script?.is_dev),
-      ) // Never show dev in newest unless ProxmoxVED enabled
+      ) // Never show dev in newest unless DevScripts enabled
       .sort((a, b) => {
         const aCreated = a?.date_created ?? "";
         const bCreated = b?.date_created ?? "";
@@ -353,7 +353,7 @@ export function ScriptsGrid() {
   const filteredScripts = React.useMemo((): ScriptCardType[] => {
     let scripts = scriptsWithStatus;
 
-    // Hide dev scripts entirely when ProxmoxVED is disabled
+    // Hide dev scripts entirely when DevScripts is disabled
     if (!showDevScripts) {
       scripts = scripts.filter((s) => !s?.is_dev);
     }

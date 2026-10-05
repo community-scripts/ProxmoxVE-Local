@@ -832,7 +832,7 @@ export function GeneralSettingsModal({
                     <div className="mb-2 flex items-center gap-2">
                       <FlaskConical className="text-primary h-4 w-4" />
                       <h4 className="text-foreground font-medium">
-                        ProxmoxVED (Dev Scripts)
+                        DevScripts
                       </h4>
                     </div>
                     <p className="text-muted-foreground mb-4 text-sm">
