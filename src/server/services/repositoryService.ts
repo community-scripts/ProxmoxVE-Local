@@ -9,7 +9,21 @@ export class RepositoryService {
    */
   async initializeDefaultRepositories(): Promise<void> {
     const mainRepoUrl = 'https://github.com/community-scripts/ProxmoxVE';
-    const devRepoUrl = 'https://github.com/community-scripts/ProxmoxVED';
+    const devRepoUrl = 'https://github.com/community-scripts/DevScripts';
+
+    // DevScripts was called ProxmoxVED. Rename the stored row rather than adding
+    // a second one, so the user's enabled setting carries over.
+    const legacyDevRepo = await prisma.repository.findUnique({
+      where: { url: 'https://github.com/community-scripts/ProxmoxVED' }
+    });
+    if (legacyDevRepo) {
+      const devRepo = await prisma.repository.findUnique({ where: { url: devRepoUrl } });
+      if (devRepo) {
+        await prisma.repository.delete({ where: { id: legacyDevRepo.id } });
+      } else {
+        await prisma.repository.update({ where: { id: legacyDevRepo.id }, data: { url: devRepoUrl } });
+      }
+    }
 
     // Check if repositories already exist
     const existingRepos = await prisma.repository.findMany({

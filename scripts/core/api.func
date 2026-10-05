@@ -52,9 +52,9 @@ STATUS_TIMEOUT=10
 # - Inspects /proc/$$/cmdline and $0 to find the source URL
 # - Maps detected repo to one of three canonical values:
 #   * "ProxmoxVE"  — official community-scripts/ProxmoxVE (production)
-#   * "ProxmoxVED" — official community-scripts/ProxmoxVED (development)
+#   * "DevScripts" — official community-scripts/DevScripts (development, formerly ProxmoxVED)
 #   * "external"   — any fork or unknown source
-# - Fallback: "ProxmoxVED" (CI sed transforms ProxmoxVED → ProxmoxVE on promotion)
+# - Fallback: "ProxmoxVE"
 # - Sets and exports REPO_SOURCE global variable
 # - Skips detection if REPO_SOURCE is already set (e.g., by environment)
 # ------------------------------------------------------------------------------
@@ -92,10 +92,10 @@ detect_repo_source() {
   # Map detected owner/repo to canonical repo_source value
   case "$owner_repo" in
   community-scripts/ProxmoxVE) REPO_SOURCE="ProxmoxVE" ;;
-  community-scripts/ProxmoxVED) REPO_SOURCE="ProxmoxVED" ;;
+  community-scripts/DevScripts | community-scripts/ProxmoxVED) REPO_SOURCE="DevScripts" ;;
   "")
     # No URL detected — use hardcoded fallback
-    # This value must match the repo: ProxmoxVE for production, ProxmoxVED for dev
+    # This value must match the repo: ProxmoxVE for production, DevScripts for dev
     REPO_SOURCE="ProxmoxVE"
     ;;
   *)
